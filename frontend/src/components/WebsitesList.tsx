@@ -16,7 +16,16 @@ import {
   Center,
   Tooltip,
 } from '@mantine/core';
-import { IconPlus, IconTrash, IconRadar, IconAlertCircle, IconWorldCheck, IconPencil } from '@tabler/icons-react';
+import {
+  IconPlus,
+  IconTrash,
+  IconRadar,
+  IconAlertCircle,
+  IconWorldCheck,
+  IconPencil,
+  IconDownload,
+  IconPlugConnected,
+} from '@tabler/icons-react';
 import { api } from '../api';
 
 interface Website {
@@ -24,6 +33,8 @@ interface Website {
   name: string;
   url: string;
   environment: string;
+  is_connected?: number | boolean;
+  agent_token?: string;
   created_at: string;
 }
 
@@ -38,6 +49,7 @@ export const WebsitesList: React.FC<WebsitesListProps> = ({ onSelectWebsite, onT
   const [modalOpen, setModalOpen] = useState(false);
   const [editingWebsite, setEditingWebsite] = useState<Website | null>(null);
   const [formLoading, setFormLoading] = useState(false);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Form State
@@ -113,6 +125,26 @@ export const WebsitesList: React.FC<WebsitesListProps> = ({ onSelectWebsite, onT
     }
   };
 
+  const handleDownloadPlugin = async (site: Website) => {
+    setDownloadingId(site.id);
+    try {
+      const response = await api.get(`/websites/${site.id}/download-plugin`, {
+        responseType: 'blob',
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `validar-seguranca-agent-${site.name.replace(/\s+/g, '_').toLowerCase()}.zip`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (err: any) {
+      alert('Erro ao baixar o plugin agente do WordPress.');
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
   return (
     <Paper p="md" radius="md" withBorder>
       <Group justify="space-between" mb="lg">
@@ -156,6 +188,7 @@ export const WebsitesList: React.FC<WebsitesListProps> = ({ onSelectWebsite, onT
               <Table.Th>Nome do Site</Table.Th>
               <Table.Th>URL do Alvo</Table.Th>
               <Table.Th>Ambiente</Table.Th>
+              <Table.Th>Status Agente WP</Table.Th>
               <Table.Th>Data de Cadastro</Table.Th>
               <Table.Th style={{ textAlign: 'right' }}>Ações</Table.Th>
             </Table.Tr>
@@ -174,9 +207,32 @@ export const WebsitesList: React.FC<WebsitesListProps> = ({ onSelectWebsite, onT
                     {site.environment.toUpperCase()}
                   </Badge>
                 </Table.Td>
+                <Table.Td>
+                  {Number(site.is_connected) === 1 ? (
+                    <Badge color="green" variant="filled" leftSection={<IconPlugConnected size={12} />}>
+                      CONECTADO
+                    </Badge>
+                  ) : (
+                    <Badge color="gray" variant="light">
+                      PENDENTE
+                    </Badge>
+                  )}
+                </Table.Td>
                 <Table.Td>{new Date(site.created_at).toLocaleDateString('pt-BR')}</Table.Td>
                 <Table.Td style={{ textAlign: 'right' }}>
                   <Group justify="flex-end" gap="xs">
+                    <Tooltip label="Baixar Plugin WordPress Agente">
+                      <Button
+                        size="xs"
+                        variant="light"
+                        color="teal"
+                        loading={downloadingId === site.id}
+                        leftSection={<IconDownload size={14} />}
+                        onClick={() => handleDownloadPlugin(site)}
+                      >
+                        Baixar Agente
+                      </Button>
+                    </Tooltip>
                     <Button
                       size="xs"
                       color="indigo"

@@ -45,7 +45,7 @@ class Scan extends ResourceController
         // Execute scan
         try {
             $scanner = new WordPressScanner($website['url']);
-            $results = $scanner->runFullScan();
+            $results = $scanner->runFullScan($website);
 
             $scanHistoryModel->update($scanId, [
                 'status'            => 'completed',

@@ -5,19 +5,24 @@ namespace App\Services;
 class WordPressScanner
 {
     private string $baseUrl;
-    private int $timeout = 5;
+    private int $timeout = 7;
 
     public function __construct(string $url)
     {
         $this->baseUrl = rtrim($url, '/');
     }
 
-    public function runFullScan(): array
+    public function runFullScan(?array $websiteData = null): array
     {
         $infraResults        = $this->checkInfrastructure();
         $fileExposureResults = $this->checkFileExposures();
         $enumerationResults  = $this->checkEnumerationAndInterfaces();
         $fingerprintResults  = $this->checkFingerprint();
+
+        $internalAuditResults = null;
+        if (!empty($websiteData['is_connected']) && !empty($websiteData['agent_token'])) {
+            $internalAuditResults = $this->runInternalAgentScan($websiteData['agent_token']);
+        }
 
         $allChecks = array_merge(
             $infraResults['checks'],
@@ -26,11 +31,27 @@ class WordPressScanner
             $fingerprintResults['checks']
         );
 
+        if ($internalAuditResults !== null && isset($internalAuditResults['checks'])) {
+            $allChecks = array_merge($allChecks, $internalAuditResults['checks']);
+        }
+
         $score = $this->calculateScore($allChecks);
+
+        $categories = [
+            'infrastructure' => $infraResults,
+            'file_exposure'  => $fileExposureResults,
+            'enumeration'    => $enumerationResults,
+            'fingerprint'    => $fingerprintResults,
+        ];
+
+        if ($internalAuditResults !== null) {
+            $categories['internal_agent'] = $internalAuditResults;
+        }
 
         return [
             'target_url'   => $this->baseUrl,
             'scanned_at'   => date('Y-m-d H:i:s'),
+            'is_hybrid'    => $internalAuditResults !== null,
             'score'        => $score['score'],
             'grade'        => $score['grade'],
             'summary'      => [
@@ -39,12 +60,171 @@ class WordPressScanner
                 'failed'       => count(array_filter($allChecks, fn($c) => $c['status'] === 'FAIL')),
                 'warnings'     => count(array_filter($allChecks, fn($c) => $c['status'] === 'WARN')),
             ],
-            'categories'   => [
-                'infrastructure' => $infraResults,
-                'file_exposure'  => $fileExposureResults,
-                'enumeration'    => $enumerationResults,
-                'fingerprint'    => $fingerprintResults,
-            ],
+            'categories'   => $categories,
+        ];
+    }
+
+    /**
+     * Call WordPress Agent Plugin Internal REST API
+     */
+    private function runInternalAgentScan(string $agentToken): ?array
+    {
+        $res = $this->request(
+            '/wp-json/validar-seguranca/v1/internal-audit',
+            'POST',
+            [
+                'Content-Type: application/json',
+                'X-Validar-Seguranca-Token: ' . $agentToken,
+            ]
+        );
+
+        if ($res['http_code'] !== 200 || empty($res['body'])) {
+            return [
+                'category_name' => 'Auditoria Interna do Agente WordPress',
+                'status_error'  => 'Não foi possível se comunicar com a REST API do plugin agente (HTTP ' . $res['http_code'] . ').',
+                'checks'        => [],
+            ];
+        }
+
+        $json = json_decode($res['body'], true);
+        if (empty($json['success']) || empty($json['data'])) {
+            return [
+                'category_name' => 'Auditoria Interna do Agente WordPress',
+                'status_error'  => 'Resposta inválida recebida do agente WordPress.',
+                'checks'        => [],
+            ];
+        }
+
+        $data = $json['data'];
+        $checks = [];
+
+        // 1. Updates Check
+        $updates = $data['updates_and_plugins'] ?? [];
+        $pendingCore = $updates['pending_core_updates'] ?? 0;
+        $pendingPlugins = $updates['pending_plugin_updates'] ?? 0;
+        $pendingThemes = $updates['pending_theme_updates'] ?? 0;
+        $inactivePlugins = $updates['inactive_plugins'] ?? 0;
+
+        $hasPending = ($pendingCore + $pendingPlugins + $pendingThemes) > 0;
+        $checks[] = [
+            'id'          => 'agent_pending_updates',
+            'name'        => 'Atualizações do WordPress e Plugins (Interno)',
+            'description' => 'Verifica se há atualizações pendentes do Core, Plugins ou Temas.',
+            'status'      => $hasPending ? 'FAIL' : 'PASS',
+            'severity'    => 'HIGH',
+            'details'     => $hasPending 
+                ? "Pendências encontradas: {$pendingCore} Core, {$pendingPlugins} Plugins, {$pendingThemes} Temas." 
+                : "Sistema totalmente atualizado!",
+        ];
+
+        $checks[] = [
+            'id'          => 'agent_inactive_plugins',
+            'name'        => 'Plugins Inativos Abandonados',
+            'description' => 'Plugins inativos continuam no servidor e podem ter vulnerabilidades exploráveis.',
+            'status'      => $inactivePlugins > 0 ? 'WARN' : 'PASS',
+            'severity'    => 'LOW',
+            'details'     => $inactivePlugins > 0 
+                ? "Existem {$inactivePlugins} plugin(s) inativo(s) instalados. Recomenda-se remover." 
+                : "Nenhum plugin inativo instalado.",
+        ];
+
+        // 2. Users Check
+        $users = $data['users_security'] ?? [];
+        $hasDefaultAdmin = $users['has_default_admin'] ?? false;
+        $totalAdmins = $users['total_admins'] ?? 1;
+
+        $checks[] = [
+            'id'          => 'agent_default_admin',
+            'name'        => 'Usuário Admin Padrão ("admin")',
+            'description' => 'Verifica se existe uma conta ativa com nome de usuário "admin".',
+            'status'      => $hasDefaultAdmin ? 'FAIL' : 'PASS',
+            'severity'    => 'CRITICAL',
+            'details'     => $hasDefaultAdmin 
+                ? "ALERTA CRÍTICO: Usuário 'admin' existe! Alvo primário para ataques de força bruta." 
+                : "Nenhum usuário 'admin' padrão encontrado.",
+        ];
+
+        $checks[] = [
+            'id'          => 'agent_total_admins',
+            'name'        => 'Quantidade de Administradores',
+            'description' => 'Analisa o número de contas com privilégio de Administrador.',
+            'status'      => $totalAdmins > 3 ? 'WARN' : 'PASS',
+            'severity'    => 'LOW',
+            'details'     => "Encontrados {$totalAdmins} usuário(s) com função Administrador (" . implode(', ', $users['admin_usernames'] ?? []) . ").",
+        ];
+
+        // 3. Hardening Check
+        $hardening = $data['hardening'] ?? [];
+        $wpDebug = $hardening['wp_debug'] ?? false;
+        $wpDebugDisplay = $hardening['wp_debug_display'] ?? false;
+        $disallowFileEdit = $hardening['disallow_file_edit'] ?? false;
+        $isDefaultPrefix = $hardening['is_default_db_prefix'] ?? false;
+
+        $checks[] = [
+            'id'          => 'agent_wp_debug',
+            'name'        => 'Modo de Depuração (WP_DEBUG)',
+            'description' => 'Verifica se o modo de debug do WordPress está ativo em produção.',
+            'status'      => ($wpDebug && $wpDebugDisplay) ? 'FAIL' : ($wpDebug ? 'WARN' : 'PASS'),
+            'severity'    => ($wpDebug && $wpDebugDisplay) ? 'HIGH' : 'LOW',
+            'details'     => ($wpDebug && $wpDebugDisplay) 
+                ? "WP_DEBUG e WP_DEBUG_DISPLAY estão ATIVOS! Erros de código vazam para os visitantes." 
+                : ($wpDebug ? "WP_DEBUG ativo (exibição de erros ocultada)." : "WP_DEBUG desativado."),
+        ];
+
+        $checks[] = [
+            'id'          => 'agent_disallow_file_edit',
+            'name'        => 'Edição de Arquivos no WP Admin (DISALLOW_FILE_EDIT)',
+            'description' => 'Verifica se o editor de código embutido do painel está desativado.',
+            'status'      => $disallowFileEdit ? 'PASS' : 'WARN',
+            'severity'    => 'MEDIUM',
+            'details'     => $disallowFileEdit 
+                ? "Editor de arquivos desativado com segurança no wp-config.php." 
+                : "Editor de arquivos ATIVO no painel. Se um admin for invadido, scripts PHP podem ser injetados.",
+        ];
+
+        $checks[] = [
+            'id'          => 'agent_db_prefix',
+            'name'        => 'Prefixo das Tabelas do Banco de Dados',
+            'description' => 'Verifica se o prefixo padrão "wp_" está sendo utilizado.',
+            'status'      => $isDefaultPrefix ? 'WARN' : 'PASS',
+            'severity'    => 'LOW',
+            'details'     => $isDefaultPrefix 
+                ? "Tabelas utilizam o prefixo padrão 'wp_'. Recomendado alterar para dificultar SQL Injection." 
+                : "Prefixo das tabelas é personalizado ('{$hardening['db_prefix']}').",
+        ];
+
+        // 4. Moderation & Registration Check
+        $mod = $data['moderation_settings'] ?? [];
+        $canRegister = $mod['users_can_register'] ?? false;
+        $commentsOpen = $mod['comments_open'] ?? true;
+        $commentMod = $mod['comment_moderation'] ?? false;
+
+        $checks[] = [
+            'id'          => 'agent_user_registration',
+            'name'        => 'Cadastro de Usuários Aberto',
+            'description' => 'Verifica se o registro de novos membros está aberto ao público.',
+            'status'      => $canRegister ? 'WARN' : 'PASS',
+            'severity'    => 'MEDIUM',
+            'details'     => $canRegister 
+                ? "Registro de usuários ABERTO! Função padrão atribuída: '{$mod['default_role']}'." 
+                : "Registro de usuários fechado.",
+        ];
+
+        $checks[] = [
+            'id'          => 'agent_comments_moderation',
+            'name'        => 'Moderação de Comentários',
+            'description' => 'Verifica se os comentários precisam de aprovação antes de serem publicados.',
+            'status'      => ($commentsOpen && !$commentMod) ? 'FAIL' : 'PASS',
+            'severity'    => 'HIGH',
+            'details'     => ($commentsOpen && !$commentMod) 
+                ? "Comentários abertos SEM moderação! Vulnerável a Spam automatizado e links maliciosos." 
+                : "Comentários sob moderação ou fechados.",
+        ];
+
+        return [
+            'category_name' => 'Auditoria Interna do Agente WordPress',
+            'raw_data'      => $data,
+            'checks'        => $checks,
         ];
     }
 
@@ -410,27 +590,36 @@ class WordPressScanner
      */
     private function calculateScore(array $allChecks): array
     {
-        $maxPoints   = 100;
-        $deductions  = 0;
+        if (empty($allChecks)) {
+            return ['score' => 0, 'grade' => 'F'];
+        }
 
         $weights = [
-            'CRITICAL' => 25,
-            'HIGH'     => 15,
-            'MEDIUM'   => 8,
-            'LOW'      => 3,
+            'CRITICAL' => 10,
+            'HIGH'     => 7,
+            'MEDIUM'   => 4,
+            'LOW'      => 2,
         ];
 
+        $totalPossiblePoints = 0;
+        $earnedPoints        = 0;
+
         foreach ($allChecks as $check) {
-            if ($check['status'] === 'FAIL') {
-                $sev = $check['severity'] ?? 'LOW';
-                $deductions += $weights[$sev] ?? 5;
-            } elseif ($check['status'] === 'WARN') {
-                $sev = $check['severity'] ?? 'LOW';
-                $deductions += ceil(($weights[$sev] ?? 5) / 2);
+            $sev    = strtoupper($check['severity'] ?? 'LOW');
+            $weight = $weights[$sev] ?? 2;
+
+            $totalPossiblePoints += $weight;
+
+            if (($check['status'] ?? '') === 'PASS') {
+                $earnedPoints += $weight;
+            } elseif (($check['status'] ?? '') === 'WARN') {
+                $earnedPoints += ($weight / 2);
             }
         }
 
-        $finalScore = max(0, $maxPoints - $deductions);
+        $finalScore = $totalPossiblePoints > 0 
+            ? round(($earnedPoints / $totalPossiblePoints) * 100) 
+            : 0;
 
         if ($finalScore >= 90) {
             $grade = 'A';

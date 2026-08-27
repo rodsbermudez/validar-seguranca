@@ -1,69 +1,90 @@
-# CodeIgniter 4 Application Starter
+# 🛡️ Validar Segurança — WordPress Audit & AI Remediation Platform
 
-## What is CodeIgniter?
+Uma plataforma completa para **auditoria de segurança**, **triagem inteligente de falhas** e **remediação automatizada via Inteligência Artificial** para ecossistemas WordPress.
 
-CodeIgniter is a PHP full-stack web framework that is light, fast, flexible and secure.
-More information can be found at the [official site](https://codeigniter.com).
+---
 
-This repository holds a composer-installable app starter.
-It has been built from the
-[development repository](https://github.com/codeigniter4/CodeIgniter4).
+## 🌟 Principais Recursos
 
-More information about the plans for version 4 can be found in [CodeIgniter 4](https://forum.codeigniter.com/forumdisplay.php?fid=28) on the forums.
+- **🛡️ Auditoria Automatizada de Segurança**:
+  - Teste remoto de infraestrutura, cabeçalhos HTTP (HSTS, CSP, X-Frame-Options), listagem de diretórios (`/wp-content/uploads/`, `/wp-includes/`), enumeração de usuários e detecção de arquivos sensíveis.
 
-You can read the [user guide](https://codeigniter.com/user_guide/)
-corresponding to the latest version of the framework.
+- **🤖 Remediação Inteligente & Triagem Híbrida (IA - Kimi K2.7 Code)**:
+  - **Triagem Automática**: Separação clara entre falhas corrigíveis via código/plugin e falhas que exigem intervenção de infraestrutura ou ações manuais.
+  - **Gerador de Plugins de Correção**: Criação automatizada de plugins PHP customizados sob medida para sanar falhas diretamente no painel do WordPress.
+  - **Guia do Servidor & Ações Manuais**: Instruções passo a passo geradas por IA para edições em `.htaccess`, `nginx.conf`, `php.ini`, `wp-config.php` e rotinas do painel SSH/cPanel.
+  - **Cache & Persistência de Guias**: Salvamento automático dos conselhos da IA no banco de dados para carregamento instantâneo sem chamadas redundantes, com botão de atualização sob demanda.
 
-## Installation & updates
+- **📊 Catálogo de Soluções Integrado**:
+  - Mapeamento detalhado de cada teste de segurança (`check_id`) associado a tipos de ação (`PLUGIN_AUTO_FIX`, `SERVER_CONFIG`, `MANUAL_ACTION`), gravidade e instruções de correção.
 
-`composer create-project codeigniter4/appstarter` then `composer update` whenever
-there is a new release of the framework.
+- **👥 Gestão de Usuários & Controle de Acesso (RBAC)**:
+  - Níveis de permissão de Administrador e Usuário, com isolamento estrito de relatórios por proprietário e gerenciamento centralizado de usuários.
 
-When updating, check the release notes to see if there are any changes you might need to apply
-to your `app` folder. The affected files can be copied or merged from
-`vendor/codeigniter4/framework/app`.
+- **🎨 Interface Moderna em Dark Theme**:
+  - Frontend responsivo desenvolvido em React + Mantine UI com tema escuro de alto contraste, tipografia legível e relatórios personalizáveis para impressão ou exportação em PDF.
 
-## Setup
+---
 
-Copy `env` to `.env` and tailor for your app, specifically the baseURL
-and any database settings.
+## 🛠️ Tecnologias Utilizadas
 
-## Important Change with index.php
+- **Backend**: PHP 8.2+ | CodeIgniter 4 (API RESTful) | Composer
+- **Frontend**: React 18 | TypeScript | Vite | Mantine UI v7 | Tabler Icons
+- **Inteligência Artificial**: OpenCode Zen API (`kimi-k2.7-code`)
+- **Banco de Dados**: MySQL 8.0+ / MariaDB
+- **Autenticação**: JWT (JSON Web Tokens)
 
-`index.php` is no longer in the root of the project! It has been moved inside the *public* folder,
-for better security and separation of components.
+---
 
-This means that you should configure your web server to "point" to your project's *public* folder, and
-not to the project root. A better practice would be to configure a virtual host to point there. A poor practice would be to point your web server to the project root and expect to enter *public/...*, as the rest of your logic and the
-framework are exposed.
+## 🚀 Instalação e Configuração
 
-**Please** read the user guide for a better explanation of how CI4 works!
+### 1. Requisitos do Sistema
+- PHP 8.2 ou superior (com extensões `curl`, `json`, `mbstring`, `mysqlnd`, `intl`)
+- Node.js 18+ e npm
+- Servidor Web (Apache/XAMPP/LAMPP ou Nginx)
+- MySQL / MariaDB
 
-## Repository Management
+### 2. Configuração do Backend (CodeIgniter 4)
+1. Clone o repositório no diretório do seu servidor web:
+   ```bash
+   cd /opt/lampp/htdocs/validar-seguranca
+   ```
+2. Instale as dependências via Composer:
+   ```bash
+   composer install
+   ```
+3. Configure o arquivo `.env`:
+   ```ini
+   database.default.hostname = localhost
+   database.default.database = validar-seguranca
+   database.default.username = root
+   database.default.password = 
+   database.default.DBDriver = MySQLi
 
-We use GitHub issues, in our main repository, to track **BUGS** and to track approved **DEVELOPMENT** work packages.
-We use our [forum](http://forum.codeigniter.com) to provide SUPPORT and to discuss
-FEATURE REQUESTS.
+   # Chave de Integração OpenCode Zen API (IA)
+   OPENCODE_API_KEY=sua_chave_aqui
+   ```
+4. Execute as migrações do banco de dados:
+   ```bash
+   php spark migrate
+   ```
 
-This repository is a "distribution" one, built by our release preparation script.
-Problems with it can be raised on our forum, or as issues in the main repository.
+### 3. Configuração e Build do Frontend (React)
+1. Acesse a pasta do frontend:
+   ```bash
+   cd frontend
+   ```
+2. Instale as dependências do Node:
+   ```bash
+   npm install
+   ```
+3. Compile o projeto para produção:
+   ```bash
+   npm run build
+   ```
 
-## Server Requirements
+---
 
-PHP version 8.2 or higher is required, with the following extensions installed:
+## 📄 Licença e Uso
 
-- [intl](http://php.net/manual/en/intl.requirements.php)
-- [mbstring](http://php.net/manual/en/mbstring.installation.php)
-
-> [!WARNING]
-> - The end of life date for PHP 7.4 was November 28, 2022.
-> - The end of life date for PHP 8.0 was November 26, 2023.
-> - The end of life date for PHP 8.1 was December 31, 2025.
-> - If you are still using below PHP 8.2, you should upgrade immediately.
-> - The end of life date for PHP 8.2 will be December 31, 2026.
-
-Additionally, make sure that the following extensions are enabled in your PHP:
-
-- json (enabled by default - don't turn it off)
-- [mysqlnd](http://php.net/manual/en/mysqlnd.install.php) if you plan to use MySQL
-- [libcurl](http://php.net/manual/en/curl.requirements.php) if you plan to use the HTTP\CURLRequest library
+Desenvolvido para auditoria e fortificação de ambientes WordPress de forma automatizada e segura.

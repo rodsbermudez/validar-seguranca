@@ -20,17 +20,19 @@ import {
   IconUsers,
   IconEye,
   IconArrowLeft,
+  IconBook,
 } from '@tabler/icons-react';
 import { LoginView } from './components/LoginView';
 import { WebsitesList } from './components/WebsitesList';
 import { ScanReport } from './components/ScanReport';
 import { UsersList } from './components/UsersList';
+import { SolutionCatalogView } from './components/SolutionCatalogView';
 
 export default function App() {
   const [user, setUser] = useState<any | null>(null);
   const [impersonatedUser, setImpersonatedUser] = useState<any | null>(null);
   const [selectedWebsite, setSelectedWebsite] = useState<any | null>(null);
-  const [viewMode, setViewMode] = useState<'list' | 'report' | 'users'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'report' | 'users' | 'solutions'>('list');
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
@@ -158,14 +160,25 @@ export default function App() {
               </Button>
 
               {isAdmin && !impersonatedUser && (
-                <Button
-                  variant={viewMode === 'users' ? 'light' : 'subtle'}
-                  color="cyan"
-                  leftSection={<IconUsers size={16} />}
-                  onClick={() => setViewMode('users')}
-                >
-                  Gerenciar Usuários
-                </Button>
+                <>
+                  <Button
+                    variant={viewMode === 'solutions' ? 'light' : 'subtle'}
+                    color="violet"
+                    leftSection={<IconBook size={16} />}
+                    onClick={() => setViewMode('solutions')}
+                  >
+                    Catálogo de Soluções
+                  </Button>
+
+                  <Button
+                    variant={viewMode === 'users' ? 'light' : 'subtle'}
+                    color="cyan"
+                    leftSection={<IconUsers size={16} />}
+                    onClick={() => setViewMode('users')}
+                  >
+                    Gerenciar Usuários
+                  </Button>
+                </>
               )}
 
               <Menu shadow="md" width={220} position="bottom-end">
@@ -209,7 +222,9 @@ export default function App() {
 
       <AppShell.Main bg="dark.9" style={{ minHeight: 'calc(100vh - 60px)' }}>
         <Container size="xl" py="lg">
-          {viewMode === 'users' && isAdmin && !impersonatedUser ? (
+          {viewMode === 'solutions' && isAdmin && !impersonatedUser ? (
+            <SolutionCatalogView />
+          ) : viewMode === 'users' && isAdmin && !impersonatedUser ? (
             <UsersList onImpersonate={handleImpersonate} currentUserId={user.id} />
           ) : viewMode === 'report' && selectedWebsite ? (
             <ScanReport website={selectedWebsite} onBack={() => setViewMode('list')} />

@@ -17,3 +17,119 @@ body {
 *, *::before, *::after {
   box-sizing: inherit;
 }
+
+/* Server Guide Dark Mode High-Contrast Styles */
+.server-guide-content {
+  color: #e2e8f0;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.server-guide-content * {
+  box-sizing: border-box;
+}
+
+/* Override dark/light containers inside AI output */
+.server-guide-content div:not([class*="alert"]) {
+  background-color: transparent !important;
+  color: #e2e8f0 !important;
+}
+
+.server-guide-content h1,
+.server-guide-content h2,
+.server-guide-content h3 {
+  color: #fb923c !important; /* Orange 400 */
+  margin-top: 1.5rem !important;
+  margin-bottom: 0.75rem !important;
+  font-weight: 700 !important;
+  border-bottom: 1px solid #3f3f46 !important;
+  padding-bottom: 0.25rem !important;
+}
+
+.server-guide-content h4,
+.server-guide-content h5 {
+  color: #38bdf8 !important; /* Sky 400 */
+  margin-top: 1.25rem !important;
+  margin-bottom: 0.5rem !important;
+  font-weight: 600 !important;
+}
+
+.server-guide-content p,
+.server-guide-content li,
+.server-guide-content td,
+.server-guide-content th,
+.server-guide-content span,
+.server-guide-content label {
+  color: #cbd5e1 !important; /* Slate 300 - high contrast readability */
+}
+
+.server-guide-content strong,
+.server-guide-content b {
+  color: #f8fafc !important; /* Slate 50 */
+}
+
+.server-guide-content ul,
+.server-guide-content ol {
+  padding-left: 1.5rem !important;
+  margin-bottom: 1rem !important;
+}
+
+.server-guide-content li {
+  margin-bottom: 0.35rem !important;
+}
+
+/* Alert boxes inside AI guide */
+.server-guide-content .alert,
+.server-guide-content div[style*="background-color: #f"],
+.server-guide-content div[style*="background: #f"],
+.server-guide-content div[style*="background: white"],
+.server-guide-content div[style*="background-color: white"] {
+  background-color: rgba(239, 68, 68, 0.12) !important;
+  border: 1px solid rgba(239, 68, 68, 0.35) !important;
+  border-left: 4px solid #ef4444 !important;
+  border-radius: 6px !important;
+  padding: 12px 16px !important;
+  margin: 14px 0 !important;
+}
+
+.server-guide-content div[style*="background"] p,
+.server-guide-content div[style*="background"] span,
+.server-guide-content div[style*="background"] li,
+.server-guide-content .alert p,
+.server-guide-content .alert span {
+  color: #fca5a5 !important;
+}
+
+.server-guide-content div[style*="background"] strong,
+.server-guide-content .alert strong {
+  color: #f87171 !important;
+}
+
+/* Code blocks & Inline code */
+.server-guide-content pre {
+  background-color: #09090b !important;
+  border: 1px solid #27272a !important;
+  border-radius: 6px !important;
+  padding: 14px !important;
+  overflow-x: auto !important;
+  margin: 12px 0 !important;
+}
+
+.server-guide-content pre code {
+  background-color: transparent !important;
+  color: #4ade80 !important; /* Green code font */
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+  font-size: 13px !important;
+  padding: 0 !important;
+  border: none !important;
+}
+
+.server-guide-content :not(pre) > code {
+  background-color: #27272a !important;
+  color: #38bdf8 !important;
+  padding: 2px 6px !important;
+  border-radius: 4px !important;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+  font-size: 13px !important;
+  border: 1px solid #3f3f46 !important;
+}

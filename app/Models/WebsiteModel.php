@@ -12,7 +12,7 @@ class WebsiteModel extends Model
     protected $returnType       = 'array';
     protected $useSoftDeletes   = false;
     protected $protectFields    = true;
-    protected $allowedFields    = ['user_id', 'name', 'url', 'environment'];
+    protected $allowedFields    = ['user_id', 'name', 'url', 'environment', 'agent_token', 'is_connected', 'connected_at'];
 
     // Dates
     protected $useTimestamps = true;
