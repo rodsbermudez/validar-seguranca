@@ -391,45 +391,39 @@ class Remediation extends ResourceController
         $code .= " */\n\n";
         $code .= "if (!defined('ABSPATH')) {\n    exit;\n}\n\n";
 
-        $code .= "class VS_Remediation_Fix_{$siteHostClean} {\n";
-        $code .= "    public function __construct() {\n";
-        $code .= "        add_action('init', array(\$this, 'apply_security_fixes'));\n";
-        $code .= "        add_action('admin_menu', array(\$this, 'register_admin_menu'));\n";
-        $code .= "    }\n\n";
+        $code .= "// --- APLICAÇÃO DIRETA DAS REGRAS DE REMEDIAÇÃO DE SEGURANÇA ---\n\n";
 
-        $code .= "    public function apply_security_fixes() {\n";
         foreach ($pluginFixes as $fix) {
             $snippet = trim($fix['fix_code_snippet'] ?? '');
             if (!empty($snippet)) {
                 $snippetClean = preg_replace('/^<\?php\s*/i', '', $snippet);
-                $code .= "        // Check: {$fix['solution_title']} (ID: {$fix['check_id']})\n";
-                $code .= "        try {\n";
+                $code .= "// Check: {$fix['solution_title']} (ID: {$fix['check_id']})\n";
+                $code .= "try {\n";
                 foreach (explode("\n", $snippetClean) as $line) {
-                    $code .= "            " . $line . "\n";
+                    $code .= "    " . $line . "\n";
                 }
-                $code .= "        } catch (\\Throwable \$e) {}\n\n";
+                $code .= "} catch (\\Throwable \$e) {}\n\n";
             }
         }
-        $code .= "    }\n\n";
 
-        $code .= "    public function register_admin_menu() {\n";
-        $code .= "        add_action('admin_menu', function() {\n";
-        $code .= "            if (empty(\$GLOBALS['admin_page_hooks']['wp-patropi'])) {\n";
-        $code .= "                add_menu_page('WP Patropi', 'WP Patropi', 'manage_options', 'wp-patropi', array(\$this, 'render_admin_page'), 'dashicons-shield', 80);\n";
-        $code .= "            }\n";
-        $code .= "            add_submenu_page('wp-patropi', 'Segurança', 'Segurança', 'manage_options', 'wp-patropi-seguranca', array(\$this, 'render_admin_page'));\n";
-        $code .= "        });\n";
-        $code .= "    }\n\n";
-
-        $code .= "    public function render_admin_page() {\n";
-        $code .= "        echo '<div class=\"wrap\"><h1>Shield - Correções de Segurança Ativas</h1><p>Este plugin foi gerado pela plataforma Validar Segurança para o site " . htmlspecialchars($siteHost) . ".</p><ul>';\n";
-        foreach ($pluginFixes as $fix) {
-            $code .= "        echo '<li><strong>" . htmlspecialchars($fix['solution_title']) . "</strong> (ID: " . htmlspecialchars($fix['check_id']) . ")</li>';\n";
-        }
-        $code .= "        echo '</ul></div>';\n";
+        $code .= "// --- INTERFACE DE VISUALIZAÇÃO NO PAINEL WP ADMIN ---\n";
+        $code .= "add_action('admin_menu', function() {\n";
+        $code .= "    if (empty(\$GLOBALS['admin_page_hooks']['wp-patropi'])) {\n";
+        $code .= "        add_menu_page('WP Patropi', 'WP Patropi', 'manage_options', 'wp-patropi', 'vs_render_remediation_admin_page', 'dashicons-shield', 80);\n";
         $code .= "    }\n";
-        $code .= "}\n\n";
-        $code .= "new VS_Remediation_Fix_{$siteHostClean}();\n";
+        $code .= "    add_submenu_page('wp-patropi', 'Segurança', 'Segurança', 'manage_options', 'wp-patropi-seguranca', 'vs_render_remediation_admin_page');\n";
+        $code .= "});\n\n";
+
+        $code .= "if (!function_exists('vs_render_remediation_admin_page')) {\n";
+        $code .= "    function vs_render_remediation_admin_page() {\n";
+        $code .= "        echo '<div class=\"wrap\"><h1>Shield - Correções de Segurança Ativas</h1><p>Este plugin foi gerado pela plataforma Validar Segurança para o site <strong>" . htmlspecialchars($siteHost) . "</strong>.</p>';\n";
+        $code .= "        echo '<table class=\"widefat fixed striped\"><thead><tr><th>ID da Verificação</th><th>Correção</th><th>Status</th></tr></thead><tbody>';\n";
+        foreach ($pluginFixes as $fix) {
+            $code .= "        echo '<tr><td><code>" . htmlspecialchars($fix['check_id']) . "</code></td><td><strong>" . htmlspecialchars($fix['solution_title']) . "</strong></td><td><span style=\"background:#10B981;color:#fff;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600;\">Ativo</span></td></tr>';\n";
+        }
+        $code .= "        echo '</tbody></table></div>';\n";
+        $code .= "    }\n";
+        $code .= "}\n";
 
         return $code;
     }

@@ -17,16 +17,23 @@ class SolutionCatalogSeeder extends Seeder
                 'solution_title'        => 'Redirecionamento Automático de Consultas de Autor para a Página Inicial (/)',
                 'solution_instructions' => 'Instale o plugin de remediação para redirecionar automaticamente qualquer tentativa de acesso por ?author=N para a página inicial (/) com status HTTP 301 permanente.',
                 'fix_code_snippet'      => <<<'PHP'
-// Redirecionamento Automático de Consultas de Autor para a Página Inicial (/)
-add_action('template_redirect', function() {
+// Bloquear enumeração de autores via /?author=N com redirecionamento 301 imediato para a Home
+add_action('init', function() {
     if (is_admin()) return;
-    if (isset($_GET['author']) || is_author()) {
-        wp_safe_redirect(home_url('/'), 301);
+    if (isset($_GET['author']) || (isset($_SERVER['REQUEST_URI']) && preg_match('/[\?&]author=\d+/i', $_SERVER['REQUEST_URI']))) {
+        wp_redirect(home_url('/'), 301);
         exit;
     }
-});
+}, 1);
+add_action('template_redirect', function() {
+    if (is_admin()) return;
+    if (is_author()) {
+        wp_redirect(home_url('/'), 301);
+        exit;
+    }
+}, 1);
 PHP,
-                'ai_notes'              => 'Redireciona com HTTP 301 qualquer requisição /?author=N para a home, removendo o parâmetro da URL do navegador e prevenindo enumeração de usuários.',
+                'ai_notes'              => 'Redireciona com HTTP 301 qualquer requisição /?author=N para a home no hook init antecedendo qualquer redirecionamento de autor do WordPress.',
                 'created_at'            => date('Y-m-d H:i:s'),
                 'updated_at'            => date('Y-m-d H:i:s'),
             ],
@@ -61,14 +68,59 @@ PHP,
                 'solution_title'        => 'Desativação Completa da Interface XML-RPC',
                 'solution_instructions' => 'Desativa os métodos XML-RPC e bloqueia requisições direcionadas ao arquivo xmlrpc.php.',
                 'fix_code_snippet'      => <<<'PHP'
-// Desativar XML-RPC
+// Desativar XML-RPC completamente
 add_filter('xmlrpc_enabled', '__return_false');
 add_filter('wp_headers', function($headers) {
     unset($headers['X-Pingback']);
     return $headers;
 });
+if (isset($_SERVER['SCRIPT_NAME']) && str_contains($_SERVER['SCRIPT_NAME'], 'xmlrpc.php')) {
+    status_header(403);
+    header('Content-Type: text/plain; charset=utf-8');
+    echo 'XML-RPC services are disabled on this site.';
+    exit;
+}
 PHP,
-                'ai_notes'              => 'Desativa XML-RPC prevenindo ataques de amplificação.',
+                'ai_notes'              => 'Bloqueia o arquivo xmlrpc.php com HTTP 403 e desativa o filtro xmlrpc_enabled.',
+                'created_at'            => date('Y-m-d H:i:s'),
+                'updated_at'            => date('Y-m-d H:i:s'),
+            ],
+            [
+                'check_id'              => 'fingerprint_plugins_detected',
+                'check_name'            => 'Enumeração de Plugins Ativos',
+                'action_type'           => 'PLUGIN_AUTO_FIX',
+                'problem_description'   => 'Identifica plugins instalados a partir das URLs de assets no HTML.',
+                'solution_title'        => 'Ocultar versões e metadados de plugins para dificultar enumeração',
+                'solution_instructions' => 'Remove os parâmetros de versão (?ver=x.y.z) de arquivos CSS e JS e limpa tags geradoras.',
+                'fix_code_snippet'      => <<<'PHP'
+// Ocultar versões e metadados em assets
+remove_action('wp_head', 'wp_generator');
+add_filter('the_generator', '__return_empty_string');
+add_filter('style_loader_src', function($src) {
+    return $src ? remove_query_arg('ver', $src) : $src;
+}, 9999);
+add_filter('script_loader_src', function($src) {
+    return $src ? remove_query_arg('ver', $src) : $src;
+}, 9999);
+PHP,
+                'ai_notes'              => 'Remove a tag wp_generator e parâmetros de versão ver= de scripts e folhas de estilo.',
+                'created_at'            => date('Y-m-d H:i:s'),
+                'updated_at'            => date('Y-m-d H:i:s'),
+            ],
+            [
+                'check_id'              => 'header_strict_transport_security',
+                'check_name'            => 'Strict-Transport-Security (HSTS)',
+                'action_type'           => 'PLUGIN_AUTO_FIX',
+                'problem_description'   => 'Envia o cabeçalho HSTS quando o site é acessado via HTTPS, instruindo navegadores a sempre usar conexões seguras.',
+                'solution_title'        => 'Ativação do Cabeçalho Strict-Transport-Security (HSTS)',
+                'solution_instructions' => 'Envia o cabeçalho HSTS via WordPress para todas as requisições HTTPS.',
+                'fix_code_snippet'      => <<<'PHP'
+// Enviar cabeçalho Strict-Transport-Security (HSTS)
+add_action('send_headers', function() {
+    header('Strict-Transport-Security: max-age=31536000; includeSubDomains; preload');
+}, 1);
+PHP,
+                'ai_notes'              => 'Adiciona o cabeçalho HSTS com max-age=31536000.',
                 'created_at'            => date('Y-m-d H:i:s'),
                 'updated_at'            => date('Y-m-d H:i:s'),
             ]
