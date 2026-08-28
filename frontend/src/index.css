@@ -10,7 +10,7 @@ body {
   font-family: Inter, system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #101113;
+  background-color: #333333;
   color: #c1c2c5;
 }
 
@@ -132,4 +132,13 @@ body {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
   font-size: 13px !important;
   border: 1px solid #3f3f46 !important;
+}
+
+/* Mantine Accordion & Paper Custom Borders */
+.mantine-Accordion-item {
+  border: 1px solid #373A40 !important;
+  background-color: #111111 !important;
+  border-radius: 8px !important;
+  margin-bottom: 8px !important;
+  overflow: hidden;
 }

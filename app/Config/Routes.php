@@ -4,6 +4,8 @@ use CodeIgniter\Router\RouteCollection;
 
 /** @var RouteCollection $routes */
 $routes->get('/', 'Home::index');
+$routes->get('docs', 'Docs::index');
+$routes->get('docs/(:segment)', 'Docs::index/$1');
 
 // OPTIONS handler for CORS pre-flight requests
 $routes->options('(:any)', static function () {

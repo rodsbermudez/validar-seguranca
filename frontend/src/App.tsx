@@ -2,18 +2,15 @@ import { useState, useEffect } from 'react';
 import {
   AppShell,
   Group,
-  Title,
   Text,
   Button,
   Container,
   Avatar,
-  ThemeIcon,
   Menu,
   Alert,
   Badge,
 } from '@mantine/core';
 import {
-  IconShieldCheck,
   IconLogout,
   IconWorld,
   IconUser,
@@ -21,6 +18,7 @@ import {
   IconEye,
   IconArrowLeft,
   IconBook,
+  IconHelpCircle,
 } from '@tabler/icons-react';
 import { LoginView } from './components/LoginView';
 import { WebsitesList } from './components/WebsitesList';
@@ -136,23 +134,17 @@ export default function App() {
         <Container size="xl" h={60}>
           <Group justify="space-between" h="100%">
             <Group gap="sm" style={{ cursor: 'pointer' }} onClick={() => setViewMode('list')}>
-              <ThemeIcon size={34} radius="md" color="indigo" variant="gradient" gradient={{ from: 'indigo', to: 'cyan' }}>
-                <IconShieldCheck size={22} />
-              </ThemeIcon>
-              <div>
-                <Title order={4} fw={800} style={{ letterSpacing: -0.5 }}>
-                  Validar Segurança
-                </Title>
-                <Text size="xs" c="dimmed" lh={1}>
-                  WordPress Audit Platform
-                </Text>
-              </div>
+              <img
+                src="/validar-seguranca/images/logo-Patropi.png"
+                alt="Logo Patropi"
+                style={{ height: 38, width: 'auto', objectFit: 'contain' }}
+              />
             </Group>
 
             <Group gap="md">
               <Button
                 variant={viewMode === 'list' || viewMode === 'report' ? 'light' : 'subtle'}
-                color="indigo"
+                color="patropi"
                 leftSection={<IconWorld size={16} />}
                 onClick={() => setViewMode('list')}
               >
@@ -163,7 +155,7 @@ export default function App() {
                 <>
                   <Button
                     variant={viewMode === 'solutions' ? 'light' : 'subtle'}
-                    color="violet"
+                    color="pink"
                     leftSection={<IconBook size={16} />}
                     onClick={() => setViewMode('solutions')}
                   >
@@ -172,7 +164,7 @@ export default function App() {
 
                   <Button
                     variant={viewMode === 'users' ? 'light' : 'subtle'}
-                    color="cyan"
+                    color="teal"
                     leftSection={<IconUsers size={16} />}
                     onClick={() => setViewMode('users')}
                   >
@@ -180,6 +172,17 @@ export default function App() {
                   </Button>
                 </>
               )}
+
+              <Button
+                component="a"
+                href="/validar-seguranca/docs"
+                target="_blank"
+                variant="subtle"
+                color="gray"
+                leftSection={<IconHelpCircle size={16} />}
+              >
+                Documentação
+              </Button>
 
               <Menu shadow="md" width={220} position="bottom-end">
                 <Menu.Target>

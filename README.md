@@ -18,11 +18,19 @@ Uma plataforma completa para **auditoria de segurança**, **triagem inteligente 
 - **📊 Catálogo de Soluções Integrado**:
   - Mapeamento detalhado de cada teste de segurança (`check_id`) associado a tipos de ação (`PLUGIN_AUTO_FIX`, `SERVER_CONFIG`, `MANUAL_ACTION`), gravidade e instruções de correção.
 
+- **📖 Central de Documentação Integrada (`/docs`)**:
+  - Portal completo de documentação da plataforma desenvolvido em CodeIgniter, cobrindo funcionamento de auditoria, agente interno, remediação por IA, catálogo de soluções e boas práticas, com navegação fluida por scroll offset.
+
+- **🎨 Identidade Visual Patropi Comunica & Cores Customizadas**:
+  - Integração da nova logo horizontal (`logo-Patropi.png`) e favicon (`favicon.png`).
+  - Paleta de cores em Dark Theme: Primária (`#236baa`), Secundária (`#ec1c66`), Detalhes (`#79c1a8`), Fundo de Tela (`#333333`), Fundo de Cards (`#111111`).
+  - Cards de métricas com números centralizados e bordas realçadas no relatório de segurança e no acordeão de categorias.
+
 - **👥 Gestão de Usuários & Controle de Acesso (RBAC)**:
   - Níveis de permissão de Administrador e Usuário, com isolamento estrito de relatórios por proprietário e gerenciamento centralizado de usuários.
 
-- **🎨 Interface Moderna em Dark Theme**:
-  - Frontend responsivo desenvolvido em React + Mantine UI com tema escuro de alto contraste, tipografia legível e relatórios personalizáveis para impressão ou exportação em PDF.
+- **📊 Relatórios Personalizados**:
+  - Frontend responsivo desenvolvido em React + Mantine UI v7 com tema escuro de alto contraste, tipografia legível e relatórios personalizáveis para impressão ou exportação em PDF.
 
 ---
 

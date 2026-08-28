@@ -544,25 +544,25 @@ export const ScanReport: React.FC<ScanReportProps> = ({ website, onBack }) => {
                     RESUMO DA AUDITORIA ({scanResult.scanned_at})
                   </Text>
 
-                  <Group gap="md" mt="xs">
-                    <Paper p="xs" px="md" radius="sm" bg="dark.6">
-                      <Text size="xs" c="dimmed">Checagens</Text>
-                      <Text fw={700}>{scanResult.summary.total_checks}</Text>
+                  <Group gap="md" mt="xs" style={{ width: '100%' }}>
+                    <Paper p="xs" px="md" radius="md" bg="dark.6" withBorder ta="center" style={{ flex: 1, minWidth: 100, borderColor: '#373A40' }}>
+                      <Text size="xs" c="dimmed" fw={600} ta="center">Checagens</Text>
+                      <Text fw={800} fz={22} ta="center">{scanResult.summary.total_checks}</Text>
                     </Paper>
 
-                    <Paper p="xs" px="md" radius="sm" bg="dark.6">
-                      <Text size="xs" c="green.4">Aprovados</Text>
-                      <Text fw={700} c="green.4">{scanResult.summary.passed}</Text>
+                    <Paper p="xs" px="md" radius="md" bg="dark.6" withBorder ta="center" style={{ flex: 1, minWidth: 100, borderColor: '#373A40' }}>
+                      <Text size="xs" c="green.4" fw={600} ta="center">Aprovados</Text>
+                      <Text fw={800} fz={22} c="green.4" ta="center">{scanResult.summary.passed}</Text>
                     </Paper>
 
-                    <Paper p="xs" px="md" radius="sm" bg="dark.6">
-                      <Text size="xs" c="red.4">Falhas Críticas</Text>
-                      <Text fw={700} c="red.4">{scanResult.summary.failed}</Text>
+                    <Paper p="xs" px="md" radius="md" bg="dark.6" withBorder ta="center" style={{ flex: 1, minWidth: 100, borderColor: '#373A40' }}>
+                      <Text size="xs" c="red.4" fw={600} ta="center">Falhas Críticas</Text>
+                      <Text fw={800} fz={22} c="red.4" ta="center">{scanResult.summary.failed}</Text>
                     </Paper>
 
-                    <Paper p="xs" px="md" radius="sm" bg="dark.6">
-                      <Text size="xs" c="yellow.4">Alertas</Text>
-                      <Text fw={700} c="yellow.4">{scanResult.summary.warnings}</Text>
+                    <Paper p="xs" px="md" radius="md" bg="dark.6" withBorder ta="center" style={{ flex: 1, minWidth: 100, borderColor: '#373A40' }}>
+                      <Text size="xs" c="yellow.4" fw={600} ta="center">Alertas</Text>
+                      <Text fw={800} fz={22} c="yellow.4" ta="center">{scanResult.summary.warnings}</Text>
                     </Paper>
                   </Group>
                 </Stack>
@@ -573,9 +573,23 @@ export const ScanReport: React.FC<ScanReportProps> = ({ website, onBack }) => {
           {/* Categorized Security Checks Accordion */}
           <Title order={4} mt="md">Detalhes dos Testes de Segurança</Title>
 
-          <Accordion variant="separated" radius="md">
+          <Accordion
+            variant="separated"
+            radius="md"
+            styles={{
+              item: {
+                border: '1px solid #373A40',
+                backgroundColor: '#111111',
+                borderRadius: '8px',
+                marginBottom: '10px',
+              },
+              control: {
+                borderRadius: '8px',
+              },
+            }}
+          >
             {Object.entries(scanResult.categories || {}).map(([key, category]: [string, any]) => (
-              <Accordion.Item key={key} value={key}>
+              <Accordion.Item key={key} value={key} style={{ border: '1px solid #373A40' }}>
                 <Accordion.Control>
                   <Group justify="space-between" pr="md">
                     <Group gap="sm">
