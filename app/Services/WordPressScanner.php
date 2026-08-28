@@ -466,8 +466,10 @@ class WordPressScanner
         $authorRedirectExposed = false;
         $authorSlug = '';
 
-        if ($resAuthor['http_code'] === 301 || $resAuthor['http_code'] === 302) {
-            $location = $resAuthor['headers']['location'] ?? '';
+        $httpCode = $resAuthor['http_code'];
+        $location = $resAuthor['headers']['location'] ?? '';
+
+        if ($httpCode === 301 || $httpCode === 302) {
             if (str_contains($location, '/author/')) {
                 $authorRedirectExposed = true;
                 preg_match('/\/author\/([^\/]+)/', $location, $m);
@@ -475,24 +477,32 @@ class WordPressScanner
             }
         }
 
-        $bodyTrimmed = trim($resAuthor['body']);
-        $isBlankBody = ($resAuthor['http_code'] === 200 && empty($bodyTrimmed));
+        // Check if HTTP response is a clean 301/302 redirect to Home (/)
+        $redirectedToHome = false;
+        if (($httpCode === 301 || $httpCode === 302) && !empty($location)) {
+            $targetPath = parse_url($location, PHP_URL_PATH) ?? '/';
+            $basePath = parse_url($this->baseUrl, PHP_URL_PATH) ?? '/';
+            if ($targetPath === '/' || $targetPath === '' || $targetPath === $basePath || $location === $this->baseUrl) {
+                $redirectedToHome = true;
+            }
+        }
 
         if ($authorRedirectExposed) {
             $authorStatus  = 'FAIL';
             $authorDetails = 'Nome de usuário exposto via redirecionamento: ' . $authorSlug;
-        } elseif ($isBlankBody) {
-            $authorStatus  = 'WARN';
-            $authorDetails = 'A requisição /?author=1 responde com tela em branco (HTTP 200). O recomendado é retornar HTTP 404 Not Found ou redirecionar para a Home.';
-        } else {
+        } elseif ($redirectedToHome) {
             $authorStatus  = 'PASS';
-            $authorDetails = 'A requisição de autor está protegida (retorna 404/403 ou redireciona sem expor usuários).';
+            $authorDetails = 'Requisição de autor redirecionada com sucesso para a Página Inicial (/).';
+        } else {
+            // Does not redirect to Home (returns 404, 403, 200 blank, etc. staying on /?author=1)
+            $authorStatus  = 'WARN';
+            $authorDetails = 'A requisição para /?author=1 não é redirecionada para a Página Inicial (retorna HTTP ' . $httpCode . ' na própria URL). Recomendado aplicar o redirecionamento 301 automático para a Home (/).';
         }
 
         $checks[] = [
             'id'          => 'enum_author_query',
             'name'        => 'Enumeração via Query Author (/?author=1)',
-            'description' => 'Verifica se requisições para /?author=1 revelam nomes de usuários ou se retornam resposta 404 apropriada.',
+            'description' => 'Verifica se requisições para /?author=1 revelam nomes de usuários ou se aplicam o redirecionamento automático para a Home / erro 404.',
             'status'      => $authorStatus,
             'severity'    => 'MEDIUM',
             'details'     => $authorDetails,

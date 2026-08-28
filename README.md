@@ -7,16 +7,16 @@ Uma plataforma completa para **auditoria de segurança**, **triagem inteligente 
 ## 🌟 Principais Recursos
 
 - **🛡️ Auditoria Automatizada de Segurança**:
-  - Teste remoto de infraestrutura, cabeçalhos HTTP (HSTS, CSP, X-Frame-Options), listagem de diretórios (`/wp-content/uploads/`, `/wp-includes/`), enumeração de usuários e detecção de arquivos sensíveis.
+  - Teste remoto de infraestrutura, cabeçalhos HTTP (HSTS, CSP, X-Frame-Options), listagem de diretórios (`/wp-content/uploads/`, `/wp-includes/`), enumeração de usuários (com validação estrita de redirecionamento 301 para a Home em `/?author=1`) e detecção de arquivos sensíveis.
 
 - **🤖 Remediação Inteligente & Triagem Híbrida (IA - Kimi K2.7 Code)**:
   - **Triagem Automática**: Separação clara entre falhas corrigíveis via código/plugin e falhas que exigem intervenção de infraestrutura ou ações manuais.
-  - **Gerador de Plugins de Correção**: Criação automatizada de plugins PHP customizados sob medida para sanar falhas diretamente no painel do WordPress.
+  - **Gerador de Plugins de Correção**: Criação automatizada de plugins PHP customizados sob medida para sanar falhas diretamente no painel do WordPress (incluindo redirecionamento 301 de requisições de autor para a Home).
   - **Guia do Servidor & Ações Manuais**: Instruções passo a passo geradas por IA para edições em `.htaccess`, `nginx.conf`, `php.ini`, `wp-config.php` e rotinas do painel SSH/cPanel.
   - **Cache & Persistência de Guias**: Salvamento automático dos conselhos da IA no banco de dados para carregamento instantâneo sem chamadas redundantes, com botão de atualização sob demanda.
 
-- **📊 Catálogo de Soluções Integrado**:
-  - Mapeamento detalhado de cada teste de segurança (`check_id`) associado a tipos de ação (`PLUGIN_AUTO_FIX`, `SERVER_CONFIG`, `MANUAL_ACTION`), gravidade e instruções de correção.
+- **📊 Catálogo de Soluções Integrado (`SolutionCatalogSeeder`)**:
+  - Mapeamento detalhado de cada teste de segurança (`check_id`) associado a tipos de ação (`PLUGIN_AUTO_FIX`, `SERVER_CONFIG`, `MANUAL_ACTION`), gravidade e instruções de correção (incluindo snippet PHP para redirecionar consultas de autor `/?author=N` para a página inicial `/`).
 
 - **📖 Central de Documentação Integrada (`/docs`)**:
   - Portal completo de documentação da plataforma desenvolvido em CodeIgniter, cobrindo funcionamento de auditoria, agente interno, remediação por IA, catálogo de soluções e boas práticas, com navegação fluida por scroll offset.

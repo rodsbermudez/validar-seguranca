@@ -13,31 +13,20 @@ class SolutionCatalogSeeder extends Seeder
                 'check_id'              => 'enum_author_query',
                 'check_name'            => 'Enumeração via Query Author (/?author=1)',
                 'action_type'           => 'PLUGIN_AUTO_FIX',
-                'problem_description'   => 'Requisições para /?author=1 expõem o slug dos usuários ou retornam uma tela em branco HTTP 200 sem tratamento.',
-                'solution_title'        => 'Bloqueio de Enumeração de Autores com Resposta HTTP 404 Nativa',
-                'solution_instructions' => 'Instale o plugin de remediação para interceptar requisições de consulta de autor e emitir o template e status nativo HTTP 404 Not Found.',
+                'problem_description'   => 'Requisições para /?author=1 permanecem acessíveis no navegador (podendo vazar o slug de usuário ou exibir uma tela em branco HTTP 200).',
+                'solution_title'        => 'Redirecionamento Automático de Consultas de Autor para a Página Inicial (/)',
+                'solution_instructions' => 'Instale o plugin de remediação para redirecionar automaticamente qualquer tentativa de acesso por ?author=N para a página inicial (/) com status HTTP 301 permanente.',
                 'fix_code_snippet'      => <<<'PHP'
-// Bloquear Enumeração de Autores com HTTP 404 Nativo
+// Redirecionamento Automático de Consultas de Autor para a Página Inicial (/)
 add_action('template_redirect', function() {
     if (is_admin()) return;
     if (isset($_GET['author']) || is_author()) {
-        global $wp_query;
-        if (isset($wp_query)) {
-            $wp_query->set_404();
-        }
-        status_header(404);
-        nocache_headers();
-        $template = get_query_template('404');
-        if ($template) {
-            include($template);
-        } else {
-            echo "<h1>404 Not Found</h1>";
-        }
+        wp_safe_redirect(home_url('/'), 301);
         exit;
     }
 });
 PHP,
-                'ai_notes'              => 'Emite resposta 404 limpa, impedindo ataques de enumeração e evitando telas brancas.',
+                'ai_notes'              => 'Redireciona com HTTP 301 qualquer requisição /?author=N para a home, removendo o parâmetro da URL do navegador e prevenindo enumeração de usuários.',
                 'created_at'            => date('Y-m-d H:i:s'),
                 'updated_at'            => date('Y-m-d H:i:s'),
             ],
