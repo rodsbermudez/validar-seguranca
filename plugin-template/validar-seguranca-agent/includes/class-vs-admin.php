@@ -14,29 +14,26 @@ class VS_Agent_Admin {
     public function add_admin_menu() {
         $parent_slug = 'wp-patropi';
 
-        // Register main menu if not registered yet
-        add_menu_page(
-            'WP Patropi',
-            'WP Patropi',
-            'manage_options',
-            $parent_slug,
-            array($this, 'render_admin_page'),
-            'dashicons-shield',
-            80
-        );
+        if (empty($GLOBALS['admin_page_hooks'][$parent_slug])) {
+            add_menu_page(
+                'WP Patropi',
+                'WP Patropi',
+                'manage_options',
+                $parent_slug,
+                array($this, 'render_admin_page'),
+                'dashicons-shield',
+                80
+            );
+        }
 
-        // Submenu: Diagnóstico (Agent)
         add_submenu_page(
             $parent_slug,
-            'Diagnóstico',
-            'Diagnóstico',
+            'Agente Diagnóstico',
+            'Agente Diagnóstico',
             'manage_options',
             'validar-seguranca-agent',
             array($this, 'render_admin_page')
         );
-
-        // Remove duplicate parent submenu item
-        remove_submenu_page($parent_slug, $parent_slug);
     }
 
     public function handle_connect_action() {
@@ -76,7 +73,7 @@ class VS_Agent_Admin {
 
             if (isset($data['status']) && ($data['status'] == 200 || $data['status'] == 201)) {
                 update_option('vs_is_connected', 1);
-                add_settings_error('vs_messages', 'vs_msg', 'Site conectado com sucesso ao painel Validar Segurança!', 'updated');
+                add_settings_error('vs_messages', 'vs_msg', 'Site e ponte reconectados com sucesso ao painel Validar Segurança!', 'updated');
             } else {
                 $err_msg = isset($data['messages']['error']) ? $data['messages']['error'] : (isset($data['error']) ? $data['error'] : 'Falha no pareamento com o SaaS.');
                 add_settings_error('vs_messages', 'vs_err', 'Erro na conexão: ' . $err_msg, 'error');
@@ -105,6 +102,15 @@ class VS_Agent_Admin {
                         Site Conectado ao Painel Validar Segurança!
                     </div>
                     <p>O seu site está pareado e pronto para responder às auditorias automáticas solicitadas via painel SaaS.</p>
+                    
+                    <form method="post" action="" style="margin-top: 15px;">
+                        <?php wp_nonce_field('vs_connect_nonce'); ?>
+                        <input type="hidden" name="vs_action" value="connect_saas" />
+                        <button type="submit" class="button button-secondary" style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; height: auto; font-weight: 500;">
+                            <span class="dashicons dashicons-update" style="font-size: 18px; width: 18px; height: 18px; margin-top: 1px;"></span>
+                            Reconectar / Refazer Ponte com a Plataforma
+                        </button>
+                    </form>
                 <?php else : ?>
                     <div style="display: flex; align-items: center; gap: 10px; color: #d32f2f; font-weight: bold; font-size: 16px; margin-bottom: 15px;">
                         <span class="dashicons dashicons-warning" style="font-size: 24px; width: 24px; height: 24px;"></span>
@@ -115,8 +121,9 @@ class VS_Agent_Admin {
                     <form method="post" action="">
                         <?php wp_nonce_field('vs_connect_nonce'); ?>
                         <input type="hidden" name="vs_action" value="connect_saas" />
-                        <button type="submit" class="button button-primary button-large" style="background: #3f51b5; border-color: #3f51b5;">
-                            🔗 Conectar Agora com Validar Segurança
+                        <button type="submit" class="button button-primary button-large" style="background: #3f51b5; border-color: #3f51b5; display: inline-flex; align-items: center; gap: 6px;">
+                            <span class="dashicons dashicons-admin-links" style="font-size: 18px; width: 18px; height: 18px; margin-top: 1px;"></span>
+                            Conectar Agora com Validar Segurança
                         </button>
                     </form>
                 <?php endif; ?>
