@@ -475,15 +475,27 @@ class WordPressScanner
             }
         }
 
+        $bodyTrimmed = trim($resAuthor['body']);
+        $isBlankBody = ($resAuthor['http_code'] === 200 && empty($bodyTrimmed));
+
+        if ($authorRedirectExposed) {
+            $authorStatus  = 'FAIL';
+            $authorDetails = 'Nome de usuário exposto via redirecionamento: ' . $authorSlug;
+        } elseif ($isBlankBody) {
+            $authorStatus  = 'WARN';
+            $authorDetails = 'A requisição /?author=1 responde com tela em branco (HTTP 200). O recomendado é retornar HTTP 404 Not Found ou redirecionar para a Home.';
+        } else {
+            $authorStatus  = 'PASS';
+            $authorDetails = 'A requisição de autor está protegida (retorna 404/403 ou redireciona sem expor usuários).';
+        }
+
         $checks[] = [
             'id'          => 'enum_author_query',
             'name'        => 'Enumeração via Query Author (/?author=1)',
-            'description' => 'Verifica se requisições para /?author=1 revelam nomes de usuários.',
-            'status'      => $authorRedirectExposed ? 'FAIL' : 'PASS',
+            'description' => 'Verifica se requisições para /?author=1 revelam nomes de usuários ou se retornam resposta 404 apropriada.',
+            'status'      => $authorStatus,
             'severity'    => 'MEDIUM',
-            'details'     => $authorRedirectExposed 
-                ? 'Nome de usuário exposto via redirecionamento: ' . $authorSlug 
-                : 'Redirecionamento de autor não expõe dados.',
+            'details'     => $authorDetails,
         ];
 
         // 3. XML-RPC interface
