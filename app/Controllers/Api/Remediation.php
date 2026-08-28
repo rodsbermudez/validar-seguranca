@@ -115,7 +115,12 @@ class Remediation extends ResourceController
         try {
             $aiService = new AIService($apiKey);
             $pluginCode = $aiService->generateRemediationPlugin($pluginFixableSolutions, $website['url'], $customPrompt);
+        } catch (\Exception $e) {
+            // Fallback to native deterministic PHP plugin generation if AI times out or is unavailable
+            $pluginCode = $this->buildNativeRemediationPlugin($pluginFixableSolutions, $website['url']);
+        }
 
+        try {
             // Package into ZIP
             $siteHost = parse_url($website['url'], PHP_URL_HOST) ?: 'site';
             $siteSlug = preg_replace('/[^a-zA-Z0-9_\-]/', '-', $siteHost);
@@ -370,5 +375,62 @@ class Remediation extends ResourceController
 
         $html .= '</div>';
         return $html;
+    }
+
+    protected function buildNativeRemediationPlugin(array $pluginFixes, string $websiteUrl): string
+    {
+        $siteHost = parse_url($websiteUrl, PHP_URL_HOST) ?: 'wordpress-site';
+        $siteHostClean = preg_replace('/[^a-zA-Z0-9_\-]/', '_', $siteHost);
+
+        $code = "<?php\n";
+        $code .= "/**\n";
+        $code .= " * Plugin Name: Validar Segurança Fix - {$siteHost}\n";
+        $code .= " * Description: Plugin customizado de remediação de segurança gerado pela plataforma Validar Segurança.\n";
+        $code .= " * Version: 1.0.0\n";
+        $code .= " * Author: Validar Segurança\n";
+        $code .= " */\n\n";
+        $code .= "if (!defined('ABSPATH')) {\n    exit;\n}\n\n";
+
+        $code .= "class VS_Remediation_Fix_{$siteHostClean} {\n";
+        $code .= "    public function __construct() {\n";
+        $code .= "        add_action('init', array(\$this, 'apply_security_fixes'));\n";
+        $code .= "        add_action('admin_menu', array(\$this, 'register_admin_menu'));\n";
+        $code .= "    }\n\n";
+
+        $code .= "    public function apply_security_fixes() {\n";
+        foreach ($pluginFixes as $fix) {
+            $snippet = trim($fix['fix_code_snippet'] ?? '');
+            if (!empty($snippet)) {
+                $snippetClean = preg_replace('/^<\?php\s*/i', '', $snippet);
+                $code .= "        // Check: {$fix['solution_title']} (ID: {$fix['check_id']})\n";
+                $code .= "        try {\n";
+                foreach (explode("\n", $snippetClean) as $line) {
+                    $code .= "            " . $line . "\n";
+                }
+                $code .= "        } catch (\\Throwable \$e) {}\n\n";
+            }
+        }
+        $code .= "    }\n\n";
+
+        $code .= "    public function register_admin_menu() {\n";
+        $code .= "        add_action('admin_menu', function() {\n";
+        $code .= "            if (empty(\$GLOBALS['admin_page_hooks']['wp-patropi'])) {\n";
+        $code .= "                add_menu_page('WP Patropi', 'WP Patropi', 'manage_options', 'wp-patropi', array(\$this, 'render_admin_page'), 'dashicons-shield', 80);\n";
+        $code .= "            }\n";
+        $code .= "            add_submenu_page('wp-patropi', 'Segurança', 'Segurança', 'manage_options', 'wp-patropi-seguranca', array(\$this, 'render_admin_page'));\n";
+        $code .= "        });\n";
+        $code .= "    }\n\n";
+
+        $code .= "    public function render_admin_page() {\n";
+        $code .= "        echo '<div class=\"wrap\"><h1>Shield - Correções de Segurança Ativas</h1><p>Este plugin foi gerado pela plataforma Validar Segurança para o site " . htmlspecialchars($siteHost) . ".</p><ul>';\n";
+        foreach ($pluginFixes as $fix) {
+            $code .= "        echo '<li><strong>" . htmlspecialchars($fix['solution_title']) . "</strong> (ID: " . htmlspecialchars($fix['check_id']) . ")</li>';\n";
+        }
+        $code .= "        echo '</ul></div>';\n";
+        $code .= "    }\n";
+        $code .= "}\n\n";
+        $code .= "new VS_Remediation_Fix_{$siteHostClean}();\n";
+
+        return $code;
     }
 }

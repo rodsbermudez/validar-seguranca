@@ -56,7 +56,7 @@ class AIService
             "Gravidade: {$severity}\n" .
             "Detalhes da Falha Encontrada no Site Alvo: {$details}";
 
-        $response = $this->callOpenCodeApi($systemPrompt, $userPrompt, true);
+        $response = $this->callOpenCodeApi($systemPrompt, $userPrompt, true, 35);
         return $this->parseJsonResponse($response, $checkId, $checkName);
     }
 
@@ -108,7 +108,7 @@ class AIService
             $userPrompt .= "\nINSTRUÇÕES ADICIONAIS DO USUÁRIO / ADMIN (CONSIDERAR COM PRIORIDADE):\n" . trim($customPrompt) . "\n";
         }
 
-        $rawPhp = $this->callOpenCodeApi($systemPrompt, $userPrompt, false);
+        $rawPhp = $this->callOpenCodeApi($systemPrompt, $userPrompt, false, 120);
         
         // Clean markdown backticks if AI returns ```php ... ```
         $cleanPhp = preg_replace('/^```php\s*/i', '', trim($rawPhp));
@@ -126,9 +126,9 @@ class AIService
     /**
      * Send cURL request to OpenCode / OpenAI Compatible API
      */
-    protected function callOpenCodeApi(string $systemPrompt, string $userPrompt, bool $expectJson = false): string
+    protected function callOpenCodeApi(string $systemPrompt, string $userPrompt, bool $expectJson = false, int $timeout = 120): string
     {
-        @set_time_limit(300);
+        @set_time_limit($timeout + 30);
 
         if (empty($this->apiKey)) {
             throw new \RuntimeException("Chave da API OpenCode não configurada. Por favor, forneça uma API Key válida no arquivo .env ou nas configurações do sistema.");
@@ -157,8 +157,8 @@ class AIService
         curl_setopt($ch, CURLOPT_POST, true);
         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
         curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 30);
-        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
+        curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 15);
 
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
