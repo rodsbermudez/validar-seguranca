@@ -579,12 +579,20 @@ class WordPressScanner
         }
 
         $pluginDetails = [];
+        $versionsExposed = false;
+
+        // Check if any asset URL contains version query parameters for plugins
+        if (preg_match('/\/wp-content\/plugins\/[^\'\"]+[\?&]ver=/i', $html)) {
+            $versionsExposed = true;
+        }
+
         foreach ($detectedPlugins as $pluginSlug) {
             $resPluginReadme = $this->request("/wp-content/plugins/{$pluginSlug}/readme.txt");
             $pluginVer = null;
             if ($resPluginReadme['http_code'] === 200) {
                 if (preg_match('/Stable tag:\s*([0-9\.]+)/i', $resPluginReadme['body'], $vMatch)) {
                     $pluginVer = $vMatch[1];
+                    $versionsExposed = true;
                 }
             }
             $pluginDetails[] = $pluginSlug . ($pluginVer ? " (v{$pluginVer})" : '');
@@ -593,12 +601,14 @@ class WordPressScanner
         $checks[] = [
             'id'          => 'fingerprint_plugins_detected',
             'name'        => 'Enumeração de Plugins Ativos',
-            'description' => 'Identifica plugins instalados a partir das URLs de assets no HTML.',
-            'status'      => !empty($detectedPlugins) ? 'WARN' : 'PASS',
+            'description' => 'Identifica se os plugins instalados expõem suas versões publicamente via URLs de assets ou arquivos readme.txt.',
+            'status'      => $versionsExposed ? 'WARN' : 'PASS',
             'severity'    => 'LOW',
-            'details'     => !empty($detectedPlugins) 
-                ? 'Plugins detectados: ' . implode(', ', $pluginDetails) 
-                : 'Nenhum plugin identificado publicamente no código-fonte.',
+            'details'     => $versionsExposed 
+                ? 'Plugins com versões expostas (via readme.txt ou parâmetro ?ver=): ' . implode(', ', $pluginDetails) 
+                : (!empty($detectedPlugins) 
+                    ? 'Plugins presentes no HTML, mas suas versões exatas e arquivos readme.txt estão ocultos/protegidos.' 
+                    : 'Nenhum plugin identificado publicamente no código-fonte.'),
         ];
 
         return [

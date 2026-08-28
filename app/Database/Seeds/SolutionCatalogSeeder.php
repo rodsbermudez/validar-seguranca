@@ -91,9 +91,9 @@ PHP,
                 'check_id'              => 'fingerprint_plugins_detected',
                 'check_name'            => 'Enumeração de Plugins Ativos',
                 'action_type'           => 'PLUGIN_AUTO_FIX',
-                'problem_description'   => 'Identifica plugins instalados a partir das URLs de assets no HTML.',
-                'solution_title'        => 'Ocultar versões e metadados de plugins para dificultar enumeração',
-                'solution_instructions' => 'Remove os parâmetros de versão (?ver=x.y.z) de arquivos CSS e JS e limpa tags geradoras.',
+                'problem_description'   => 'Identifica plugins instalados a partir das URLs de assets no HTML e arquivos de documentação (readme.txt).',
+                'solution_title'        => 'Ocultar versões e proteger arquivos de documentação de plugins',
+                'solution_instructions' => 'Remove os parâmetros de versão (?ver=x.y.z) de arquivos CSS/JS e bloqueia o acesso a arquivos readme.txt e license.txt dos plugins.',
                 'fix_code_snippet'      => <<<'PHP'
 // Ocultar versões e metadados em assets
 remove_action('wp_head', 'wp_generator');
@@ -104,8 +104,19 @@ add_filter('style_loader_src', function($src) {
 add_filter('script_loader_src', function($src) {
     return $src ? remove_query_arg('ver', $src) : $src;
 }, 9999);
+
+// Bloquear acesso público direto a arquivos de documentação (readme, license, changelog) em wp-content/plugins
+add_action('init', function() {
+    $requestUri = $_SERVER['REQUEST_URI'] ?? '';
+    if (str_contains($requestUri, '/wp-content/plugins/') && preg_match('/\/(readme|changelog|license|licence|readme-.*)\.(txt|html|md)/i', $requestUri)) {
+        status_header(404);
+        header('Content-Type: text/html; charset=utf-8');
+        echo '404 Not Found';
+        exit;
+    }
+}, 1);
 PHP,
-                'ai_notes'              => 'Remove a tag wp_generator e parâmetros de versão ver= de scripts e folhas de estilo.',
+                'ai_notes'              => 'Remove a tag wp_generator, os parâmetros ?ver= de scripts/estilos e bloqueia o acesso aos arquivos readme.txt/license.txt dos plugins.',
                 'created_at'            => date('Y-m-d H:i:s'),
                 'updated_at'            => date('Y-m-d H:i:s'),
             ],
