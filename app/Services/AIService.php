@@ -115,7 +115,7 @@ class AIService
             "                header('Content-Type: text/plain; charset=utf-8'); echo 'XML-RPC disabled'; exit;\n" .
             "            }\n" .
             "        }, 1);\n" .
-            "4. ESTRUTURA DE MENU NO WP ADMIN: Crie a tela do plugin como um SUBMENU sob o menu pai 'WP Patropi' (slug pai: 'wp-patropi'). O submenu deve se chamar 'Segurança' (slug: 'wp-patropi-seguranca'). No hook 'admin_menu', adicione a página via add_submenu_page('wp-patropi', 'Segurança', 'Segurança', 'manage_options', 'wp-patropi-seguranca', 'vs_render_remediation_admin_page'). A página exibirá uma tabela visual formatada com a lista de todas as correções ativas.\n" .
+            "4. ESTRUTURA DE MENU NO WP ADMIN: Crie a tela do plugin como um menu principal no WP Admin chamado 'Validar Segurança' (slug: 'validar-seguranca-fix') via add_menu_page('Validar Segurança', 'Validar Segurança', 'manage_options', 'validar-seguranca-fix', 'vs_render_remediation_admin_page', 'dashicons-shield', 80). A página exibirá uma tabela visual formatada com a lista de todas as correções ativas.\n" .
             "5. Aplique as demais correções fornecidas de forma limpa e segura.\n" .
             "6. GARANTA que o código seja 100% livre de erros de sintaxe PHP. NÃO utilize tags de abertura <?php adicionais dentro de funções ou trechos mal formatados.\n" .
             "7. Responda APENAS com o código PHP completo do plugin (começando com '<?php'). NÃO adicione textos de introdução ou cercas markdown de blocos de código.";

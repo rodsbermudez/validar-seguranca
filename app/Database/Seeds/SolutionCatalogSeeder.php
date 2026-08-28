@@ -17,33 +17,23 @@ class SolutionCatalogSeeder extends Seeder
                 'solution_title'        => 'Redirecionamento Automático de Consultas de Autor para a Página Inicial (/)',
                 'solution_instructions' => 'Instale o plugin de remediação para redirecionar automaticamente qualquer tentativa de acesso por ?author=N para a página inicial (/) com status HTTP 301 permanente.',
                 'fix_code_snippet'      => <<<'PHP'
-// Bloquear enumeração de autores via /?author=N no hook plugins_loaded (evita erros PHP e redireciona 301)
-add_action('plugins_loaded', function() {
-    if (function_exists('is_admin') && is_admin()) return;
+// Bloquear enumeração de autores via /?author=N (redirecionamento 301 para a Home)
+add_action('init', function() {
+    if (is_admin()) return;
     if (isset($_GET['author']) || (isset($_SERVER['REQUEST_URI']) && preg_match('/[\?&]author=\d+/i', $_SERVER['REQUEST_URI']))) {
-        $target = function_exists('home_url') ? home_url('/') : '/';
-        if (function_exists('wp_redirect')) {
-            wp_redirect($target, 301);
-        } else {
-            header('Location: ' . $target, true, 301);
-        }
+        wp_redirect(home_url('/'), 301);
         exit;
     }
 }, 1);
 add_action('template_redirect', function() {
-    if (function_exists('is_admin') && is_admin()) return;
-    if (function_exists('is_author') && is_author()) {
-        $target = function_exists('home_url') ? home_url('/') : '/';
-        if (function_exists('wp_redirect')) {
-            wp_redirect($target, 301);
-        } else {
-            header('Location: ' . $target, true, 301);
-        }
+    if (is_admin()) return;
+    if (is_author()) {
+        wp_redirect(home_url('/'), 301);
         exit;
     }
 }, 1);
 PHP,
-                'ai_notes'              => 'Redireciona com HTTP 301 qualquer requisição /?author=N para a home no hook plugins_loaded, garantindo compatibilidade e evitando tela em branco.',
+                'ai_notes'              => 'Redireciona com HTTP 301 qualquer requisição /?author=N para a home no hook init prioridade 1.',
                 'created_at'            => date('Y-m-d H:i:s'),
                 'updated_at'            => date('Y-m-d H:i:s'),
             ],
@@ -84,13 +74,9 @@ add_filter('wp_headers', function($headers) {
     unset($headers['X-Pingback']);
     return $headers;
 });
-add_action('plugins_loaded', function() {
+add_action('init', function() {
     if (isset($_SERVER['SCRIPT_NAME']) && str_contains($_SERVER['SCRIPT_NAME'], 'xmlrpc.php')) {
-        if (function_exists('status_header')) {
-            status_header(403);
-        } else {
-            header('HTTP/1.1 403 Forbidden');
-        }
+        status_header(403);
         header('Content-Type: text/plain; charset=utf-8');
         echo 'XML-RPC services are disabled on this site.';
         exit;

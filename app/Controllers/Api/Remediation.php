@@ -408,10 +408,7 @@ class Remediation extends ResourceController
 
         $code .= "// --- INTERFACE DE VISUALIZAÇÃO NO PAINEL WP ADMIN ---\n";
         $code .= "add_action('admin_menu', function() {\n";
-        $code .= "    if (empty(\$GLOBALS['admin_page_hooks']['wp-patropi'])) {\n";
-        $code .= "        add_menu_page('WP Patropi', 'WP Patropi', 'manage_options', 'wp-patropi', 'vs_render_remediation_admin_page', 'dashicons-shield', 80);\n";
-        $code .= "    }\n";
-        $code .= "    add_submenu_page('wp-patropi', 'Segurança', 'Segurança', 'manage_options', 'wp-patropi-seguranca', 'vs_render_remediation_admin_page');\n";
+        $code .= "    add_menu_page('Validar Segurança', 'Validar Segurança', 'manage_options', 'validar-seguranca-fix', 'vs_render_remediation_admin_page', 'dashicons-shield', 80);\n";
         $code .= "});\n\n";
 
         $code .= "if (!function_exists('vs_render_remediation_admin_page')) {\n";
