@@ -159,12 +159,12 @@ export const ScanReport: React.FC<ScanReportProps> = ({ website, onBack }) => {
     try {
       const res = await api.post('/solutions/generate-batch', {
         scan_id: currentScanId,
-        force: false,
+        force: true,
       });
-      setBatchMsg(`Geração em lote concluída: ${res.data.processed} solução(ões) processada(s) via IA Kimi K2.7 Code.`);
+      setBatchMsg(res.data.message || `Geração em lote concluída: ${res.data.processed} solução(ões) processada(s).`);
       await fetchSolutionsCatalog();
     } catch (err: any) {
-      alert(err.response?.data?.messages?.error || 'Falha no processamento em lote da IA.');
+      alert(err.response?.data?.messages?.error || err.response?.data?.error || 'Falha no processamento em lote da IA.');
     } finally {
       setBatchLoading(false);
     }

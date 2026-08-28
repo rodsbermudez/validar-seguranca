@@ -262,10 +262,25 @@ class SolutionCatalog extends ResourceController
             }
         }
 
+        $generatedCount = count(array_filter($processedItems, fn($i) => ($i['status'] ?? '') === 'generated'));
+        $existingCount  = count(array_filter($processedItems, fn($i) => ($i['status'] ?? '') === 'skipped_existing'));
+        $totalProcessed = count($processedItems);
+
+        $msg = "Processamento em lote concluído: {$totalProcessed} item(ns) analisado(s)";
+        if ($generatedCount > 0 && $existingCount > 0) {
+            $msg .= " ({$generatedCount} gerado(s) via IA Kimi K2.7 Code e {$existingCount} reutilizado(s) do catálogo).";
+        } elseif ($generatedCount > 0) {
+            $msg .= " ({$generatedCount} solução(ões) gerada(s) via IA Kimi K2.7 Code).";
+        } else {
+            $msg .= " ({$existingCount} solução(ões) já existente(s) e ativas no catálogo).";
+        }
+
         return $this->respond([
             'status'    => 200,
-            'message'   => 'Processamento em lote de soluções concluído.',
-            'processed' => count($processedItems),
+            'message'   => $msg,
+            'processed' => $totalProcessed,
+            'generated' => $generatedCount,
+            'existing'  => $existingCount,
             'items'     => $processedItems,
             'errors'    => $errors,
         ]);

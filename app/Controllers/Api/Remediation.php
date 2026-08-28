@@ -309,27 +309,66 @@ class Remediation extends ResourceController
         try {
             $aiService = new AIService($apiKey);
             $guideHtml = $aiService->generateServerGuide($serverFixableItems, $website['url']);
-
-            // Save generated guide into scan_results_json in database
-            $now = date('Y-m-d H:i:s');
-            $scanResults['server_guide_html'] = $guideHtml;
-            $scanResults['server_guide_generated_at'] = $now;
-
-            $scanHistoryModel->update($scan['id'], [
-                'scan_results_json' => json_encode($scanResults, JSON_UNESCAPED_UNICODE)
-            ]);
-
-            return $this->respond([
-                'status'       => 200,
-                'cached'       => false,
-                'generated_at' => $now,
-                'website_url'   => $website['url'],
-                'total_issues'  => count($serverFixableItems),
-                'issues'       => $serverFixableItems,
-                'guide_html'   => $guideHtml,
-            ]);
         } catch (\Exception $e) {
-            return $this->failServerError('Erro na geração do guia de remediação do servidor: ' . $e->getMessage());
+            // Fallback to rich built-in template HTML guide if AI is unreachable or API key missing
+            $guideHtml = $this->buildFallbackServerGuideHtml($serverFixableItems, $website['url']);
         }
+
+        // Save generated guide into scan_results_json in database
+        $now = date('Y-m-d H:i:s');
+        $scanResults['server_guide_html'] = $guideHtml;
+        $scanResults['server_guide_generated_at'] = $now;
+
+        $scanHistoryModel->update($scan['id'], [
+            'scan_results_json' => json_encode($scanResults, JSON_UNESCAPED_UNICODE)
+        ]);
+
+        return $this->respond([
+            'status'       => 200,
+            'cached'       => false,
+            'generated_at' => $now,
+            'website_url'   => $website['url'],
+            'total_issues'  => count($serverFixableItems),
+            'issues'       => $serverFixableItems,
+            'guide_html'   => $guideHtml,
+        ]);
+    }
+
+    protected function buildFallbackServerGuideHtml(array $serverFixableItems, string $siteUrl): string
+    {
+        $html = '<div style="font-family: system-ui, -apple-system, sans-serif; color: #E2E8F0; line-height: 1.6;">';
+        $html .= '<div style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 8px; padding: 16px; margin-bottom: 24px;">';
+        $html .= '<h3 style="margin-top: 0; color: #60A5FA;">📋 Guia Prático de Remediação do Servidor</h3>';
+        $html .= '<p style="margin-bottom: 0;">As pendências abaixo exigem ajustes nas configurações do seu servidor de hospedagem (Apache, Nginx, LiteSpeed, php.ini ou .htaccess) ou ações manuais de administração para o site <strong>' . htmlspecialchars($siteUrl) . '</strong>.</p>';
+        $html .= '</div>';
+
+        foreach ($serverFixableItems as $idx => $item) {
+            $num = $idx + 1;
+            $title        = htmlspecialchars($item['solution_title'] ?? $item['check_name'] ?? $item['check_id']);
+            $problem      = htmlspecialchars($item['problem_description'] ?? $item['details'] ?? '');
+            $instructions = nl2br(htmlspecialchars($item['solution_instructions'] ?? ''));
+            $actionType   = htmlspecialchars($item['action_type'] ?? 'SERVER_CONFIG');
+
+            $badgeColor = ($actionType === 'SERVER_CONFIG') ? '#F59E0B' : '#3B82F6';
+            $badgeText  = ($actionType === 'SERVER_CONFIG') ? 'Configuração no Servidor' : 'Ação Manual do Administrador';
+
+            $html .= '<div style="background: rgba(30, 41, 59, 0.6); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; padding: 20px; margin-bottom: 20px;">';
+            $html .= '<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">';
+            $html .= '<h4 style="margin: 0; font-size: 1.1rem; color: #F8FAFC;">' . $num . '. ' . $title . '</h4>';
+            $html .= '<span style="background: ' . $badgeColor . '22; color: ' . $badgeColor . '; border: 1px solid ' . $badgeColor . '44; font-size: 0.75rem; font-weight: 600; padding: 4px 10px; border-radius: 9999px;">' . $badgeText . '</span>';
+            $html .= '</div>';
+
+            if (!empty($problem)) {
+                $html .= '<div style="margin-bottom: 12px;"><strong style="color: #94A3B8;">Análise do Problema:</strong><p style="margin: 4px 0 0 0; color: #CBD5E1;">' . $problem . '</p></div>';
+            }
+
+            if (!empty($instructions)) {
+                $html .= '<div><strong style="color: #60A5FA;">Passo a Passo de Correção:</strong><div style="margin-top: 6px; background: rgba(15, 23, 42, 0.8); border-left: 4px solid #3B82F6; padding: 12px 16px; border-radius: 4px; color: #F1F5F9;">' . $instructions . '</div></div>';
+            }
+            $html .= '</div>';
+        }
+
+        $html .= '</div>';
+        return $html;
     }
 }
