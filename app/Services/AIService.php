@@ -95,20 +95,26 @@ class AIService
             "REQUISITOS OBRIGATÓRIOS DO PLUGIN:\n" .
             "1. Comece OBRIGATORIAMENTE com o cabeçalho padrão de Plugin do WordPress (Plugin Name: Validar Segurança Fix - {$siteHost}, Description, Version: 1.0.0, Author: Validar Segurança).\n" .
             "2. Verifique 'if (!defined(\"ABSPATH\")) exit;' no topo por segurança.\n" .
-            "3. EXECUÇÃO IMEDIATA DE SEGURANÇA NO TOPO DO ARQUIVO (FORA DE CLASSES E ANTES DE HOOKS):\n" .
-            "   - Para enumeração de autor (/?author=N), insira a checagem no topo do arquivo:\n" .
-            "     if (!is_admin() && (isset(\$_GET['author']) || (isset(\$_SERVER['QUERY_STRING']) && preg_match('/author=\\d+/i', \$_SERVER['QUERY_STRING'])))) {\n" .
-            "         header('Location: ' . (isset(\$_SERVER['HTTPS']) && \$_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . '://' . \$_SERVER['HTTP_HOST'] . '/', true, 301);\n" .
-            "         exit;\n" .
-            "     }\n" .
-            "   - Para XML-RPC (xmlrpc.php), insira no topo do arquivo:\n" .
-            "     if (isset(\$_SERVER['SCRIPT_NAME']) && str_contains(\$_SERVER['SCRIPT_NAME'], 'xmlrpc.php')) {\n" .
-            "         header('HTTP/1.1 403 Forbidden');\n" .
-            "         header('Content-Type: text/plain; charset=utf-8');\n" .
-            "         echo 'XML-RPC services are disabled on this site.';\n" .
-            "         exit;\n" .
-            "     }\n" .
-            "     add_filter('xmlrpc_enabled', '__return_false');\n" .
+            "3. REGRA CRÍTICA PARA EVITAR TELA EM BRANCO E ERROS FATAL PHP:\n" .
+            "   - NÃO chame funções do WordPress como home_url() ou wp_redirect() no topo puro do arquivo PHP, pois elas ainda não foram carregadas pelo WordPress.\n" .
+            "   - Insira os bloqueios no hook 'plugins_loaded' com prioridade 1 (add_action('plugins_loaded', function() { ... }, 1)):\n" .
+            "     a) Para enumeração de autor (/?author=N):\n" .
+            "        add_action('plugins_loaded', function() {\n" .
+            "            if (function_exists('is_admin') && is_admin()) return;\n" .
+            "            if (isset(\$_GET['author']) || (isset(\$_SERVER['REQUEST_URI']) && preg_match('/[\\?&]author=\\d+/i', \$_SERVER['REQUEST_URI']))) {\n" .
+            "                \$target = function_exists('home_url') ? home_url('/') : '/';\n" .
+            "                if (function_exists('wp_redirect')) { wp_redirect(\$target, 301); } else { header('Location: ' . \$target, true, 301); }\n" .
+            "                exit;\n" .
+            "            }\n" .
+            "        }, 1);\n" .
+            "     b) Para XML-RPC (xmlrpc.php):\n" .
+            "        add_filter('xmlrpc_enabled', '__return_false');\n" .
+            "        add_action('plugins_loaded', function() {\n" .
+            "            if (isset(\$_SERVER['SCRIPT_NAME']) && str_contains(\$_SERVER['SCRIPT_NAME'], 'xmlrpc.php')) {\n" .
+            "                if (function_exists('status_header')) { status_header(403); } else { header('HTTP/1.1 403 Forbidden'); }\n" .
+            "                header('Content-Type: text/plain; charset=utf-8'); echo 'XML-RPC disabled'; exit;\n" .
+            "            }\n" .
+            "        }, 1);\n" .
             "4. ESTRUTURA DE MENU NO WP ADMIN: Crie a tela do plugin como um SUBMENU sob o menu pai 'WP Patropi' (slug pai: 'wp-patropi'). O submenu deve se chamar 'Segurança' (slug: 'wp-patropi-seguranca'). No hook 'admin_menu', adicione a página via add_submenu_page('wp-patropi', 'Segurança', 'Segurança', 'manage_options', 'wp-patropi-seguranca', 'vs_render_remediation_admin_page'). A página exibirá uma tabela visual formatada com a lista de todas as correções ativas.\n" .
             "5. Aplique as demais correções fornecidas de forma limpa e segura.\n" .
             "6. GARANTA que o código seja 100% livre de erros de sintaxe PHP. NÃO utilize tags de abertura <?php adicionais dentro de funções ou trechos mal formatados.\n" .
