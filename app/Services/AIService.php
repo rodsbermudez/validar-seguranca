@@ -11,8 +11,12 @@ class AIService
     public function __construct(?string $overrideApiKey = null)
     {
         $this->apiKey = $overrideApiKey ?: (env('OPENCODE_API_KEY') ?: '');
-        $this->apiUrl = env('OPENCODE_API_URL') ?: 'https://api.opencode.ai/v1/chat/completions';
-        $this->model  = env('OPENCODE_MODEL') ?: 'Kimi K2.7 Code';
+        $url = env('OPENCODE_API_URL');
+        if (empty($url) || str_contains($url, 'api.opencode.ai')) {
+            $url = 'https://opencode.ai/zen/go/v1/chat/completions';
+        }
+        $this->apiUrl = $url;
+        $this->model  = env('OPENCODE_MODEL') ?: 'kimi-k2.7-code';
     }
 
     /**
@@ -230,6 +234,10 @@ class AIService
         $json = json_decode($response, true);
         if (isset($json['choices'][0]['message']['content'])) {
             return trim($json['choices'][0]['message']['content']);
+        }
+
+        if (trim($response) === 'Not Found') {
+            throw new \RuntimeException("URL da API OpenCode inválida (retornou Not Found). Verifique se a variável OPENCODE_API_URL no .env está configurada como 'https://opencode.ai/zen/go/v1/chat/completions'.");
         }
 
         throw new \RuntimeException("Resposta inesperada da API OpenCode: " . $response);
