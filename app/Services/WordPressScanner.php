@@ -508,33 +508,63 @@ class WordPressScanner
             'details'     => $authorDetails,
         ];
 
-        // 2b. User Enumeration via XML Sitemap (/wp-sitemap-users-1.xml)
-        $resSitemap = $this->request('/wp-sitemap-users-1.xml');
+        // 2b. User Enumeration via XML Sitemap (WP Nativo, Yoast SEO, Rank Math, etc.)
+        $sitemapPaths = [
+            '/wp-sitemap-users-1.xml',
+            '/author-sitemap.xml',
+            '/author-sitemap1.xml',
+            '/user-sitemap.xml',
+        ];
+
         $sitemapExposed = false;
         $sitemapUsers = [];
+        $exposedSitemapPath = '';
 
-        if ($resSitemap['http_code'] === 200) {
-            $body = $resSitemap['body'];
-            if (str_contains($body, '<loc>') || str_contains($body, 'urlset')) {
-                // Extract author usernames from <loc>https://.../author/username/</loc>
-                if (preg_match_all('/\/author\/([^\/<\?&]+)/i', $body, $sMatches)) {
-                    $sitemapUsers = array_unique($sMatches[1]);
-                    $sitemapExposed = !empty($sitemapUsers);
-                } elseif (str_contains($body, 'users') || str_contains($body, 'author')) {
-                    $sitemapExposed = true;
+        foreach ($sitemapPaths as $path) {
+            $resSitemap = $this->request($path);
+
+            // Follow 301/302 redirect if location points to another sitemap path
+            if (($resSitemap['http_code'] === 301 || $resSitemap['http_code'] === 302) && !empty($resSitemap['headers']['location'])) {
+                $location = $resSitemap['headers']['location'];
+                if (str_contains($location, 'sitemap') || str_contains($location, 'author')) {
+                    $redirectPath = parse_url($location, PHP_URL_PATH) ?? '';
+                    if (!empty($redirectPath) && $redirectPath !== $path) {
+                        $resSitemap = $this->request($redirectPath);
+                    }
                 }
+            }
+
+            if ($resSitemap['http_code'] === 200) {
+                $body = $resSitemap['body'];
+                if (str_contains($body, '<loc>') || str_contains($body, 'urlset') || str_contains($body, 'sitemap')) {
+                    if (preg_match_all('/\/author\/([^\/<\?&#"\']+)/i', $body, $sMatches)) {
+                        $foundUsers = array_unique($sMatches[1]);
+                        if (!empty($foundUsers)) {
+                            $sitemapUsers = array_unique(array_merge($sitemapUsers, $foundUsers));
+                            $sitemapExposed = true;
+                            $exposedSitemapPath = $path;
+                        }
+                    } elseif (str_contains($body, '/author/')) {
+                        $sitemapExposed = true;
+                        $exposedSitemapPath = $path;
+                    }
+                }
+            }
+
+            if ($sitemapExposed) {
+                break;
             }
         }
 
         $checks[] = [
             'id'          => 'enum_sitemap_users',
-            'name'        => 'Enumeração via Sitemap XML (/wp-sitemap-users-1.xml)',
-            'description' => 'Verifica se o sitemap nativo do WordPress expõe a listagem de autores e usernames.',
+            'name'        => 'Enumeração via Sitemap XML (Yoast / Nativo / Rank Math)',
+            'description' => 'Verifica se sitemaps XML de usuários (/wp-sitemap-users-1.xml ou /author-sitemap.xml) expõem nomes de usuários e autores.',
             'status'      => $sitemapExposed ? 'FAIL' : 'PASS',
             'severity'    => 'HIGH',
             'details'     => $sitemapExposed 
                 ? 'Nomes de usuário expostos no Sitemap XML: ' . (!empty($sitemapUsers) ? implode(', ', $sitemapUsers) : 'Lista de usuários acessível')
-                : 'Sitemap de usuários desativado ou protegido (HTTP ' . $resSitemap['http_code'] . ').',
+                : 'Sitemaps XML de usuários desativados ou protegidos.',
         ];
 
         // 3. XML-RPC interface

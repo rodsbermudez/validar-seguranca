@@ -64,11 +64,14 @@ PHP,
                 'check_id'              => 'enum_sitemap_users',
                 'check_name'            => 'Enumeração de Usuários via Sitemap XML',
                 'action_type'           => 'PLUGIN_AUTO_FIX',
-                'problem_description'   => 'A rota de sitemap nativo (/wp-sitemap-users-1.xml) exibe uma lista em XML contendo o slug de todos os autores do site.',
-                'solution_title'        => 'Desativação do Sitemap de Usuários/Autores no WordPress',
-                'solution_instructions' => 'Desativa o provedor de sitemaps de usuários do WordPress e bloqueia o acesso à rota /wp-sitemap-users*.',
+                'problem_description'   => 'Sitemaps XML (WordPress Nativo /wp-sitemap-users-1.xml ou Yoast SEO/Rank Math /author-sitemap.xml) exibem a lista com os usernames e slugs de todos os autores.',
+                'solution_title'        => 'Desativação do Sitemap de Usuários/Autores (Yoast SEO, Rank Math e Nativo)',
+                'solution_instructions' => 'Desativa o sitemap de usuários nos principais plugins de SEO (Yoast, Rank Math) e no sitemap nativo, bloqueando acessos a /author-sitemap* e /wp-sitemap-users*.',
                 'fix_code_snippet'      => <<<'PHP'
-// Desativar Sitemap de Usuários/Autores no WordPress
+// Desativar Sitemap de Usuários/Autores (Yoast SEO, Rank Math e Nativo)
+add_filter('wpseo_sitemap_exclude_author', '__return_true');
+add_filter('wpseo_sitemap_author_content', '__return_false');
+add_filter('rank_math/sitemap/enable_author_sitemap', '__return_false');
 add_filter('wp_sitemaps_add_provider', function($provider, $name) {
     if ($name === 'users') {
         return false;
@@ -78,10 +81,10 @@ add_filter('wp_sitemaps_add_provider', function($provider, $name) {
 
 add_filter('wp_sitemaps_users_pre_render_data', '__return_false');
 
-// Bloquear requisição direta a URLs de sitemap de usuários
+// Bloquear requisição direta a qualquer rota de sitemap de usuários/autores
 add_action('init', function() {
     $requestUri = $_SERVER['REQUEST_URI'] ?? '';
-    if (str_contains($requestUri, 'wp-sitemap-users')) {
+    if (preg_match('/(wp-sitemap-users|author-sitemap|user-sitemap)/i', $requestUri)) {
         status_header(404);
         header('Content-Type: text/html; charset=utf-8');
         echo '404 Not Found';
@@ -89,7 +92,7 @@ add_action('init', function() {
     }
 }, 1);
 PHP,
-                'ai_notes'              => 'Desativa o provedor de usuários em wp_sitemaps_add_provider e retorna 404 em wp-sitemap-users.',
+                'ai_notes'              => 'Desativa sitemaps de autores no Yoast SEO (wpseo_sitemap_exclude_author), Rank Math e nativo, e bloqueia URLs /author-sitemap* com HTTP 404.',
                 'created_at'            => date('Y-m-d H:i:s'),
                 'updated_at'            => date('Y-m-d H:i:s'),
             ],
