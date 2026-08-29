@@ -249,8 +249,14 @@ class Websites extends ResourceController
             return $this->failNotFound('Website não cadastrado no painel.');
         }
 
-        if (trim($website['agent_token']) !== trim($agentToken)) {
+        if (!hash_equals(trim($website['agent_token']), trim($agentToken))) {
             return $this->failUnauthorized('Token de agente inválido para este site.');
+        }
+
+        // Verify URL if provided (added resilience check)
+        if ($siteUrl && rtrim($siteUrl, '/') !== rtrim($website['url'], '/')) {
+            // Update URL to match where the agent is actually installed
+            $websiteModel->update($siteId, ['url' => rtrim($siteUrl, '/')]);
         }
 
         // Update connection status

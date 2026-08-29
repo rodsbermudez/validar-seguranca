@@ -18,11 +18,7 @@ class VS_Agent_Admin {
             #adminmenu #toplevel_page_wp-patropi .wp-menu-image img {
                 max-width: 20px !important;
                 max-height: 20px !important;
-                width: 20px !important;
-                height: 20px !important;
-                padding: 3px 0 0 0 !important;
                 object-fit: contain !important;
-                box-sizing: border-box !important;
             }
         </style>';
     }
@@ -105,7 +101,7 @@ class VS_Agent_Admin {
         $is_connected = get_option('vs_is_connected', 0);
         ?>
         <div class="wrap">
-            <h1 class="wp-heading-inline" style="display:none;">WP Patropi - Diagnóstico</h1>
+            <h1 class="wp-heading-inline" style="display:none;"></h1>
             <hr class="wp-header-end" style="display:none;" />
 
             <?php settings_errors('vs_messages'); ?>

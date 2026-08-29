@@ -5,7 +5,7 @@ namespace App\Services;
 class WordPressScanner
 {
     private string $baseUrl;
-    private int $timeout = 7;
+    private int $timeout = 15;
 
     public function __construct(string $url)
     {
@@ -244,7 +244,7 @@ class WordPressScanner
         curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, $this->timeout);
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
         curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
-        curl_setopt($ch, CURLOPT_USERAGENT, 'WP-Security-Scanner/1.0');
+        curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
 
         if ($method === 'POST') {
             curl_setopt($ch, CURLOPT_POST, true);
@@ -441,9 +441,9 @@ class WordPressScanner
         if ($resWpJson['http_code'] === 200) {
             $jsonUsers = json_decode($resWpJson['body'], true);
             if (is_array($jsonUsers) && !empty($jsonUsers)) {
-                $usersExposed = true;
                 foreach ($jsonUsers as $u) {
                     if (isset($u['slug'])) {
+                        $usersExposed = true;
                         $usersList[] = $u['slug'];
                     }
                 }
@@ -469,12 +469,18 @@ class WordPressScanner
         $httpCode = $resAuthor['http_code'];
         $location = $resAuthor['headers']['location'] ?? '';
 
-        if ($httpCode === 301 || $httpCode === 302) {
+        // If the server auto-follows or if location is empty but it was a 301/302,
+        // we might not catch the location header properly unless we check effective URL
+        if (($httpCode === 301 || $httpCode === 302) && !empty($location)) {
             if (str_contains($location, '/author/')) {
                 $authorRedirectExposed = true;
                 preg_match('/\/author\/([^\/]+)/', $location, $m);
                 $authorSlug = $m[1] ?? $location;
             }
+        } elseif ($httpCode === 200 && str_contains($resAuthor['effective_url'], '/author/')) {
+            $authorRedirectExposed = true;
+            preg_match('/\/author\/([^\/]+)/', $resAuthor['effective_url'], $m);
+            $authorSlug = $m[1] ?? $resAuthor['effective_url'];
         }
 
         // Check if HTTP response is a clean 301/302 redirect to Home (/)
@@ -641,7 +647,8 @@ class WordPressScanner
         $versionsExposed = false;
 
         // Check if any asset URL contains version query parameters for plugins
-        if (preg_match('/\/wp-content\/plugins\/[^\'\"]+[\?&]ver=/i', $html)) {
+        // Avoid false positives by ensuring it's an actual version number and not just a resource string when plugin is supposedly fixed
+        if (preg_match('/\/wp-content\/plugins\/[^\'"]+[\?&]ver=[0-9\.]+/i', $html)) {
             $versionsExposed = true;
         }
 

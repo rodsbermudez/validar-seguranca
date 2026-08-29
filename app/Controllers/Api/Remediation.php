@@ -431,7 +431,7 @@ class Remediation extends ResourceController
 
         $code .= "// --- INTERFACE DE VISUALIZAÇÃO NO PAINEL WP ADMIN ---\n";
         $code .= "add_action('admin_head', function() {\n";
-        $code .= "    echo '<style>#adminmenu .toplevel_page_wp-patropi .wp-menu-image img, #adminmenu #toplevel_page_wp-patropi .wp-menu-image img { max-width: 20px !important; max-height: 20px !important; width: 20px !important; height: 20px !important; padding: 3px 0 0 0 !important; object-fit: contain !important; box-sizing: border-box !important; }</style>';\n";
+        $code .= "    echo '<style>#adminmenu .toplevel_page_wp-patropi .wp-menu-image img, #adminmenu #toplevel_page_wp-patropi .wp-menu-image img { max-width: 20px !important; max-height: 20px !important; object-fit: contain !important; }</style>';\n";
         $code .= "});\n\n";
 
         $code .= "add_action('admin_menu', function() {\n";
@@ -447,7 +447,7 @@ class Remediation extends ResourceController
         $code .= "    function vs_render_remediation_admin_page() {\n";
         $code .= "        \$logo_url = plugins_url('assets/logo-Patropi.png', __FILE__);\n";
         $code .= "        echo '<div class=\"wrap\">';\n";
-        $code .= "        echo '<h1 class=\"wp-heading-inline\" style=\"display:none;\">WP Patropi - Fixes</h1>';\n";
+        $code .= "        echo '<h1 class=\"wp-heading-inline\" style=\"display:none;\"></h1>';\n";
         $code .= "        echo '<hr class=\"wp-header-end\" style=\"display:none;\" />';\n";
         $code .= "        echo '<div style=\"display: flex; align-items: center; justify-content: space-between; margin: 15px 0; background: #fff; padding: 15px 20px; border-radius: 8px; border: 1px solid #e0e0e0; box-shadow: 0 1px 3px rgba(0,0,0,0.05);\">';\n";
         $code .= "        echo '  <div style=\"display: flex; align-items: center; gap: 15px;\">';\n";
