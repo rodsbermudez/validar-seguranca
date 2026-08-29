@@ -25,6 +25,7 @@ import { WebsitesList } from './components/WebsitesList';
 import { ScanReport } from './components/ScanReport';
 import { UsersList } from './components/UsersList';
 import { SolutionCatalogView } from './components/SolutionCatalogView';
+import { getDocsUrl } from './api';
 
 export default function App() {
   const [user, setUser] = useState<any | null>(null);
@@ -185,7 +186,7 @@ export default function App() {
 
               <Button
                 component="a"
-                href="/validar-seguranca/docs"
+                href={getDocsUrl()}
                 target="_blank"
                 variant="subtle"
                 color="gray"

@@ -12,6 +12,14 @@ const getApiBaseUrl = () => {
   return `${origin}/api`;
 };
 
+export const getDocsUrl = () => {
+  const pathName = window.location.pathname;
+  if (pathName.startsWith('/validar-seguranca')) {
+    return '/validar-seguranca/docs';
+  }
+  return '/docs';
+};
+
 export const api = axios.create({
   baseURL: getApiBaseUrl(),
   timeout: 120000,
