@@ -360,6 +360,6 @@ class AIService
             "LISTA DE PROBLEMAS DO SERVIDOR / AÇÕES MANUAIS PARA RESOLVER:\n" .
             $issuesSummary;
 
-        return $this->callOpenCodeApi($systemPrompt, $userPrompt, false);
+        return $this->callOpenCodeApi($systemPrompt, $userPrompt, false, 120);
     }
 }

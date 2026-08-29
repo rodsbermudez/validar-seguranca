@@ -38,6 +38,7 @@ import {
   IconUserCheck,
   IconPlug,
   IconPrinter,
+  IconRefresh,
 } from '@tabler/icons-react';
 import { api } from '../api';
 
@@ -472,10 +473,10 @@ export const ScanReport: React.FC<ScanReportProps> = ({ website, onBack }) => {
   }, [scanResult]);
 
   // Generate Server & Manual Fixes Step-by-Step Guide via AI
-  const handleFetchServerGuide = async (forceRefresh = false) => {
+  const handleFetchServerGuide = async (forceRefresh = false, useFallback = false) => {
     const currentScanId = history.length > 0 ? history[0].id : null;
 
-    if (!forceRefresh && scanResult?.server_guide_html) {
+    if (!forceRefresh && !useFallback && scanResult?.server_guide_html) {
       setServerGuideHtml(scanResult.server_guide_html);
       return;
     }
@@ -483,11 +484,16 @@ export const ScanReport: React.FC<ScanReportProps> = ({ website, onBack }) => {
     setServerGuideLoading(true);
     setServerGuideError(null);
     try {
-      const res = await api.post('/remediation/generate-server-guide', {
-        scan_id: currentScanId,
-        website_id: website.id,
-        force_refresh: forceRefresh,
-      });
+      const res = await api.post(
+        '/remediation/generate-server-guide',
+        {
+          scan_id: currentScanId,
+          website_id: website.id,
+          force_refresh: forceRefresh,
+          use_fallback: useFallback,
+        },
+        { timeout: 120000 }
+      );
       const html = res.data.guide_html || null;
       setServerGuideHtml(html);
 
@@ -499,7 +505,12 @@ export const ScanReport: React.FC<ScanReportProps> = ({ website, onBack }) => {
         });
       }
     } catch (err: any) {
-      setServerGuideError(err.response?.data?.messages?.error || err.response?.data?.error || 'Erro ao gerar o guia do servidor.');
+      const errorMsg =
+        err.response?.data?.messages?.error ||
+        err.response?.data?.error ||
+        err.message ||
+        'Erro ao gerar o guia do servidor.';
+      setServerGuideError(errorMsg);
     } finally {
       setServerGuideLoading(false);
     }
@@ -1169,6 +1180,29 @@ export const ScanReport: React.FC<ScanReportProps> = ({ website, onBack }) => {
                 </Text>
               </Stack>
             </Center>
+          ) : serverGuideError ? (
+            <Alert color="red" icon={<IconAlertTriangle size={18} />} title="Falha ao Gerar Guia com IA" radius="sm">
+              <Text size="sm" mb="xs">
+                {serverGuideError}
+              </Text>
+              <Group gap="xs" mt="sm">
+                <Button
+                  size="xs"
+                  color="orange"
+                  leftSection={<IconRefresh size={14} />}
+                  onClick={() => handleFetchServerGuide(true, false)}
+                >
+                  Tentar Novamente (IA)
+                </Button>
+                <Button
+                  size="xs"
+                  variant="default"
+                  onClick={() => handleFetchServerGuide(true, true)}
+                >
+                  Carregar Guia Padrão (Sem IA)
+                </Button>
+              </Group>
+            </Alert>
           ) : serverGuideHtml ? (
             <Paper p="md" bg="dark.9" radius="sm" style={{ border: '1px solid #373A40', maxHeight: '60vh', overflowY: 'auto' }}>
               <div

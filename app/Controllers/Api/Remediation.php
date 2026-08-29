@@ -203,10 +203,13 @@ class Remediation extends ResourceController
      */
     public function generateServerGuide()
     {
-        $json      = $this->request->getJSON(true) ?: [];
-        $scanId    = $json['scan_id'] ?? null;
-        $websiteId = $json['website_id'] ?? null;
-        $apiKey    = $json['api_key'] ?? null;
+        @set_time_limit(150);
+
+        $json        = $this->request->getJSON(true) ?: [];
+        $scanId      = $json['scan_id'] ?? null;
+        $websiteId   = $json['website_id'] ?? null;
+        $apiKey      = $json['api_key'] ?? null;
+        $useFallback = !empty($json['use_fallback']);
 
         $effectiveUserId = $this->request->effectiveUserId ?? ($this->request->userData->id ?? null);
         $userData        = $this->request->userData ?? null;
@@ -310,8 +313,8 @@ class Remediation extends ResourceController
 
         $forceRefresh = !empty($json['force_refresh']) || !empty($json['refresh']);
 
-        // Check if we already have a saved guide in scanResults
-        if (!$forceRefresh && !empty($scanResults['server_guide_html'])) {
+        // Check if we already have a saved guide in scanResults (unless forced or using fallback explicit request)
+        if (!$forceRefresh && !$useFallback && !empty($scanResults['server_guide_html'])) {
             return $this->respond([
                 'status'       => 200,
                 'cached'       => true,
@@ -323,12 +326,17 @@ class Remediation extends ResourceController
             ]);
         }
 
-        try {
-            $aiService = new AIService($apiKey);
-            $guideHtml = $aiService->generateServerGuide($serverFixableItems, $website['url']);
-        } catch (\Exception $e) {
-            // Fallback to rich built-in template HTML guide if AI is unreachable or API key missing
+        if ($useFallback) {
             $guideHtml = $this->buildFallbackServerGuideHtml($serverFixableItems, $website['url']);
+        } else {
+            try {
+                $aiService = new AIService($apiKey);
+                $guideHtml = $aiService->generateServerGuide($serverFixableItems, $website['url']);
+            } catch (\Exception $e) {
+                log_message('error', 'Erro na geração do Guia de Servidor via IA: ' . $e->getMessage());
+                // Fallback to rich built-in template HTML guide if AI is unreachable or API key missing
+                $guideHtml = $this->buildFallbackServerGuideHtml($serverFixableItems, $website['url']);
+            }
         }
 
         // Save generated guide into scan_results_json in database

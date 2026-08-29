@@ -17,7 +17,7 @@ Uma plataforma completa para **auditoria de segurança**, **triagem inteligente 
   - **Mecanismo de Resiliência e Fallback cURL**: Suporte a retentativas automáticas cURL no `AIService` sem envio de parâmetros sensíveis (`temperature`), garantindo 100% de compatibilidade com o provedor OpenCode Zen.
   - **Triagem Automática**: Separação clara entre falhas corrigíveis via código/plugin e falhas que exigem intervenção de infraestrutura ou ações manuais.
   - **Gerador de Plugins de Correção**: Criação automatizada de plugins PHP customizados sob medida para sanar falhas diretamente no painel do WordPress (incluindo desativação de sitemaps de autores, redirecionamento 301 de requisições de autor para a Home, remoção de parâmetros `?ver=` e bloqueio de arquivos `readme.txt`/`license.txt`).
-  - **Guia do Servidor & Ações Manuais**: Instruções passo a passo geradas por IA para edições em `.htaccess`, `nginx.conf`, `php.ini`, `wp-config.php` e rotinas do painel SSH/cPanel.
+  - **Guia do Servidor & Ações Manuais**: Instruções passo a passo geradas por IA para edições em `.htaccess`, `nginx.conf`, `php.ini`, `wp-config.php` e rotinas do painel SSH/cPanel. Inclui timeout expandido para 120s, exibição de alerta de erro com causa detalhada na modal e alternância instantânea para Guia Padrão (Sem IA) caso ocorra indisponibilidade da API.
   - **Cache & Persistência de Guias**: Salvamento automático dos conselhos da IA no banco de dados para carregamento instantâneo sem chamadas redundantes.
 
 - **🔌 Plugin Agente Patropi (WordPress Companion)**:
