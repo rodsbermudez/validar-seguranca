@@ -91,6 +91,7 @@ class SolutionCatalog extends ResourceController
      */
     public function generateSingle()
     {
+        @set_time_limit(120);
         if (!$this->checkAdminPermission()) {
             return $this->failForbidden('Apenas administradores podem solicitar geração de soluções com IA.');
         }

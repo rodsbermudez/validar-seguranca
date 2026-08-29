@@ -60,7 +60,7 @@ class AIService
             "Gravidade: {$severity}\n" .
             "Detalhes da Falha Encontrada no Site Alvo: {$details}";
 
-        $response = $this->callOpenCodeApi($systemPrompt, $userPrompt, true, 35);
+        $response = $this->callOpenCodeApi($systemPrompt, $userPrompt, true, 90, 0.3);
         return $this->parseJsonResponse($response, $checkId, $checkName);
     }
 
@@ -184,7 +184,7 @@ class AIService
     /**
      * Send cURL request to OpenCode / OpenAI Compatible API
      */
-    protected function callOpenCodeApi(string $systemPrompt, string $userPrompt, bool $expectJson = false, int $timeout = 120): string
+    protected function callOpenCodeApi(string $systemPrompt, string $userPrompt, bool $expectJson = false, int $timeout = 120, float $temperature = 0.3): string
     {
         @set_time_limit($timeout + 30);
 
@@ -203,7 +203,7 @@ class AIService
                 ['role' => 'system', 'content' => $systemPrompt],
                 ['role' => 'user', 'content' => $userPrompt],
             ],
-            'temperature' => 1.0,
+            'temperature' => $temperature,
         ];
 
         if ($expectJson) {

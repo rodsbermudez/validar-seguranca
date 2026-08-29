@@ -18,6 +18,7 @@ import {
   Modal,
   Textarea,
   Tooltip,
+  Progress,
 } from '@mantine/core';
 import {
   IconArrowLeft,
@@ -57,9 +58,24 @@ export const ScanReport: React.FC<ScanReportProps> = ({ website, onBack }) => {
   const [catalogSolutions, setCatalogSolutions] = useState<Record<string, any>>({});
   const [currentUser, setCurrentUser] = useState<any | null>(null);
 
-  // Batch Generation State
-  const [batchLoading, setBatchLoading] = useState(false);
-  const [batchMsg, setBatchMsg] = useState<string | null>(null);
+  // Batch Generation Real-time State
+  const [batchModalOpen, setBatchModalOpen] = useState(false);
+  const [batchProgress, setBatchProgress] = useState(0);
+  const [batchCurrentStep, setBatchCurrentStep] = useState(0);
+  const [batchTotalSteps, setBatchTotalSteps] = useState(0);
+  const [batchCurrentItemName, setBatchCurrentItemName] = useState('');
+  const [batchRunning, setBatchRunning] = useState(false);
+  const [batchSuccessCount, setBatchSuccessCount] = useState(0);
+  const [batchSkippedCount, setBatchSkippedCount] = useState(0);
+  const [batchErrorCount, setBatchErrorCount] = useState(0);
+  const [batchLogs, setBatchLogs] = useState<
+    Array<{
+      name: string;
+      status: 'pending' | 'generating' | 'success' | 'skipped' | 'error';
+      message?: string;
+      duration?: number;
+    }>
+  >([]);
 
   // Single Check AI Generation State
   const [generatingCheckId, setGeneratingCheckId] = useState<string | null>(null);
@@ -150,24 +166,131 @@ export const ScanReport: React.FC<ScanReportProps> = ({ website, onBack }) => {
     }
   };
 
-  // Generate batch AI solutions (Admin)
-  const handleBatchGenerateSolutions = async () => {
-    if (!history.length && !scanResult) return;
-    const currentScanId = history.length > 0 ? history[0].id : null;
-    setBatchLoading(true);
-    setBatchMsg(null);
-    try {
-      const res = await api.post('/solutions/generate-batch', {
-        scan_id: currentScanId,
-        force: true,
+  // Helper to extract failed checks from scanResult
+  const getAllFailedChecks = () => {
+    if (!scanResult) return [];
+    const checks: any[] = [];
+    const seen = new Set<string>();
+
+    const extract = (list: any[]) => {
+      list.forEach((c: any) => {
+        const id = c.id || c.check_id;
+        const st = (c.status || '').toUpperCase();
+        if (id && !seen.has(id) && ['FAIL', 'WARN', 'WARNING', 'ALERTA', 'FALHA'].includes(st)) {
+          seen.add(id);
+          checks.push(c);
+        }
       });
-      setBatchMsg(res.data.message || `Geração em lote concluída: ${res.data.processed} solução(ões) processada(s).`);
-      await fetchSolutionsCatalog();
-    } catch (err: any) {
-      alert(err.response?.data?.messages?.error || err.response?.data?.error || 'Falha no processamento em lote da IA.');
-    } finally {
-      setBatchLoading(false);
+    };
+
+    if (Array.isArray(scanResult.checks)) {
+      extract(scanResult.checks);
     }
+    if (Array.isArray(scanResult.categories)) {
+      scanResult.categories.forEach((cat: any) => {
+        if (Array.isArray(cat.checks)) extract(cat.checks);
+      });
+    }
+    return checks;
+  };
+
+  // Real-time sequential batch solution generator
+  const handleBatchGenerateSolutionsWithProgress = async (forceRegenerate = false) => {
+    const failedChecks = getAllFailedChecks();
+    if (failedChecks.length === 0) {
+      alert('Nenhuma falha encontrada no relatório para gerar soluções.');
+      return;
+    }
+
+    setBatchModalOpen(true);
+    setBatchRunning(true);
+    setBatchTotalSteps(failedChecks.length);
+    setBatchCurrentStep(0);
+    setBatchProgress(0);
+    setBatchSuccessCount(0);
+    setBatchSkippedCount(0);
+    setBatchErrorCount(0);
+
+    const initialLogs = failedChecks.map((check: any) => ({
+      name: check.name || check.check_name || check.id || check.check_id,
+      status: 'pending' as const,
+    }));
+    setBatchLogs(initialLogs);
+
+    let success = 0;
+    let skipped = 0;
+    let errors = 0;
+
+    for (let i = 0; i < failedChecks.length; i++) {
+      const check = failedChecks[i];
+      const checkId = check.id || check.check_id;
+      const checkName = check.name || check.check_name || checkId;
+
+      setBatchCurrentStep(i + 1);
+      setBatchCurrentItemName(checkName);
+
+      // Set current item to generating
+      setBatchLogs((prev) =>
+        prev.map((item, idx) => (idx === i ? { ...item, status: 'generating' } : item))
+      );
+
+      // Check if already exists in catalog and not forcing
+      const existing = catalogSolutions[checkId];
+      if (existing && !forceRegenerate) {
+        skipped++;
+        setBatchSkippedCount(skipped);
+        setBatchLogs((prev) =>
+          prev.map((item, idx) =>
+            idx === i
+              ? { ...item, status: 'skipped', message: 'Já cadastrado no catálogo' }
+              : item
+          )
+        );
+        setBatchProgress(Math.round(((i + 1) / failedChecks.length) * 100));
+        continue;
+      }
+
+      const startTime = Date.now();
+      try {
+        await api.post(
+          '/solutions/generate-single',
+          {
+            check_id: checkId,
+            check_name: checkName,
+            details: check.details || check.description || '',
+            severity: check.severity || 'medium',
+          },
+          { timeout: 120000 }
+        );
+
+        const duration = Math.round((Date.now() - startTime) / 1000);
+        success++;
+        setBatchSuccessCount(success);
+        setBatchLogs((prev) =>
+          prev.map((item, idx) =>
+            idx === i
+              ? { ...item, status: 'success', duration, message: 'Gerado com sucesso' }
+              : item
+          )
+        );
+      } catch (err: any) {
+        const errorMsg =
+          err.response?.data?.messages?.error || err.message || 'Erro de conexão ou timeout';
+        errors++;
+        setBatchErrorCount(errors);
+        setBatchLogs((prev) =>
+          prev.map((item, idx) =>
+            idx === i ? { ...item, status: 'error', message: errorMsg } : item
+          )
+        );
+      }
+
+      setBatchProgress(Math.round(((i + 1) / failedChecks.length) * 100));
+    }
+
+    setBatchRunning(false);
+    setBatchProgress(100);
+    await fetchSolutionsCatalog();
   };
 
   // Generate single check AI solution (Admin)
@@ -436,11 +559,7 @@ export const ScanReport: React.FC<ScanReportProps> = ({ website, onBack }) => {
         </Alert>
       )}
 
-      {batchMsg && (
-        <Alert icon={<IconCheck size={16} />} color="green" mb="md" onClose={() => setBatchMsg(null)} withCloseButton>
-          {batchMsg}
-        </Alert>
-      )}
+
 
       {!scanResult ? (
         <Paper p="xl" ta="center" bg="dark.7" radius="md" my="xl">
@@ -478,8 +597,8 @@ export const ScanReport: React.FC<ScanReportProps> = ({ website, onBack }) => {
                     variant="gradient"
                     gradient={{ from: 'indigo', to: 'violet' }}
                     leftSection={<IconSparkles size={16} />}
-                    loading={batchLoading}
-                    onClick={handleBatchGenerateSolutions}
+                    loading={batchRunning}
+                    onClick={() => handleBatchGenerateSolutionsWithProgress(false)}
                   >
                     ✨ Gerar Soluções em Lote (IA)
                   </Button>
@@ -959,6 +1078,195 @@ export const ScanReport: React.FC<ScanReportProps> = ({ website, onBack }) => {
             <Button variant="default" onClick={() => setServerGuideModalOpen(false)}>
               Fechar
             </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      {/* Modal de Progresso em Tempo Real - Geração de Soluções em Lote */}
+      <Modal
+        opened={batchModalOpen}
+        onClose={() => {
+          if (!batchRunning) setBatchModalOpen(false);
+        }}
+        closeOnClickOutside={!batchRunning}
+        closeOnEscape={!batchRunning}
+        withCloseButton={!batchRunning}
+        title={
+          <Group gap="xs">
+            <IconSparkles size={22} color="#7950F2" />
+            <Text fw={700} size="md" c="white">
+              Geração de Soluções em Lote via IA
+            </Text>
+          </Group>
+        }
+        size="lg"
+        radius="md"
+        centered
+        styles={{
+          header: {
+            backgroundColor: '#1A1B1E',
+            borderBottom: '1px solid #2C2E33',
+            padding: '14px 20px',
+          },
+          body: {
+            backgroundColor: '#141517',
+            padding: '20px',
+          },
+          content: {
+            backgroundColor: '#141517',
+            border: '1px solid #2C2E33',
+          },
+        }}
+      >
+        <Stack gap="md">
+          {batchRunning ? (
+            <Alert color="indigo" icon={<Loader size={18} />}>
+              <Text size="sm" fw={600}>
+                Analisando item {batchCurrentStep} de {batchTotalSteps}: <b>{batchCurrentItemName}</b>
+              </Text>
+            </Alert>
+          ) : (
+            <Alert color="teal" icon={<IconCheck size={18} />}>
+              <Text size="sm" fw={600}>
+                Processamento concluído! Todos os {batchTotalSteps} itens foram analisados.
+              </Text>
+            </Alert>
+          )}
+
+          {/* Progress Bar */}
+          <div>
+            <Group justify="space-between" mb={6}>
+              <Text size="xs" fw={700} c="dimmed">
+                PROGRESSO GERAL ({batchCurrentStep}/{batchTotalSteps})
+              </Text>
+              <Text size="xs" fw={800} c="indigo.4">
+                {batchProgress}%
+              </Text>
+            </Group>
+            <Progress
+              value={batchProgress}
+              color="indigo"
+              size="lg"
+              radius="xl"
+              animated={batchRunning}
+            />
+          </div>
+
+          {/* Counter Cards */}
+          <Grid>
+            <Grid.Col span={4}>
+              <Paper p="xs" radius="sm" bg="dark.7" style={{ border: '1px solid #2C2E33' }} ta="center">
+                <Text size="xs" c="dimmed" fw={600}>
+                  🟢 Gerados
+                </Text>
+                <Text fw={800} size="lg" c="teal.4">
+                  {batchSuccessCount}
+                </Text>
+              </Paper>
+            </Grid.Col>
+            <Grid.Col span={4}>
+              <Paper p="xs" radius="sm" bg="dark.7" style={{ border: '1px solid #2C2E33' }} ta="center">
+                <Text size="xs" c="dimmed" fw={600}>
+                  🔵 Reutilizados
+                </Text>
+                <Text fw={800} size="lg" c="cyan.4">
+                  {batchSkippedCount}
+                </Text>
+              </Paper>
+            </Grid.Col>
+            <Grid.Col span={4}>
+              <Paper p="xs" radius="sm" bg="dark.7" style={{ border: '1px solid #2C2E33' }} ta="center">
+                <Text size="xs" c="dimmed" fw={600}>
+                  🔴 Erros
+                </Text>
+                <Text fw={800} size="lg" c="red.4">
+                  {batchErrorCount}
+                </Text>
+              </Paper>
+            </Grid.Col>
+          </Grid>
+
+          {/* Log List */}
+          <Text size="xs" fw={700} c="dimmed" mt="xs">
+            HISTÓRICO DE PROCESSAMENTO EM TEMPO REAL
+          </Text>
+          <Paper
+            p="xs"
+            bg="dark.8"
+            radius="sm"
+            style={{ maxHeight: 220, overflowY: 'auto', border: '1px solid #2C2E33' }}
+          >
+            <Stack gap={6}>
+              {batchLogs.map((log, index) => (
+                <Group key={index} justify="space-between" align="center">
+                  <Group gap="xs">
+                    {log.status === 'generating' && <Loader size={12} color="indigo" />}
+                    {log.status === 'success' && <IconCheck size={14} color="#10B981" />}
+                    {log.status === 'skipped' && <IconCheck size={14} color="#06B6D4" />}
+                    {log.status === 'error' && <IconX size={14} color="#EF4444" />}
+                    {log.status === 'pending' && <Text size="xs" c="dimmed">•</Text>}
+
+                    <Text
+                      size="xs"
+                      fw={log.status === 'generating' ? 700 : 500}
+                      c={log.status === 'generating' ? 'indigo.3' : 'gray.3'}
+                    >
+                      {log.name}
+                    </Text>
+                  </Group>
+
+                  <Group gap={6}>
+                    {log.status === 'generating' && (
+                      <Badge size="xs" color="indigo" variant="dot">
+                        Analisando...
+                      </Badge>
+                    )}
+                    {log.status === 'success' && (
+                      <Badge size="xs" color="teal">
+                        Gerado ({log.duration}s)
+                      </Badge>
+                    )}
+                    {log.status === 'skipped' && (
+                      <Badge size="xs" color="cyan" variant="outline">
+                        Reutilizado
+                      </Badge>
+                    )}
+                    {log.status === 'error' && (
+                      <Badge size="xs" color="red" variant="filled">
+                        Falhou
+                      </Badge>
+                    )}
+                    {log.status === 'pending' && (
+                      <Badge size="xs" color="gray" variant="outline">
+                        Aguardando
+                      </Badge>
+                    )}
+                  </Group>
+                </Group>
+              ))}
+            </Stack>
+          </Paper>
+
+          <Group justify="flex-end" mt="sm">
+            {!batchRunning ? (
+              <Group gap="xs">
+                <Button
+                  variant="light"
+                  color="indigo"
+                  size="xs"
+                  onClick={() => handleBatchGenerateSolutionsWithProgress(true)}
+                >
+                  🔄 Recarregar Todos via IA
+                </Button>
+                <Button color="teal" size="xs" onClick={() => setBatchModalOpen(false)}>
+                  Concluir e Ver Soluções
+                </Button>
+              </Group>
+            ) : (
+              <Text size="xs" c="dimmed">
+                Aguarde a conclusão de todos os itens...
+              </Text>
+            )}
           </Group>
         </Stack>
       </Modal>
