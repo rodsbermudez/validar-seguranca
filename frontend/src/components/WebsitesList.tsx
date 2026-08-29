@@ -189,25 +189,29 @@ export const WebsitesList: React.FC<WebsitesListProps> = ({ onSelectWebsite, onT
             <Table.Tr>
               <Table.Th>Nome do Site</Table.Th>
               <Table.Th>URL do Alvo</Table.Th>
-              <Table.Th>Ambiente</Table.Th>
               <Table.Th>Status Agente WP</Table.Th>
-              <Table.Th>Data de Cadastro</Table.Th>
               <Table.Th style={{ textAlign: 'right' }}>Ações</Table.Th>
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
             {websites.map((site) => (
               <Table.Tr key={site.id}>
-                <Table.Td fw={600}>{site.name}</Table.Td>
+                <Table.Td>
+                  <Group gap="xs" wrap="nowrap">
+                    <Text fw={600}>{site.name}</Text>
+                    <Badge
+                      size="xs"
+                      color={site.environment === 'production' ? 'red' : site.environment === 'staging' ? 'orange' : 'teal'}
+                      variant="light"
+                    >
+                      {(site.environment || 'production').toUpperCase()}
+                    </Badge>
+                  </Group>
+                </Table.Td>
                 <Table.Td>
                   <Text size="sm" c="blue" component="a" href={site.url} target="_blank" rel="noopener noreferrer">
                     {site.url}
                   </Text>
-                </Table.Td>
-                <Table.Td>
-                  <Badge color={site.environment === 'production' ? 'red' : 'teal'} variant="light">
-                    {site.environment.toUpperCase()}
-                  </Badge>
                 </Table.Td>
                 <Table.Td>
                   {Number(site.is_connected) === 1 ? (
@@ -220,9 +224,8 @@ export const WebsitesList: React.FC<WebsitesListProps> = ({ onSelectWebsite, onT
                     </Badge>
                   )}
                 </Table.Td>
-                <Table.Td>{new Date(site.created_at).toLocaleDateString('pt-BR')}</Table.Td>
                 <Table.Td style={{ textAlign: 'right' }}>
-                  <Group justify="flex-end" gap="xs">
+                  <Group justify="flex-end" gap="xs" wrap="nowrap">
                     <Tooltip label="Baixar Plugin WordPress Agente">
                       <Button
                         size="xs"
