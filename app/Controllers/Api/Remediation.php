@@ -142,6 +142,17 @@ class Remediation extends ResourceController
             $pluginDirName = 'wp-patropi-fixes';
             $zip->addFromString("{$pluginDirName}/wp-patropi-fixes.php", $pluginCode);
 
+            // Add asset images to ZIP
+            $faviconPath = ROOTPATH . 'public/favicon.png';
+            if (file_exists($faviconPath)) {
+                $zip->addFile($faviconPath, "{$pluginDirName}/assets/favicon.png");
+            }
+
+            $logoPath = ROOTPATH . 'public/images/logo-Patropi.png';
+            if (file_exists($logoPath)) {
+                $zip->addFile($logoPath, "{$pluginDirName}/assets/logo-Patropi.png");
+            }
+
             // Create Readme.txt
             $readmeText = "====================================================\n" .
                 "VALIDAR SEGURANÇA - PLUGIN CUSTOMIZADO DE REMEDIAÇÃO\n" .
@@ -381,8 +392,6 @@ class Remediation extends ResourceController
     protected function buildNativeRemediationPlugin(array $pluginFixes, string $websiteUrl): string
     {
         $siteHost      = parse_url($websiteUrl, PHP_URL_HOST) ?: 'wordpress-site';
-        $faviconData   = BrandingService::getFaviconDataUri();
-        $logoData      = BrandingService::getLogoDataUri();
         $authorName    = BrandingService::AUTHOR_NAME;
         $authorUri     = BrandingService::AUTHOR_URI;
 
@@ -423,18 +432,20 @@ class Remediation extends ResourceController
         $code .= "// --- INTERFACE DE VISUALIZAÇÃO NO PAINEL WP ADMIN ---\n";
         $code .= "add_action('admin_menu', function() {\n";
         $code .= "    \$parent_slug = 'wp-patropi';\n";
+        $code .= "    \$icon_url    = plugins_url('assets/favicon.png', __FILE__);\n";
         $code .= "    if (empty(\$GLOBALS['admin_page_hooks'][\$parent_slug])) {\n";
-        $code .= "        add_menu_page('WP Patropi', 'WP Patropi', 'manage_options', \$parent_slug, 'vs_render_remediation_admin_page', '{$faviconData}', 80);\n";
+        $code .= "        add_menu_page('WP Patropi', 'WP Patropi', 'manage_options', \$parent_slug, 'vs_render_remediation_admin_page', \$icon_url, 80);\n";
         $code .= "    }\n";
         $code .= "    add_submenu_page(\$parent_slug, 'WP Patropi - Fixes', 'WP Patropi - Fixes', 'manage_options', 'wp-patropi-fixes', 'vs_render_remediation_admin_page');\n";
         $code .= "});\n\n";
 
         $code .= "if (!function_exists('vs_render_remediation_admin_page')) {\n";
         $code .= "    function vs_render_remediation_admin_page() {\n";
+        $code .= "        \$logo_url = plugins_url('assets/logo-Patropi.png', __FILE__);\n";
         $code .= "        echo '<div class=\"wrap\">';\n";
         $code .= "        echo '<div style=\"display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; background: #fff; padding: 15px 20px; border-radius: 8px; border: 1px solid #e0e0e0; box-shadow: 0 1px 3px rgba(0,0,0,0.05);\">';\n";
         $code .= "        echo '  <div style=\"display: flex; align-items: center; gap: 15px;\">';\n";
-        $code .= "        echo '    <img src=\"{$logoData}\" alt=\"Patropi Comunica\" style=\"max-height: 42px; width: auto;\" onerror=\"this.style.display=\\'none\\';\" />';\n";
+        $code .= "        echo '    <img src=\"' . esc_url(\$logo_url) . '\" alt=\"Patropi Comunica\" style=\"max-height: 42px; width: auto;\" onerror=\"this.style.display=\\'none\\';\" />';\n";
         $code .= "        echo '    <div>';\n";
         $code .= "        echo '      <h1 style=\"margin: 0; font-size: 20px; font-weight: 700; color: #1e293b;\">WP Patropi - Fixes</h1>';\n";
         $code .= "        echo '      <p style=\"margin: 2px 0 0 0; font-size: 12px; color: #64748b;\">Desenvolvido por <strong>{$authorName}</strong> (<a href=\"{$authorUri}\" target=\"_blank\" style=\"color: #2563eb; text-decoration: none;\">patropicomunica.com.br</a>)</p>';\n";

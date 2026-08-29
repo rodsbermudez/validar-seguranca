@@ -13,7 +13,7 @@ class VS_Agent_Admin {
 
     public function add_admin_menu() {
         $parent_slug = 'wp-patropi';
-        $icon = 'data:image/png;base64,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';
+        $icon = VS_AGENT_URL . 'assets/favicon.png';
 
         if (empty($GLOBALS['admin_page_hooks'][$parent_slug])) {
             add_menu_page(
@@ -91,14 +91,7 @@ class VS_Agent_Admin {
         <div class="wrap">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; background: #fff; padding: 15px 20px; border-radius: 8px; border: 1px solid #e0e0e0; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
                 <div style="display: flex; align-items: center; gap: 15px;">
-                    <?php
-                    $logo_b64 = '';
-                    $logo_file = VS_AGENT_PATH . '../../public/images/logo-Patropi.png';
-                    if (file_exists($logo_file)) {
-                        $logo_b64 = base64_encode(file_get_contents($logo_file));
-                    }
-                    ?>
-                    <img src="<?php echo !empty($logo_b64) ? 'data:image/png;base64,' . $logo_b64 : ''; ?>" alt="Patropi Comunica" style="max-height: 42px; width: auto;" onerror="this.style.display='none';" />
+                    <img src="<?php echo esc_url(VS_AGENT_URL . 'assets/logo-Patropi.png'); ?>" alt="Patropi Comunica" style="max-height: 42px; width: auto;" onerror="this.style.display='none';" />
                     <div>
                         <h1 style="margin: 0; font-size: 20px; font-weight: 700; color: #1e293b;">WP Patropi - Diagnóstico</h1>
                         <p style="margin: 2px 0 0 0; font-size: 12px; color: #64748b;">Desenvolvido por <strong>Rodrigo Bermudez - Patropi Comunica</strong> (<a href="https://patropicomunica.com.br" target="_blank" style="color: #2563eb; text-decoration: none;">patropicomunica.com.br</a>)</p>

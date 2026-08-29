@@ -112,18 +112,19 @@ class AIService
             "3. REGRA CRÍTICA PARA LINK DE CONFIGURAÇÕES NA LISTA DE PLUGINS (plugins.php):\n" .
             "   - Adicione o filtro 'plugin_action_links_' . plugin_basename(__FILE__) adicionando o link 'Configurações' direcionando para 'admin.php?page=wp-patropi-fixes'.\n" .
             "4. REGRA CRÍTICA PARA ESTRUTURA DE MENU NO WP ADMIN:\n" .
-            "   - O menu principal deve se chamar 'WP Patropi' (slug: 'wp-patropi') com a posição 80 e ícone de data URI ('{$faviconDataUri}').\n" .
+            "   - O menu principal deve se chamar 'WP Patropi' (slug: 'wp-patropi') com a posição 80 e ícone carregado de 'plugins_url(\"assets/favicon.png\", __FILE__)'.\n" .
             "   - Adicione a tela do plugin como subitem do menu 'WP Patropi' chamado 'WP Patropi - Fixes' (slug: 'wp-patropi-fixes').\n" .
             "   - Exemplo de código do menu:\n" .
             "     add_action('admin_menu', function() {\n" .
             "         \$parent_slug = 'wp-patropi';\n" .
+            "         \$icon_url    = plugins_url('assets/favicon.png', __FILE__);\n" .
             "         if (empty(\$GLOBALS['admin_page_hooks'][\$parent_slug])) {\n" .
-            "             add_menu_page('WP Patropi', 'WP Patropi', 'manage_options', \$parent_slug, 'vs_render_remediation_admin_page', '{$faviconDataUri}', 80);\n" .
+            "             add_menu_page('WP Patropi', 'WP Patropi', 'manage_options', \$parent_slug, 'vs_render_remediation_admin_page', \$icon_url, 80);\n" .
             "         }\n" .
             "         add_submenu_page(\$parent_slug, 'WP Patropi - Fixes', 'WP Patropi - Fixes', 'manage_options', 'wp-patropi-fixes', 'vs_render_remediation_admin_page');\n" .
             "     });\n" .
             "5. NO TOPO DA PÁGINA ADMIN DO PLUGIN:\n" .
-            "   - Exiba um cabeçalho estilizado contendo a logo em data URI ('<img src=\"{$logoDataUri}\" style=\"max-height:42px;width:auto;\" />') e o texto 'WP Patropi - Fixes' com o crédito 'Desenvolvido por {$authorName} ({$authorUri})'.\n" .
+            "   - Exiba um cabeçalho estilizado contendo a logo em '<img src=\"' . esc_url(plugins_url('assets/logo-Patropi.png', __FILE__)) . '\" style=\"max-height:42px;width:auto;\" />' e o texto 'WP Patropi - Fixes' com o crédito 'Desenvolvido por {$authorName} ({$authorUri})'.\n" .
             "   - Exiba a tabela formatada com a lista das correções ativas.\n" .
             "6. REGRAS PARA EVITAR TELA EM BRANCO E ERROS FATAL PHP:\n" .
             "   - NÃO chame funções do WordPress como home_url() ou wp_redirect() no topo puro do arquivo PHP, pois elas ainda não foram carregadas pelo WordPress.\n" .
