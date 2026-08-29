@@ -10,11 +10,15 @@ Uma plataforma completa para **auditoria de segurança**, **triagem inteligente 
   - Teste remoto de infraestrutura, cabeçalhos HTTP (HSTS, CSP, X-Frame-Options), listagem de diretórios (`/wp-content/uploads/`, `/wp-includes/`), enumeração de usuários (via `/?author=1`, REST API e sitemaps XML em `/wp-sitemap-users-1.xml` e `/author-sitemap.xml`) e detecção de arquivos sensíveis.
   - **Detecção Avançada em Sitemaps XML**: Identificação de vazamentos de usernames no sitemap nativo e em plugins de SEO (Yoast SEO, Rank Math, All in One SEO), seguindo redirecionamentos HTTP 301/302 automaticamente.
 
-- **🤖 Remediação Inteligente & Triagem Híbrida (IA - Kimi K2.7 Code)**:
+- **🤖 Remediação Inteligente & Geração em Lote via IA (Kimi K2.7 Code)**:
+  - **Processamento em Lote em Tempo Real**: Modal interativo com barra de progresso em tempo real, contadores de estatísticas (Gerados, Reutilizados e Erros) e suporte a re-geração forçada para atualizar todas as falhas e alertas do relatório.
+  - **Detecção Detalhada e Exibição de Erros**: Apresentação transparente da causa exata em caso de falha de requisição (erros HTTP 400, timeouts ou restrições do provedor de IA).
+  - **Re-execução Seletiva de Falhas**: Botão dedicado `⚡ Re-executar Apenas Falhas` para reprocessar exclusivamente os itens com erro sem re-executar os itens gerados com sucesso.
+  - **Mecanismo de Resiliência e Fallback cURL**: Suporte a retentativas automáticas cURL no `AIService` sem envio de parâmetros sensíveis (`temperature`), garantindo 100% de compatibilidade com o provedor OpenCode Zen.
   - **Triagem Automática**: Separação clara entre falhas corrigíveis via código/plugin e falhas que exigem intervenção de infraestrutura ou ações manuais.
   - **Gerador de Plugins de Correção**: Criação automatizada de plugins PHP customizados sob medida para sanar falhas diretamente no painel do WordPress (incluindo desativação de sitemaps de autores, redirecionamento 301 de requisições de autor para a Home, remoção de parâmetros `?ver=` e bloqueio de arquivos `readme.txt`/`license.txt`).
   - **Guia do Servidor & Ações Manuais**: Instruções passo a passo geradas por IA para edições em `.htaccess`, `nginx.conf`, `php.ini`, `wp-config.php` e rotinas do painel SSH/cPanel.
-  - **Cache & Persistência de Guias**: Salvamento automático dos conselhos da IA no banco de dados para carregamento instantâneo sem chamadas redundantes, com botão de atualização sob demanda.
+  - **Cache & Persistência de Guias**: Salvamento automático dos conselhos da IA no banco de dados para carregamento instantâneo sem chamadas redundantes.
 
 - **🔌 Plugin Agente Patropi (WordPress Companion)**:
   - Integração nativa no painel do WordPress com menu dedicado, histórico de diagnósticos e **botão de reconexão/re-sincronização de ponte** para restabelecer a comunicação com a plataforma instantaneamente.
