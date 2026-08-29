@@ -136,8 +136,8 @@ class AIService
             "   - Exiba um cabeçalho estilizado contendo a logo em '<img src=\"' . esc_url(plugins_url('assets/logo-Patropi.png', __FILE__)) . '\" style=\"max-height:42px;height:42px;width:auto;object-fit:contain;\" />' e o título <h2>WP Patropi - Fixes</h2> com o crédito 'Desenvolvido por {$authorName} ({$authorUri})'.\n" .
             "   - Exiba a tabela formatada com a lista das correções ativas.\n" .
             "6. REGRAS PARA EVITAR TELA EM BRANCO E ERROS FATAL PHP:\n" .
-            "   - NÃO chame funções do WordPress como home_url() ou wp_redirect() no topo puro do arquivo PHP, pois elas ainda não foram carregadas pelo WordPress.\n" .
-            "   - Insira os bloqueios no hook 'plugins_loaded' com prioridade 1 (add_action('plugins_loaded', function() { ... }, 1)):\n" .
+            "   - NÃO chame funções do WordPress como home_url() ou wp_redirect() no topo puro do arquivo PHP, pois elas ainda não foram carregadas pelo WordPress e causarão Fatal Error.\n" .
+            "   - Insira OBRIGATORIAMENTE todas as funções de bloqueio/redirecionamento dentro do hook 'plugins_loaded' com prioridade 1 (add_action('plugins_loaded', function() { ... }, 1)):\n" .
             "     a) Para enumeração de autor (/?author=N):\n" .
             "        add_action('plugins_loaded', function() {\n" .
             "            if (function_exists('is_admin') && is_admin()) return;\n" .
@@ -147,6 +147,9 @@ class AIService
             "                exit;\n" .
             "            }\n" .
             "        }, 1);\n" .
+            "        // ATENÇÃO: Para enumeração de usuários, adicione também:\n" .
+            "        add_filter('wp_sitemaps_add_provider', function(\$provider, \$name) { return \$name === 'users' ? false : \$provider; }, 10, 2);\n" .
+            "        add_filter('rest_authentication_errors', function(\$result) { if(!is_user_logged_in() && str_contains(\$_SERVER['REQUEST_URI'] ?? '', '/wp/v2/users')) return new WP_Error('rest_forbidden', 'Auth', ['status'=>401]); return \$result; });\n" .
             "     b) Para XML-RPC (xmlrpc.php):\n" .
             "        add_filter('xmlrpc_enabled', '__return_false');\n" .
             "        add_action('plugins_loaded', function() {\n" .

@@ -18,17 +18,19 @@ class SolutionCatalogSeeder extends Seeder
                 'solution_instructions' => 'Instale o plugin de remediação para redirecionar automaticamente qualquer tentativa de acesso por ?author=N para a página inicial (/) com status HTTP 301 permanente.',
                 'fix_code_snippet'      => <<<'PHP'
 // Bloquear enumeração de autores via /?author=N (redirecionamento 301 para a Home)
-add_action('init', function() {
-    if (is_admin()) return;
+add_action('plugins_loaded', function() {
+    if (function_exists('is_admin') && is_admin()) return;
     if (isset($_GET['author']) || (isset($_SERVER['REQUEST_URI']) && preg_match('/[\?&]author=\d+/i', $_SERVER['REQUEST_URI']))) {
-        wp_redirect(home_url('/'), 301);
+        $target = function_exists('home_url') ? home_url('/') : '/';
+        if (function_exists('wp_redirect')) { wp_redirect($target, 301); } else { header('Location: ' . $target, true, 301); }
         exit;
     }
 }, 1);
 add_action('template_redirect', function() {
-    if (is_admin()) return;
-    if (is_author()) {
-        wp_redirect(home_url('/'), 301);
+    if (function_exists('is_admin') && is_admin()) return;
+    if (function_exists('is_author') && is_author()) {
+        $target = function_exists('home_url') ? home_url('/') : '/';
+        if (function_exists('wp_redirect')) { wp_redirect($target, 301); } else { header('Location: ' . $target, true, 301); }
         exit;
     }
 }, 1);
@@ -82,10 +84,10 @@ add_filter('wp_sitemaps_add_provider', function($provider, $name) {
 add_filter('wp_sitemaps_users_pre_render_data', '__return_false');
 
 // Bloquear requisição direta a qualquer rota de sitemap de usuários/autores
-add_action('init', function() {
+add_action('plugins_loaded', function() {
     $requestUri = $_SERVER['REQUEST_URI'] ?? '';
     if (preg_match('/(wp-sitemap-users|author-sitemap|user-sitemap)/i', $requestUri)) {
-        status_header(404);
+        if (function_exists('status_header')) { status_header(404); } else { header('HTTP/1.1 404 Not Found'); }
         header('Content-Type: text/html; charset=utf-8');
         echo '404 Not Found';
         exit;
@@ -110,9 +112,9 @@ add_filter('wp_headers', function($headers) {
     unset($headers['X-Pingback']);
     return $headers;
 });
-add_action('init', function() {
+add_action('plugins_loaded', function() {
     if (isset($_SERVER['SCRIPT_NAME']) && str_contains($_SERVER['SCRIPT_NAME'], 'xmlrpc.php')) {
-        status_header(403);
+        if (function_exists('status_header')) { status_header(403); } else { header('HTTP/1.1 403 Forbidden'); }
         header('Content-Type: text/plain; charset=utf-8');
         echo 'XML-RPC services are disabled on this site.';
         exit;
@@ -142,10 +144,10 @@ add_filter('script_loader_src', function($src) {
 }, 9999);
 
 // Bloquear acesso público direto a arquivos de documentação (readme, license, changelog) em wp-content/plugins
-add_action('init', function() {
+add_action('plugins_loaded', function() {
     $requestUri = $_SERVER['REQUEST_URI'] ?? '';
     if (str_contains($requestUri, '/wp-content/plugins/') && preg_match('/\/(readme|changelog|license|licence|readme-.*)\.(txt|html|md)/i', $requestUri)) {
-        status_header(404);
+        if (function_exists('status_header')) { status_header(404); } else { header('HTTP/1.1 404 Not Found'); }
         header('Content-Type: text/html; charset=utf-8');
         echo '404 Not Found';
         exit;

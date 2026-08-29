@@ -25,8 +25,10 @@ class VS_Agent_REST_API {
             $token_saved  = get_option('vs_agent_token');
             $token_header = $this->get_token_from_request();
 
-            if (!empty($token_saved) && !empty($token_header) && hash_equals($token_saved, $token_header)) {
-                return true;
+            if (!empty($token_saved) && is_string($token_saved) && !empty($token_header) && is_string($token_header)) {
+                if (hash_equals($token_saved, $token_header)) {
+                    return true;
+                }
             }
         }
         return $result;
@@ -54,7 +56,7 @@ class VS_Agent_REST_API {
         }
         $token_saved = get_option('vs_agent_token');
 
-        if (empty($token_saved) || empty($token_header)) {
+        if (empty($token_saved) || !is_string($token_saved) || empty($token_header) || !is_string($token_header)) {
             return new WP_Error('vs_forbidden', 'Token de acesso não fornecido ou inválido.', array('status' => 403));
         }
 
