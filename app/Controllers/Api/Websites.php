@@ -218,7 +218,7 @@ class Websites extends ResourceController
         $configContent = json_encode([
             'site_id'     => (int) $website['id'],
             'agent_token' => $website['agent_token'],
-            'saas_url'    => base_url(),
+            'saas_url'    => $this->getSaasUrl(),
         ], JSON_PRETTY_PRINT);
 
         $zip->addFromString('wp-patropi-diagnostico/config.json', $configContent);
@@ -267,5 +267,28 @@ class Websites extends ResourceController
                 'is_connected' => 1,
             ],
         ]);
+    }
+
+    private function getSaasUrl(): string
+    {
+        $request = service('request');
+
+        $isHttps = ($request->getServer('HTTPS') === 'on' ||
+                    $request->getServer('HTTP_X_FORWARDED_PROTO') === 'https' ||
+                    $request->getServer('SERVER_PORT') == 443);
+        $scheme = $isHttps ? 'https' : 'http';
+
+        $host = $request->getServer('HTTP_HOST') ?: $request->getServer('SERVER_NAME');
+
+        if (!empty($host) && !in_array(strtolower(explode(':', $host)[0]), ['localhost', '127.0.0.1', '::1'])) {
+            $scriptName = $request->getServer('SCRIPT_NAME') ?? '';
+            $dir = rtrim(dirname($scriptName), '/\\');
+            if ($dir === '.' || $dir === '/' || $dir === '\\') {
+                $dir = '';
+            }
+            return rtrim("{$scheme}://{$host}{$dir}", '/') . '/';
+        }
+
+        return rtrim(base_url(), '/') . '/';
     }
 }

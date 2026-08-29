@@ -1,9 +1,19 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost/validar-seguranca/api';
+const getApiBaseUrl = () => {
+  if (import.meta.env.VITE_API_BASE_URL) {
+    return import.meta.env.VITE_API_BASE_URL;
+  }
+  const origin = window.location.origin;
+  const pathName = window.location.pathname;
+  if (pathName.startsWith('/validar-seguranca')) {
+    return `${origin}/validar-seguranca/api`;
+  }
+  return `${origin}/api`;
+};
 
 export const api = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: getApiBaseUrl(),
   headers: {
     'Content-Type': 'application/json',
   },
