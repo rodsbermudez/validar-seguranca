@@ -577,15 +577,21 @@
             </section>
 
             <!-- 3. Auditoria de Segurança -->
+            <!-- 3. Auditoria de Segurança -->
             <section id="auditoria-de-seguranca" class="doc-section">
                 <h1>🛡️ Auditoria & Varreduras de Segurança</h1>
                 <p>O módulo de auditoria executa varreduras automatizadas cobrindo 5 categorias principais de testes:</p>
                 
                 <ol>
                     <li><strong>Infraestrutura & Cabeçalhos HTTP:</strong> Verifica HTTPS/SSL, HSTS, X-Content-Type-Options, X-Frame-Options e políticas de proteção.</li>
-                    <li><strong>Exposição de Arquivos & Diretórios:</strong> Testa navegabilidade nos diretórios <code>/wp-content/uploads/</code>, <code>/wp-includes/</code> e acesso direto a arquivos de log.</li>
-                    <li><strong>Enumeração de Usuários & Login:</strong> Avalia se atacantes podem listar login de autores via URL ou acessar a tela padrão <code>/wp-login.php</code>.</li>
-                    <li><strong>Fingerprinting & Detecção de Versão:</strong> Checa vazamento de versões do PHP, servidor web e WordPress.</li>
+                    <li><strong>Exposição de Arquivos & Diretórios:</strong> Testa navegabilidade nos diretórios <code>/wp-content/uploads/</code>, <code>/wp-includes/</code>, arquivos de log e documentos públicos de plugins (ex: <code>readme.txt</code>, <code>license.txt</code>).</li>
+                    <li><strong>Enumeração de Usuários & Login:</strong> Avalia se atacantes podem listar login de autores via query <code>/?author=1</code>, REST API (<code>/wp-json/wp/v2/users</code>) ou através de sitemaps XML de usuários.
+                        <div class="callout callout-info" style="margin-top:10px;">
+                            <div class="callout-title">🔍 Detecção em Sitemaps XML (Yoast / Nativo / Rank Math)</div>
+                            <p>O scanner analisa não apenas a URL nativa do WordPress (<code>/wp-sitemap-users-1.xml</code>), mas também sitemaps gerados por plugins de SEO populares, como Yoast SEO (<code>/author-sitemap.xml</code>) e Rank Math. Caso a rota redirecione para outra página de sitemap (HTTP 301/302), o scanner segue o redirecionamento automaticamente para verificar a exposição real de usernames.</p>
+                        </div>
+                    </li>
+                    <li><strong>Fingerprinting & Detecção de Versão:</strong> Checa vazamento de versões do PHP, servidor web, WordPress e remoção de parâmetros <code>?ver=</code> em arquivos CSS/JS.</li>
                     <li><strong>Auditoria Interna do Agente Patropi:</strong> Avalia plugins abandonados/inativos, atualizações pendentes e contas privilegiadas.</li>
                 </ol>
 
@@ -610,10 +616,13 @@
                     <li>No WordPress, acesse a tela do plugin <strong>WP Patropi</strong> e cole o token para concluir a conexão.</li>
                 </ol>
 
+                <h2>Botão de Reconexão e Refazer Ponte</h2>
+                <p>Caso o token seja alterado na plataforma ou a conexão entre a aplicação WordPress e o painel seja interrompida, o plugin conta com o botão <strong>"⚡ Refazer Ponte / Reconectar"</strong>. Ele permite reiniciar o handshake de autenticação de forma simples e direta, sem a necessidade de reinstalar o plugin.</p>
+
                 <h2>Localização dos Menus no WordPress</h2>
                 <p>Após instalado, o plugin cria uma estrutura organizada no menu lateral do painel WordPress:</p>
                 <ul>
-                    <li><strong>WP Patropi (Menu Principal):</strong> Tela de status de conexão e token do agente.</li>
+                    <li><strong>WP Patropi (Menu Principal):</strong> Tela de status de conexão, token do agente e botão para refazer a ponte.</li>
                     <li><strong>WP Patropi > Diagnóstico (Submenu):</strong> Exibe o resultado da última auditoria realizada pela plataforma diretamente no painel do WordPress.</li>
                     <li><strong>WP Patropi > Segurança (Submenu):</strong> Opções de endurecimento e proteção ativa da aplicação.</li>
                 </ul>

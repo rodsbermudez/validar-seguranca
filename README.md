@@ -7,19 +7,23 @@ Uma plataforma completa para **auditoria de segurança**, **triagem inteligente 
 ## 🌟 Principais Recursos
 
 - **🛡️ Auditoria Automatizada de Segurança**:
-  - Teste remoto de infraestrutura, cabeçalhos HTTP (HSTS, CSP, X-Frame-Options), listagem de diretórios (`/wp-content/uploads/`, `/wp-includes/`), enumeração de usuários (com validação estrita de redirecionamento 301 para a Home em `/?author=1`) e detecção de arquivos sensíveis.
+  - Teste remoto de infraestrutura, cabeçalhos HTTP (HSTS, CSP, X-Frame-Options), listagem de diretórios (`/wp-content/uploads/`, `/wp-includes/`), enumeração de usuários (via `/?author=1`, REST API e sitemaps XML em `/wp-sitemap-users-1.xml` e `/author-sitemap.xml`) e detecção de arquivos sensíveis.
+  - **Detecção Avançada em Sitemaps XML**: Identificação de vazamentos de usernames no sitemap nativo e em plugins de SEO (Yoast SEO, Rank Math, All in One SEO), seguindo redirecionamentos HTTP 301/302 automaticamente.
 
 - **🤖 Remediação Inteligente & Triagem Híbrida (IA - Kimi K2.7 Code)**:
   - **Triagem Automática**: Separação clara entre falhas corrigíveis via código/plugin e falhas que exigem intervenção de infraestrutura ou ações manuais.
-  - **Gerador de Plugins de Correção**: Criação automatizada de plugins PHP customizados sob medida para sanar falhas diretamente no painel do WordPress (incluindo redirecionamento 301 de requisições de autor para a Home).
+  - **Gerador de Plugins de Correção**: Criação automatizada de plugins PHP customizados sob medida para sanar falhas diretamente no painel do WordPress (incluindo desativação de sitemaps de autores, redirecionamento 301 de requisições de autor para a Home, remoção de parâmetros `?ver=` e bloqueio de arquivos `readme.txt`/`license.txt`).
   - **Guia do Servidor & Ações Manuais**: Instruções passo a passo geradas por IA para edições em `.htaccess`, `nginx.conf`, `php.ini`, `wp-config.php` e rotinas do painel SSH/cPanel.
   - **Cache & Persistência de Guias**: Salvamento automático dos conselhos da IA no banco de dados para carregamento instantâneo sem chamadas redundantes, com botão de atualização sob demanda.
 
+- **🔌 Plugin Agente Patropi (WordPress Companion)**:
+  - Integração nativa no painel do WordPress com menu dedicado, histórico de diagnósticos e **botão de reconexão/re-sincronização de ponte** para restabelecer a comunicação com a plataforma instantaneamente.
+
 - **📊 Catálogo de Soluções Integrado (`SolutionCatalogSeeder`)**:
-  - Mapeamento detalhado de cada teste de segurança (`check_id`) associado a tipos de ação (`PLUGIN_AUTO_FIX`, `SERVER_CONFIG`, `MANUAL_ACTION`), gravidade e instruções de correção (incluindo snippet PHP para redirecionar consultas de autor `/?author=N` para a página inicial `/`).
+  - Mapeamento detalhado de cada teste de segurança (`check_id`) associado a tipos de ação (`PLUGIN_AUTO_FIX`, `SERVER_CONFIG`, `MANUAL_ACTION`), gravidade e instruções de correção (incluindo snippets PHP para desativar sitemaps de autores no Yoast/Rank Math/Nativo e bloquear requisições com HTTP 404).
 
 - **📖 Central de Documentação Integrada (`/docs`)**:
-  - Portal completo de documentação da plataforma desenvolvido em CodeIgniter, cobrindo funcionamento de auditoria, agente interno, remediação por IA, catálogo de soluções e boas práticas, com navegação fluida por scroll offset.
+  - Portal completo de documentação da plataforma desenvolvido em CodeIgniter, cobrindo funcionamento de auditoria, agente interno, remediação por IA, proteção contra enumeração em sitemaps XML e boas práticas, com busca em tempo real e navegação fluida por scroll offset.
 
 - **🎨 Identidade Visual Patropi Comunica & Cores Customizadas**:
   - Integração da nova logo horizontal (`logo-Patropi.png`) e favicon (`favicon.png`).
