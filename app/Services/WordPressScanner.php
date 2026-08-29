@@ -274,6 +274,17 @@ class WordPressScanner
             ];
         }
 
+        // Handle edge case where curl returns true but http_code is 0 (e.g., DNS resolution failure)
+        if ($httpCode === 0) {
+             return [
+                'http_code' => 0,
+                'headers'   => [],
+                'body'      => '',
+                'effective_url' => $effUrl,
+                'error'     => $error ?: 'Unknown network error',
+            ];
+        }
+
         $rawHeaders = substr($response, 0, $headerSize);
         $bodyContent = substr($response, $headerSize);
 
@@ -493,8 +504,11 @@ class WordPressScanner
         } elseif ($redirectedToHome) {
             $authorStatus  = 'PASS';
             $authorDetails = 'Requisição de autor redirecionada com sucesso para a Página Inicial (/).';
+        } elseif ($httpCode === 403 || $httpCode === 404 || $httpCode === 0) {
+            $authorStatus  = 'PASS';
+            $authorDetails = 'Requisição de autor bloqueada ou inacessível (HTTP ' . ($httpCode === 0 ? 'Timeout/Erro' : $httpCode) . ').';
         } else {
-            // Does not redirect to Home (returns 404, 403, 200 blank, etc. staying on /?author=1)
+            // Does not redirect to Home (returns 200 blank, etc. staying on /?author=1)
             $authorStatus  = 'WARN';
             $authorDetails = 'A requisição para /?author=1 não é redirecionada para a Página Inicial (retorna HTTP ' . $httpCode . ' na própria URL). Recomendado aplicar o redirecionamento 301 automático para a Home (/).';
         }
@@ -640,8 +654,8 @@ class WordPressScanner
         $pluginDetails = [];
         $versionsExposed = false;
 
-        // Check if any asset URL contains version query parameters for plugins
-        if (preg_match('/\/wp-content\/plugins\/[^\'\"]+[\?&]ver=/i', $html)) {
+        // Check if any asset URL contains version query parameters for plugins or core
+        if (preg_match('/\/(wp-content\/plugins|wp-includes)\/[^\'\"]+[\?&]ver=/i', $html)) {
             $versionsExposed = true;
         }
 

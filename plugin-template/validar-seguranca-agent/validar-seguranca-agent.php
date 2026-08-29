@@ -64,6 +64,9 @@ class Validar_Seguranca_Agent {
                 if (!empty($config['saas_url'])) {
                     update_option('vs_saas_url', $config['saas_url']);
                 }
+
+                // Delete the config file after processing to save I/O reads on future requests
+                @unlink($config_file);
             }
         }
     }
