@@ -60,7 +60,7 @@ class AIService
             "Gravidade: {$severity}\n" .
             "Detalhes da Falha Encontrada no Site Alvo: {$details}";
 
-        $response = $this->callOpenCodeApi($systemPrompt, $userPrompt, true, 90, 0.3);
+        $response = $this->callOpenCodeApi($systemPrompt, $userPrompt, true, 90);
         return $this->parseJsonResponse($response, $checkId, $checkName);
     }
 
@@ -182,9 +182,9 @@ class AIService
     }
 
     /**
-     * Send cURL request to OpenCode / OpenAI Compatible API
+     * Send cURL request to OpenCode / OpenAI Compatible API with automatic fallback retry
      */
-    protected function callOpenCodeApi(string $systemPrompt, string $userPrompt, bool $expectJson = false, int $timeout = 120, float $temperature = 0.3): string
+    protected function callOpenCodeApi(string $systemPrompt, string $userPrompt, bool $expectJson = false, int $timeout = 120): string
     {
         @set_time_limit($timeout + 30);
 
@@ -197,20 +197,53 @@ class AIService
             'Authorization: Bearer ' . $this->apiKey,
         ];
 
+        // Primary payload: omit 'temperature' to let provider use its required default (e.g. 1 for kimi-k2.7-code)
         $payload = [
             'model' => $this->model,
             'messages' => [
                 ['role' => 'system', 'content' => $systemPrompt],
                 ['role' => 'user', 'content' => $userPrompt],
             ],
-            'temperature' => $temperature,
         ];
 
         if ($expectJson) {
             $payload['response_format'] = ['type' => 'json_object'];
         }
 
-        $ch = curl_init($this->apiUrl);
+        $response = $this->executeCurlCall($this->apiUrl, $headers, $payload, $timeout);
+
+        // Fallback retry: If HTTP 400 occurs due to response_format or temperature parameters, retry with minimal payload
+        if ($response['code'] === 400 && $expectJson) {
+            unset($payload['response_format']);
+            $response = $this->executeCurlCall($this->apiUrl, $headers, $payload, $timeout);
+        }
+
+        if ($response['error']) {
+            throw new \RuntimeException("Erro cURL ao conectar à API OpenCode: " . $response['error']);
+        }
+
+        if ($response['code'] >= 400) {
+            throw new \RuntimeException("API OpenCode respondeu com erro (HTTP {$response['code']}): " . $response['body']);
+        }
+
+        $json = json_decode($response['body'], true);
+        if (isset($json['choices'][0]['message']['content'])) {
+            return trim($json['choices'][0]['message']['content']);
+        }
+
+        if (trim($response['body']) === 'Not Found') {
+            throw new \RuntimeException("URL da API OpenCode inválida (retornou Not Found). Verifique se a variável OPENCODE_API_URL no .env está configurada como 'https://opencode.ai/zen/go/v1/chat/completions'.");
+        }
+
+        throw new \RuntimeException("Resposta inesperada da API OpenCode: " . $response['body']);
+    }
+
+    /**
+     * Helper to execute cURL HTTP request
+     */
+    protected function executeCurlCall(string $url, array $headers, array $payload, int $timeout): array
+    {
+        $ch = curl_init($url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_POST, true);
         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
@@ -218,29 +251,16 @@ class AIService
         curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
         curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 15);
 
-        $response = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $body      = curl_exec($ch);
+        $code      = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $curlError = curl_error($ch);
         curl_close($ch);
 
-        if ($curlError) {
-            throw new \RuntimeException("Erro cURL ao conectar à API OpenCode: " . $curlError);
-        }
-
-        if ($httpCode >= 400) {
-            throw new \RuntimeException("API OpenCode respondeu com erro (HTTP {$httpCode}): " . $response);
-        }
-
-        $json = json_decode($response, true);
-        if (isset($json['choices'][0]['message']['content'])) {
-            return trim($json['choices'][0]['message']['content']);
-        }
-
-        if (trim($response) === 'Not Found') {
-            throw new \RuntimeException("URL da API OpenCode inválida (retornou Not Found). Verifique se a variável OPENCODE_API_URL no .env está configurada como 'https://opencode.ai/zen/go/v1/chat/completions'.");
-        }
-
-        throw new \RuntimeException("Resposta inesperada da API OpenCode: " . $response);
+        return [
+            'body'  => $body ?: '',
+            'code'  => $code,
+            'error' => $curlError,
+        ];
     }
 
     /**
@@ -252,8 +272,17 @@ class AIService
         $cleanJson = preg_replace('/^```json\s*/i', '', trim($rawContent));
         $cleanJson = preg_replace('/^```\s*/i', '', $cleanJson);
         $cleanJson = preg_replace('/```$/', '', $cleanJson);
+        $cleanJson = trim($cleanJson);
 
         $decoded = json_decode($cleanJson, true);
+
+        // Robust fallback: if direct decode fails, attempt regex JSON extraction
+        if (!is_array($decoded)) {
+            if (preg_match('/\{[\s\S]*\}/', $cleanJson, $matches)) {
+                $decoded = json_decode($matches[0], true);
+            }
+        }
+
         if (!is_array($decoded)) {
             // Fallback default structure if json parsing fails
             return [
@@ -264,7 +293,7 @@ class AIService
                 'problem_description'   => $rawContent,
                 'solution_instructions' => "Verifique as orientações de segurança para " . $checkName,
                 'fix_code_snippet'      => null,
-                'ai_notes'              => "Resposta bruta da IA não pode ser processada como JSON válido.",
+                'ai_notes'              => "Resposta da IA não pôde ser convertida diretamente em JSON.",
             ];
         }
 
