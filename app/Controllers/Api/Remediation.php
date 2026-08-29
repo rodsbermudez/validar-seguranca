@@ -44,6 +44,8 @@ class Remediation extends ResourceController
 
         $effectiveUserId = $this->request->effectiveUserId ?? ($this->request->userData->id ?? null);
         $userData        = $this->request->userData ?? null;
+        $isImpersonating = $this->request->isImpersonating ?? false;
+        $isAdmin         = (($userData->role ?? 'user') === 'admin') && !$isImpersonating;
 
         if (!$scanId && !$websiteId) {
             return $this->fail('scan_id ou website_id é obrigatório.', 400);
@@ -69,7 +71,7 @@ class Remediation extends ResourceController
             return $this->failNotFound('Website correspondente não encontrado.');
         }
 
-        if ($website['user_id'] != $effectiveUserId && ($userData->role ?? 'user') !== 'admin') {
+        if ($website['user_id'] != $effectiveUserId && !$isAdmin) {
             return $this->failForbidden('Você não tem permissão para gerar plugins de remediação para este website.');
         }
 
@@ -213,6 +215,8 @@ class Remediation extends ResourceController
 
         $effectiveUserId = $this->request->effectiveUserId ?? ($this->request->userData->id ?? null);
         $userData        = $this->request->userData ?? null;
+        $isImpersonating = $this->request->isImpersonating ?? false;
+        $isAdmin         = (($userData->role ?? 'user') === 'admin') && !$isImpersonating;
 
         if (!$scanId && !$websiteId) {
             return $this->fail('scan_id ou website_id é obrigatório.', 400);
@@ -238,7 +242,7 @@ class Remediation extends ResourceController
             return $this->failNotFound('Website correspondente não encontrado.');
         }
 
-        if ($website['user_id'] != $effectiveUserId && ($userData->role ?? 'user') !== 'admin') {
+        if ($website['user_id'] != $effectiveUserId && !$isAdmin) {
             return $this->failForbidden('Você não tem permissão para visualizar o guia de remediação deste website.');
         }
 

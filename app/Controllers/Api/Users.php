@@ -23,6 +23,11 @@ class Users extends ResourceController
             ->orderBy('created_at', 'DESC')
             ->findAll();
 
+        foreach ($users as &$user) {
+            $user['id'] = (int) $user['id'];
+            $user['is_active'] = (int) $user['is_active'];
+        }
+
         return $this->respond([
             'status' => 200,
             'data'   => $users,
@@ -69,6 +74,10 @@ class Users extends ResourceController
         ]);
 
         $createdUser = $userModel->select('id, name, email, role, is_active, created_at')->find($newId);
+        if ($createdUser) {
+            $createdUser['id'] = (int) $createdUser['id'];
+            $createdUser['is_active'] = (int) $createdUser['is_active'];
+        }
 
         return $this->respondCreated([
             'status'  => 201,
@@ -138,6 +147,10 @@ class Users extends ResourceController
         $userModel->update($id, $dataToUpdate);
 
         $updatedUser = $userModel->select('id, name, email, role, is_active, created_at')->find($id);
+        if ($updatedUser) {
+            $updatedUser['id'] = (int) $updatedUser['id'];
+            $updatedUser['is_active'] = (int) $updatedUser['is_active'];
+        }
 
         return $this->respond([
             'status'  => 200,

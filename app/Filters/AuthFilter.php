@@ -32,6 +32,16 @@ class AuthFilter implements FilterInterface
             ]);
         }
 
+        $userModel = new UserModel();
+        $authUser = $userModel->find((int) $userData->id);
+        if (!$authUser || (isset($authUser['is_active']) && (int)$authUser['is_active'] === 0)) {
+            $response = Services::response();
+            return $response->setStatusCode(401)->setJSON([
+                'status'  => 401,
+                'error'   => 'Sua conta está desativada. Entre em contato com o administrador.'
+            ]);
+        }
+
         // Default effective user ID is the authenticated user ID
         $effectiveUserId = (int) $userData->id;
         $isImpersonating = false;
@@ -39,9 +49,8 @@ class AuthFilter implements FilterInterface
         // Impersonation feature for admins
         $impersonateHeader = $request->getHeaderLine('X-Impersonate-User-Id');
         if (!empty($impersonateHeader) && isset($userData->role) && $userData->role === 'admin') {
-            $userModel = new UserModel();
             $targetUser = $userModel->find((int) $impersonateHeader);
-            if ($targetUser) {
+            if ($targetUser && (int)($targetUser['is_active'] ?? 1) === 1) {
                 $effectiveUserId = (int) $targetUser['id'];
                 $isImpersonating = true;
             }

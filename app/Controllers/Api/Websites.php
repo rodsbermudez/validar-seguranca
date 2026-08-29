@@ -15,15 +15,28 @@ class Websites extends ResourceController
     public function index()
     {
         $effectiveUserId = $this->request->effectiveUserId ?? ($this->request->userData->id ?? null);
+        $userData        = $this->request->userData ?? null;
+        $isImpersonating = $this->request->isImpersonating ?? false;
 
         $websiteModel = new WebsiteModel();
-        $websites = $websiteModel
-            ->where('user_id', $effectiveUserId)
-            ->orderBy('created_at', 'DESC')
-            ->findAll();
+
+        if (($userData->role ?? 'user') === 'admin' && !$isImpersonating) {
+            $websites = $websiteModel
+                ->select('websites.*, users.name as owner_name, users.email as owner_email')
+                ->join('users', 'users.id = websites.user_id', 'left')
+                ->orderBy('websites.created_at', 'DESC')
+                ->findAll();
+        } else {
+            $websites = $websiteModel
+                ->where('user_id', $effectiveUserId)
+                ->orderBy('created_at', 'DESC')
+                ->findAll();
+        }
 
         // Ensure agent_token exists for older records
         foreach ($websites as &$site) {
+            $site['id'] = (int)$site['id'];
+            $site['user_id'] = (int)$site['user_id'];
             if (empty($site['agent_token'])) {
                 $token = bin2hex(random_bytes(16));
                 $websiteModel->update($site['id'], ['agent_token' => $token]);
@@ -89,6 +102,8 @@ class Websites extends ResourceController
 
         $effectiveUserId = $this->request->effectiveUserId ?? ($this->request->userData->id ?? null);
         $userData        = $this->request->userData ?? null;
+        $isImpersonating = $this->request->isImpersonating ?? false;
+        $isAdmin         = (($userData->role ?? 'user') === 'admin') && !$isImpersonating;
 
         $websiteModel = new WebsiteModel();
         $website = $websiteModel->find($id);
@@ -97,7 +112,7 @@ class Websites extends ResourceController
             return $this->failNotFound('Website não encontrado.');
         }
 
-        if ($website['user_id'] != $effectiveUserId && ($userData->role ?? 'user') !== 'admin') {
+        if ($website['user_id'] != $effectiveUserId && !$isAdmin) {
             return $this->failForbidden('Você não tem permissão para editar este website.');
         }
 
@@ -143,6 +158,8 @@ class Websites extends ResourceController
 
         $effectiveUserId = $this->request->effectiveUserId ?? ($this->request->userData->id ?? null);
         $userData        = $this->request->userData ?? null;
+        $isImpersonating = $this->request->isImpersonating ?? false;
+        $isAdmin         = (($userData->role ?? 'user') === 'admin') && !$isImpersonating;
 
         $websiteModel = new WebsiteModel();
         $website = $websiteModel->find($id);
@@ -152,7 +169,7 @@ class Websites extends ResourceController
         }
 
         // Check ownership or admin status
-        if ($website['user_id'] != $effectiveUserId && ($userData->role ?? 'user') !== 'admin') {
+        if ($website['user_id'] != $effectiveUserId && !$isAdmin) {
             return $this->failForbidden('Você não tem permissão para remover este website.');
         }
 
@@ -170,11 +187,20 @@ class Websites extends ResourceController
             return $this->fail('ID do website não informado.', 400);
         }
 
+        $effectiveUserId = $this->request->effectiveUserId ?? ($this->request->userData->id ?? null);
+        $userData        = $this->request->userData ?? null;
+        $isImpersonating = $this->request->isImpersonating ?? false;
+        $isAdmin         = (($userData->role ?? 'user') === 'admin') && !$isImpersonating;
+
         $websiteModel = new WebsiteModel();
         $website = $websiteModel->find($id);
 
         if (!$website) {
             return $this->failNotFound('Website não encontrado.');
+        }
+
+        if ($website['user_id'] != $effectiveUserId && !$isAdmin) {
+            return $this->failForbidden('Você não tem permissão para baixar o plugin deste website.');
         }
 
         // Ensure token exists

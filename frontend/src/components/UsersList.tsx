@@ -80,7 +80,7 @@ export function UsersList({ onImpersonate, currentUserId }: UsersListProps) {
     setEmail(user.email);
     setPassword('');
     setIsAdmin(user.role === 'admin');
-    setIsActive(user.is_active === 1);
+    setIsActive(Number(user.is_active) === 1);
     setErrorMsg('');
     setOpenedModal(true);
   };
@@ -140,7 +140,7 @@ export function UsersList({ onImpersonate, currentUserId }: UsersListProps) {
       return;
     }
 
-    const actionText = user.is_active === 1 ? 'desativar' : 'ativar';
+    const actionText = Number(user.is_active) === 1 ? 'desativar' : 'ativar';
     if (!window.confirm(`Tem certeza que deseja ${actionText} a conta do usuário ${user.name}?`)) return;
 
     try {
@@ -207,54 +207,56 @@ export function UsersList({ onImpersonate, currentUserId }: UsersListProps) {
               </Table.Td>
             </Table.Tr>
           ) : (
-            users.map((user) => (
-              <Table.Tr key={user.id} style={{ opacity: user.is_active === 0 ? 0.6 : 1 }}>
-                <Table.Td>{user.id}</Table.Td>
-                <Table.Td style={{ fontWeight: 600 }}>{user.name}</Table.Td>
-                <Table.Td>{user.email}</Table.Td>
-                <Table.Td>
-                  <Badge color={user.role === 'admin' ? 'indigo' : 'gray'} variant="light">
-                    {user.role === 'admin' ? 'ADMINISTRADOR' : 'USUÁRIO'}
-                  </Badge>
-                </Table.Td>
-                <Table.Td>
-                  <Badge color={user.is_active === 1 ? 'teal' : 'red'} variant="dot">
-                    {user.is_active === 1 ? 'ATIVO' : 'INATIVO'}
-                  </Badge>
-                </Table.Td>
-                <Table.Td>{new Date(user.created_at).toLocaleDateString('pt-BR')}</Table.Td>
-                <Table.Td style={{ textAlign: 'right' }}>
-                  <Group gap="xs" justify="flex-end">
-                    <Tooltip label={`Ver painel como ${user.name}`}>
-                      <Button
-                        size="xs"
-                        variant="light"
-                        color="cyan"
-                        leftSection={<IconEye size={14} />}
-                        onClick={() => onImpersonate(user)}
-                        disabled={user.is_active === 0}
-                      >
-                        Ver como
-                      </Button>
-                    </Tooltip>
-
-                    <Tooltip label="Editar Usuário & Senha">
-                      <ActionIcon variant="subtle" color="blue" onClick={() => handleOpenEditModal(user)}>
-                        <IconPencil size={16} />
-                      </ActionIcon>
-                    </Tooltip>
-
-                    {user.id !== currentUserId && (
-                      <Tooltip label={user.is_active === 1 ? 'Desativar Usuário' : 'Ativar Usuário'}>
-                        <ActionIcon
-                          variant="subtle"
-                          color={user.is_active === 1 ? 'orange' : 'green'}
-                          onClick={() => handleToggleStatus(user)}
+            users.map((user) => {
+              const isUserActive = Number(user.is_active) === 1;
+              return (
+                <Table.Tr key={user.id} style={{ opacity: !isUserActive ? 0.6 : 1 }}>
+                  <Table.Td>{user.id}</Table.Td>
+                  <Table.Td style={{ fontWeight: 600 }}>{user.name}</Table.Td>
+                  <Table.Td>{user.email}</Table.Td>
+                  <Table.Td>
+                    <Badge color={user.role === 'admin' ? 'indigo' : 'gray'} variant="light">
+                      {user.role === 'admin' ? 'ADMINISTRADOR' : 'USUÁRIO'}
+                    </Badge>
+                  </Table.Td>
+                  <Table.Td>
+                    <Badge color={isUserActive ? 'teal' : 'red'} variant="dot">
+                      {isUserActive ? 'ATIVO' : 'INATIVO'}
+                    </Badge>
+                  </Table.Td>
+                  <Table.Td>{new Date(user.created_at).toLocaleDateString('pt-BR')}</Table.Td>
+                  <Table.Td style={{ textAlign: 'right' }}>
+                    <Group gap="xs" justify="flex-end">
+                      <Tooltip label={`Ver painel como ${user.name}`}>
+                        <Button
+                          size="xs"
+                          variant="light"
+                          color="cyan"
+                          leftSection={<IconEye size={14} />}
+                          onClick={() => onImpersonate(user)}
+                          disabled={!isUserActive}
                         >
-                          <IconPower size={16} />
+                          Ver como
+                        </Button>
+                      </Tooltip>
+
+                      <Tooltip label="Editar Usuário & Senha">
+                        <ActionIcon variant="subtle" color="blue" onClick={() => handleOpenEditModal(user)}>
+                          <IconPencil size={16} />
                         </ActionIcon>
                       </Tooltip>
-                    )}
+
+                      {user.id !== currentUserId && (
+                        <Tooltip label={isUserActive ? 'Desativar Usuário' : 'Ativar Usuário'}>
+                          <ActionIcon
+                            variant="subtle"
+                            color={isUserActive ? 'orange' : 'green'}
+                            onClick={() => handleToggleStatus(user)}
+                          >
+                            <IconPower size={16} />
+                          </ActionIcon>
+                        </Tooltip>
+                      )}
 
                     {user.id !== currentUserId && (
                       <Tooltip label="Excluir Permanentemente">
@@ -270,8 +272,9 @@ export function UsersList({ onImpersonate, currentUserId }: UsersListProps) {
                   </Group>
                 </Table.Td>
               </Table.Tr>
-            ))
-          )}
+            );
+          })
+        )}
         </Table.Tbody>
       </Table>
 

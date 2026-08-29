@@ -19,6 +19,8 @@ class Scan extends ResourceController
 
         $effectiveUserId = $this->request->effectiveUserId ?? ($this->request->userData->id ?? null);
         $userData        = $this->request->userData ?? null;
+        $isImpersonating = $this->request->isImpersonating ?? false;
+        $isAdmin         = (($userData->role ?? 'user') === 'admin') && !$isImpersonating;
 
         $websiteModel = new WebsiteModel();
         $website = $websiteModel->find($websiteId);
@@ -27,7 +29,7 @@ class Scan extends ResourceController
             return $this->failNotFound('Website não encontrado.');
         }
 
-        if ($website['user_id'] != $effectiveUserId && ($userData->role ?? 'user') !== 'admin') {
+        if ($website['user_id'] != $effectiveUserId && !$isAdmin) {
             return $this->failForbidden('Você não tem permissão para auditar este website.');
         }
 
@@ -85,6 +87,8 @@ class Scan extends ResourceController
 
         $effectiveUserId = $this->request->effectiveUserId ?? ($this->request->userData->id ?? null);
         $userData        = $this->request->userData ?? null;
+        $isImpersonating = $this->request->isImpersonating ?? false;
+        $isAdmin         = (($userData->role ?? 'user') === 'admin') && !$isImpersonating;
 
         $websiteModel = new WebsiteModel();
         $website = $websiteModel->find($websiteId);
@@ -93,7 +97,7 @@ class Scan extends ResourceController
             return $this->failNotFound('Website não encontrado.');
         }
 
-        if ($website['user_id'] != $effectiveUserId && ($userData->role ?? 'user') !== 'admin') {
+        if ($website['user_id'] != $effectiveUserId && !$isAdmin) {
             return $this->failForbidden('Você não tem permissão para visualizar este histórico.');
         }
 
