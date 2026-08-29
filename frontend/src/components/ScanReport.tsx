@@ -166,36 +166,49 @@ export const ScanReport: React.FC<ScanReportProps> = ({ website, onBack }) => {
     }
   };
 
-  // Helper to extract failed checks from scanResult
+  // Helper to extract failed / warning checks from scanResult
   const getAllFailedChecks = () => {
     if (!scanResult) return [];
     const checks: any[] = [];
     const seen = new Set<string>();
 
     const extract = (list: any[]) => {
+      if (!Array.isArray(list)) return;
       list.forEach((c: any) => {
         const id = c.id || c.check_id;
         const st = (c.status || '').toUpperCase();
-        if (id && !seen.has(id) && ['FAIL', 'WARN', 'WARNING', 'ALERTA', 'FALHA'].includes(st)) {
+        // Capture any check that is not explicitly PASS / OK / SUCCESS / PASSED / SUCESSO / GOOD
+        const isFailed = st !== 'PASS' && st !== 'OK' && st !== 'SUCCESS' && st !== 'PASSED' && st !== 'SUCESSO' && st !== 'GOOD';
+        if (id && !seen.has(id) && isFailed) {
           seen.add(id);
           checks.push(c);
         }
       });
     };
 
+    // Root level checks if present
     if (Array.isArray(scanResult.checks)) {
       extract(scanResult.checks);
     }
-    if (Array.isArray(scanResult.categories)) {
-      scanResult.categories.forEach((cat: any) => {
-        if (Array.isArray(cat.checks)) extract(cat.checks);
-      });
+
+    // Categories as array or object dictionary
+    if (scanResult.categories) {
+      if (Array.isArray(scanResult.categories)) {
+        scanResult.categories.forEach((cat: any) => {
+          if (cat && Array.isArray(cat.checks)) extract(cat.checks);
+        });
+      } else if (typeof scanResult.categories === 'object') {
+        Object.values(scanResult.categories).forEach((cat: any) => {
+          if (cat && Array.isArray(cat.checks)) extract(cat.checks);
+        });
+      }
     }
+
     return checks;
   };
 
   // Real-time sequential batch solution generator
-  const handleBatchGenerateSolutionsWithProgress = async (forceRegenerate = false) => {
+  const handleBatchGenerateSolutionsWithProgress = async (forceRegenerate = true) => {
     const failedChecks = getAllFailedChecks();
     if (failedChecks.length === 0) {
       alert('Nenhuma falha encontrada no relatório para gerar soluções.');
@@ -269,10 +282,12 @@ export const ScanReport: React.FC<ScanReportProps> = ({ website, onBack }) => {
         setBatchLogs((prev) =>
           prev.map((item, idx) =>
             idx === i
-              ? { ...item, status: 'success', duration, message: 'Gerado com sucesso' }
+              ? { ...item, status: 'success', duration, message: 'Gerado / Atualizado com sucesso' }
               : item
           )
         );
+        // Refresh catalog in background to update UI badges immediately
+        fetchSolutionsCatalog();
       } catch (err: any) {
         const errorMsg =
           err.response?.data?.messages?.error || err.message || 'Erro de conexão ou timeout';
@@ -598,7 +613,7 @@ export const ScanReport: React.FC<ScanReportProps> = ({ website, onBack }) => {
                     gradient={{ from: 'indigo', to: 'violet' }}
                     leftSection={<IconSparkles size={16} />}
                     loading={batchRunning}
-                    onClick={() => handleBatchGenerateSolutionsWithProgress(false)}
+                    onClick={() => handleBatchGenerateSolutionsWithProgress(true)}
                   >
                     ✨ Gerar Soluções em Lote (IA)
                   </Button>
