@@ -15,23 +15,12 @@ class Websites extends ResourceController
     public function index()
     {
         $effectiveUserId = $this->request->effectiveUserId ?? ($this->request->userData->id ?? null);
-        $userData        = $this->request->userData ?? null;
-        $isImpersonating = $this->request->isImpersonating ?? false;
 
         $websiteModel = new WebsiteModel();
-
-        if (($userData->role ?? 'user') === 'admin' && !$isImpersonating) {
-            $websites = $websiteModel
-                ->select('websites.*, users.name as owner_name, users.email as owner_email')
-                ->join('users', 'users.id = websites.user_id', 'left')
-                ->orderBy('websites.created_at', 'DESC')
-                ->findAll();
-        } else {
-            $websites = $websiteModel
-                ->where('user_id', $effectiveUserId)
-                ->orderBy('created_at', 'DESC')
-                ->findAll();
-        }
+        $websites = $websiteModel
+            ->where('user_id', $effectiveUserId)
+            ->orderBy('created_at', 'DESC')
+            ->findAll();
 
         // Ensure agent_token exists for older records
         foreach ($websites as &$site) {
@@ -101,9 +90,6 @@ class Websites extends ResourceController
         }
 
         $effectiveUserId = $this->request->effectiveUserId ?? ($this->request->userData->id ?? null);
-        $userData        = $this->request->userData ?? null;
-        $isImpersonating = $this->request->isImpersonating ?? false;
-        $isAdmin         = (($userData->role ?? 'user') === 'admin') && !$isImpersonating;
 
         $websiteModel = new WebsiteModel();
         $website = $websiteModel->find($id);
@@ -112,7 +98,7 @@ class Websites extends ResourceController
             return $this->failNotFound('Website não encontrado.');
         }
 
-        if ($website['user_id'] != $effectiveUserId && !$isAdmin) {
+        if ($website['user_id'] != $effectiveUserId) {
             return $this->failForbidden('Você não tem permissão para editar este website.');
         }
 
@@ -157,9 +143,6 @@ class Websites extends ResourceController
         }
 
         $effectiveUserId = $this->request->effectiveUserId ?? ($this->request->userData->id ?? null);
-        $userData        = $this->request->userData ?? null;
-        $isImpersonating = $this->request->isImpersonating ?? false;
-        $isAdmin         = (($userData->role ?? 'user') === 'admin') && !$isImpersonating;
 
         $websiteModel = new WebsiteModel();
         $website = $websiteModel->find($id);
@@ -168,8 +151,7 @@ class Websites extends ResourceController
             return $this->failNotFound('Website não encontrado.');
         }
 
-        // Check ownership or admin status
-        if ($website['user_id'] != $effectiveUserId && !$isAdmin) {
+        if ($website['user_id'] != $effectiveUserId) {
             return $this->failForbidden('Você não tem permissão para remover este website.');
         }
 
@@ -188,9 +170,6 @@ class Websites extends ResourceController
         }
 
         $effectiveUserId = $this->request->effectiveUserId ?? ($this->request->userData->id ?? null);
-        $userData        = $this->request->userData ?? null;
-        $isImpersonating = $this->request->isImpersonating ?? false;
-        $isAdmin         = (($userData->role ?? 'user') === 'admin') && !$isImpersonating;
 
         $websiteModel = new WebsiteModel();
         $website = $websiteModel->find($id);
@@ -199,7 +178,7 @@ class Websites extends ResourceController
             return $this->failNotFound('Website não encontrado.');
         }
 
-        if ($website['user_id'] != $effectiveUserId && !$isAdmin) {
+        if ($website['user_id'] != $effectiveUserId) {
             return $this->failForbidden('Você não tem permissão para baixar o plugin deste website.');
         }
 
