@@ -9,6 +9,22 @@ class VS_Agent_Admin {
     public function __construct() {
         add_action('admin_menu', array($this, 'add_admin_menu'));
         add_action('admin_init', array($this, 'handle_connect_action'));
+        add_action('admin_head', array($this, 'admin_head_styles'));
+    }
+
+    public function admin_head_styles() {
+        echo '<style>
+            #adminmenu .toplevel_page_wp-patropi .wp-menu-image img,
+            #adminmenu #toplevel_page_wp-patropi .wp-menu-image img {
+                max-width: 20px !important;
+                max-height: 20px !important;
+                width: 20px !important;
+                height: 20px !important;
+                padding: 3px 0 0 0 !important;
+                object-fit: contain !important;
+                box-sizing: border-box !important;
+            }
+        </style>';
     }
 
     public function add_admin_menu() {
@@ -89,18 +105,20 @@ class VS_Agent_Admin {
         $is_connected = get_option('vs_is_connected', 0);
         ?>
         <div class="wrap">
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; background: #fff; padding: 15px 20px; border-radius: 8px; border: 1px solid #e0e0e0; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+            <h1 class="wp-heading-inline" style="display:none;">WP Patropi - Diagnóstico</h1>
+            <hr class="wp-header-end" style="display:none;" />
+
+            <?php settings_errors('vs_messages'); ?>
+
+            <div style="display: flex; align-items: center; justify-content: space-between; margin: 15px 0; background: #fff; padding: 15px 20px; border-radius: 8px; border: 1px solid #e0e0e0; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
                 <div style="display: flex; align-items: center; gap: 15px;">
-                    <img src="<?php echo esc_url(VS_AGENT_URL . 'assets/logo-Patropi.png'); ?>" alt="Patropi Comunica" style="max-height: 42px; width: auto;" onerror="this.style.display='none';" />
+                    <img src="<?php echo esc_url(VS_AGENT_URL . 'assets/logo-Patropi.png'); ?>" alt="Patropi Comunica" style="max-height: 42px; height: 42px; width: auto; object-fit: contain;" onerror="this.style.display='none';" />
                     <div>
-                        <h1 style="margin: 0; font-size: 20px; font-weight: 700; color: #1e293b;">WP Patropi - Diagnóstico</h1>
+                        <h2 style="margin: 0; font-size: 20px; font-weight: 700; color: #1e293b;">WP Patropi - Diagnóstico</h2>
                         <p style="margin: 2px 0 0 0; font-size: 12px; color: #64748b;">Desenvolvido por <strong>Rodrigo Bermudez - Patropi Comunica</strong> (<a href="https://patropicomunica.com.br" target="_blank" style="color: #2563eb; text-decoration: none;">patropicomunica.com.br</a>)</p>
                     </div>
                 </div>
             </div>
-            <hr style="margin-bottom: 20px;" />
-
-            <?php settings_errors('vs_messages'); ?>
 
             <div style="background: #fff; border: 1px solid #ccd0d4; padding: 20px; border-radius: 6px; max-width: 650px; margin-top: 20px;">
                 <h2>Status da Conexão</h2>
