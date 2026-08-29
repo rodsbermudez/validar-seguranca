@@ -19,6 +19,7 @@ import {
   Textarea,
   Tooltip,
   Progress,
+  Box,
 } from '@mantine/core';
 import {
   IconArrowLeft,
@@ -71,6 +72,7 @@ export const ScanReport: React.FC<ScanReportProps> = ({ website, onBack }) => {
   const [batchLogs, setBatchLogs] = useState<
     Array<{
       name: string;
+      checkId?: string;
       status: 'pending' | 'generating' | 'success' | 'skipped' | 'error';
       message?: string;
       duration?: number;
@@ -226,6 +228,7 @@ export const ScanReport: React.FC<ScanReportProps> = ({ website, onBack }) => {
 
     const initialLogs = failedChecks.map((check: any) => ({
       name: check.name || check.check_name || check.id || check.check_id,
+      checkId: check.id || check.check_id,
       status: 'pending' as const,
     }));
     setBatchLogs(initialLogs);
@@ -290,7 +293,7 @@ export const ScanReport: React.FC<ScanReportProps> = ({ website, onBack }) => {
         fetchSolutionsCatalog();
       } catch (err: any) {
         const errorMsg =
-          err.response?.data?.messages?.error || err.message || 'Erro de conexão ou timeout';
+          err.response?.data?.messages?.error || err.message || 'Erro de conexão ou timeout da API';
         errors++;
         setBatchErrorCount(errors);
         setBatchLogs((prev) =>
@@ -301,6 +304,101 @@ export const ScanReport: React.FC<ScanReportProps> = ({ website, onBack }) => {
       }
 
       setBatchProgress(Math.round(((i + 1) / failedChecks.length) * 100));
+    }
+
+    setBatchRunning(false);
+    setBatchProgress(100);
+    await fetchSolutionsCatalog();
+  };
+
+  // Retry only items that failed in batch generation
+  const handleBatchRetryFailedSolutions = async () => {
+    const failedChecks = getAllFailedChecks();
+    
+    // Identify check IDs or names that failed in batchLogs or are missing catalog solutions
+    const errorLogs = batchLogs.filter((log) => log.status === 'error');
+    const errorCheckIds = new Set(errorLogs.map((log) => log.checkId).filter(Boolean));
+    const errorCheckNames = new Set(errorLogs.map((log) => log.name));
+
+    const checksToRetry = failedChecks.filter((check: any) => {
+      const id = check.id || check.check_id;
+      const name = check.name || check.check_name || id;
+      return errorCheckIds.has(id) || errorCheckNames.has(name) || !catalogSolutions[id];
+    });
+
+    if (checksToRetry.length === 0) {
+      alert('Nenhuma falha pendente para re-executar.');
+      return;
+    }
+
+    setBatchModalOpen(true);
+    setBatchRunning(true);
+    setBatchTotalSteps(checksToRetry.length);
+    setBatchCurrentStep(0);
+    setBatchProgress(0);
+    setBatchSuccessCount(0);
+    setBatchSkippedCount(0);
+    setBatchErrorCount(0);
+
+    const initialLogs = checksToRetry.map((check: any) => ({
+      name: check.name || check.check_name || check.id || check.check_id,
+      checkId: check.id || check.check_id,
+      status: 'pending' as const,
+    }));
+    setBatchLogs(initialLogs);
+
+    let success = 0;
+    let errors = 0;
+
+    for (let i = 0; i < checksToRetry.length; i++) {
+      const check = checksToRetry[i];
+      const checkId = check.id || check.check_id;
+      const checkName = check.name || check.check_name || checkId;
+
+      setBatchCurrentStep(i + 1);
+      setBatchCurrentItemName(checkName);
+
+      setBatchLogs((prev) =>
+        prev.map((item, idx) => (idx === i ? { ...item, status: 'generating' } : item))
+      );
+
+      const startTime = Date.now();
+      try {
+        await api.post(
+          '/solutions/generate-single',
+          {
+            check_id: checkId,
+            check_name: checkName,
+            details: check.details || check.description || '',
+            severity: check.severity || 'medium',
+          },
+          { timeout: 120000 }
+        );
+
+        const duration = Math.round((Date.now() - startTime) / 1000);
+        success++;
+        setBatchSuccessCount(success);
+        setBatchLogs((prev) =>
+          prev.map((item, idx) =>
+            idx === i
+              ? { ...item, status: 'success', duration, message: 'Gerado com sucesso' }
+              : item
+          )
+        );
+        fetchSolutionsCatalog();
+      } catch (err: any) {
+        const errorMsg =
+          err.response?.data?.messages?.error || err.message || 'Erro de conexão ou timeout da API';
+        errors++;
+        setBatchErrorCount(errors);
+        setBatchLogs((prev) =>
+          prev.map((item, idx) =>
+            idx === i ? { ...item, status: 'error', message: errorMsg } : item
+          )
+        );
+      }
+
+      setBatchProgress(Math.round(((i + 1) / checksToRetry.length) * 100));
     }
 
     setBatchRunning(false);
@@ -1209,55 +1307,77 @@ export const ScanReport: React.FC<ScanReportProps> = ({ website, onBack }) => {
             p="xs"
             bg="dark.8"
             radius="sm"
-            style={{ maxHeight: 220, overflowY: 'auto', border: '1px solid #2C2E33' }}
+            style={{ maxHeight: 250, overflowY: 'auto', border: '1px solid #2C2E33' }}
           >
-            <Stack gap={6}>
+            <Stack gap={8}>
               {batchLogs.map((log, index) => (
-                <Group key={index} justify="space-between" align="center">
-                  <Group gap="xs">
-                    {log.status === 'generating' && <Loader size={12} color="indigo" />}
-                    {log.status === 'success' && <IconCheck size={14} color="#10B981" />}
-                    {log.status === 'skipped' && <IconCheck size={14} color="#06B6D4" />}
-                    {log.status === 'error' && <IconX size={14} color="#EF4444" />}
-                    {log.status === 'pending' && <Text size="xs" c="dimmed">•</Text>}
+                <Box
+                  key={index}
+                  p="xs"
+                  style={{
+                    borderRadius: '6px',
+                    backgroundColor: log.status === 'error' ? 'rgba(239, 68, 68, 0.08)' : 'transparent',
+                    border: log.status === 'error' ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid #2C2E33',
+                  }}
+                >
+                  <Group justify="space-between" align="center">
+                    <Group gap="xs">
+                      {log.status === 'generating' && <Loader size={12} color="indigo" />}
+                      {log.status === 'success' && <IconCheck size={14} color="#10B981" />}
+                      {log.status === 'skipped' && <IconCheck size={14} color="#06B6D4" />}
+                      {log.status === 'error' && <IconX size={14} color="#EF4444" />}
+                      {log.status === 'pending' && <Text size="xs" c="dimmed">•</Text>}
 
-                    <Text
-                      size="xs"
-                      fw={log.status === 'generating' ? 700 : 500}
-                      c={log.status === 'generating' ? 'indigo.3' : 'gray.3'}
-                    >
-                      {log.name}
+                      <Text
+                        size="xs"
+                        fw={log.status === 'generating' || log.status === 'error' ? 700 : 500}
+                        c={
+                          log.status === 'generating'
+                            ? 'indigo.3'
+                            : log.status === 'error'
+                            ? 'red.3'
+                            : 'gray.3'
+                        }
+                      >
+                        {log.name}
+                      </Text>
+                    </Group>
+
+                    <Group gap={6}>
+                      {log.status === 'generating' && (
+                        <Badge size="xs" color="indigo" variant="dot">
+                          Analisando...
+                        </Badge>
+                      )}
+                      {log.status === 'success' && (
+                        <Badge size="xs" color="teal">
+                          Gerado ({log.duration}s)
+                        </Badge>
+                      )}
+                      {log.status === 'skipped' && (
+                        <Badge size="xs" color="cyan" variant="outline">
+                          Reutilizado
+                        </Badge>
+                      )}
+                      {log.status === 'error' && (
+                        <Badge size="xs" color="red" variant="filled">
+                          Falhou
+                        </Badge>
+                      )}
+                      {log.status === 'pending' && (
+                        <Badge size="xs" color="gray" variant="outline">
+                          Aguardando
+                        </Badge>
+                      )}
+                    </Group>
+                  </Group>
+
+                  {log.status === 'error' && log.message && (
+                    <Text size="xs" c="red.4" mt={4} pl={22} style={{ fontSize: '11px', lineHeight: '1.4' }}>
+                      ⚠️ <b>Causa da falha:</b> {log.message}
                     </Text>
-                  </Group>
-
-                  <Group gap={6}>
-                    {log.status === 'generating' && (
-                      <Badge size="xs" color="indigo" variant="dot">
-                        Analisando...
-                      </Badge>
-                    )}
-                    {log.status === 'success' && (
-                      <Badge size="xs" color="teal">
-                        Gerado ({log.duration}s)
-                      </Badge>
-                    )}
-                    {log.status === 'skipped' && (
-                      <Badge size="xs" color="cyan" variant="outline">
-                        Reutilizado
-                      </Badge>
-                    )}
-                    {log.status === 'error' && (
-                      <Badge size="xs" color="red" variant="filled">
-                        Falhou
-                      </Badge>
-                    )}
-                    {log.status === 'pending' && (
-                      <Badge size="xs" color="gray" variant="outline">
-                        Aguardando
-                      </Badge>
-                    )}
-                  </Group>
-                </Group>
+                  )}
+                </Box>
               ))}
             </Stack>
           </Paper>
@@ -1265,10 +1385,22 @@ export const ScanReport: React.FC<ScanReportProps> = ({ website, onBack }) => {
           <Group justify="flex-end" mt="sm">
             {!batchRunning ? (
               <Group gap="xs">
+                {batchErrorCount > 0 && (
+                  <Button
+                    variant="filled"
+                    color="orange"
+                    size="xs"
+                    leftSection={<IconRotateClockwise size={14} />}
+                    onClick={handleBatchRetryFailedSolutions}
+                  >
+                    ⚡ Re-executar Apenas Falhas ({batchErrorCount})
+                  </Button>
+                )}
                 <Button
                   variant="light"
                   color="indigo"
                   size="xs"
+                  leftSection={<IconRotateClockwise size={14} />}
                   onClick={() => handleBatchGenerateSolutionsWithProgress(true)}
                 >
                   🔄 Recarregar Todos via IA
