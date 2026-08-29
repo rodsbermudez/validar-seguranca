@@ -508,6 +508,35 @@ class WordPressScanner
             'details'     => $authorDetails,
         ];
 
+        // 2b. User Enumeration via XML Sitemap (/wp-sitemap-users-1.xml)
+        $resSitemap = $this->request('/wp-sitemap-users-1.xml');
+        $sitemapExposed = false;
+        $sitemapUsers = [];
+
+        if ($resSitemap['http_code'] === 200) {
+            $body = $resSitemap['body'];
+            if (str_contains($body, '<loc>') || str_contains($body, 'urlset')) {
+                // Extract author usernames from <loc>https://.../author/username/</loc>
+                if (preg_match_all('/\/author\/([^\/<\?&]+)/i', $body, $sMatches)) {
+                    $sitemapUsers = array_unique($sMatches[1]);
+                    $sitemapExposed = !empty($sitemapUsers);
+                } elseif (str_contains($body, 'users') || str_contains($body, 'author')) {
+                    $sitemapExposed = true;
+                }
+            }
+        }
+
+        $checks[] = [
+            'id'          => 'enum_sitemap_users',
+            'name'        => 'Enumeração via Sitemap XML (/wp-sitemap-users-1.xml)',
+            'description' => 'Verifica se o sitemap nativo do WordPress expõe a listagem de autores e usernames.',
+            'status'      => $sitemapExposed ? 'FAIL' : 'PASS',
+            'severity'    => 'HIGH',
+            'details'     => $sitemapExposed 
+                ? 'Nomes de usuário expostos no Sitemap XML: ' . (!empty($sitemapUsers) ? implode(', ', $sitemapUsers) : 'Lista de usuários acessível')
+                : 'Sitemap de usuários desativado ou protegido (HTTP ' . $resSitemap['http_code'] . ').',
+        ];
+
         // 3. XML-RPC interface
         $xmlBody = '<?xml version="1.0"?><methodCall><methodName>system.listMethods</methodName><params></params></methodCall>';
         $resXmlRpc = $this->request('/xmlrpc.php', 'POST', ['Content-Type: text/xml'], $xmlBody);

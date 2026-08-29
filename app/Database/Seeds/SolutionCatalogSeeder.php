@@ -61,6 +61,39 @@ PHP,
                 'updated_at'            => date('Y-m-d H:i:s'),
             ],
             [
+                'check_id'              => 'enum_sitemap_users',
+                'check_name'            => 'Enumeração de Usuários via Sitemap XML',
+                'action_type'           => 'PLUGIN_AUTO_FIX',
+                'problem_description'   => 'A rota de sitemap nativo (/wp-sitemap-users-1.xml) exibe uma lista em XML contendo o slug de todos os autores do site.',
+                'solution_title'        => 'Desativação do Sitemap de Usuários/Autores no WordPress',
+                'solution_instructions' => 'Desativa o provedor de sitemaps de usuários do WordPress e bloqueia o acesso à rota /wp-sitemap-users*.',
+                'fix_code_snippet'      => <<<'PHP'
+// Desativar Sitemap de Usuários/Autores no WordPress
+add_filter('wp_sitemaps_add_provider', function($provider, $name) {
+    if ($name === 'users') {
+        return false;
+    }
+    return $provider;
+}, 10, 2);
+
+add_filter('wp_sitemaps_users_pre_render_data', '__return_false');
+
+// Bloquear requisição direta a URLs de sitemap de usuários
+add_action('init', function() {
+    $requestUri = $_SERVER['REQUEST_URI'] ?? '';
+    if (str_contains($requestUri, 'wp-sitemap-users')) {
+        status_header(404);
+        header('Content-Type: text/html; charset=utf-8');
+        echo '404 Not Found';
+        exit;
+    }
+}, 1);
+PHP,
+                'ai_notes'              => 'Desativa o provedor de usuários em wp_sitemaps_add_provider e retorna 404 em wp-sitemap-users.',
+                'created_at'            => date('Y-m-d H:i:s'),
+                'updated_at'            => date('Y-m-d H:i:s'),
+            ],
+            [
                 'check_id'              => 'xmlrpc_enabled',
                 'check_name'            => 'Interface XML-RPC Ativa',
                 'action_type'           => 'PLUGIN_AUTO_FIX',
