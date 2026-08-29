@@ -1,12 +1,13 @@
 <?php
 /**
- * Plugin Name: Validar Segurança Agente
- * Plugin URI: https://github.com/rodsbermudez/validar-seguranca
+ * Plugin Name: WP Patropi - Diagnóstico
+ * Plugin URI: https://patropicomunica.com.br
  * Description: Plugin Agente para diagnóstico interno profundo de segurança em sites WordPress.
  * Version: 1.0.0
- * Author: Validar Segurança Team
+ * Author: Rodrigo Bermudez - Patropi Comunica
+ * Author URI: https://patropicomunica.com.br
  * License: GPLv2 or later
- * Text Domain: validar-seguranca-agent
+ * Text Domain: wp-patropi-diagnostico
  */
 
 if (!defined('ABSPATH')) {
@@ -16,6 +17,13 @@ if (!defined('ABSPATH')) {
 define('VS_AGENT_VERSION', '1.0.0');
 define('VS_AGENT_PATH', plugin_dir_path(__FILE__));
 define('VS_AGENT_URL', plugin_dir_url(__FILE__));
+
+// Settings link on Plugins list page (plugins.php)
+add_filter('plugin_action_links_' . plugin_basename(__FILE__), function ($links) {
+    $settings_link = '<a href="' . esc_url(admin_url('admin.php?page=wp-patropi')) . '">' . __('Configurações', 'wp-patropi-diagnostico') . '</a>';
+    array_unshift($links, $settings_link);
+    return $links;
+});
 
 require_path_once(VS_AGENT_PATH . 'includes/class-vs-collector.php');
 require_path_once(VS_AGENT_PATH . 'includes/class-vs-rest-api.php');

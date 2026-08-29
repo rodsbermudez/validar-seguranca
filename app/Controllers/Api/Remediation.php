@@ -7,6 +7,7 @@ use App\Models\WebsiteModel;
 use App\Models\ScanHistoryModel;
 use App\Models\SolutionCatalogModel;
 use App\Services\AIService;
+use App\Services\BrandingService;
 use ZipArchive;
 
 class Remediation extends ResourceController
@@ -124,7 +125,7 @@ class Remediation extends ResourceController
             // Package into ZIP
             $siteHost = parse_url($website['url'], PHP_URL_HOST) ?: 'site';
             $siteSlug = preg_replace('/[^a-zA-Z0-9_\-]/', '-', $siteHost);
-            $zipFilename = "validar-seguranca-fix-{$siteSlug}.zip";
+            $zipFilename = "wp-patropi-fixes-{$siteSlug}.zip";
 
             $tempDir = WRITEPATH . 'uploads/temp_remediation/';
             if (!is_dir($tempDir)) {
@@ -138,8 +139,8 @@ class Remediation extends ResourceController
                 return $this->failServerError('Não foi possível criar o arquivo ZIP de remediação.');
             }
 
-            $pluginDirName = 'validar-seguranca-fix';
-            $zip->addFromString("{$pluginDirName}/validar-seguranca-fix.php", $pluginCode);
+            $pluginDirName = 'wp-patropi-fixes';
+            $zip->addFromString("{$pluginDirName}/wp-patropi-fixes.php", $pluginCode);
 
             // Create Readme.txt
             $readmeText = "====================================================\n" .
@@ -379,17 +380,30 @@ class Remediation extends ResourceController
 
     protected function buildNativeRemediationPlugin(array $pluginFixes, string $websiteUrl): string
     {
-        $siteHost = parse_url($websiteUrl, PHP_URL_HOST) ?: 'wordpress-site';
-        $siteHostClean = preg_replace('/[^a-zA-Z0-9_\-]/', '_', $siteHost);
+        $siteHost      = parse_url($websiteUrl, PHP_URL_HOST) ?: 'wordpress-site';
+        $faviconData   = BrandingService::getFaviconDataUri();
+        $logoData      = BrandingService::getLogoDataUri();
+        $authorName    = BrandingService::AUTHOR_NAME;
+        $authorUri     = BrandingService::AUTHOR_URI;
 
         $code = "<?php\n";
         $code .= "/**\n";
-        $code .= " * Plugin Name: Validar Segurança Fix - {$siteHost}\n";
+        $code .= " * Plugin Name: WP Patropi - Fixes - {$siteHost}\n";
+        $code .= " * Plugin URI: {$authorUri}\n";
         $code .= " * Description: Plugin customizado de remediação de segurança gerado pela plataforma Validar Segurança.\n";
         $code .= " * Version: 1.0.0\n";
-        $code .= " * Author: Validar Segurança\n";
+        $code .= " * Author: {$authorName}\n";
+        $code .= " * Author URI: {$authorUri}\n";
+        $code .= " * Text Domain: wp-patropi-fixes\n";
         $code .= " */\n\n";
         $code .= "if (!defined('ABSPATH')) {\n    exit;\n}\n\n";
+
+        $code .= "// --- LINK DE CONFIGURAÇÕES NA TELA DE PLUGINS ---\n";
+        $code .= "add_filter('plugin_action_links_' . plugin_basename(__FILE__), function(\$links) {\n";
+        $code .= "    \$settings_link = '<a href=\"' . esc_url(admin_url('admin.php?page=wp-patropi-fixes')) . '\">Configurações</a>';\n";
+        $code .= "    array_unshift(\$links, \$settings_link);\n";
+        $code .= "    return \$links;\n";
+        $code .= "});\n\n";
 
         $code .= "// --- APLICAÇÃO DIRETA DAS REGRAS DE REMEDIAÇÃO DE SEGURANÇA ---\n\n";
 
@@ -408,13 +422,27 @@ class Remediation extends ResourceController
 
         $code .= "// --- INTERFACE DE VISUALIZAÇÃO NO PAINEL WP ADMIN ---\n";
         $code .= "add_action('admin_menu', function() {\n";
-        $code .= "    add_menu_page('Validar Segurança', 'Validar Segurança', 'manage_options', 'validar-seguranca-fix', 'vs_render_remediation_admin_page', 'dashicons-shield', 80);\n";
+        $code .= "    \$parent_slug = 'wp-patropi';\n";
+        $code .= "    if (empty(\$GLOBALS['admin_page_hooks'][\$parent_slug])) {\n";
+        $code .= "        add_menu_page('WP Patropi', 'WP Patropi', 'manage_options', \$parent_slug, 'vs_render_remediation_admin_page', '{$faviconData}', 80);\n";
+        $code .= "    }\n";
+        $code .= "    add_submenu_page(\$parent_slug, 'WP Patropi - Fixes', 'WP Patropi - Fixes', 'manage_options', 'wp-patropi-fixes', 'vs_render_remediation_admin_page');\n";
         $code .= "});\n\n";
 
         $code .= "if (!function_exists('vs_render_remediation_admin_page')) {\n";
         $code .= "    function vs_render_remediation_admin_page() {\n";
-        $code .= "        echo '<div class=\"wrap\"><h1>Shield - Correções de Segurança Ativas</h1><p>Este plugin foi gerado pela plataforma Validar Segurança para o site <strong>" . htmlspecialchars($siteHost) . "</strong>.</p>';\n";
-        $code .= "        echo '<table class=\"widefat fixed striped\"><thead><tr><th>ID da Verificação</th><th>Correção</th><th>Status</th></tr></thead><tbody>';\n";
+        $code .= "        echo '<div class=\"wrap\">';\n";
+        $code .= "        echo '<div style=\"display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; background: #fff; padding: 15px 20px; border-radius: 8px; border: 1px solid #e0e0e0; box-shadow: 0 1px 3px rgba(0,0,0,0.05);\">';\n";
+        $code .= "        echo '  <div style=\"display: flex; align-items: center; gap: 15px;\">';\n";
+        $code .= "        echo '    <img src=\"{$logoData}\" alt=\"Patropi Comunica\" style=\"max-height: 42px; width: auto;\" onerror=\"this.style.display=\\'none\\';\" />';\n";
+        $code .= "        echo '    <div>';\n";
+        $code .= "        echo '      <h1 style=\"margin: 0; font-size: 20px; font-weight: 700; color: #1e293b;\">WP Patropi - Fixes</h1>';\n";
+        $code .= "        echo '      <p style=\"margin: 2px 0 0 0; font-size: 12px; color: #64748b;\">Desenvolvido por <strong>{$authorName}</strong> (<a href=\"{$authorUri}\" target=\"_blank\" style=\"color: #2563eb; text-decoration: none;\">patropicomunica.com.br</a>)</p>';\n";
+        $code .= "        echo '    </div>';\n";
+        $code .= "        echo '  </div>';\n";
+        $code .= "        echo '</div>';\n";
+        $code .= "        echo '<p>Plugin de remediação ativado para o site <strong>" . htmlspecialchars($siteHost) . "</strong>.</p>';\n";
+        $code .= "        echo '<table class=\"widefat fixed striped\"><thead><tr><th>ID da Verificação</th><th>Correção Aplicada</th><th>Status</th></tr></thead><tbody>';\n";
         foreach ($pluginFixes as $fix) {
             $code .= "        echo '<tr><td><code>" . htmlspecialchars($fix['check_id']) . "</code></td><td><strong>" . htmlspecialchars($fix['solution_title']) . "</strong></td><td><span style=\"background:#10B981;color:#fff;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600;\">Ativo</span></td></tr>';\n";
         }

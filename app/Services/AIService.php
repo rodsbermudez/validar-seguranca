@@ -90,12 +90,42 @@ class AIService
             $fixesSummary .= "Snippet de Código Base:\n{$snippet}\n\n";
         }
 
+        $faviconDataUri = BrandingService::getFaviconDataUri();
+        $logoDataUri    = BrandingService::getLogoDataUri();
+        $authorName     = BrandingService::AUTHOR_NAME;
+        $authorUri      = BrandingService::AUTHOR_URI;
+
         $systemPrompt = "Você é um Desenvolvedor WordPress Sênior e Especialista em Segurança.\n" .
-            "Sua tarefa é compor um Plugin WordPress completo, robusto, limpo e profissional chamado 'Validar Segurança - Correções de Segurança'.\n\n" .
+            "Sua tarefa é compor um Plugin WordPress completo, robusto, limpo e profissional chamado 'WP Patropi - Fixes - {$siteHost}'.\n\n" .
             "REQUISITOS OBRIGATÓRIOS DO PLUGIN:\n" .
-            "1. Comece OBRIGATORIAMENTE com o cabeçalho padrão de Plugin do WordPress (Plugin Name: Validar Segurança Fix - {$siteHost}, Description, Version: 1.0.0, Author: Validar Segurança).\n" .
+            "1. Comece OBRIGATORIAMENTE com o cabeçalho padrão de Plugin do WordPress:\n" .
+            "   /*\n" .
+            "    * Plugin Name: WP Patropi - Fixes - {$siteHost}\n" .
+            "    * Plugin URI: {$authorUri}\n" .
+            "    * Description: Plugin customizado de remediação de segurança gerado pela plataforma Validar Segurança.\n" .
+            "    * Version: 1.0.0\n" .
+            "    * Author: {$authorName}\n" .
+            "    * Author URI: {$authorUri}\n" .
+            "    * Text Domain: wp-patropi-fixes\n" .
+            "    */\n" .
             "2. Verifique 'if (!defined(\"ABSPATH\")) exit;' no topo por segurança.\n" .
-            "3. REGRA CRÍTICA PARA EVITAR TELA EM BRANCO E ERROS FATAL PHP:\n" .
+            "3. REGRA CRÍTICA PARA LINK DE CONFIGURAÇÕES NA LISTA DE PLUGINS (plugins.php):\n" .
+            "   - Adicione o filtro 'plugin_action_links_' . plugin_basename(__FILE__) adicionando o link 'Configurações' direcionando para 'admin.php?page=wp-patropi-fixes'.\n" .
+            "4. REGRA CRÍTICA PARA ESTRUTURA DE MENU NO WP ADMIN:\n" .
+            "   - O menu principal deve se chamar 'WP Patropi' (slug: 'wp-patropi') com a posição 80 e ícone de data URI ('{$faviconDataUri}').\n" .
+            "   - Adicione a tela do plugin como subitem do menu 'WP Patropi' chamado 'WP Patropi - Fixes' (slug: 'wp-patropi-fixes').\n" .
+            "   - Exemplo de código do menu:\n" .
+            "     add_action('admin_menu', function() {\n" .
+            "         \$parent_slug = 'wp-patropi';\n" .
+            "         if (empty(\$GLOBALS['admin_page_hooks'][\$parent_slug])) {\n" .
+            "             add_menu_page('WP Patropi', 'WP Patropi', 'manage_options', \$parent_slug, 'vs_render_remediation_admin_page', '{$faviconDataUri}', 80);\n" .
+            "         }\n" .
+            "         add_submenu_page(\$parent_slug, 'WP Patropi - Fixes', 'WP Patropi - Fixes', 'manage_options', 'wp-patropi-fixes', 'vs_render_remediation_admin_page');\n" .
+            "     });\n" .
+            "5. NO TOPO DA PÁGINA ADMIN DO PLUGIN:\n" .
+            "   - Exiba um cabeçalho estilizado contendo a logo em data URI ('<img src=\"{$logoDataUri}\" style=\"max-height:42px;width:auto;\" />') e o texto 'WP Patropi - Fixes' com o crédito 'Desenvolvido por {$authorName} ({$authorUri})'.\n" .
+            "   - Exiba a tabela formatada com a lista das correções ativas.\n" .
+            "6. REGRAS PARA EVITAR TELA EM BRANCO E ERROS FATAL PHP:\n" .
             "   - NÃO chame funções do WordPress como home_url() ou wp_redirect() no topo puro do arquivo PHP, pois elas ainda não foram carregadas pelo WordPress.\n" .
             "   - Insira os bloqueios no hook 'plugins_loaded' com prioridade 1 (add_action('plugins_loaded', function() { ... }, 1)):\n" .
             "     a) Para enumeração de autor (/?author=N):\n" .
@@ -115,10 +145,9 @@ class AIService
             "                header('Content-Type: text/plain; charset=utf-8'); echo 'XML-RPC disabled'; exit;\n" .
             "            }\n" .
             "        }, 1);\n" .
-            "4. ESTRUTURA DE MENU NO WP ADMIN: Crie a tela do plugin como um menu principal no WP Admin chamado 'Validar Segurança' (slug: 'validar-seguranca-fix') via add_menu_page('Validar Segurança', 'Validar Segurança', 'manage_options', 'validar-seguranca-fix', 'vs_render_remediation_admin_page', 'dashicons-shield', 80). A página exibirá uma tabela visual formatada com a lista de todas as correções ativas.\n" .
-            "5. Aplique as demais correções fornecidas de forma limpa e segura.\n" .
-            "6. GARANTA que o código seja 100% livre de erros de sintaxe PHP. NÃO utilize tags de abertura <?php adicionais dentro de funções ou trechos mal formatados.\n" .
-            "7. Responda APENAS com o código PHP completo do plugin (começando com '<?php'). NÃO adicione textos de introdução ou cercas markdown de blocos de código.";
+            "7. Aplique as demais correções fornecidas de forma limpa e segura.\n" .
+            "8. GARANTA que o código seja 100% livre de erros de sintaxe PHP. NÃO utilize tags de abertura <?php adicionais dentro de funções ou trechos mal formatados.\n" .
+            "9. Responda APENAS com o código PHP completo do plugin (começando com '<?php'). NÃO adicione textos de introdução ou cercas markdown de blocos de código.";
 
         $userPrompt = "Gere o código do plugin 'Validar Segurança Fix' para o site {$websiteUrl} contendo as seguintes correções de segurança:\n\n" .
             $fixesSummary;

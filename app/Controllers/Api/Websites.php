@@ -209,7 +209,7 @@ class Websites extends ResourceController
         foreach ($files as $file) {
             if (!$file->isDir()) {
                 $filePath = $file->getRealPath();
-                $relativePath = 'validar-seguranca-agent/' . substr($filePath, strlen($templatePath));
+                $relativePath = 'wp-patropi-diagnostico/' . substr($filePath, strlen($templatePath));
                 $zip->addFile($filePath, $relativePath);
             }
         }
@@ -221,11 +221,13 @@ class Websites extends ResourceController
             'saas_url'    => base_url(),
         ], JSON_PRETTY_PRINT);
 
-        $zip->addFromString('validar-seguranca-agent/config.json', $configContent);
+        $zip->addFromString('wp-patropi-diagnostico/config.json', $configContent);
         $zip->close();
 
         // Stream zip download
-        return $this->response->download($tempZip, null)->setFileName('validar-seguranca-agent-' . str_replace(' ', '_', strtolower($website['name'])) . '.zip');
+        $siteHost = parse_url($website['url'], PHP_URL_HOST) ?: str_replace(' ', '_', strtolower($website['name']));
+        $siteSlug = preg_replace('/[^a-zA-Z0-9_\-]/', '-', $siteHost);
+        return $this->response->download($tempZip, null)->setFileName("wp-patropi-diagnostico-{$siteSlug}.zip");
     }
 
     public function connect()

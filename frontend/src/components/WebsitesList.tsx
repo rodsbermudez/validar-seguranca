@@ -134,7 +134,9 @@ export const WebsitesList: React.FC<WebsitesListProps> = ({ onSelectWebsite, onT
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `validar-seguranca-agent-${site.name.replace(/\s+/g, '_').toLowerCase()}.zip`);
+      const siteHost = site.url ? site.url.replace(/^https?:\/\//, '').replace(/\/.*$/, '') : site.name.replace(/\s+/g, '-').toLowerCase();
+      const siteSlug = siteHost.replace(/[^a-zA-Z0-9_\-]/g, '-');
+      link.setAttribute('download', `wp-patropi-diagnostico-${siteSlug}.zip`);
       document.body.appendChild(link);
       link.click();
       link.remove();
