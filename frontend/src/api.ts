@@ -90,3 +90,32 @@ export const clearWebsiteLogs = async (websiteId: number): Promise<{ success: bo
   const response = await api.post(`/websites/${websiteId}/logs/clear`);
   return response.data;
 };
+
+export interface AIModelOption {
+  id: string;
+  name: string;
+  provider: string;
+  description: string;
+  badge: string;
+  color: string;
+}
+
+export interface PlatformSettingsResponse {
+  status: number;
+  success: boolean;
+  active_ai_model: string;
+  has_api_key: boolean;
+  available_models: AIModelOption[];
+  message?: string;
+}
+
+export const getSettings = async (): Promise<PlatformSettingsResponse> => {
+  const response = await api.get<PlatformSettingsResponse>('/settings');
+  return response.data;
+};
+
+export const updateSettings = async (aiModel: string): Promise<PlatformSettingsResponse> => {
+  const response = await api.post<PlatformSettingsResponse>('/settings', { ai_model: aiModel });
+  return response.data;
+};
+

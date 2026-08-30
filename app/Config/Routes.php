@@ -51,6 +51,10 @@ $routes->group('api', function ($routes) {
         // Remediation Plugin Generation route
         $routes->post('remediation/generate-plugin', 'Api\Remediation::generatePlugin');
         $routes->post('remediation/generate-server-guide', 'Api\Remediation::generateServerGuide');
+
+        // Platform Settings routes (Admin)
+        $routes->get('settings', 'Api\Settings::index');
+        $routes->post('settings', 'Api\Settings::update');
     });
 });
 

@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Models\SettingsModel;
+
 class AIService
 {
     protected string $apiKey;
@@ -16,7 +18,10 @@ class AIService
             $url = 'https://opencode.ai/zen/go/v1/chat/completions';
         }
         $this->apiUrl = $url;
-        $this->model  = env('OPENCODE_MODEL') ?: 'kimi-k2.7-code';
+
+        // Fetch global active model from database (fallback to env or default)
+        $configuredModel = SettingsModel::getSetting('ai_model');
+        $this->model = !empty($configuredModel) ? $configuredModel : (env('OPENCODE_MODEL') ?: 'kimi-k2.7-code');
     }
 
     /**

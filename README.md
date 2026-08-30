@@ -20,10 +20,8 @@ Uma plataforma completa para **auditoria de segurança**, **triagem inteligente 
   - **Guia do Servidor & Ações Manuais**: Instruções passo a passo geradas por IA para edições em `.htaccess`, `nginx.conf`, `php.ini`, `wp-config.php` e rotinas do painel SSH/cPanel. Inclui timeout expandido para 120s, exibição de alerta de erro com causa detalhada na modal e alternância instantânea para Guia Padrão (Sem IA) caso ocorra indisponibilidade da API.
   - **Cache & Persistência de Guias**: Salvamento automático dos conselhos da IA no banco de dados para carregamento instantâneo sem chamadas redundantes.
 
-- **🔌 Plugin Agente Patropi & Sistema de Logs em Tempo Real**:
-  - **Menu e Telas no WordPress**: Menu nativo `WP Patropi` com exibição direta do relatório de diagnóstico de segurança, submenu de gerenciamento de logs PHP e tela de reconexão de ponte.
-  - **Captura Silenciosa de Depuração**: Captura automatizada de erros PHP (`Fatal`, `Warning`, `Notice`, `Deprecated`) gravada no arquivo protegido `wp-content/uploads/wp-patropi-logs/debug.log` sem exibição em tela pública.
-  - **Console de Logs no SaaS (Tela Dedicada)**: Visualização em tempo real na plataforma SaaS (`WebsiteLogsView`), com alternância remota da chave de depuração, filtragem por severidade, busca textual instantânea, cópia de linha com um clique e limpeza remota do arquivo.
+- **🔌 Plugin Agente Patropi (WordPress Companion)**:
+  - Integração nativa no painel do WordPress com menu dedicado, histórico de diagnósticos e **botão de reconexão/re-sincronização de ponte** para restabelecer a comunicação com a plataforma instantaneamente.
 
 - **📊 Catálogo de Soluções Integrado (`SolutionCatalogSeeder`)**:
   - Mapeamento detalhado de cada teste de segurança (`check_id`) associado a tipos de ação (`PLUGIN_AUTO_FIX`, `SERVER_CONFIG`, `MANUAL_ACTION`), gravidade e instruções de correção (incluindo snippets PHP para desativar sitemaps de autores no Yoast/Rank Math/Nativo e bloquear requisições com HTTP 404).

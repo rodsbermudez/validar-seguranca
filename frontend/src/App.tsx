@@ -19,6 +19,7 @@ import {
   IconArrowLeft,
   IconBook,
   IconHelpCircle,
+  IconSettings,
 } from '@tabler/icons-react';
 import { LoginView } from './components/LoginView';
 import { WebsitesList } from './components/WebsitesList';
@@ -26,13 +27,14 @@ import { ScanReport } from './components/ScanReport';
 import { UsersList } from './components/UsersList';
 import { SolutionCatalogView } from './components/SolutionCatalogView';
 import { WebsiteLogsView } from './components/WebsiteLogsView';
+import { SettingsView } from './components/SettingsView';
 import { getDocsUrl } from './api';
 
 export default function App() {
   const [user, setUser] = useState<any | null>(null);
   const [impersonatedUser, setImpersonatedUser] = useState<any | null>(null);
   const [selectedWebsite, setSelectedWebsite] = useState<any | null>(null);
-  const [viewMode, setViewMode] = useState<'list' | 'report' | 'users' | 'solutions' | 'logs'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'report' | 'users' | 'solutions' | 'logs' | 'settings'>('list');
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
@@ -182,6 +184,15 @@ export default function App() {
                   >
                     Gerenciar Usuários
                   </Button>
+
+                  <Button
+                    variant={viewMode === 'settings' ? 'light' : 'subtle'}
+                    color="indigo"
+                    leftSection={<IconSettings size={16} />}
+                    onClick={() => setViewMode('settings')}
+                  >
+                    Configurações
+                  </Button>
                 </>
               )}
 
@@ -237,7 +248,9 @@ export default function App() {
 
       <AppShell.Main bg="dark.9" style={{ minHeight: 'calc(100vh - 60px)' }}>
         <Container size="xl" py="lg">
-          {viewMode === 'solutions' && isAdmin && !impersonatedUser ? (
+          {viewMode === 'settings' && isAdmin && !impersonatedUser ? (
+            <SettingsView onBack={() => setViewMode('list')} currentUserRole={user.role} />
+          ) : viewMode === 'solutions' && isAdmin && !impersonatedUser ? (
             <SolutionCatalogView />
           ) : viewMode === 'users' && isAdmin && !impersonatedUser ? (
             <UsersList onImpersonate={handleImpersonate} currentUserId={user.id} />
