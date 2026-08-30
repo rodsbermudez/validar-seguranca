@@ -57,3 +57,36 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+export interface LogEntry {
+  timestamp: string;
+  level: 'Fatal' | 'Warning' | 'Notice' | 'Deprecated' | 'Other';
+  raw_line: string;
+  message: string;
+}
+
+export interface WebsiteLogsResponse {
+  status: number;
+  success: boolean;
+  logging_enabled: boolean;
+  total: number;
+  logs: LogEntry[];
+  message?: string;
+}
+
+export const getWebsiteLogs = async (websiteId: number, filterLevel: string = 'all'): Promise<WebsiteLogsResponse> => {
+  const response = await api.get<WebsiteLogsResponse>(`/websites/${websiteId}/logs`, {
+    params: { filter_level: filterLevel }
+  });
+  return response.data;
+};
+
+export const toggleWebsiteLogs = async (websiteId: number): Promise<{ success: boolean; logging_enabled: boolean; message: string }> => {
+  const response = await api.post(`/websites/${websiteId}/logs/toggle`);
+  return response.data;
+};
+
+export const clearWebsiteLogs = async (websiteId: number): Promise<{ success: boolean; message: string }> => {
+  const response = await api.post(`/websites/${websiteId}/logs/clear`);
+  return response.data;
+};

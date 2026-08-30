@@ -296,4 +296,174 @@ class Websites extends ResourceController
 
         return rtrim(base_url(), '/') . '/';
     }
+
+    private function makeAgentRequest(string $url, string $method = 'GET', string $token = '', array $params = []): array
+    {
+        if ($method === 'GET' && !empty($params)) {
+            $url .= '?' . http_build_query($params);
+        }
+
+        $ch = curl_init();
+        curl_setopt_array($ch, [
+            CURLOPT_URL            => $url,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => 10,
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYHOST => false,
+            CURLOPT_HTTPHEADER     => [
+                'X-Validar-Seguranca-Token: ' . $token,
+                'Accept: application/json',
+            ],
+        ]);
+
+        if ($method === 'POST') {
+            curl_setopt($ch, CURLOPT_POST, true);
+            if (!empty($params)) {
+                curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($params));
+            }
+        }
+
+        $response   = curl_exec($ch);
+        $statusCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error      = curl_error($ch);
+        curl_close($ch);
+
+        if ($response === false) {
+            return [
+                'status'  => 500,
+                'success' => false,
+                'message' => 'Erro de conexão com o site: ' . $error,
+            ];
+        }
+
+        $decoded = json_decode($response, true);
+        if (!is_array($decoded)) {
+            return [
+                'status'  => $statusCode ?: 500,
+                'success' => false,
+                'message' => 'Resposta inválida do agente WordPress: ' . substr($response, 0, 200),
+            ];
+        }
+
+        return [
+            'status' => $statusCode,
+            'body'   => $decoded,
+        ];
+    }
+
+    public function logs($id = null)
+    {
+        if (!$id) {
+            return $this->fail('ID do website não informado.', 400);
+        }
+
+        $effectiveUserId = $this->request->effectiveUserId ?? ($this->request->userData->id ?? null);
+        $userData        = $this->request->userData ?? null;
+        $isImpersonating = $this->request->isImpersonating ?? false;
+        $isAdmin         = (($userData->role ?? 'user') === 'admin') && !$isImpersonating;
+
+        $websiteModel = new WebsiteModel();
+        $website = $websiteModel->find($id);
+
+        if (!$website) {
+            return $this->failNotFound('Website não encontrado.');
+        }
+
+        if ($website['user_id'] != $effectiveUserId && !$isAdmin) {
+            return $this->failForbidden('Você não tem permissão para acessar este website.');
+        }
+
+        if (empty($website['agent_token'])) {
+            return $this->fail('Este website não possui token do agente configurado.', 400);
+        }
+
+        $targetUrl   = rtrim($website['url'], '/') . '/wp-json/validar-seguranca/v1/logs';
+        $limit       = $this->request->getGet('limit') ?? 100;
+        $filterLevel = $this->request->getGet('filter_level') ?? 'all';
+
+        $res = $this->makeAgentRequest($targetUrl, 'GET', $website['agent_token'], [
+            'limit'        => $limit,
+            'filter_level' => $filterLevel,
+        ]);
+
+        if (empty($res['body']) || $res['status'] !== 200) {
+            return $this->fail($res['message'] ?? ($res['body']['message'] ?? 'Falha ao buscar logs do agente'), $res['status'] ?: 500);
+        }
+
+        return $this->respond($res['body']);
+    }
+
+    public function toggleLogs($id = null)
+    {
+        if (!$id) {
+            return $this->fail('ID do website não informado.', 400);
+        }
+
+        $effectiveUserId = $this->request->effectiveUserId ?? ($this->request->userData->id ?? null);
+        $userData        = $this->request->userData ?? null;
+        $isImpersonating = $this->request->isImpersonating ?? false;
+        $isAdmin         = (($userData->role ?? 'user') === 'admin') && !$isImpersonating;
+
+        $websiteModel = new WebsiteModel();
+        $website = $websiteModel->find($id);
+
+        if (!$website) {
+            return $this->failNotFound('Website não encontrado.');
+        }
+
+        if ($website['user_id'] != $effectiveUserId && !$isAdmin) {
+            return $this->failForbidden('Você não tem permissão para alterar este website.');
+        }
+
+        if (empty($website['agent_token'])) {
+            return $this->fail('Este website não possui token do agente configurado.', 400);
+        }
+
+        $targetUrl = rtrim($website['url'], '/') . '/wp-json/validar-seguranca/v1/logs/toggle';
+
+        $res = $this->makeAgentRequest($targetUrl, 'POST', $website['agent_token']);
+
+        if (empty($res['body']) || $res['status'] !== 200) {
+            return $this->fail($res['message'] ?? ($res['body']['message'] ?? 'Falha ao alterar estado do log'), $res['status'] ?: 500);
+        }
+
+        return $this->respond($res['body']);
+    }
+
+    public function clearLogs($id = null)
+    {
+        if (!$id) {
+            return $this->fail('ID do website não informado.', 400);
+        }
+
+        $effectiveUserId = $this->request->effectiveUserId ?? ($this->request->userData->id ?? null);
+        $userData        = $this->request->userData ?? null;
+        $isImpersonating = $this->request->isImpersonating ?? false;
+        $isAdmin         = (($userData->role ?? 'user') === 'admin') && !$isImpersonating;
+
+        $websiteModel = new WebsiteModel();
+        $website = $websiteModel->find($id);
+
+        if (!$website) {
+            return $this->failNotFound('Website não encontrado.');
+        }
+
+        if ($website['user_id'] != $effectiveUserId && !$isAdmin) {
+            return $this->failForbidden('Você não tem permissão para alterar este website.');
+        }
+
+        if (empty($website['agent_token'])) {
+            return $this->fail('Este website não possui token do agente configurado.', 400);
+        }
+
+        $targetUrl = rtrim($website['url'], '/') . '/wp-json/validar-seguranca/v1/logs/clear';
+
+        $res = $this->makeAgentRequest($targetUrl, 'POST', $website['agent_token']);
+
+        if (empty($res['body']) || $res['status'] !== 200) {
+            return $this->fail($res['message'] ?? ($res['body']['message'] ?? 'Falha ao limpar logs'), $res['status'] ?: 500);
+        }
+
+        return $this->respond($res['body']);
+    }
 }

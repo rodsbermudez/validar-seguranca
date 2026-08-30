@@ -25,6 +25,7 @@ import {
   IconPencil,
   IconDownload,
   IconPlugConnected,
+  IconTerminal,
 } from '@tabler/icons-react';
 import { api } from '../api';
 
@@ -41,9 +42,10 @@ interface Website {
 interface WebsitesListProps {
   onSelectWebsite: (website: Website) => void;
   onTriggerScan: (website: Website) => void;
+  onSelectLogs: (website: Website) => void;
 }
 
-export const WebsitesList: React.FC<WebsitesListProps> = ({ onSelectWebsite, onTriggerScan }) => {
+export const WebsitesList: React.FC<WebsitesListProps> = ({ onSelectWebsite, onTriggerScan, onSelectLogs }) => {
   const [websites, setWebsites] = useState<Website[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -226,6 +228,17 @@ export const WebsitesList: React.FC<WebsitesListProps> = ({ onSelectWebsite, onT
                 </Table.Td>
                 <Table.Td style={{ textAlign: 'right' }}>
                   <Group justify="flex-end" gap="xs" wrap="nowrap">
+                    <Tooltip label="Ver Logs do WordPress em Tempo Real">
+                      <Button
+                        size="xs"
+                        variant="light"
+                        color="cyan"
+                        leftSection={<IconTerminal size={14} />}
+                        onClick={() => onSelectLogs(site)}
+                      >
+                        Logs
+                      </Button>
+                    </Tooltip>
                     <Tooltip label="Baixar Plugin WordPress Agente">
                       <Button
                         size="xs"

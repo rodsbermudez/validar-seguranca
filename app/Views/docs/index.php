@@ -622,9 +622,19 @@
                 <h2>Localização dos Menus no WordPress</h2>
                 <p>Após instalado, o plugin cria uma estrutura organizada no menu lateral do painel WordPress:</p>
                 <ul>
-                    <li><strong>WP Patropi (Menu Principal):</strong> Tela de status de conexão, token do agente e botão para refazer a ponte.</li>
-                    <li><strong>WP Patropi > Diagnóstico (Submenu):</strong> Exibe o resultado da última auditoria realizada pela plataforma diretamente no painel do WordPress.</li>
-                    <li><strong>WP Patropi > Segurança (Submenu):</strong> Opções de endurecimento e proteção ativa da aplicação.</li>
+                    <li><strong>WP Patropi (Menu Principal):</strong> Exibe por padrão a tela de <strong>Diagnóstico de Segurança</strong> da última auditoria.</li>
+                    <li><strong>WP Patropi > Logs (Submenu):</strong> Console nativo no WordPress para visualização dos últimos 100 registros de logs PHP (`Fatal`, `Warning`, `Notice`, `Deprecated`) e chave para ativar/desativar a captura.</li>
+                    <li><strong>WP Patropi > Conexão Agente (Submenu):</strong> Status da conexão, token único do agente e botão para refazer a ponte.</li>
+                </ul>
+
+                <h2>Monitoramento e Leitura de Logs em Tempo Real</h2>
+                <p>A plataforma Validar Segurança permite aos administradores e proprietários monitorar os erros do PHP em tempo real sem a necessidade de acessar o servidor por FTP ou SSH:</p>
+                <ul>
+                    <li><strong>Visualização Dedicada no SaaS:</strong> Na listagem de websites, ao clicar no botão <code>>_ Logs</code>, uma tela completa de terminal é aberta com o cabeçalho do site.</li>
+                    <li><strong>Controle Remoto de Captura:</strong> Ative ou desative o registro de depuração remotamente através da chave <em>Captura de Debug</em>. Quando desativado, o plugin cessa a gravação no arquivo e preserva o desempenho.</li>
+                    <li><strong>Filtros por Nível de Severidade:</strong> Alterne instantaneamente entre os níveis <code>Todos</code>, <code>Fatal</code>, <code>Warning</code>, <code>Notice</code> e <code>Deprecated</code>.</li>
+                    <li><strong>Busca Textual em Tempo Real:</strong> Digite trechos do erro, rotas de arquivos ou nomes de funções para localizar problemas específicos no log.</li>
+                    <li><strong>Limpeza Remota Segura:</strong> Limpe o histórico do arquivo <code>debug.log</code> com um único clique de confirmação.</li>
                 </ul>
             </section>
 

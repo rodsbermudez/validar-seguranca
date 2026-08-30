@@ -25,13 +25,14 @@ import { WebsitesList } from './components/WebsitesList';
 import { ScanReport } from './components/ScanReport';
 import { UsersList } from './components/UsersList';
 import { SolutionCatalogView } from './components/SolutionCatalogView';
+import { WebsiteLogsView } from './components/WebsiteLogsView';
 import { getDocsUrl } from './api';
 
 export default function App() {
   const [user, setUser] = useState<any | null>(null);
   const [impersonatedUser, setImpersonatedUser] = useState<any | null>(null);
   const [selectedWebsite, setSelectedWebsite] = useState<any | null>(null);
-  const [viewMode, setViewMode] = useState<'list' | 'report' | 'users' | 'solutions'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'report' | 'users' | 'solutions' | 'logs'>('list');
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
@@ -242,6 +243,8 @@ export default function App() {
             <UsersList onImpersonate={handleImpersonate} currentUserId={user.id} />
           ) : viewMode === 'report' && selectedWebsite ? (
             <ScanReport website={selectedWebsite} onBack={() => setViewMode('list')} />
+          ) : viewMode === 'logs' && selectedWebsite ? (
+            <WebsiteLogsView website={selectedWebsite} onBack={() => setViewMode('list')} />
           ) : (
             <WebsitesList
               onSelectWebsite={(site) => {
@@ -251,6 +254,10 @@ export default function App() {
               onTriggerScan={(site) => {
                 setSelectedWebsite(site);
                 setViewMode('report');
+              }}
+              onSelectLogs={(site) => {
+                setSelectedWebsite(site);
+                setViewMode('logs');
               }}
             />
           )}

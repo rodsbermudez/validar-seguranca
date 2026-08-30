@@ -453,7 +453,7 @@ class Remediation extends ResourceController
         $code .= "        add_menu_page('WP Patropi', 'WP Patropi', 'manage_options', \$parent_slug, 'vs_render_remediation_admin_page', \$icon_url, 80);\n";
         $code .= "    }\n";
         $code .= "    add_submenu_page(\$parent_slug, 'WP Patropi - Fixes', 'WP Patropi - Fixes', 'manage_options', 'wp-patropi-fixes', 'vs_render_remediation_admin_page');\n";
-        $code .= "});\n\n";
+        $code .= "}, 20);\n\n";
 
         $code .= "if (!function_exists('vs_render_remediation_admin_page')) {\n";
         $code .= "    function vs_render_remediation_admin_page() {\n";

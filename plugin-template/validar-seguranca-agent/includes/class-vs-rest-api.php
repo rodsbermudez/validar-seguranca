@@ -17,6 +17,24 @@ class VS_Agent_REST_API {
             'callback'            => array($this, 'handle_internal_audit'),
             'permission_callback' => array($this, 'check_permission'),
         ));
+
+        register_rest_route('validar-seguranca/v1', '/logs', array(
+            'methods'             => 'GET',
+            'callback'            => array($this, 'handle_get_logs'),
+            'permission_callback' => array($this, 'check_permission'),
+        ));
+
+        register_rest_route('validar-seguranca/v1', '/logs/toggle', array(
+            'methods'             => 'POST',
+            'callback'            => array($this, 'handle_toggle_logs'),
+            'permission_callback' => array($this, 'check_permission'),
+        ));
+
+        register_rest_route('validar-seguranca/v1', '/logs/clear', array(
+            'methods'             => 'POST',
+            'callback'            => array($this, 'handle_clear_logs'),
+            'permission_callback' => array($this, 'check_permission'),
+        ));
     }
 
     public function bypass_auth_for_agent($result) {
@@ -75,6 +93,49 @@ class VS_Agent_REST_API {
             'status'  => 200,
             'success' => true,
             'data'    => $data,
+        ), 200);
+    }
+
+    public function handle_get_logs($request) {
+        $limit        = $request->get_param('limit') ? (int) $request->get_param('limit') : 100;
+        $filter_level = $request->get_param('filter_level') ? sanitize_text_field($request->get_param('filter_level')) : 'all';
+
+        $logging_enabled = (bool) get_option('vs_logging_enabled', 0);
+        $logs            = VS_Agent_Logger::get_logs($limit, $filter_level);
+
+        return new WP_REST_Response(array(
+            'status'          => 200,
+            'success'         => true,
+            'logging_enabled' => $logging_enabled,
+            'total'           => count($logs),
+            'logs'            => $logs,
+        ), 200);
+    }
+
+    public function handle_toggle_logs($request) {
+        $current   = (int) get_option('vs_logging_enabled', 0);
+        $new_state = $current ? 0 : 1;
+        update_option('vs_logging_enabled', $new_state);
+
+        if ($new_state) {
+            VS_Agent_Logger::enable_error_logging();
+        }
+
+        return new WP_REST_Response(array(
+            'status'          => 200,
+            'success'         => true,
+            'logging_enabled' => (bool) $new_state,
+            'message'         => $new_state ? 'Log do WordPress ativado com sucesso.' : 'Log do WordPress desativado.',
+        ), 200);
+    }
+
+    public function handle_clear_logs($request) {
+        VS_Agent_Logger::clear_logs();
+
+        return new WP_REST_Response(array(
+            'status'  => 200,
+            'success' => true,
+            'message' => 'Arquivo de logs limpo com sucesso.',
         ), 200);
     }
 }
