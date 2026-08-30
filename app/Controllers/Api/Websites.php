@@ -377,7 +377,7 @@ class Websites extends ResourceController
             return $this->fail('Este website não possui token do agente configurado.', 400);
         }
 
-        $targetUrl   = rtrim($website['url'], '/') . '/wp-json/validar-seguranca/v1/logs';
+        $targetUrl   = rtrim($website['url'], '/') . '/wp-json/wp-patropi/v1/logs';
         $limit       = $this->request->getGet('limit') ?? 100;
         $filterLevel = $this->request->getGet('filter_level') ?? 'all';
 
@@ -419,7 +419,7 @@ class Websites extends ResourceController
             return $this->fail('Este website não possui token do agente configurado.', 400);
         }
 
-        $targetUrl = rtrim($website['url'], '/') . '/wp-json/validar-seguranca/v1/logs/toggle';
+        $targetUrl = rtrim($website['url'], '/') . '/wp-json/wp-patropi/v1/logs/toggle';
 
         $res = $this->makeAgentRequest($targetUrl, 'POST', $website['agent_token']);
 
@@ -456,7 +456,7 @@ class Websites extends ResourceController
             return $this->fail('Este website não possui token do agente configurado.', 400);
         }
 
-        $targetUrl = rtrim($website['url'], '/') . '/wp-json/validar-seguranca/v1/logs/clear';
+        $targetUrl = rtrim($website['url'], '/') . '/wp-json/wp-patropi/v1/logs/clear';
 
         $res = $this->makeAgentRequest($targetUrl, 'POST', $website['agent_token']);
 
