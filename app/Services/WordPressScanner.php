@@ -70,7 +70,7 @@ class WordPressScanner
     private function runInternalAgentScan(string $agentToken): ?array
     {
         $res = $this->request(
-            '/wp-json/validar-seguranca/v1/internal-audit',
+            '/wp-json/wp-patropi/v1/internal-audit',
             'POST',
             [
                 'Content-Type: application/json',
