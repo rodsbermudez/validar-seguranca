@@ -200,9 +200,12 @@ class AIService
             throw new \RuntimeException("Chave da API OpenCode não configurada. Por favor, forneça uma API Key válida no arquivo .env ou nas configurações do sistema.");
         }
 
+        $sessionId = 'vs_sess_' . md5(uniqid('', true));
+
         $headers = [
             'Content-Type: application/json',
             'Authorization: Bearer ' . $this->apiKey,
+            'x-opencode-session: ' . $sessionId,
         ];
 
         // Primary payload: omit 'temperature' to let provider use its required default (e.g. 1 for kimi-k2.7-code)

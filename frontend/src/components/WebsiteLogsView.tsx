@@ -55,6 +55,15 @@ export const WebsiteLogsView: React.FC<WebsiteLogsViewProps> = ({ website, onBac
 
   const websiteId = Number(website.id);
 
+  const getErrorMessage = (err: any, fallback: string) => {
+    return (
+      err.response?.data?.messages?.error ||
+      err.response?.data?.message ||
+      err.message ||
+      fallback
+    );
+  };
+
   const fetchLogs = useCallback(async (level: string = filterLevel) => {
     setLoading(true);
     setErrorMsg(null);
@@ -63,8 +72,7 @@ export const WebsiteLogsView: React.FC<WebsiteLogsViewProps> = ({ website, onBac
       setLogs(data.logs || []);
       setLoggingEnabled(data.logging_enabled ?? false);
     } catch (err: any) {
-      const msg = err.response?.data?.message || err.message || 'Falha ao conectar com o agente WordPress para ler os logs.';
-      setErrorMsg(msg);
+      setErrorMsg(getErrorMessage(err, 'Falha ao conectar com o agente WordPress para ler os logs.'));
     } finally {
       setLoading(false);
     }
@@ -85,8 +93,7 @@ export const WebsiteLogsView: React.FC<WebsiteLogsViewProps> = ({ website, onBac
       setTimeout(() => setSuccessMsg(null), 4000);
       await fetchLogs(filterLevel);
     } catch (err: any) {
-      const msg = err.response?.data?.message || err.message || 'Falha ao alterar estado do log no WordPress.';
-      setErrorMsg(msg);
+      setErrorMsg(getErrorMessage(err, 'Falha ao alterar estado do log no WordPress.'));
     } finally {
       setActionLoading(false);
     }
@@ -105,8 +112,7 @@ export const WebsiteLogsView: React.FC<WebsiteLogsViewProps> = ({ website, onBac
       setTimeout(() => setSuccessMsg(null), 4000);
       await fetchLogs(filterLevel);
     } catch (err: any) {
-      const msg = err.response?.data?.message || err.message || 'Falha ao limpar arquivo de logs.';
-      setErrorMsg(msg);
+      setErrorMsg(getErrorMessage(err, 'Falha ao limpar arquivo de logs.'));
     } finally {
       setActionLoading(false);
     }
@@ -292,8 +298,45 @@ export const WebsiteLogsView: React.FC<WebsiteLogsViewProps> = ({ website, onBac
 
       {/* Feedback Messages */}
       {errorMsg && (
-        <Alert icon={<IconAlertCircle size={16} />} title="Atenção" color="red" withCloseButton onClose={() => setErrorMsg(null)}>
-          {errorMsg}
+        <Alert
+          icon={<IconAlertCircle size={20} />}
+          title="Falha na Conexão com o Agente WordPress"
+          color="red"
+          variant="light"
+          withCloseButton
+          onClose={() => setErrorMsg(null)}
+        >
+          <Stack gap="xs" mt="xs">
+            <Group gap="xs" align="center">
+              <Text size="xs" c="dimmed" fw={600}>
+                Erro Técnico:
+              </Text>
+              <Code color="red.9" c="red.2" px="xs" py={2}>
+                {errorMsg}
+              </Code>
+            </Group>
+
+            <Box bg="dark.8" p="sm" style={{ borderRadius: 6, border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+              <Text size="xs" fw={700} c="orange.3" mb={4}>
+                🛠️ Como solucionar este problema:
+              </Text>
+              <Stack gap={4}>
+                <Text size="xs">
+                  1. Certifique-se de que o plugin <b>WP Patropi Agent</b> está instalado e ativado no WordPress do site (
+                  <Text component="a" href={website.url} target="_blank" rel="noopener noreferrer" c="blue.4">
+                    {website.url}
+                  </Text>
+                  ).
+                </Text>
+                <Text size="xs">
+                  2. Acesse o painel do seu WordPress em <b>WP Patropi</b> e clique no botão de <b>Reconectar / Re-sincronizar</b> para restaurar a chave da ponte.
+                </Text>
+                <Text size="xs">
+                  3. Em caso de <b>Erro 404</b> (como acima), acesse no painel do WordPress em <b>Configurações &gt; Links Permanentes</b> e clique em <b>"Salvar Alterações"</b> para redefinir as rotas da REST API.
+                </Text>
+              </Stack>
+            </Box>
+          </Stack>
         </Alert>
       )}
 
