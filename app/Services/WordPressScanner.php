@@ -69,19 +69,32 @@ class WordPressScanner
      */
     private function runInternalAgentScan(string $agentToken): ?array
     {
-        $res = $this->request(
-            '/wp-json/wp-patropi/v1/internal-audit',
-            'POST',
-            [
-                'Content-Type: application/json',
-                'X-Validar-Seguranca-Token: ' . $agentToken,
-            ]
-        );
+        $headers = [
+            'Content-Type: application/json',
+            'X-Validar-Seguranca-Token: ' . $agentToken,
+        ];
 
-        if ($res['http_code'] !== 200 || empty($res['body'])) {
+        // Routes to attempt in order: primary, plain permalinks, legacy namespace, legacy plain permalinks
+        $routes = [
+            '/wp-json/wp-patropi/v1/internal-audit',
+            '/?rest_route=/wp-patropi/v1/internal-audit',
+            '/wp-json/validar-seguranca/v1/internal-audit',
+            '/?rest_route=/validar-seguranca/v1/internal-audit',
+        ];
+
+        $res = null;
+        foreach ($routes as $route) {
+            $res = $this->request($route, 'POST', $headers);
+            if ($res['http_code'] === 200 && !empty($res['body'])) {
+                break;
+            }
+        }
+
+        if (!$res || $res['http_code'] !== 200 || empty($res['body'])) {
+            $httpCode = $res['http_code'] ?? 0;
             return [
                 'category_name' => 'Auditoria Interna do Agente WordPress',
-                'status_error'  => 'Não foi possível se comunicar com a REST API do plugin agente (HTTP ' . $res['http_code'] . ').',
+                'status_error'  => 'Não foi possível se comunicar com a REST API do plugin agente (HTTP ' . $httpCode . '). Certifique-se de que a versão mais recente do plugin WP Patropi Agent está instalada e ativada no site.',
                 'checks'        => [],
             ];
         }

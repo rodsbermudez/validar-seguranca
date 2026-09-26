@@ -12,34 +12,45 @@ class VS_Agent_REST_API {
     }
 
     public function register_routes() {
-        register_rest_route('wp-patropi/v1', '/internal-audit', array(
-            'methods'             => 'POST',
-            'callback'            => array($this, 'handle_internal_audit'),
-            'permission_callback' => array($this, 'check_permission'),
-        ));
+        $namespaces = array('wp-patropi/v1', 'validar-seguranca/v1');
 
-        register_rest_route('wp-patropi/v1', '/logs', array(
-            'methods'             => 'GET',
-            'callback'            => array($this, 'handle_get_logs'),
-            'permission_callback' => array($this, 'check_permission'),
-        ));
+        foreach ($namespaces as $ns) {
+            register_rest_route($ns, '/internal-audit', array(
+                'methods'             => 'POST',
+                'callback'            => array($this, 'handle_internal_audit'),
+                'permission_callback' => array($this, 'check_permission'),
+            ));
 
-        register_rest_route('wp-patropi/v1', '/logs/toggle', array(
-            'methods'             => 'POST',
-            'callback'            => array($this, 'handle_toggle_logs'),
-            'permission_callback' => array($this, 'check_permission'),
-        ));
+            register_rest_route($ns, '/logs', array(
+                'methods'             => 'GET',
+                'callback'            => array($this, 'handle_get_logs'),
+                'permission_callback' => array($this, 'check_permission'),
+            ));
 
-        register_rest_route('wp-patropi/v1', '/logs/clear', array(
-            'methods'             => 'POST',
-            'callback'            => array($this, 'handle_clear_logs'),
-            'permission_callback' => array($this, 'check_permission'),
-        ));
+            register_rest_route($ns, '/logs/toggle', array(
+                'methods'             => 'POST',
+                'callback'            => array($this, 'handle_toggle_logs'),
+                'permission_callback' => array($this, 'check_permission'),
+            ));
+
+            register_rest_route($ns, '/logs/clear', array(
+                'methods'             => 'POST',
+                'callback'            => array($this, 'handle_clear_logs'),
+                'permission_callback' => array($this, 'check_permission'),
+            ));
+        }
     }
 
     public function bypass_auth_for_agent($result) {
         $route = isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '';
-        if (strpos($route, '/wp-patropi/v1/') !== false) {
+        if (
+            strpos($route, '/wp-patropi/v1/') !== false ||
+            strpos($route, '/validar-seguranca/v1/') !== false ||
+            strpos($route, 'rest_route=%2Fwp-patropi') !== false ||
+            strpos($route, 'rest_route=/wp-patropi') !== false ||
+            strpos($route, 'rest_route=%2Fvalidar-seguranca') !== false ||
+            strpos($route, 'rest_route=/validar-seguranca') !== false
+        ) {
             $token_saved  = get_option('vs_agent_token');
             $token_header = $this->get_token_from_request();
 
