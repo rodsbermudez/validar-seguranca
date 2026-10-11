@@ -16,37 +16,37 @@ class VS_Agent_REST_API {
 
         foreach ($namespaces as $ns) {
             register_rest_route($ns, '/internal-audit', array(
-                'methods'             => 'POST',
+                'methods'             => array('POST', 'GET'),
                 'callback'            => array($this, 'handle_internal_audit'),
                 'permission_callback' => array($this, 'check_permission'),
             ));
 
             register_rest_route($ns, '/logs', array(
-                'methods'             => 'GET',
+                'methods'             => array('GET', 'POST'),
                 'callback'            => array($this, 'handle_get_logs'),
                 'permission_callback' => array($this, 'check_permission'),
             ));
 
             register_rest_route($ns, '/logs/toggle', array(
-                'methods'             => 'POST',
+                'methods'             => array('POST', 'GET'),
                 'callback'            => array($this, 'handle_toggle_logs'),
                 'permission_callback' => array($this, 'check_permission'),
             ));
 
             register_rest_route($ns, '/logs/clear', array(
-                'methods'             => 'POST',
+                'methods'             => array('POST', 'GET'),
                 'callback'            => array($this, 'handle_clear_logs'),
                 'permission_callback' => array($this, 'check_permission'),
             ));
 
             register_rest_route($ns, '/updates', array(
-                'methods'             => 'GET',
+                'methods'             => array('GET', 'POST'),
                 'callback'            => array($this, 'handle_get_updates'),
                 'permission_callback' => array($this, 'check_permission'),
             ));
 
             register_rest_route($ns, '/updates/apply', array(
-                'methods'             => 'POST',
+                'methods'             => array('POST', 'GET'),
                 'callback'            => array($this, 'handle_apply_update'),
                 'permission_callback' => array($this, 'check_permission'),
             ));

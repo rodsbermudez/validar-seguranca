@@ -70,23 +70,39 @@ class WordPressScanner
     private function runInternalAgentScan(string $agentToken): ?array
     {
         $headers = [
-            'Content-Type: application/json',
+            'Authorization: Bearer ' . $agentToken,
             'X-Validar-Seguranca-Token: ' . $agentToken,
+            'Content-Type: application/json',
+            'Accept: application/json, text/plain, */*',
+            'Accept-Language: pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+            'Cache-Control: no-cache',
         ];
 
-        // Routes to attempt in order: primary, plain permalinks, legacy namespace, legacy plain permalinks
+        $tokenParam = 'vs_token=' . urlencode($agentToken);
+
+        // Routes to attempt in order: primary with vs_token, plain permalinks, legacy routes
         $routes = [
+            '/wp-json/wp-patropi/v1/internal-audit?' . $tokenParam,
+            '/?rest_route=/wp-patropi/v1/internal-audit&' . $tokenParam,
             '/wp-json/wp-patropi/v1/internal-audit',
             '/?rest_route=/wp-patropi/v1/internal-audit',
-            '/wp-json/validar-seguranca/v1/internal-audit',
-            '/?rest_route=/validar-seguranca/v1/internal-audit',
+            '/wp-json/validar-seguranca/v1/internal-audit?' . $tokenParam,
+            '/?rest_route=/validar-seguranca/v1/internal-audit&' . $tokenParam,
         ];
 
         $res = null;
         foreach ($routes as $route) {
-            $res = $this->request($route, 'POST', $headers);
+            $res = $this->request($route, 'POST', $headers, json_encode(['vs_token' => $agentToken]), true);
             if ($res['http_code'] === 200 && !empty($res['body'])) {
                 break;
+            }
+            // Fallback GET request if POST was blocked by WAF (406, 403, 405)
+            if (in_array($res['http_code'], [406, 403, 405, 0])) {
+                $getRes = $this->request($route, 'GET', $headers, null, true);
+                if ($getRes['http_code'] === 200 && !empty($getRes['body'])) {
+                    $res = $getRes;
+                    break;
+                }
             }
         }
 
@@ -244,7 +260,7 @@ class WordPressScanner
     /**
      * Helper to make cURL HTTP requests
      */
-    private function request(string $path = '', string $method = 'GET', array $headers = [], ?string $body = null): array
+    private function request(string $path = '', string $method = 'GET', array $headers = [], ?string $body = null, bool $followRedirects = false): array
     {
         $url = $this->baseUrl . $path;
         $ch  = curl_init();
@@ -252,12 +268,15 @@ class WordPressScanner
         curl_setopt($ch, CURLOPT_URL, $url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_HEADER, true);
-        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, false);
-        curl_setopt($ch, CURLOPT_TIMEOUT, $this->timeout);
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, $followRedirects);
+        if ($followRedirects) {
+            curl_setopt($ch, CURLOPT_MAXREDIRS, 5);
+        }
+        curl_setopt($ch, CURLOPT_TIMEOUT, $followRedirects ? 25 : $this->timeout);
         curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, $this->timeout);
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
         curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
-        curl_setopt($ch, CURLOPT_USERAGENT, 'WP-Security-Scanner/1.0');
+        curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36');
 
         if ($method === 'POST') {
             curl_setopt($ch, CURLOPT_POST, true);
