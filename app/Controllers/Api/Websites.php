@@ -351,32 +351,6 @@ class Websites extends ResourceController
         ];
     }
 
-    public function logs($id = null)
-    {
-        if (!$id) {
-            return $this->fail('ID do website não informado.', 400);
-        }
-
-        $effectiveUserId = $this->request->effectiveUserId ?? ($this->request->userData->id ?? null);
-        $userData        = $this->request->userData ?? null;
-        $isImpersonating = $this->request->isImpersonating ?? false;
-        $isAdmin         = (($userData->role ?? 'user') === 'admin') && !$isImpersonating;
-
-        $websiteModel = new WebsiteModel();
-        $website = $websiteModel->find($id);
-
-        if (!$website) {
-            return $this->failNotFound('Website não encontrado.');
-        }
-
-        if ($website['user_id'] != $effectiveUserId && !$isAdmin) {
-            return $this->failForbidden('Você não tem permissão para acessar este website.');
-        }
-
-        if (empty($website['agent_token'])) {
-            return $this->fail('Este website não possui token do agente configurado.', 400);
-        }
-
     private function makeAgentRequestWithFallback(string $baseUrl, string $endpointPath, string $method = 'GET', string $token = '', array $params = []): array
     {
         $baseUrlClean = rtrim($baseUrl, '/');
