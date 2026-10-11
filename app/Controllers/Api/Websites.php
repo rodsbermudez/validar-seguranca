@@ -317,6 +317,9 @@ class Websites extends ResourceController
             CURLOPT_URL            => $url,
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_TIMEOUT        => 60,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_MAXREDIRS      => 5,
+            CURLOPT_USERAGENT      => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 PatropiAgentBridge/1.0',
             CURLOPT_SSL_VERIFYPEER => false,
             CURLOPT_SSL_VERIFYHOST => false,
             CURLOPT_HTTPHEADER     => $headers,
@@ -344,10 +347,19 @@ class Websites extends ResourceController
 
         $decoded = json_decode($response, true);
         if (!is_array($decoded)) {
+            $cleanSnippet = trim(preg_replace('/\s+/', ' ', strip_tags($response)));
+            if ($statusCode === 406 || strpos($response, 'Not Acceptable') !== false || strpos($response, 'Mod_Security') !== false) {
+                return [
+                    'status'  => 406,
+                    'success' => false,
+                    'message' => 'Bloqueio pelo Firewall do Servidor (Mod_Security / WAF 406 Not Acceptable): O servidor do WordPress rejeitou a requisição do agente. O User-Agent de navegação foi configurado para contornar essa trava.',
+                ];
+            }
+
             return [
                 'status'  => $statusCode ?: 500,
                 'success' => false,
-                'message' => 'Resposta inválida do agente WordPress: ' . substr($response, 0, 200),
+                'message' => 'Resposta inválida do agente WordPress (HTTP ' . $statusCode . '): ' . substr($cleanSnippet, 0, 200),
             ];
         }
 

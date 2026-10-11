@@ -334,6 +334,9 @@ export const WebsiteLogsView: React.FC<WebsiteLogsViewProps> = ({ website, onBac
                 <Text size="xs">
                   3. Em caso de <b>Erro 404</b> (como acima), acesse no painel do WordPress em <b>Configurações &gt; Links Permanentes</b> e clique em <b>"Salvar Alterações"</b> para redefinir as rotas da REST API.
                 </Text>
+                <Text size="xs">
+                  4. Em caso de <b>Erro 406 (Mod_Security / Not Acceptable)</b>, o firewall da hospedagem bloqueia requisições sem identificador de navegador. O SaaS agora envia o User-Agent oficial de navegação para liberar o tráfego.
+                </Text>
               </Stack>
             </Box>
           </Stack>
