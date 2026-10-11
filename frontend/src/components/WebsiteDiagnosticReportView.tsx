@@ -21,7 +21,6 @@ import {
   IconArrowLeft,
   IconPrinter,
   IconRefresh,
-  IconShieldCheck,
   IconAlertTriangle,
   IconAlertCircle,
   IconCheck,
@@ -31,6 +30,7 @@ import {
   IconWorld,
   IconPlug,
   IconPalette,
+  IconRadar,
 } from '@tabler/icons-react';
 import { getDiagnosticSummary, DiagnosticSummaryResponse } from '../api';
 
@@ -78,9 +78,25 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
   const integrity = report?.data?.integrity;
   const updates = report?.data?.updates;
 
-  const score = latestScan?.score ?? null;
-  const grade = latestScan?.grade ?? 'N/A';
+  const score = latestScan?.score !== undefined && latestScan?.score !== null ? Number(latestScan.score) : null;
+  const grade = latestScan?.grade ?? (score !== null ? (score >= 90 ? 'A' : score >= 75 ? 'B' : score >= 60 ? 'C' : score >= 40 ? 'D' : 'F') : 'N/A');
   const scanSummary = latestScan?.summary;
+  const totalChecks = scanSummary?.total_checks ?? ((scanSummary?.passed ?? 0) + (scanSummary?.failed ?? 0) + (scanSummary?.warnings ?? 0));
+
+  const getScoreColor = (sc: number) => {
+    if (sc >= 90) return 'teal';
+    if (sc >= 75) return 'blue';
+    if (sc >= 60) return 'yellow';
+    if (sc >= 40) return 'orange';
+    return 'red';
+  };
+
+  const rawScanDate = latestScan?.scanned_at || latestScan?.executed_at;
+  const formattedScanDate = rawScanDate
+    ? rawScanDate.includes('T')
+      ? new Date(rawScanDate).toLocaleString('pt-BR')
+      : rawScanDate
+    : 'DATA N/D';
 
   const pendingPlugins = updates?.plugins?.filter((p) => p.has_update) || [];
   const pendingThemes = updates?.themes?.filter((t) => t.has_update) || [];
@@ -274,82 +290,121 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
             <Box mb="xl" className="report-card" p="md" style={{ borderRadius: 8 }}>
               <Group justify="space-between" align="center" mb="sm">
                 <Group gap="xs">
-                  <ThemeIcon color="indigo" variant="light" radius="md">
-                    <IconShieldCheck size={20} />
+                  <ThemeIcon color="indigo" variant="light" radius="xl">
+                    <IconRadar size={18} />
                   </ThemeIcon>
                   <Title order={4}>1. Avaliação de Segurança & Conformidade</Title>
                 </Group>
-                {latestScan?.executed_at && (
-                  <Text size="xs" c="dimmed" className="print-text-muted">
-                    Última auditoria realizada em: {new Date(latestScan.executed_at).toLocaleString('pt-BR')}
-                  </Text>
+                {latestScan && (
+                  <Badge color="gray" variant="light">
+                    REALIZADA EM: {formattedScanDate}
+                  </Badge>
                 )}
               </Group>
 
               {latestScan ? (
                 <Grid align="center" mt="xs">
-                  <Grid.Col span={{ base: 12, sm: 4 }} ta="center">
-                    <Center>
+                  <Grid.Col span={{ base: 12, md: 4 }}>
+                    <Group justify="center">
                       <RingProgress
-                        size={130}
+                        size={140}
                         thickness={12}
                         roundCaps
-                        sections={[
-                          {
-                            value: score ?? 0,
-                            color: (score ?? 0) >= 80 ? 'teal' : (score ?? 0) >= 60 ? 'yellow' : 'red',
-                          },
-                        ]}
+                        sections={[{ value: score ?? 0, color: getScoreColor(score ?? 0) }]}
                         label={
-                          <Center>
-                            <Stack gap={0} align="center">
-                              <Text fw={800} size="xl">
-                                {grade}
-                              </Text>
-                              <Text size="xs" c="dimmed">
-                                {score !== null ? `${score}/100 pts` : 'N/A'}
-                              </Text>
-                            </Stack>
-                          </Center>
+                          <Stack align="center" gap={0}>
+                            <Text ta="center" fz={28} fw={800} lh={1} className="print-text-dark">
+                              {score ?? 0}
+                            </Text>
+                            <Text ta="center" size="xs" c="dimmed" fw={700} className="print-text-muted">
+                              GRADE {grade}
+                            </Text>
+                          </Stack>
                         }
                       />
-                    </Center>
-                    <Text size="xs" c="dimmed" mt={4}>
-                      Classificação Geral de Risco
-                    </Text>
+                    </Group>
                   </Grid.Col>
 
-                  <Grid.Col span={{ base: 12, sm: 8 }}>
-                    <Grid>
-                      <Grid.Col span={4}>
-                        <Paper p="xs" radius="sm" bg="dark.6" ta="center" className="report-card">
-                          <Text size="xs" c="dimmed">Aprovados</Text>
-                          <Text size="lg" fw={700} c="green.4">
+                  <Grid.Col span={{ base: 12, md: 8 }}>
+                    <Stack gap="xs">
+                      <Group gap="md" style={{ width: '100%' }}>
+                        <Paper
+                          p="xs"
+                          px="md"
+                          radius="md"
+                          bg="dark.6"
+                          withBorder
+                          ta="center"
+                          style={{ flex: 1, minWidth: 90, borderColor: '#373A40' }}
+                          className="report-card"
+                        >
+                          <Text size="xs" c="dimmed" fw={600} ta="center" className="print-text-muted">
+                            Checagens
+                          </Text>
+                          <Text fw={800} fz={20} ta="center" className="print-text-dark">
+                            {totalChecks}
+                          </Text>
+                        </Paper>
+
+                        <Paper
+                          p="xs"
+                          px="md"
+                          radius="md"
+                          bg="dark.6"
+                          withBorder
+                          ta="center"
+                          style={{ flex: 1, minWidth: 90, borderColor: '#373A40' }}
+                          className="report-card"
+                        >
+                          <Text size="xs" c="green.4" fw={600} ta="center">
+                            Aprovados
+                          </Text>
+                          <Text fw={800} fz={20} c="green.4" ta="center">
                             {scanSummary?.passed ?? 0}
                           </Text>
                         </Paper>
-                      </Grid.Col>
-                      <Grid.Col span={4}>
-                        <Paper p="xs" radius="sm" bg="dark.6" ta="center" className="report-card">
-                          <Text size="xs" c="dimmed">Alertas</Text>
-                          <Text size="lg" fw={700} c="yellow.4">
-                            {scanSummary?.warnings ?? 0}
+
+                        <Paper
+                          p="xs"
+                          px="md"
+                          radius="md"
+                          bg="dark.6"
+                          withBorder
+                          ta="center"
+                          style={{ flex: 1, minWidth: 90, borderColor: '#373A40' }}
+                          className="report-card"
+                        >
+                          <Text size="xs" c="red.4" fw={600} ta="center">
+                            Falhas Críticas
                           </Text>
-                        </Paper>
-                      </Grid.Col>
-                      <Grid.Col span={4}>
-                        <Paper p="xs" radius="sm" bg="dark.6" ta="center" className="report-card">
-                          <Text size="xs" c="dimmed">Falhas Críticas</Text>
-                          <Text size="lg" fw={700} c="red.4">
+                          <Text fw={800} fz={20} c="red.4" ta="center">
                             {scanSummary?.failed ?? 0}
                           </Text>
                         </Paper>
-                      </Grid.Col>
-                    </Grid>
 
-                    <Text size="xs" c="dimmed" mt="sm">
-                      Varredura com análise profunda de cabeçalhos de resposta HTTP, permissões de diretórios, exposição de arquivos sensíveis e integridade da aplicação.
-                    </Text>
+                        <Paper
+                          p="xs"
+                          px="md"
+                          radius="md"
+                          bg="dark.6"
+                          withBorder
+                          ta="center"
+                          style={{ flex: 1, minWidth: 90, borderColor: '#373A40' }}
+                          className="report-card"
+                        >
+                          <Text size="xs" c="yellow.4" fw={600} ta="center">
+                            Alertas
+                          </Text>
+                          <Text fw={800} fz={20} c="yellow.4" ta="center">
+                            {scanSummary?.warnings ?? 0}
+                          </Text>
+                        </Paper>
+                      </Group>
+
+                      <Text size="xs" c="dimmed" mt="xs" className="print-text-muted">
+                        Varredura com análise profunda de cabeçalhos de resposta HTTP, permissões de diretórios, exposição de arquivos sensíveis e integridade da aplicação.
+                      </Text>
+                    </Stack>
                   </Grid.Col>
                 </Grid>
               ) : (
