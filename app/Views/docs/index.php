@@ -459,6 +459,9 @@
                 <ul class="nav-list">
                     <li class="nav-item"><a href="#auditoria-de-seguranca"><span class="nav-icon">🛡️</span> Auditoria & Varreduras</a></li>
                     <li class="nav-item"><a href="#plugin-agente"><span class="nav-icon">🔌</span> Plugin Agente WordPress</a></li>
+                    <li class="nav-item"><a href="#logs-em-tempo-real"><span class="nav-icon">📜</span> Logs de Execução em Tempo Real</a></li>
+                    <li class="nav-item"><a href="#atualizacoes-remotas"><span class="nav-icon">🔄</span> Atualizações Remotas (Plugins/Temas/Core)</a></li>
+                    <li class="nav-item"><a href="#integridade-do-core"><span class="nav-icon">🔍</span> Integridade do Core & Auto-Fix</a></li>
                     <li class="nav-item"><a href="#remediacao-e-ia"><span class="nav-icon">🤖</span> Remediação Híbrida & IA</a></li>
                 </ul>
             </div>
@@ -613,22 +616,97 @@
                     <li>Na listagem de websites da plataforma, clique em <strong>"Baixar Agente WP"</strong> para obter o arquivo <code>validar-seguranca-agent.zip</code>.</li>
                     <li>No WordPress do cliente, vá em <code>Plugins > Adicionar Novo > Enviar Plugin</code> e ative o plugin.</li>
                     <li>Copie o <strong>Token de Conexão Único</strong> gerado na plataforma para o site desejado.</li>
-                    <li>No WordPress, acesse a tela do plugin <strong>WP Patropi</strong> e cole o token para concluir a conexão.</li>
+                    <li>No WordPress, acesse a tela do plugin <strong>WP Patropi > Diagnóstico</strong> e cole o token para concluir a conexão.</li>
                 </ol>
 
                 <h2>Botão de Reconexão e Refazer Ponte</h2>
-                <p>Caso o token seja alterado na plataforma ou a conexão entre a aplicação WordPress e o painel seja interrompida, o plugin conta com o botão <strong>"⚡ Refazer Ponte / Reconectar"</strong>. Ele permite reiniciar o handshake de autenticação de forma simples e direta, sem a necessidade de reinstalar o plugin.</p>
+                <p>Caso o token seja alterado na plataforma ou a conexão entre a aplicação WordPress e o painel seja interrompida, o plugin conta com o botão <strong>"⚡ Testar Reconexão com a Plataforma"</strong>. Ele permite reiniciar o handshake de autenticação de forma simples e direta, sem a necessidade de reinstalar o plugin.</p>
 
-                <h2>Localização dos Menus no WordPress</h2>
-                <p>Após instalado, o plugin cria uma estrutura organizada no menu lateral do painel WordPress:</p>
+                <h2>Configuração Manual de Credenciais no WP-Admin</h2>
+                <p>Caso você reinstale o plugin manualmente ou queira conferir se o token salvo coincide com o painel SaaS, a página <strong>WP Patropi > Diagnóstico</strong> no WordPress disponibiliza campos editáveis para:</p>
                 <ul>
-                    <li><strong>WP Patropi (Menu Principal):</strong> Tela de status de conexão, token do agente e botão para refazer a ponte.</li>
-                    <li><strong>WP Patropi > Diagnóstico (Submenu):</strong> Exibe o resultado da última auditoria realizada pela plataforma diretamente no painel do WordPress.</li>
-                    <li><strong>WP Patropi > Segurança (Submenu):</strong> Opções de endurecimento e proteção ativa da aplicação.</li>
+                    <li><strong>ID do Site no SaaS:</strong> Identificador numérico do site no banco da plataforma.</li>
+                    <li><strong>Token do Agente:</strong> Chave de segurança exclusiva de comunicação.</li>
+                    <li><strong>URL do Painel SaaS:</strong> Endereço da plataforma para comunicação e handshakes automáticos.</li>
+                </ul>
+                <p>Ao salvar as configurações, o agente valida as chaves e estabelece o pareamento instantaneamente com o painel.</p>
+            </section>
+
+            <!-- 5. Logs em Tempo Real -->
+            <section id="logs-em-tempo-real" class="doc-section">
+                <h1>📜 Logs de Execução em Tempo Real do WordPress</h1>
+                <p>A aba <strong>Logs em Tempo Real</strong> permite que os administradores monitorem erros de PHP, avisos do sistema (warnings), notices e logs de depuração do WordPress diretamente pelo painel SaaS, sem necessidade de abrir clientes FTP ou gerenciadores de arquivos da hospedagem.</p>
+
+                <h2>Principais Funcionalidades do Módulo de Logs</h2>
+                <ul>
+                    <li><strong>Ativação/Desativação Remota:</strong> Com um único clique no botão de alternância (switch), você ativa o <code>WP_DEBUG_LOG</code> do WordPress. Quando ativado, os erros passam a ser gravados em arquivo protegido e são <em>ocultados da tela pública</em> (prevenindo vazamento de dados aos visitantes).</li>
+                    <li><strong>Filtros por Nível de Severidade:</strong> Filtre os logs em tempo real entre <code>Fatal Error</code>, <code>Warning</code>, <code>Notice</code>, <code>Deprecated</code> ou visualize todos os registros concatenados.</li>
+                    <li><strong>Console com Busca e Auto-Scroll:</strong> Digite termos, nomes de funções ou plugins para localizar a origem exata de problemas e ative o botão de Auto-scroll para acompanhar a execução em tempo real.</li>
+                    <li><strong>Limpeza do Arquivo de Logs:</strong> Permite esvaziar o arquivo <code>debug.log</code> no servidor WordPress para reiniciar o monitoramento de novos incidentes.</li>
+                </ul>
+
+                <div class="callout callout-info">
+                    <div class="callout-title">🔒 Armazenamento Seguro dos Logs</div>
+                    <p>Os logs são armazenados no diretório <code>wp-content/uploads/wp-patropi-logs/debug.log</code> protegido por arquivo <code>.htaccess</code> interno que bloqueia o download direto de navegadores não autorizados.</p>
+                </div>
+            </section>
+
+            <!-- 6. Gestão Centralizada de Atualizações Remotas -->
+            <section id="atualizacoes-remotas" class="doc-section">
+                <h1>🔄 Gestão Centralizada de Atualizações Remotas</h1>
+                <p>O módulo de <strong>Atualizações</strong> oferece visibilidade total do estado de desatualização de componentes do WordPress e permite disparar atualizações remotas e silenciosas sem precisar fazer login no wp-admin de cada site gerenciado.</p>
+
+                <h2>O Que Pode Ser Atualizado Diretamente pelo SaaS</h2>
+                <ol>
+                    <li><strong>Plugins Instalados:</strong> Identifica quais plugins possuem versões mais recentes no repositório oficial do WordPress.org ou via transient ativo e permite atualização individual ou de múltiplos itens.</li>
+                    <li><strong>Temas:</strong> Detecta temas do WordPress que possuem novas versões publicadas com botão de atualização segura.</li>
+                    <li><strong>Core do WordPress:</strong> Compara a versão local em execução contra a última versão estável disponível na API do WordPress.org.</li>
+                </ol>
+
+                <h2>Execução Silenciosa com Classes Nativas</h2>
+                <p>Ao solicitar a atualização, o agente executa as classes nativas do core do WordPress (<code>Plugin_Upgrader</code>, <code>Theme_Upgrader</code>, <code>Core_Upgrader</code>), garantindo que as rotinas de descompactação, verificação de dependências e substituição de arquivos respeitem o fluxo oficial e seguro do WordPress.</p>
+            </section>
+
+            <!-- 7. Verificador de Integridade do Core & Auto-Fix -->
+            <section id="integridade-do-core" class="doc-section">
+                <h1>🔍 Verificador de Integridade do Core & Auto-Fix Oficial</h1>
+                <p>O <strong>Verificador de Integridade</strong> atua como um escâner forense no WordPress cliente, garantindo que nenhum arquivo de sistema essencial tenha sido adulterado, corrompido ou infectado por injeções de malware, webshells ou backdoors.</p>
+
+                <h2>Como Funciona a Varredura de Integridade</h2>
+                <ol>
+                    <li><strong>Consulta a Checksums Oficiais:</strong> O agente consulta os hashes MD5 oficiais disponibilizados pela API do WordPress.org (<code>api.wordpress.org/core/checksums/1.0/</code>) para a versão e idioma exatos do site.</li>
+                    <li><strong>Varredura Criptográfica Local:</strong> O agente calcula o <code>md5_file()</code> de cada arquivo nos diretórios do sistema (<code>/wp-admin/</code>, <code>/wp-includes/</code> e na raiz <code>ABSPATH</code>).</li>
+                    <li><strong>Classificação Automática de Anomalias:</strong>
+                        <ul>
+                            <li><span style="color:#ef4444; font-weight:bold;">Modificado (CRITICAL):</span> Arquivo oficial cujo conteúdo foi alterado em relação ao release original (forte indício de código malicioso ou edição indevida).</li>
+                            <li><span style="color:#f97316; font-weight:bold;">Suspeito (CRITICAL/LOW):</span> Arquivos desconhecidos em diretórios protegidos do sistema ou sobras de instalação em servidores de produção (ex: <code>wp-config-sample.php</code>, <code>readme.html</code>).</li>
+                            <li><span style="color:#eab308; font-weight:bold;">Ausente (HIGH):</span> Arquivos essenciais do core do WordPress que foram deletados do servidor.</li>
+                        </ul>
+                    </li>
+                </ol>
+
+                <h2>Recursos de Correção Rápida (Ações Diretas)</h2>
+                
+                <h3>1. Auto-Fix / Restauração do Arquivo Original (Módulo 6)</h3>
+                <p>Ao identificar um arquivo modificado ou ausente, você pode clicar em <strong>"Restaurar Original"</strong>. O agente:</p>
+                <ul>
+                    <li>Valida a whitelist estrita de arquivos pertencentes ao Core oficial (protegendo permanentemente arquivos customizados como <code>wp-config.php</code> e <code>wp-content/</code>).</li>
+                    <li>Baixa a versão oficial e autêntica correspondente à versão instalada diretamente dos servidores do WordPress.org / GitHub oficial.</li>
+                    <li>Cria uma cópia de segurança temporária (<code>.bak</code>), grava o arquivo limpo e verifica a integridade pós-gravação. Em caso de qualquer falha, executa rollback automático.</li>
+                </ul>
+
+                <h3>2. Exclusão Direta de Arquivos Suspeitos ou Sobras</h3>
+                <p>Para arquivos não essenciais encontrados na raiz (como <code>wp-config-sample.php</code> ou arquivos residuais), o painel disponibiliza o botão <strong>"Excluir"</strong> com modal de confirmação irreversível, eliminando a superfície de exposição sem necessitar de FTP.</p>
+
+                <h3>3. Ignorar e Marcar como Resolvido com Purga Automática</h3>
+                <p>Se um arquivo foi intencionalmente adicionado por algum plugin de segurança legítimo (ex: Wordfence), você pode marcá-lo como <strong>"Ignorar / Resolvido"</strong>. A plataforma aplica a seguinte inteligência:</p>
+                <ul>
+                    <li>A decisão fica memorizada enquanto o arquivo continuar existindo no servidor.</li>
+                    <li><strong>Purga Automática:</strong> Se o arquivo deixar de existir no servidor e for recriado futuramente, a regra é purgada automaticamente e o arquivo voltará a ser apontado como pendente, evitando falsos negativos.</li>
                 </ul>
             </section>
 
-            <!-- 5. Remediação Híbrida & IA -->
+            <!-- 8. Remediação Híbrida & IA -->
             <section id="remediacao-e-ia" class="doc-section">
                 <h1>🤖 Remediação Híbrida & Inteligência Artificial</h1>
                 <p>Nem todas as falhas de segurança podem ser corrigidas da mesma forma. Por isso, a plataforma separa as correções em duas categorias distintas:</p>
