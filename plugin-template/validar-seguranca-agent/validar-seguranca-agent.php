@@ -62,10 +62,17 @@ class Validar_Seguranca_Agent {
         if (file_exists($config_file)) {
             $config = json_decode(file_get_contents($config_file), true);
             if (!empty($config['site_id']) && !empty($config['agent_token'])) {
-                update_option('vs_site_id', $config['site_id']);
-                update_option('vs_agent_token', $config['agent_token']);
+                $new_token = trim((string) $config['agent_token']);
+                $new_site_id = (int) $config['site_id'];
+                
+                if ($saved_token !== $new_token) {
+                    update_option('vs_is_connected', 0);
+                }
+
+                update_option('vs_site_id', $new_site_id);
+                update_option('vs_agent_token', $new_token);
                 if (!empty($config['saas_url'])) {
-                    update_option('vs_saas_url', $config['saas_url']);
+                    update_option('vs_saas_url', trim((string) $config['saas_url']));
                 }
 
                 // Delete the config file after processing to save I/O reads on future requests

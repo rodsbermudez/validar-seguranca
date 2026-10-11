@@ -670,32 +670,45 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
               <Grid.Col span={{ base: 12, md: 6 }}>
                 <Paper p="md" radius="sm" bg="dark.8" withBorder h="100%">
                   <Text size="sm" fw={600} mb="xs">
-                    Chave de Conexão (Agent Token)
+                    Credenciais de Conexão Manual
                   </Text>
-                  <Text size="xs" c="dimmed" mb="xs">
-                    Utilizada para sincronizar a ponte entre o SaaS e seu WordPress:
+                  <Text size="xs" c="dimmed" mb="sm">
+                    Caso tenha reinstalado o plugin ou queira configurar diretamente no painel do WordPress em <b>WP Patropi &gt; Diagnóstico</b>:
                   </Text>
-                  <Group gap="xs" mb="md">
-                    <Code block px="md" py="xs" style={{ wordBreak: 'break-all', width: '100%' }}>
-                      {website.agent_token || 'Nenhum token gerado.'}
-                    </Code>
-                    {website.agent_token && (
-                      <Button
-                        size="xs"
-                        variant="light"
-                        color={copiedToken ? 'green' : 'indigo'}
-                        leftSection={copiedToken ? <IconCheck size={14} /> : <IconCopy size={14} />}
-                        onClick={handleCopyToken}
-                      >
-                        {copiedToken ? 'Copiado!' : 'Copiar Token'}
-                      </Button>
-                    )}
-                  </Group>
+                  
+                  <Stack gap="xs" mb="md">
+                    <div>
+                      <Text size="xs" fw={500} c="dimmed">ID do Site no SaaS:</Text>
+                      <Code block px="sm" py={6} style={{ fontSize: 13, fontWeight: 'bold' }}>
+                        {website.id}
+                      </Code>
+                    </div>
 
-                  <Alert icon={<IconAlertCircle size={16} />} title="Status da Integração" color={isConnected ? 'green' : 'gray'}>
+                    <div>
+                      <Text size="xs" fw={500} c="dimmed">Token do Agente:</Text>
+                      <Group gap="xs" wrap="nowrap" align="center">
+                        <Code block px="sm" py={6} style={{ wordBreak: 'break-all', flex: 1, fontSize: 12 }}>
+                          {website.agent_token || 'Nenhum token gerado.'}
+                        </Code>
+                        {website.agent_token && (
+                          <Button
+                            size="xs"
+                            variant="light"
+                            color={copiedToken ? 'green' : 'indigo'}
+                            leftSection={copiedToken ? <IconCheck size={14} /> : <IconCopy size={14} />}
+                            onClick={handleCopyToken}
+                          >
+                            {copiedToken ? 'Copiado!' : 'Copiar'}
+                          </Button>
+                        )}
+                      </Group>
+                    </div>
+                  </Stack>
+
+                  <Alert icon={<IconAlertCircle size={16} />} title="Status da Integração" color={isConnected ? 'green' : 'yellow'}>
                     {isConnected
                       ? 'Tudo certo! O agente respondeu perfeitamente ao teste de handshake.'
-                      : 'O agente ainda não foi detectado. Após ativar o plugin no WordPress, clique no botão de reconectar no painel do WP Patropi.'}
+                      : 'O agente ainda não foi detectado com este token. Cole as credenciais acima em WP Patropi > Diagnóstico no seu WordPress e clique em "Salvar Configurações e Conectar".'}
                   </Alert>
                 </Paper>
               </Grid.Col>

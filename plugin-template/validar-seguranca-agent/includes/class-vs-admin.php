@@ -115,8 +115,8 @@ class VS_Agent_Admin {
                 $response = wp_remote_post($target_endpoint, array(
                     'headers' => array('Content-Type' => 'application/json'),
                     'body'    => json_encode(array(
-                        'site_id'     => $site_id,
-                        'agent_token' => $agent_token,
+                        'site_id'     => (int) $site_id,
+                        'agent_token' => trim($agent_token),
                         'site_url'    => $site_url,
                     )),
                     'timeout' => 15,
@@ -137,6 +137,50 @@ class VS_Agent_Admin {
                     $err_msg = isset($data['messages']['error']) ? $data['messages']['error'] : (isset($data['error']) ? $data['error'] : 'Falha no pareamento com o SaaS.');
                     add_settings_error('vs_messages', 'vs_err', 'Erro na conexão: ' . $err_msg, 'error');
                 }
+            } elseif ($_POST['vs_action'] === 'save_config') {
+                check_admin_referer('vs_save_config_nonce');
+
+                $site_id     = isset($_POST['vs_site_id']) ? absint($_POST['vs_site_id']) : 0;
+                $agent_token = isset($_POST['vs_agent_token']) ? sanitize_text_field(trim($_POST['vs_agent_token'])) : '';
+                $saas_url    = isset($_POST['vs_saas_url']) ? esc_url_raw(trim($_POST['vs_saas_url'])) : '';
+
+                if (empty($site_id) || empty($agent_token)) {
+                    add_settings_error('vs_messages', 'vs_err', 'O ID do Site e o Token do Agente não podem ser vazios.', 'error');
+                    return;
+                }
+
+                update_option('vs_site_id', $site_id);
+                update_option('vs_agent_token', $agent_token);
+                if (!empty($saas_url)) {
+                    update_option('vs_saas_url', $saas_url);
+                }
+
+                // Try to auto-connect to SaaS with the new credentials
+                $site_url = get_site_url();
+                $target_endpoint = rtrim($saas_url ?: get_option('vs_saas_url', 'http://localhost/validar-seguranca'), '/') . '/api/websites/connect';
+                
+                $response = wp_remote_post($target_endpoint, array(
+                    'headers' => array('Content-Type' => 'application/json'),
+                    'body'    => json_encode(array(
+                        'site_id'     => $site_id,
+                        'agent_token' => $agent_token,
+                        'site_url'    => $site_url,
+                    )),
+                    'timeout' => 15,
+                ));
+
+                if (!is_wp_error($response)) {
+                    $body = wp_remote_retrieve_body($response);
+                    $data = json_decode($body, true);
+                    if (isset($data['status']) && ($data['status'] == 200 || $data['status'] == 201)) {
+                        update_option('vs_is_connected', 1);
+                        add_settings_error('vs_messages', 'vs_msg', 'Credenciais salvas e conexão com o Validar Segurança estabelecida com sucesso!', 'updated');
+                        return;
+                    }
+                }
+
+                update_option('vs_is_connected', 0);
+                add_settings_error('vs_messages', 'vs_msg', 'Credenciais salvas localmente no WordPress! (Clique em reconectar se o SaaS estiver acessível).', 'updated');
             } elseif ($_POST['vs_action'] === 'toggle_logging') {
                 check_admin_referer('vs_logs_nonce');
                 $current = (int) get_option('vs_logging_enabled', 0);
@@ -180,7 +224,7 @@ class VS_Agent_Admin {
             </div>
 
             <div style="background: #fff; border: 1px solid #ccd0d4; padding: 20px; border-radius: 6px; max-width: 650px; margin-top: 20px;">
-                <h2>Status da Conexão</h2>
+                <h2 style="margin-top:0;">Status da Conexão</h2>
                 
                 <?php if ($is_connected) : ?>
                     <div style="display: flex; align-items: center; gap: 10px; color: #2e7d32; font-weight: bold; font-size: 16px; margin-bottom: 15px;">
@@ -194,7 +238,7 @@ class VS_Agent_Admin {
                         <input type="hidden" name="vs_action" value="connect_saas" />
                         <button type="submit" class="button button-secondary" style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; height: auto; font-weight: 500;">
                             <span class="dashicons dashicons-update" style="font-size: 18px; width: 18px; height: 18px; margin-top: 1px;"></span>
-                            Reconectar / Refazer Ponte com a Plataforma
+                            Testar Reconexão com a Plataforma
                         </button>
                     </form>
                 <?php else : ?>
@@ -216,22 +260,45 @@ class VS_Agent_Admin {
 
                 <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;" />
 
-                <table class="widefat striped" style="border: 0;">
-                    <tbody>
-                        <tr>
-                            <td><strong>ID do Site no SaaS:</strong></td>
-                            <td><code><?php echo esc_html($site_id ? $site_id : 'Não definido'); ?></code></td>
-                        </tr>
-                        <tr>
-                            <td><strong>Token do Agente:</strong></td>
-                            <td><code><?php echo esc_html($agent_token ? substr($agent_token, 0, 10) . '...' : 'Não definido'); ?></code></td>
-                        </tr>
-                        <tr>
-                            <td><strong>URL do Painel SaaS:</strong></td>
-                            <td><code><?php echo esc_html($saas_url); ?></code></td>
-                        </tr>
-                    </tbody>
-                </table>
+                <h3>Configuração das Chaves e Credenciais</h3>
+                <p style="color: #64748b; font-size: 13px;">Se você reinstalou o plugin manualmente ou o token foi alterado no painel SaaS, configure ou atualize as informações abaixo:</p>
+
+                <form method="post" action="" style="margin-top: 15px;">
+                    <?php wp_nonce_field('vs_save_config_nonce'); ?>
+                    <input type="hidden" name="vs_action" value="save_config" />
+
+                    <table class="form-table" style="margin-top: 0;">
+                        <tbody>
+                            <tr>
+                                <th scope="row" style="width: 140px; padding: 10px 0;"><label for="vs_site_id">ID do Site no SaaS</label></th>
+                                <td style="padding: 10px 0;">
+                                    <input type="number" id="vs_site_id" name="vs_site_id" value="<?php echo esc_attr($site_id); ?>" class="regular-text" style="width: 120px;" required />
+                                    <p class="description">Identificador único do site no painel Validar Segurança.</p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row" style="padding: 10px 0;"><label for="vs_agent_token">Token do Agente</label></th>
+                                <td style="padding: 10px 0;">
+                                    <input type="text" id="vs_agent_token" name="vs_agent_token" value="<?php echo esc_attr($agent_token); ?>" class="large-text code" style="font-family: monospace;" required />
+                                    <p class="description">Token de autenticação gerado na plataforma para autorizar diagnósticos e auditorias.</p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row" style="padding: 10px 0;"><label for="vs_saas_url">URL do Painel SaaS</label></th>
+                                <td style="padding: 10px 0;">
+                                    <input type="url" id="vs_saas_url" name="vs_saas_url" value="<?php echo esc_url($saas_url); ?>" class="large-text" required />
+                                    <p class="description">Endereço da plataforma (ex: <code>http://localhost/validar-seguranca</code> ou sua URL de produção).</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <div style="margin-top: 15px;">
+                        <button type="submit" class="button button-primary">
+                            Salvar Configurações e Conectar
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
         <?php

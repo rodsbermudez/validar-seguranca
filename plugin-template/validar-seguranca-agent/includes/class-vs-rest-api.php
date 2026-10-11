@@ -87,10 +87,10 @@ class VS_Agent_REST_API {
             strpos($route, 'rest_route=%2Fvalidar-seguranca') !== false ||
             strpos($route, 'rest_route=/validar-seguranca') !== false
         ) {
-            $token_saved  = get_option('vs_agent_token');
-            $token_header = $this->get_token_from_request();
+            $token_saved  = trim((string) get_option('vs_agent_token'));
+            $token_header = trim((string) $this->get_token_from_request());
 
-            if (!empty($token_saved) && is_string($token_saved) && !empty($token_header) && is_string($token_header)) {
+            if (!empty($token_saved) && !empty($token_header)) {
                 if (hash_equals($token_saved, $token_header)) {
                     return true;
                 }
@@ -154,10 +154,10 @@ class VS_Agent_REST_API {
     }
 
     public function check_permission($request) {
-        $token_header = $this->get_token_from_request($request);
-        $token_saved  = get_option('vs_agent_token');
+        $token_header = trim((string) $this->get_token_from_request($request));
+        $token_saved  = trim((string) get_option('vs_agent_token'));
 
-        if (empty($token_saved) || !is_string($token_saved) || empty($token_header) || !is_string($token_header)) {
+        if (empty($token_saved) || empty($token_header)) {
             return new WP_Error('vs_forbidden', 'Token de acesso não fornecido ou inválido.', array('status' => 403));
         }
 
