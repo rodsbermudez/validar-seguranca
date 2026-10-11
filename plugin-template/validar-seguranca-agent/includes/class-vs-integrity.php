@@ -636,4 +636,216 @@ class VS_Agent_Integrity {
             'data'    => $result_data,
         );
     }
+
+    /**
+     * Restore/repair an official WordPress core file from WordPress.org
+     */
+    public function restore_core_file($file_rel) {
+        global $wp_version;
+
+        @set_time_limit(60);
+
+        if (empty($file_rel) || !is_string($file_rel)) {
+            return array(
+                'status'  => 400,
+                'success' => false,
+                'message' => 'Caminho do arquivo não fornecido.',
+            );
+        }
+
+        $clean_rel = sanitize_text_field(trim($file_rel));
+        $clean_rel = str_replace(array('../', '..\\', '..'), '', $clean_rel);
+        $clean_rel = ltrim($clean_rel, '/\\');
+
+        if (empty($clean_rel)) {
+            return array(
+                'status'  => 400,
+                'success' => false,
+                'message' => 'Caminho do arquivo inválido.',
+            );
+        }
+
+        // Security check: Must NEVER restore/overwrite wp-config.php or files inside wp-content
+        if ($clean_rel === 'wp-config.php' || strpos($clean_rel, 'wp-content/') === 0) {
+            return array(
+                'status'  => 403,
+                'success' => false,
+                'message' => 'O arquivo "' . $clean_rel . '" não pertence ao Core oficial padrão ou é protegido contra restauração automática.',
+            );
+        }
+
+        // Validate that this file is an official WordPress core file according to official checksums
+        $checksums = $this->get_core_checksums($wp_version);
+        if (is_wp_error($checksums) || empty($checksums) || !isset($checksums[$clean_rel])) {
+            return array(
+                'status'  => 400,
+                'success' => false,
+                'message' => 'O arquivo "' . $clean_rel . '" não é reconhecido como um arquivo oficial do WordPress versão ' . $wp_version . '.',
+            );
+        }
+
+        $expected_hash = $checksums[$clean_rel];
+        $abs_path      = wp_normalize_path(ABSPATH);
+        $full_path     = wp_normalize_path($abs_path . $clean_rel);
+
+        // Security check: Path traversal prevention
+        if (strpos($full_path, $abs_path) !== 0) {
+            return array(
+                'status'  => 403,
+                'success' => false,
+                'message' => 'Tentativa de restauração fora do diretório do WordPress.',
+            );
+        }
+
+        // Fetch pristine official file from GitHub (WordPress/WordPress tags) with fallback to WordPress SVN
+        $sources = array(
+            'https://raw.githubusercontent.com/WordPress/WordPress/' . urlencode($wp_version) . '/' . $clean_rel,
+            'https://core.svn.wordpress.org/tags/' . urlencode($wp_version) . '/' . $clean_rel,
+        );
+
+        $official_content = null;
+        $fetch_error = null;
+
+        foreach ($sources as $source_url) {
+            $resp = wp_remote_get($source_url, array(
+                'timeout'    => 25,
+                'sslverify'  => false,
+                'user-agent' => 'WordPress/' . $wp_version . '; ' . home_url('/'),
+            ));
+
+            if (is_wp_error($resp)) {
+                $fetch_error = $resp->get_error_message();
+                continue;
+            }
+
+            $code = wp_remote_retrieve_response_code($resp);
+            $body = wp_remote_retrieve_body($resp);
+
+            if ($code === 200 && $body !== '') {
+                // Verify hash of downloaded content before writing to disk
+                $downloaded_hash = md5($body);
+                if ($downloaded_hash === $expected_hash) {
+                    $official_content = $body;
+                    break;
+                }
+            }
+        }
+
+        if ($official_content === null) {
+            return array(
+                'status'  => 502,
+                'success' => false,
+                'message' => 'Falha ao baixar o arquivo original autêntico do WordPress.org. ' . ($fetch_error ? '(' . $fetch_error . ')' : 'Hash não correspondente.'),
+            );
+        }
+
+        // Ensure parent directory exists
+        $dir = dirname($full_path);
+        if (!is_dir($dir)) {
+            @wp_mkdir_p($dir);
+        }
+
+        // Backup existing file if present before overwriting
+        $backup_path = null;
+        if (file_exists($full_path)) {
+            $backup_path = $full_path . '.vs_bak_' . time();
+            @copy($full_path, $backup_path);
+        }
+
+        // Write the authentic file
+        $written = @file_put_contents($full_path, $official_content);
+
+        if ($written === false) {
+            // Restore backup if write failed
+            if ($backup_path && file_exists($backup_path)) {
+                @copy($backup_path, $full_path);
+                @unlink($backup_path);
+            }
+            return array(
+                'status'  => 500,
+                'success' => false,
+                'message' => 'Não foi possível gravar o arquivo no servidor. Verifique as permissões de escrita do diretório (chmod/chown).',
+            );
+        }
+
+        // Verify written file checksum
+        $new_local_hash = @md5_file($full_path);
+        if ($new_local_hash !== $expected_hash) {
+            // Rollback
+            if ($backup_path && file_exists($backup_path)) {
+                @copy($backup_path, $full_path);
+                @unlink($backup_path);
+            }
+            return array(
+                'status'  => 500,
+                'success' => false,
+                'message' => 'A verificação de integridade pós-gravação falhou. O arquivo original foi preservado.',
+            );
+        }
+
+        // Clean up backup file upon successful restoration
+        if ($backup_path && file_exists($backup_path)) {
+            @unlink($backup_path);
+        }
+
+        // Clean up from ignored files list if it was present
+        $saved_ignored = get_option(self::OPTION_IGNORED_FILES, array());
+        if (is_array($saved_ignored) && isset($saved_ignored[$clean_rel])) {
+            unset($saved_ignored[$clean_rel]);
+            update_option(self::OPTION_IGNORED_FILES, $saved_ignored);
+        }
+
+        // Update cached scan results
+        $cached = get_option('vs_last_integrity_scan', null);
+        if ($cached && is_array($cached) && isset($cached['issues']) && is_array($cached['issues'])) {
+            $new_issues = array();
+            $active     = 0;
+            $ign_count  = 0;
+            $mod_count  = 0;
+            $susp_count = 0;
+            $miss_count = 0;
+
+            foreach ($cached['issues'] as $iss) {
+                if ($iss['file'] === $clean_rel) {
+                    continue; // Repaired file is removed from issues
+                }
+                if (!empty($iss['is_ignored'])) {
+                    $ign_count++;
+                } else {
+                    $active++;
+                }
+                if ($iss['type'] === 'modified') {
+                    $mod_count++;
+                } elseif ($iss['type'] === 'suspicious') {
+                    $susp_count++;
+                } elseif ($iss['type'] === 'missing') {
+                    $miss_count++;
+                }
+                $new_issues[] = $iss;
+            }
+
+            $cached['issues']                   = $new_issues;
+            $cached['is_secure']                = ($active === 0);
+            $cached['summary']['passed']        = (isset($cached['summary']['passed']) ? (int)$cached['summary']['passed'] : 0) + 1;
+            $cached['summary']['issues_count']   = count($new_issues);
+            $cached['summary']['active_issues']  = $active;
+            $cached['summary']['ignored_issues'] = $ign_count;
+            $cached['summary']['modified']       = $mod_count;
+            $cached['summary']['suspicious']     = $susp_count;
+            $cached['summary']['missing']        = $miss_count;
+
+            update_option('vs_last_integrity_scan', $cached);
+            $result_data = $cached;
+        } else {
+            $run = $this->verify_core_integrity();
+            $result_data = isset($run['data']) ? $run['data'] : null;
+        }
+
+        return array(
+            'status'  => 200,
+            'success' => true,
+            'message' => 'Arquivo "' . $clean_rel . '" restaurado com sucesso para a versão oficial autêntica do WordPress!',
+            'data'    => $result_data,
+        );
+    }
 }

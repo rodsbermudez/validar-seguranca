@@ -205,6 +205,12 @@ export const deleteIntegrityFile = async (
   return response.data;
 };
 
-
-
-
+export const restoreIntegrityFile = async (
+  websiteId: number,
+  file: string
+): Promise<WebsiteIntegrityResponse> => {
+  const response = await api.post<WebsiteIntegrityResponse>(`/websites/${websiteId}/integrity/restore-file`, {
+    file,
+  });
+  return response.data;
+};

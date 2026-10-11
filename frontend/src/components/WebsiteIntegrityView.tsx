@@ -32,12 +32,14 @@ import {
   IconCheck,
   IconRestore,
   IconTrash,
+  IconDownload,
 } from '@tabler/icons-react';
 import {
   getWebsiteIntegrity,
   scanWebsiteIntegrity,
   toggleIgnoreIntegrityIssue,
   deleteIntegrityFile,
+  restoreIntegrityFile,
   IntegrityScanData,
   IntegrityIssue,
 } from '../api';
@@ -53,6 +55,9 @@ export const WebsiteIntegrityView: React.FC<WebsiteIntegrityViewProps> = ({ webs
   const [deleteModalOpened, setDeleteModalOpened] = useState<boolean>(false);
   const [fileToDelete, setFileToDelete] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<boolean>(false);
+  const [restoreModalOpened, setRestoreModalOpened] = useState<boolean>(false);
+  const [fileToRestore, setFileToRestore] = useState<string | null>(null);
+  const [restoring, setRestoring] = useState<boolean>(false);
   const [scanData, setScanData] = useState<IntegrityScanData | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -178,6 +183,38 @@ export const WebsiteIntegrityView: React.FC<WebsiteIntegrityViewProps> = ({ webs
       );
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const handleOpenRestoreModal = (file: string) => {
+    setFileToRestore(file);
+    setRestoreModalOpened(true);
+  };
+
+  const handleConfirmRestore = async () => {
+    if (!fileToRestore) return;
+    setRestoring(true);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    try {
+      const res = await restoreIntegrityFile(websiteId, fileToRestore);
+      if (res.success && res.data) {
+        setScanData(res.data);
+        setSuccessMsg(`Arquivo "${fileToRestore}" restaurado com sucesso para a versão oficial autêntica do WordPress!`);
+        setRestoreModalOpened(false);
+        setFileToRestore(null);
+        setTimeout(() => setSuccessMsg(null), 5000);
+      } else {
+        setErrorMsg(res.message || 'Falha ao restaurar o arquivo no servidor.');
+      }
+    } catch (err: any) {
+      setErrorMsg(
+        err.response?.data?.messages?.error ||
+          err.response?.data?.message ||
+          'Erro ao comunicar com o servidor para restaurar o arquivo original.'
+      );
+    } finally {
+      setRestoring(false);
     }
   };
 
@@ -499,6 +536,7 @@ export const WebsiteIntegrityView: React.FC<WebsiteIntegrityViewProps> = ({ webs
                     const isIgnored = !!issue.is_ignored;
                     const isToggling = actionLoadingFile === issue.file;
                     const canDelete = issue.type !== 'missing';
+                    const canRestore = (issue.type === 'modified' || issue.type === 'missing') && !issue.file.startsWith('wp-content/');
 
                     return (
                       <Table.Tr
@@ -608,6 +646,18 @@ export const WebsiteIntegrityView: React.FC<WebsiteIntegrityViewProps> = ({ webs
 
                         <Table.Td style={{ minWidth: 200 }}>
                           <Group gap={6} wrap="nowrap">
+                            {canRestore && (
+                              <Button
+                                variant="light"
+                                color="blue"
+                                size="xs"
+                                leftSection={<IconDownload size={14} />}
+                                onClick={() => handleOpenRestoreModal(issue.file)}
+                              >
+                                Restaurar Original
+                              </Button>
+                            )}
+
                             {isIgnored ? (
                               <Button
                                 variant="subtle"
@@ -628,7 +678,7 @@ export const WebsiteIntegrityView: React.FC<WebsiteIntegrityViewProps> = ({ webs
                                 leftSection={<IconCheck size={14} />}
                                 onClick={() => handleToggleIgnore(issue.file, false)}
                               >
-                                Ignorar / Resolvido
+                                Ignorar
                               </Button>
                             )}
 
@@ -721,6 +771,57 @@ export const WebsiteIntegrityView: React.FC<WebsiteIntegrityViewProps> = ({ webs
               onClick={handleConfirmDelete}
             >
               Excluir Permanentemente
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      {/* Confirmation Modal for File Restoration */}
+      <Modal
+        opened={restoreModalOpened}
+        onClose={() => !restoring && setRestoreModalOpened(false)}
+        title={
+          <Group gap="xs">
+            <ThemeIcon color="blue" variant="light" size="md">
+              <IconDownload size={18} />
+            </ThemeIcon>
+            <Text fw={700}>Restaurar Arquivo Autêntico do WordPress</Text>
+          </Group>
+        }
+        centered
+      >
+        <Stack gap="md">
+          <Text size="sm">
+            Deseja substituir este arquivo pelo original limpo e autêntico baixado diretamente dos servidores oficiais do WordPress.org?
+          </Text>
+
+          <Paper p="xs" bg="dark.8" withBorder style={{ borderColor: '#1971c2' }}>
+            <Code block color="blue.9" style={{ wordBreak: 'break-all' }}>
+              {fileToRestore}
+            </Code>
+          </Paper>
+
+          <Alert icon={<IconAlertCircle size={16} />} color="blue" variant="light">
+            O agente fará o download da versão exata correspondente à instalação ({scanData?.wp_version || 'Core'}), conferirá o hash de integridade e substituirá o arquivo no servidor com backup temporário de segurança.
+          </Alert>
+
+          <Group justify="flex-end" gap="sm" mt="xs">
+            <Button
+              variant="default"
+              size="sm"
+              disabled={restoring}
+              onClick={() => setRestoreModalOpened(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              color="blue"
+              size="sm"
+              loading={restoring}
+              leftSection={<IconDownload size={16} />}
+              onClick={handleConfirmRestore}
+            >
+              Restaurar Original Agora
             </Button>
           </Group>
         </Stack>

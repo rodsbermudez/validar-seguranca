@@ -786,4 +786,47 @@ class Websites extends ResourceController
 
         return $this->respond($res['body']);
     }
+
+    public function restoreIntegrityFile($id = null)
+    {
+        if (!$id) {
+            return $this->fail('ID do website não informado.', 400);
+        }
+
+        $file = $this->request->getVar('file');
+
+        if (empty($file)) {
+            return $this->fail('Caminho do arquivo não informado.', 400);
+        }
+
+        $effectiveUserId = $this->request->effectiveUserId ?? ($this->request->userData->id ?? null);
+        $userData        = $this->request->userData ?? null;
+        $isImpersonating = $this->request->isImpersonating ?? false;
+        $isAdmin         = (($userData->role ?? 'user') === 'admin') && !$isImpersonating;
+
+        $websiteModel = new WebsiteModel();
+        $website = $websiteModel->find($id);
+
+        if (!$website) {
+            return $this->failNotFound('Website não encontrado.');
+        }
+
+        if ($website['user_id'] != $effectiveUserId && !$isAdmin) {
+            return $this->failForbidden('Você não tem permissão para alterar este website.');
+        }
+
+        if (empty($website['agent_token'])) {
+            return $this->fail('Este website não possui token do agente configurado.', 400);
+        }
+
+        $res = $this->makeAgentRequestWithFallback($website['url'], '/integrity/restore-file', 'POST', $website['agent_token'], [
+            'file' => $file,
+        ]);
+
+        if (empty($res['body']) || $res['status'] !== 200) {
+            return $this->failAgentResponse($res, 'Falha ao restaurar arquivo do core');
+        }
+
+        return $this->respond($res['body']);
+    }
 }
