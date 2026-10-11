@@ -75,10 +75,48 @@ class VS_Agent_REST_API {
         return $result;
     }
 
-    private function get_token_from_request() {
-        if (isset($_SERVER['HTTP_X_VALIDAR_SEGURANCA_TOKEN'])) {
+    private function get_token_from_request($request = null) {
+        // 1. Header X-Validar-Seguranca-Token
+        if (isset($_SERVER['HTTP_X_VALIDAR_SEGURANCA_TOKEN']) && !empty($_SERVER['HTTP_X_VALIDAR_SEGURANCA_TOKEN'])) {
             return trim($_SERVER['HTTP_X_VALIDAR_SEGURANCA_TOKEN']);
         }
+
+        // 2. Authorization: Bearer <token>
+        $auth_header = isset($_SERVER['HTTP_AUTHORIZATION']) ? $_SERVER['HTTP_AUTHORIZATION'] : (isset($_SERVER['REDIRECT_HTTP_AUTHORIZATION']) ? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] : '');
+        if (empty($auth_header) && function_exists('getallheaders')) {
+            $headers = getallheaders();
+            foreach ($headers as $name => $value) {
+                if (strtolower($name) === 'authorization') {
+                    $auth_header = $value;
+                    break;
+                }
+            }
+        }
+        if (!empty($auth_header) && preg_match('/Bearer\s+(\S+)/i', $auth_header, $matches)) {
+            return trim($matches[1]);
+        }
+
+        // 3. Query string / GET parameters (vs_token, agent_token, token)
+        if (isset($_GET['vs_token']) && !empty($_GET['vs_token'])) {
+            return trim($_GET['vs_token']);
+        }
+        if (isset($_GET['agent_token']) && !empty($_GET['agent_token'])) {
+            return trim($_GET['agent_token']);
+        }
+
+        // 4. POST parameters
+        if (isset($_POST['vs_token']) && !empty($_POST['vs_token'])) {
+            return trim($_POST['vs_token']);
+        }
+
+        // 5. WP_REST_Request object parameter check
+        if ($request && is_a($request, 'WP_REST_Request')) {
+            $param_token = $request->get_param('vs_token') ?: $request->get_param('agent_token');
+            if (!empty($param_token)) {
+                return trim($param_token);
+            }
+        }
+
         if (function_exists('getallheaders')) {
             $headers = getallheaders();
             foreach ($headers as $name => $value) {
@@ -87,15 +125,13 @@ class VS_Agent_REST_API {
                 }
             }
         }
+
         return null;
     }
 
     public function check_permission($request) {
-        $token_header = $request->get_header('x-validar-seguranca-token');
-        if (empty($token_header)) {
-            $token_header = $this->get_token_from_request();
-        }
-        $token_saved = get_option('vs_agent_token');
+        $token_header = $this->get_token_from_request($request);
+        $token_saved  = get_option('vs_agent_token');
 
         if (empty($token_saved) || !is_string($token_saved) || empty($token_header) || !is_string($token_header)) {
             return new WP_Error('vs_forbidden', 'Token de acesso não fornecido ou inválido.', array('status' => 403));

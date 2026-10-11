@@ -299,13 +299,26 @@ class Websites extends ResourceController
 
     private function makeAgentRequest(string $url, string $method = 'GET', string $token = '', array $params = []): array
     {
+        // Append token as query param to bypass WAF header stripping
+        if (!empty($token)) {
+            $tokenParam = ['vs_token' => $token];
+            if ($method === 'GET') {
+                $params = array_merge($params, $tokenParam);
+            } else {
+                $url .= (strpos($url, '?') !== false ? '&' : '?') . http_build_query($tokenParam);
+            }
+        }
+
         if ($method === 'GET' && !empty($params)) {
-            $url .= '?' . http_build_query($params);
+            $url .= (strpos($url, '?') !== false ? '&' : '?') . http_build_query($params);
         }
 
         $headers = [
+            'Authorization: Bearer ' . $token,
             'X-Validar-Seguranca-Token: ' . $token,
-            'Accept: application/json',
+            'Accept: application/json, text/plain, */*',
+            'Accept-Language: pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+            'Cache-Control: no-cache',
         ];
 
         if ($method === 'POST') {
@@ -319,7 +332,7 @@ class Websites extends ResourceController
             CURLOPT_TIMEOUT        => 60,
             CURLOPT_FOLLOWLOCATION => true,
             CURLOPT_MAXREDIRS      => 5,
-            CURLOPT_USERAGENT      => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 PatropiAgentBridge/1.0',
+            CURLOPT_USERAGENT      => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
             CURLOPT_SSL_VERIFYPEER => false,
             CURLOPT_SSL_VERIFYHOST => false,
             CURLOPT_HTTPHEADER     => $headers,
