@@ -12,6 +12,11 @@ class VS_Agent_Integrity {
     const CHECKSUM_TRANSIENT_PREFIX = 'vs_core_checksums_';
 
     /**
+     * Option name for ignored / resolved issues
+     */
+    const OPTION_IGNORED_FILES = 'vs_integrity_ignored_files';
+
+    /**
      * Run full core integrity verification
      */
     public function verify_core_integrity() {
@@ -93,9 +98,54 @@ class VS_Agent_Integrity {
         $suspicious = $this->find_suspicious_files($abs_path, $checksums);
 
         $total_checked = count($checksums);
-        $is_secure     = (empty($modified) && empty($suspicious) && empty($missing));
+        $all_issues    = array_merge($modified, $suspicious, $missing);
 
-        $all_issues = array_merge($modified, $suspicious, $missing);
+        // 3. Process Ignored / Resolved Files & Auto-Cleanup
+        $saved_ignored = get_option(self::OPTION_IGNORED_FILES, array());
+        if (!is_array($saved_ignored)) {
+            $saved_ignored = array();
+        }
+
+        // Build list of current issues keys
+        $current_issue_files = array();
+        foreach ($all_issues as $iss) {
+            $current_issue_files[$iss['file']] = true;
+        }
+
+        // Rule: If an ignored file ceases to exist among current detected issues (e.g. deleted or restored),
+        // completely purge it from the saved ignored records so that if it ever returns, it flags as un-resolved!
+        $ignored_changed = false;
+        foreach ($saved_ignored as $ign_file => $ign_data) {
+            if (!isset($current_issue_files[$ign_file])) {
+                unset($saved_ignored[$ign_file]);
+                $ignored_changed = true;
+            }
+        }
+        if ($ignored_changed) {
+            update_option(self::OPTION_IGNORED_FILES, $saved_ignored);
+        }
+
+        // Apply ignored state to issues
+        $active_issues  = 0;
+        $ignored_issues = 0;
+        foreach ($all_issues as &$issue) {
+            $file_key = $issue['file'];
+            if (isset($saved_ignored[$file_key])) {
+                $issue['is_ignored']  = true;
+                $issue['ignored_at']  = isset($saved_ignored[$file_key]['ignored_at']) ? $saved_ignored[$file_key]['ignored_at'] : null;
+                $issue['ignore_note'] = isset($saved_ignored[$file_key]['note']) ? $saved_ignored[$file_key]['note'] : '';
+                $ignored_issues++;
+            } else {
+                $issue['is_ignored']  = false;
+                $issue['ignored_at']  = null;
+                $issue['ignore_note'] = '';
+                $active_issues++;
+            }
+        }
+        unset($issue);
+
+        // Site is considered secure if there are no ACTIVE (unignored) issues
+        $is_secure = ($active_issues === 0);
 
         $result = array(
             'scanned_at'    => date('Y-m-d H:i:s'),
@@ -103,12 +153,14 @@ class VS_Agent_Integrity {
             'locale'        => get_locale(),
             'is_secure'     => $is_secure,
             'summary'       => array(
-                'total_checked' => $total_checked,
-                'passed'        => $passed,
-                'modified'      => count($modified),
-                'suspicious'    => count($suspicious),
-                'missing'       => count($missing),
-                'issues_count'  => count($all_issues),
+                'total_checked'  => $total_checked,
+                'passed'         => $passed,
+                'modified'       => count($modified),
+                'suspicious'     => count($suspicious),
+                'missing'        => count($missing),
+                'issues_count'   => count($all_issues),
+                'active_issues'  => $active_issues,
+                'ignored_issues' => $ignored_issues,
             ),
             'issues'        => $all_issues,
         );
@@ -299,10 +351,103 @@ class VS_Agent_Integrity {
             return $this->verify_core_integrity();
         }
 
+        $saved_ignored = get_option(self::OPTION_IGNORED_FILES, array());
+        if (is_array($saved_ignored) && isset($last['issues']) && is_array($last['issues'])) {
+            $active    = 0;
+            $ign_count = 0;
+            foreach ($last['issues'] as &$iss) {
+                $f = $iss['file'];
+                if (isset($saved_ignored[$f])) {
+                    $iss['is_ignored']  = true;
+                    $iss['ignored_at']  = isset($saved_ignored[$f]['ignored_at']) ? $saved_ignored[$f]['ignored_at'] : null;
+                    $iss['ignore_note'] = isset($saved_ignored[$f]['note']) ? $saved_ignored[$f]['note'] : '';
+                    $ign_count++;
+                } else {
+                    $iss['is_ignored']  = false;
+                    $iss['ignored_at']  = null;
+                    $iss['ignore_note'] = '';
+                    $active++;
+                }
+            }
+            unset($iss);
+
+            $last['is_secure'] = ($active === 0);
+            $last['summary']['active_issues']  = $active;
+            $last['summary']['ignored_issues'] = $ign_count;
+        }
+
         return array(
             'status'  => 200,
             'success' => true,
             'data'    => $last,
+        );
+    }
+
+    /**
+     * Toggle ignored/resolved status for an issue file
+     */
+    public function toggle_ignore_issue($file, $ignore = true, $note = '') {
+        $file = sanitize_text_field(trim($file));
+        if (empty($file)) {
+            return array(
+                'status'  => 400,
+                'success' => false,
+                'message' => 'Caminho do arquivo não informado.',
+            );
+        }
+
+        $saved_ignored = get_option(self::OPTION_IGNORED_FILES, array());
+        if (!is_array($saved_ignored)) {
+            $saved_ignored = array();
+        }
+
+        if ($ignore) {
+            $saved_ignored[$file] = array(
+                'ignored_at' => date('Y-m-d H:i:s'),
+                'note'       => sanitize_text_field($note),
+            );
+        } else {
+            unset($saved_ignored[$file]);
+        }
+
+        update_option(self::OPTION_IGNORED_FILES, $saved_ignored);
+
+        // Update cached scan result if present
+        $cached = get_option('vs_last_integrity_scan', null);
+        if ($cached && is_array($cached) && isset($cached['issues']) && is_array($cached['issues'])) {
+            $active    = 0;
+            $ign_count = 0;
+            foreach ($cached['issues'] as &$iss) {
+                $f = $iss['file'];
+                if (isset($saved_ignored[$f])) {
+                    $iss['is_ignored']  = true;
+                    $iss['ignored_at']  = isset($saved_ignored[$f]['ignored_at']) ? $saved_ignored[$f]['ignored_at'] : null;
+                    $iss['ignore_note'] = isset($saved_ignored[$f]['note']) ? $saved_ignored[$f]['note'] : '';
+                    $ign_count++;
+                } else {
+                    $iss['is_ignored']  = false;
+                    $iss['ignored_at']  = null;
+                    $iss['ignore_note'] = '';
+                    $active++;
+                }
+            }
+            unset($iss);
+
+            $cached['is_secure'] = ($active === 0);
+            $cached['summary']['active_issues']  = $active;
+            $cached['summary']['ignored_issues'] = $ign_count;
+            update_option('vs_last_integrity_scan', $cached);
+            $result_data = $cached;
+        } else {
+            $run = $this->verify_core_integrity();
+            $result_data = isset($run['data']) ? $run['data'] : null;
+        }
+
+        return array(
+            'status'  => 200,
+            'success' => true,
+            'message' => $ignore ? 'Arquivo ignorado e marcado como resolvido.' : 'Arquivo reativado para monitoramento.',
+            'data'    => $result_data,
         );
     }
 }

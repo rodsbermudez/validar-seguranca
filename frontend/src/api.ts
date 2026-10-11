@@ -129,6 +129,9 @@ export interface IntegrityIssue {
   modified_at?: string | null;
   description: string;
   recommendation: string;
+  is_ignored?: boolean;
+  ignored_at?: string | null;
+  ignore_note?: string | null;
 }
 
 export interface IntegrityScanSummary {
@@ -138,6 +141,8 @@ export interface IntegrityScanSummary {
   suspicious: number;
   missing: number;
   issues_count: number;
+  active_issues?: number;
+  ignored_issues?: number;
 }
 
 export interface IntegrityScanData {
@@ -165,5 +170,20 @@ export const scanWebsiteIntegrity = async (websiteId: number): Promise<WebsiteIn
   const response = await api.post<WebsiteIntegrityResponse>(`/websites/${websiteId}/integrity/scan`);
   return response.data;
 };
+
+export const toggleIgnoreIntegrityIssue = async (
+  websiteId: number,
+  file: string,
+  ignore: boolean = true,
+  note?: string
+): Promise<WebsiteIntegrityResponse> => {
+  const response = await api.post<WebsiteIntegrityResponse>(`/websites/${websiteId}/integrity/ignore`, {
+    file,
+    ignore,
+    note,
+  });
+  return response.data;
+};
+
 
 

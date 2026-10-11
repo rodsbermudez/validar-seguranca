@@ -62,6 +62,12 @@ class VS_Agent_REST_API {
                 'callback'            => array($this, 'handle_scan_integrity'),
                 'permission_callback' => array($this, 'check_permission'),
             ));
+
+            register_rest_route($ns, '/integrity/ignore', array(
+                'methods'             => array('POST', 'GET'),
+                'callback'            => array($this, 'handle_toggle_ignore_integrity'),
+                'permission_callback' => array($this, 'check_permission'),
+            ));
         }
     }
 
@@ -262,6 +268,28 @@ class VS_Agent_REST_API {
     public function handle_scan_integrity($request) {
         $integrity = new VS_Agent_Integrity();
         $res       = $integrity->verify_core_integrity();
+
+        return new WP_REST_Response($res, isset($res['status']) ? (int)$res['status'] : 200);
+    }
+
+    public function handle_toggle_ignore_integrity($request) {
+        $file   = $request->get_param('file');
+        $ignore = $request->get_param('ignore');
+        $note   = $request->get_param('note');
+
+        if ($file === null) {
+            $json = $request->get_json_params();
+            if (!empty($json)) {
+                $file   = isset($json['file']) ? $json['file'] : null;
+                $ignore = isset($json['ignore']) ? $json['ignore'] : true;
+                $note   = isset($json['note']) ? $json['note'] : '';
+            }
+        }
+
+        $ignore_bool = ($ignore === null) ? true : filter_var($ignore, FILTER_VALIDATE_BOOLEAN);
+
+        $integrity = new VS_Agent_Integrity();
+        $res       = $integrity->toggle_ignore_issue($file, $ignore_bool, $note ? $note : '');
 
         return new WP_REST_Response($res, isset($res['status']) ? (int)$res['status'] : 200);
     }

@@ -18,6 +18,7 @@ import {
   SegmentedControl,
   Box,
   Code,
+  Tooltip,
 } from '@mantine/core';
 import {
   IconFileCheck,
@@ -28,10 +29,12 @@ import {
   IconFileCode,
   IconAlertCircle,
   IconCheck,
+  IconRestore,
 } from '@tabler/icons-react';
 import {
   getWebsiteIntegrity,
   scanWebsiteIntegrity,
+  toggleIgnoreIntegrityIssue,
   IntegrityScanData,
   IntegrityIssue,
 } from '../api';
@@ -43,6 +46,7 @@ interface WebsiteIntegrityViewProps {
 export const WebsiteIntegrityView: React.FC<WebsiteIntegrityViewProps> = ({ website }) => {
   const [loading, setLoading] = useState<boolean>(true);
   const [scanning, setScanning] = useState<boolean>(false);
+  const [actionLoadingFile, setActionLoadingFile] = useState<string | null>(null);
   const [scanData, setScanData] = useState<IntegrityScanData | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -84,11 +88,16 @@ export const WebsiteIntegrityView: React.FC<WebsiteIntegrityViewProps> = ({ webs
       const res = await scanWebsiteIntegrity(websiteId);
       if (res.success && res.data) {
         setScanData(res.data);
+        const activeCount = res.data.summary.active_issues ?? res.data.issues.filter(i => !i.is_ignored).length;
         if (res.data.is_secure) {
-          setSuccessMsg('Varredura concluída: Todos os arquivos do Core são 100% autênticos!');
+          if ((res.data.summary.ignored_issues || 0) > 0) {
+            setSuccessMsg(`Varredura concluída: Core seguro! (${res.data.summary.ignored_issues} arquivo(s) resolvidos/ignorados mantidos).`);
+          } else {
+            setSuccessMsg('Varredura concluída: Todos os arquivos do Core são 100% autênticos!');
+          }
         } else {
           setSuccessMsg(
-            `Varredura concluída: Encontradas ${res.data.summary.issues_count} anomalia(s) de integridade.`
+            `Varredura concluída: ${activeCount} anomalia(s) pendente(s) requerem sua atenção.`
           );
         }
         setTimeout(() => setSuccessMsg(null), 5000);
@@ -106,11 +115,48 @@ export const WebsiteIntegrityView: React.FC<WebsiteIntegrityViewProps> = ({ webs
     }
   };
 
+  const handleToggleIgnore = async (file: string, currentIgnored: boolean) => {
+    setActionLoadingFile(file);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    try {
+      const res = await toggleIgnoreIntegrityIssue(websiteId, file, !currentIgnored);
+      if (res.success && res.data) {
+        setScanData(res.data);
+        if (!currentIgnored) {
+          setSuccessMsg(`Arquivo "${file}" marcado como ignorado / resolvido com sucesso!`);
+        } else {
+          setSuccessMsg(`Arquivo "${file}" reativado para monitoramento ativo!`);
+        }
+        setTimeout(() => setSuccessMsg(null), 4000);
+      } else {
+        setErrorMsg(res.message || 'Falha ao atualizar status do arquivo.');
+      }
+    } catch (err: any) {
+      setErrorMsg(
+        err.response?.data?.messages?.error ||
+          err.response?.data?.message ||
+          'Erro ao comunicar com o servidor para atualizar status do arquivo.'
+      );
+    } finally {
+      setActionLoadingFile(null);
+    }
+  };
+
+  const summary = scanData?.summary;
+  const activeCount = summary?.active_issues ?? scanData?.issues.filter((i) => !i.is_ignored).length ?? 0;
+  const ignoredCount = summary?.ignored_issues ?? scanData?.issues.filter((i) => i.is_ignored).length ?? 0;
+
   const getFilteredIssues = (): IntegrityIssue[] => {
     if (!scanData || !scanData.issues) return [];
 
     return scanData.issues.filter((issue) => {
-      const matchesFilter = filterType === 'all' || issue.type === filterType;
+      const matchesFilter =
+        filterType === 'all' ||
+        (filterType === 'pending' && !issue.is_ignored) ||
+        (filterType === 'ignored' && issue.is_ignored) ||
+        issue.type === filterType;
+
       const matchesSearch =
         searchQuery === '' ||
         issue.file.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -121,7 +167,6 @@ export const WebsiteIntegrityView: React.FC<WebsiteIntegrityViewProps> = ({ webs
   };
 
   const filteredIssues = getFilteredIssues();
-  const summary = scanData?.summary;
 
   return (
     <Stack gap="md">
@@ -217,16 +262,18 @@ export const WebsiteIntegrityView: React.FC<WebsiteIntegrityViewProps> = ({ webs
                 <div style={{ flex: 1 }}>
                   <Group justify="space-between" align="center">
                     <Title order={4} c="green.4">
-                      Core 100% Autêntico e Íntegro
+                      {ignoredCount > 0
+                        ? 'Core Protegido (Exceções Ignoradas)'
+                        : 'Core 100% Autêntico e Íntegro'}
                     </Title>
                     <Badge color="green" variant="filled" size="sm">
-                      SEGURO
+                      {ignoredCount > 0 ? 'SEGURO (RESOLVIDO)' : 'SEGURO'}
                     </Badge>
                   </Group>
                   <Text size="sm" c="dimmed" mt={2}>
-                    Todos os <b>{summary?.total_checked}</b> arquivos do WordPress{' '}
-                    <b>{scanData.wp_version}</b> correspondem com exatidão aos originais publicados pelo
-                    WordPress.org. Nenhum arquivo foi adulterado ou infectado.
+                    {ignoredCount > 0
+                      ? `Não há anomalias ativas pendentes. ${ignoredCount} arquivo(s) foram marcados como resolvidos/ignorados (ex: arquivos de plugins legítimos). Se algum desses arquivos for removido do servidor, ele sairá da lista automaticamente.`
+                      : `Todos os ${summary?.total_checked} arquivos do WordPress ${scanData.wp_version} correspondem com exatidão aos originais publicados pelo WordPress.org. Nenhum arquivo foi adulterado.`}
                   </Text>
                   <Text size="xs" c="dimmed" mt={4}>
                     Última verificação realizada em: <b>{scanData.scanned_at}</b>
@@ -251,15 +298,15 @@ export const WebsiteIntegrityView: React.FC<WebsiteIntegrityViewProps> = ({ webs
                 <div style={{ flex: 1 }}>
                   <Group justify="space-between" align="center">
                     <Title order={4} c="red.4">
-                      Atenção: Anomalias de Integridade Detectadas!
+                      Atenção: {activeCount} Anomalia(s) Pendente(s) de Resolução!
                     </Title>
                     <Badge color="red" variant="filled" size="sm">
                       COMPROMETIDO
                     </Badge>
                   </Group>
                   <Text size="sm" c="dimmed" mt={2}>
-                    Foram identificadas <b>{summary?.issues_count}</b> inconsistência(s) de arquivos.
-                    Isto pode indicar contaminação por malware, backdoors instalados ou arquivos do sistema corrompidos.
+                    Foram identificadas <b>{activeCount}</b> inconsistência(s) ativas no core do WordPress
+                    {ignoredCount > 0 && ` (${ignoredCount} arquivo(s) já resolvidos/ignorados)`}. Se um arquivo pertencer a um plugin legítimo (como Wordfence), você pode marcá-lo como "Ignorar / Resolvido".
                   </Text>
                   <Text size="xs" c="dimmed" mt={4}>
                     Última verificação realizada em: <b>{scanData.scanned_at}</b>
@@ -271,7 +318,7 @@ export const WebsiteIntegrityView: React.FC<WebsiteIntegrityViewProps> = ({ webs
 
           {/* Metrics Summary Grid */}
           <Grid>
-            <Grid.Col span={{ base: 6, sm: 4, md: 2.4 }}>
+            <Grid.Col span={{ base: 6, sm: 4, md: 2 }}>
               <Card padding="md" radius="md" withBorder bg="dark.7" ta="center">
                 <Text size="xs" fw={600} c="dimmed">
                   Total Verificados
@@ -282,7 +329,7 @@ export const WebsiteIntegrityView: React.FC<WebsiteIntegrityViewProps> = ({ webs
               </Card>
             </Grid.Col>
 
-            <Grid.Col span={{ base: 6, sm: 4, md: 2.4 }}>
+            <Grid.Col span={{ base: 6, sm: 4, md: 2 }}>
               <Card padding="md" radius="md" withBorder bg="dark.7" ta="center">
                 <Text size="xs" fw={600} c="green.4">
                   Arquivos Íntegros
@@ -293,7 +340,29 @@ export const WebsiteIntegrityView: React.FC<WebsiteIntegrityViewProps> = ({ webs
               </Card>
             </Grid.Col>
 
-            <Grid.Col span={{ base: 6, sm: 4, md: 2.4 }}>
+            <Grid.Col span={{ base: 6, sm: 4, md: 2 }}>
+              <Card padding="md" radius="md" withBorder bg="dark.7" ta="center">
+                <Text size="xs" fw={600} c={activeCount > 0 ? 'red.4' : 'green.4'}>
+                  Pendentes
+                </Text>
+                <Text fw={800} fz={24} c={activeCount > 0 ? 'red.4' : 'green.4'} mt={2}>
+                  {activeCount}
+                </Text>
+              </Card>
+            </Grid.Col>
+
+            <Grid.Col span={{ base: 6, sm: 4, md: 2 }}>
+              <Card padding="md" radius="md" withBorder bg="dark.7" ta="center">
+                <Text size="xs" fw={600} c="teal.4">
+                  Resolvidos / Ignorados
+                </Text>
+                <Text fw={800} fz={24} c="teal.4" mt={2}>
+                  {ignoredCount}
+                </Text>
+              </Card>
+            </Grid.Col>
+
+            <Grid.Col span={{ base: 6, sm: 4, md: 2 }}>
               <Card padding="md" radius="md" withBorder bg="dark.7" ta="center">
                 <Text size="xs" fw={600} c="red.4">
                   Modificados
@@ -304,24 +373,13 @@ export const WebsiteIntegrityView: React.FC<WebsiteIntegrityViewProps> = ({ webs
               </Card>
             </Grid.Col>
 
-            <Grid.Col span={{ base: 6, sm: 4, md: 2.4 }}>
+            <Grid.Col span={{ base: 6, sm: 4, md: 2 }}>
               <Card padding="md" radius="md" withBorder bg="dark.7" ta="center">
                 <Text size="xs" fw={600} c="orange.4">
-                  Suspeitos / Backdoors
+                  Suspeitos
                 </Text>
                 <Text fw={800} fz={24} c="orange.4" mt={2}>
                   {summary?.suspicious ?? 0}
-                </Text>
-              </Card>
-            </Grid.Col>
-
-            <Grid.Col span={{ base: 6, sm: 4, md: 2.4 }}>
-              <Card padding="md" radius="md" withBorder bg="dark.7" ta="center">
-                <Text size="xs" fw={600} c="yellow.4">
-                  Arquivos Ausentes
-                </Text>
-                <Text fw={800} fz={24} c="yellow.4" mt={2}>
-                  {summary?.missing ?? 0}
                 </Text>
               </Card>
             </Grid.Col>
@@ -335,18 +393,20 @@ export const WebsiteIntegrityView: React.FC<WebsiteIntegrityViewProps> = ({ webs
                 <Text size="xs" c="dimmed">
                   {scanData.issues.length === 0
                     ? 'Nenhum problema encontrado. O core está limpo.'
-                    : `Exibindo ${filteredIssues.length} de ${scanData.issues.length} ocorrência(s).`}
+                    : `Exibindo ${filteredIssues.length} de ${scanData.issues.length} arquivo(s) detectados.`}
                 </Text>
               </div>
 
               {scanData.issues.length > 0 && (
-                <Group gap="sm">
+                <Group gap="sm" wrap="wrap">
                   <SegmentedControl
                     size="xs"
                     value={filterType}
                     onChange={setFilterType}
                     data={[
                       { label: `Todos (${scanData.issues.length})`, value: 'all' },
+                      { label: `Pendentes (${activeCount})`, value: 'pending' },
+                      { label: `Resolvidos (${ignoredCount})`, value: 'ignored' },
                       { label: `Modificados (${summary?.modified || 0})`, value: 'modified' },
                       { label: `Suspeitos (${summary?.suspicious || 0})`, value: 'suspicious' },
                       { label: `Ausentes (${summary?.missing || 0})`, value: 'missing' },
@@ -391,92 +451,150 @@ export const WebsiteIntegrityView: React.FC<WebsiteIntegrityViewProps> = ({ webs
                     <Table.Th>Arquivo / Caminho</Table.Th>
                     <Table.Th>Classificação</Table.Th>
                     <Table.Th>Severidade</Table.Th>
+                    <Table.Th>Status</Table.Th>
                     <Table.Th>Detalhes Técnicos</Table.Th>
-                    <Table.Th>Ação Recomendada</Table.Th>
+                    <Table.Th>Ação</Table.Th>
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
-                  {filteredIssues.map((issue, idx) => (
-                    <Table.Tr key={idx}>
-                      <Table.Td style={{ maxWidth: 280 }}>
-                        <Group gap="xs" wrap="nowrap">
-                          <ThemeIcon
-                            size="sm"
-                            radius="sm"
+                  {filteredIssues.map((issue, idx) => {
+                    const isIgnored = !!issue.is_ignored;
+                    const isToggling = actionLoadingFile === issue.file;
+
+                    return (
+                      <Table.Tr
+                        key={idx}
+                        style={{
+                          opacity: isIgnored ? 0.75 : 1,
+                        }}
+                      >
+                        <Table.Td style={{ maxWidth: 260 }}>
+                          <Group gap="xs" wrap="nowrap">
+                            <ThemeIcon
+                              size="sm"
+                              radius="sm"
+                              color={
+                                isIgnored
+                                  ? 'gray'
+                                  : issue.type === 'modified'
+                                  ? 'red'
+                                  : issue.type === 'suspicious'
+                                  ? 'orange'
+                                  : 'yellow'
+                              }
+                              variant="light"
+                            >
+                              <IconFileCode size={14} />
+                            </ThemeIcon>
+                            <div>
+                              <Text size="sm" fw={600} style={{ wordBreak: 'break-all' }}>
+                                {issue.file}
+                              </Text>
+                              {issue.size ? (
+                                <Text size="xs" c="dimmed">
+                                  Tamanho: {(issue.size / 1024).toFixed(1)} KB
+                                </Text>
+                              ) : null}
+                            </div>
+                          </Group>
+                        </Table.Td>
+
+                        <Table.Td>
+                          {issue.type === 'modified' && (
+                            <Badge color="red" variant="light" size="sm">
+                              Modificado
+                            </Badge>
+                          )}
+                          {issue.type === 'suspicious' && (
+                            <Badge color="orange" variant="light" size="sm">
+                              Suspeito
+                            </Badge>
+                          )}
+                          {issue.type === 'missing' && (
+                            <Badge color="yellow" variant="light" size="sm">
+                              Ausente
+                            </Badge>
+                          )}
+                        </Table.Td>
+
+                        <Table.Td>
+                          <Badge
                             color={
-                              issue.type === 'modified'
+                              issue.severity === 'CRITICAL'
                                 ? 'red'
-                                : issue.type === 'suspicious'
+                                : issue.severity === 'HIGH'
                                 ? 'orange'
                                 : 'yellow'
                             }
-                            variant="light"
+                            variant="filled"
+                            size="xs"
                           >
-                            <IconFileCode size={14} />
-                          </ThemeIcon>
-                          <Text size="sm" fw={600} style={{ wordBreak: 'break-all' }}>
-                            {issue.file}
-                          </Text>
-                        </Group>
-                      </Table.Td>
-
-                      <Table.Td>
-                        {issue.type === 'modified' && (
-                          <Badge color="red" variant="light" size="sm">
-                            Modificado
+                            {issue.severity}
                           </Badge>
-                        )}
-                        {issue.type === 'suspicious' && (
-                          <Badge color="orange" variant="light" size="sm">
-                            Suspeito / Estranho
-                          </Badge>
-                        )}
-                        {issue.type === 'missing' && (
-                          <Badge color="yellow" variant="light" size="sm">
-                            Ausente
-                          </Badge>
-                        )}
-                      </Table.Td>
+                        </Table.Td>
 
-                      <Table.Td>
-                        <Badge
-                          color={
-                            issue.severity === 'CRITICAL'
-                              ? 'red'
-                              : issue.severity === 'HIGH'
-                              ? 'orange'
-                              : 'yellow'
-                          }
-                          variant="filled"
-                          size="xs"
-                        >
-                          {issue.severity}
-                        </Badge>
-                      </Table.Td>
+                        <Table.Td>
+                          {isIgnored ? (
+                            <Tooltip
+                              label={`Ignorado em ${issue.ignored_at || 'Data anterior'}. Se este arquivo for removido do servidor, a regra será limpa automaticamente.`}
+                              multiline
+                              w={260}
+                            >
+                              <Badge color="teal" variant="light" size="sm" leftSection={<IconCheck size={12} />}>
+                                Resolvido
+                              </Badge>
+                            </Tooltip>
+                          ) : (
+                            <Badge color="red" variant="light" size="sm" leftSection={<IconAlertCircle size={12} />}>
+                              Pendente
+                            </Badge>
+                          )}
+                        </Table.Td>
 
-                      <Table.Td style={{ maxWidth: 300 }}>
-                        <Text size="xs" c="dimmed">
-                          {issue.description}
-                        </Text>
-                        {issue.actual_hash && (
-                          <Text size="xs" c="dimmed" mt={2}>
-                            Hash Atual: <Code color="dark.6">{issue.actual_hash.substring(0, 12)}...</Code>
-                          </Text>
-                        )}
-                        {issue.expected_hash && (
+                        <Table.Td style={{ maxWidth: 280 }}>
                           <Text size="xs" c="dimmed">
-                            Hash Oficial: <Code color="dark.6">{issue.expected_hash.substring(0, 12)}...</Code>
+                            {issue.description}
                           </Text>
-                        )}
-                      </Table.Td>
+                          {issue.actual_hash && (
+                            <Text size="xs" c="dimmed" mt={2}>
+                              Hash Atual: <Code color="dark.6">{issue.actual_hash.substring(0, 10)}...</Code>
+                            </Text>
+                          )}
+                          {issue.expected_hash && (
+                            <Text size="xs" c="dimmed">
+                              Hash Oficial: <Code color="dark.6">{issue.expected_hash.substring(0, 10)}...</Code>
+                            </Text>
+                          )}
+                        </Table.Td>
 
-                      <Table.Td style={{ maxWidth: 260 }}>
-                        <Text size="xs" fw={500} c={issue.type === 'suspicious' ? 'orange.3' : 'blue.3'}>
-                          {issue.recommendation}
-                        </Text>
-                      </Table.Td>
-                    </Table.Tr>
-                  ))}
+                        <Table.Td style={{ minWidth: 160 }}>
+                          {isIgnored ? (
+                            <Button
+                              variant="subtle"
+                              color="yellow"
+                              size="xs"
+                              loading={isToggling}
+                              leftSection={<IconRestore size={14} />}
+                              onClick={() => handleToggleIgnore(issue.file, true)}
+                            >
+                              Reativar
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="light"
+                              color="teal"
+                              size="xs"
+                              loading={isToggling}
+                              leftSection={<IconCheck size={14} />}
+                              onClick={() => handleToggleIgnore(issue.file, false)}
+                            >
+                              Ignorar / Resolvido
+                            </Button>
+                          )}
+                        </Table.Td>
+                      </Table.Tr>
+                    );
+                  })}
                 </Table.Tbody>
               </Table>
             )}
