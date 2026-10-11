@@ -19,13 +19,11 @@ import {
 import {
   IconPlus,
   IconTrash,
-  IconRadar,
   IconAlertCircle,
   IconWorldCheck,
   IconPencil,
-  IconDownload,
   IconPlugConnected,
-  IconTerminal,
+  IconLayoutDashboard,
 } from '@tabler/icons-react';
 import { api } from '../api';
 
@@ -41,17 +39,16 @@ interface Website {
 
 interface WebsitesListProps {
   onSelectWebsite: (website: Website) => void;
-  onTriggerScan: (website: Website) => void;
-  onSelectLogs: (website: Website) => void;
+  onTriggerScan?: (website: Website) => void;
+  onSelectLogs?: (website: Website) => void;
 }
 
-export const WebsitesList: React.FC<WebsitesListProps> = ({ onSelectWebsite, onTriggerScan, onSelectLogs }) => {
+export const WebsitesList: React.FC<WebsitesListProps> = ({ onSelectWebsite }) => {
   const [websites, setWebsites] = useState<Website[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingWebsite, setEditingWebsite] = useState<Website | null>(null);
   const [formLoading, setFormLoading] = useState(false);
-  const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Form State
@@ -127,28 +124,6 @@ export const WebsitesList: React.FC<WebsitesListProps> = ({ onSelectWebsite, onT
     }
   };
 
-  const handleDownloadPlugin = async (site: Website) => {
-    setDownloadingId(site.id);
-    try {
-      const response = await api.get(`/websites/${site.id}/download-plugin`, {
-        responseType: 'blob',
-      });
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      const siteHost = site.url ? site.url.replace(/^https?:\/\//, '').replace(/\/.*$/, '') : site.name.replace(/\s+/g, '-').toLowerCase();
-      const siteSlug = siteHost.replace(/[^a-zA-Z0-9_\-]/g, '-');
-      link.setAttribute('download', `wp-patropi-diagnostico-${siteSlug}.zip`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-    } catch (err: any) {
-      alert('Erro ao baixar o plugin agente do WordPress.');
-    } finally {
-      setDownloadingId(null);
-    }
-  };
-
   return (
     <Paper p="md" radius="md" withBorder>
       <Group justify="space-between" mb="lg">
@@ -200,7 +175,14 @@ export const WebsitesList: React.FC<WebsitesListProps> = ({ onSelectWebsite, onT
               <Table.Tr key={site.id}>
                 <Table.Td>
                   <Group gap="xs" wrap="nowrap">
-                    <Text fw={600}>{site.name}</Text>
+                    <Text
+                      fw={600}
+                      style={{ cursor: 'pointer' }}
+                      c="indigo.3"
+                      onClick={() => onSelectWebsite(site)}
+                    >
+                      {site.name}
+                    </Text>
                     <Badge
                       size="xs"
                       color={site.environment === 'production' ? 'red' : site.environment === 'staging' ? 'orange' : 'teal'}
@@ -228,45 +210,15 @@ export const WebsitesList: React.FC<WebsitesListProps> = ({ onSelectWebsite, onT
                 </Table.Td>
                 <Table.Td style={{ textAlign: 'right' }}>
                   <Group justify="flex-end" gap="xs" wrap="nowrap">
-                    <Tooltip label="Ver Logs do WordPress em Tempo Real">
-                      <Button
-                        size="xs"
-                        variant="light"
-                        color="cyan"
-                        leftSection={<IconTerminal size={14} />}
-                        onClick={() => onSelectLogs(site)}
-                      >
-                        Logs
-                      </Button>
-                    </Tooltip>
-                    <Tooltip label="Baixar Plugin WordPress Agente">
-                      <Button
-                        size="xs"
-                        variant="light"
-                        color="teal"
-                        loading={downloadingId === site.id}
-                        leftSection={<IconDownload size={14} />}
-                        onClick={() => handleDownloadPlugin(site)}
-                      >
-                        Baixar Agente
-                      </Button>
-                    </Tooltip>
                     <Button
                       size="xs"
                       color="indigo"
-                      leftSection={<IconRadar size={14} />}
-                      onClick={() => onTriggerScan(site)}
-                    >
-                      Auditar Agora
-                    </Button>
-                    <Button
-                      size="xs"
-                      variant="default"
+                      leftSection={<IconLayoutDashboard size={14} />}
                       onClick={() => onSelectWebsite(site)}
                     >
-                      Histórico
+                      Acessar Painel
                     </Button>
-                    <Tooltip label="Editar Website">
+                    <Tooltip label="Editar Configurações">
                       <ActionIcon color="blue" variant="subtle" onClick={() => handleOpenEditModal(site)}>
                         <IconPencil size={16} />
                       </ActionIcon>

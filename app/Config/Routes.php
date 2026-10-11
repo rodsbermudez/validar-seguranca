@@ -30,6 +30,8 @@ $routes->group('api', function ($routes) {
         $routes->get('websites/(:num)/logs', 'Api\Websites::logs/$1');
         $routes->post('websites/(:num)/logs/toggle', 'Api\Websites::toggleLogs/$1');
         $routes->post('websites/(:num)/logs/clear', 'Api\Websites::clearLogs/$1');
+        $routes->get('websites/(:num)/updates', 'Api\Websites::updates/$1');
+        $routes->post('websites/(:num)/updates/apply', 'Api\Websites::applyUpdate/$1');
 
         // Scan routes
         $routes->post('scan/trigger/(:num)', 'Api\Scan::trigger/$1');

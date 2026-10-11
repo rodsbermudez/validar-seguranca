@@ -303,17 +303,23 @@ class Websites extends ResourceController
             $url .= '?' . http_build_query($params);
         }
 
+        $headers = [
+            'X-Validar-Seguranca-Token: ' . $token,
+            'Accept: application/json',
+        ];
+
+        if ($method === 'POST') {
+            $headers[] = 'Content-Type: application/json';
+        }
+
         $ch = curl_init();
         curl_setopt_array($ch, [
             CURLOPT_URL            => $url,
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT        => 10,
+            CURLOPT_TIMEOUT        => 60,
             CURLOPT_SSL_VERIFYPEER => false,
             CURLOPT_SSL_VERIFYHOST => false,
-            CURLOPT_HTTPHEADER     => [
-                'X-Validar-Seguranca-Token: ' . $token,
-                'Accept: application/json',
-            ],
+            CURLOPT_HTTPHEADER     => $headers,
         ]);
 
         if ($method === 'POST') {
@@ -482,6 +488,86 @@ class Websites extends ResourceController
 
         if (empty($res['body']) || $res['status'] !== 200) {
             return $this->fail($res['message'] ?? ($res['body']['message'] ?? 'Falha ao limpar logs'), $res['status'] ?: 500);
+        }
+
+        return $this->respond($res['body']);
+    }
+
+    public function updates($id = null)
+    {
+        if (!$id) {
+            return $this->fail('ID do website não informado.', 400);
+        }
+
+        $effectiveUserId = $this->request->effectiveUserId ?? ($this->request->userData->id ?? null);
+        $userData        = $this->request->userData ?? null;
+        $isImpersonating = $this->request->isImpersonating ?? false;
+        $isAdmin         = (($userData->role ?? 'user') === 'admin') && !$isImpersonating;
+
+        $websiteModel = new WebsiteModel();
+        $website = $websiteModel->find($id);
+
+        if (!$website) {
+            return $this->failNotFound('Website não encontrado.');
+        }
+
+        if ($website['user_id'] != $effectiveUserId && !$isAdmin) {
+            return $this->failForbidden('Você não tem permissão para acessar este website.');
+        }
+
+        if (empty($website['agent_token'])) {
+            return $this->fail('Este website não possui token do agente configurado.', 400);
+        }
+
+        $res = $this->makeAgentRequestWithFallback($website['url'], '/updates', 'GET', $website['agent_token']);
+
+        if (empty($res['body']) || $res['status'] !== 200) {
+            return $this->fail($res['message'] ?? ($res['body']['message'] ?? 'Falha ao buscar atualizações do agente'), $res['status'] ?: 500);
+        }
+
+        return $this->respond($res['body']);
+    }
+
+    public function applyUpdate($id = null)
+    {
+        if (!$id) {
+            return $this->fail('ID do website não informado.', 400);
+        }
+
+        $type = $this->request->getVar('type');
+        $item = $this->request->getVar('item');
+
+        if (empty($type)) {
+            return $this->fail('Tipo de atualização não informado.', 400);
+        }
+
+        $effectiveUserId = $this->request->effectiveUserId ?? ($this->request->userData->id ?? null);
+        $userData        = $this->request->userData ?? null;
+        $isImpersonating = $this->request->isImpersonating ?? false;
+        $isAdmin         = (($userData->role ?? 'user') === 'admin') && !$isImpersonating;
+
+        $websiteModel = new WebsiteModel();
+        $website = $websiteModel->find($id);
+
+        if (!$website) {
+            return $this->failNotFound('Website não encontrado.');
+        }
+
+        if ($website['user_id'] != $effectiveUserId && !$isAdmin) {
+            return $this->failForbidden('Você não tem permissão para alterar este website.');
+        }
+
+        if (empty($website['agent_token'])) {
+            return $this->fail('Este website não possui token do agente configurado.', 400);
+        }
+
+        $res = $this->makeAgentRequestWithFallback($website['url'], '/updates/apply', 'POST', $website['agent_token'], [
+            'type' => $type,
+            'item' => $item,
+        ]);
+
+        if (empty($res['body']) || $res['status'] !== 200) {
+            return $this->fail($res['message'] ?? ($res['body']['message'] ?? 'Falha ao aplicar atualização'), $res['status'] ?: 500);
         }
 
         return $this->respond($res['body']);

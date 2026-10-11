@@ -38,6 +38,18 @@ class VS_Agent_REST_API {
                 'callback'            => array($this, 'handle_clear_logs'),
                 'permission_callback' => array($this, 'check_permission'),
             ));
+
+            register_rest_route($ns, '/updates', array(
+                'methods'             => 'GET',
+                'callback'            => array($this, 'handle_get_updates'),
+                'permission_callback' => array($this, 'check_permission'),
+            ));
+
+            register_rest_route($ns, '/updates/apply', array(
+                'methods'             => 'POST',
+                'callback'            => array($this, 'handle_apply_update'),
+                'permission_callback' => array($this, 'check_permission'),
+            ));
         }
     }
 
@@ -147,6 +159,48 @@ class VS_Agent_REST_API {
             'status'  => 200,
             'success' => true,
             'message' => 'Arquivo de logs limpo com sucesso.',
+        ), 200);
+    }
+
+    public function handle_get_updates($request) {
+        $upgrader = new VS_Agent_Upgrader();
+        $data     = $upgrader->get_updates();
+
+        return new WP_REST_Response(array(
+            'status'  => 200,
+            'success' => true,
+            'data'    => $data,
+        ), 200);
+    }
+
+    public function handle_apply_update($request) {
+        $type = $request->get_param('type');
+        $item = $request->get_param('item');
+
+        if (empty($type)) {
+            $json = $request->get_json_params();
+            if (!empty($json)) {
+                $type = isset($json['type']) ? $json['type'] : null;
+                $item = isset($json['item']) ? $json['item'] : null;
+            }
+        }
+
+        $upgrader = new VS_Agent_Upgrader();
+        $res      = $upgrader->apply_update($type, $item);
+
+        if (is_wp_error($res)) {
+            $status = is_array($res->get_error_data()) && isset($res->get_error_data()['status']) ? $res->get_error_data()['status'] : 500;
+            return new WP_REST_Response(array(
+                'status'  => $status,
+                'success' => false,
+                'message' => $res->get_error_message(),
+            ), $status);
+        }
+
+        return new WP_REST_Response(array(
+            'status'  => 200,
+            'success' => true,
+            'message' => isset($res['message']) ? $res['message'] : 'Atualização realizada com sucesso.',
         ), 200);
     }
 }
