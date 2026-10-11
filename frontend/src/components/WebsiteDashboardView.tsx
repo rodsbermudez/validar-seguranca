@@ -36,6 +36,7 @@ import {
   IconLock,
   IconFileCheck,
   IconLayoutDashboard,
+  IconDatabase,
 } from '@tabler/icons-react';
 import { api } from '../api';
 import { ScanReport } from './ScanReport';
@@ -407,9 +408,9 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
               )}
             </Paper>
 
-            {/* Status Summary Cards */}
+            {/* Status Summary Cards (Módulos Ativos) */}
             <Grid>
-              <Grid.Col span={{ base: 12, md: 6 }}>
+              <Grid.Col span={{ base: 12, md: 4 }}>
                 <Card padding="lg" radius="md" withBorder bg="dark.7" h="100%">
                   <Group justify="space-between" mb="xs">
                     <Text size="xs" fw={700} c="dimmed" tt="uppercase">
@@ -439,7 +440,7 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
                 </Card>
               </Grid.Col>
 
-              <Grid.Col span={{ base: 12, md: 6 }}>
+              <Grid.Col span={{ base: 12, md: 4 }}>
                 <Card padding="lg" radius="md" withBorder bg="dark.7" h="100%">
                   <Group justify="space-between" mb="xs">
                     <Text size="xs" fw={700} c="dimmed" tt="uppercase">
@@ -467,6 +468,35 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
                   </Button>
                 </Card>
               </Grid.Col>
+
+              <Grid.Col span={{ base: 12, md: 4 }}>
+                <Card padding="lg" radius="md" withBorder bg="dark.7" h="100%">
+                  <Group justify="space-between" mb="xs">
+                    <Text size="xs" fw={700} c="dimmed" tt="uppercase">
+                      Gestão de Atualizações
+                    </Text>
+                    <ThemeIcon color="blue" variant="light" radius="xl">
+                      <IconRefresh size={18} />
+                    </ThemeIcon>
+                  </Group>
+                  <Text fw={700} size="lg" mb={4}>
+                    Plugins, Temas & Core
+                  </Text>
+                  <Text size="xs" c="dimmed" mb="md">
+                    Atualize itens em 1 clique remotamente com preservação automática de status ativo.
+                  </Text>
+                  <Button
+                    variant="light"
+                    color="blue"
+                    size="xs"
+                    fullWidth
+                    leftSection={<IconRefresh size={14} />}
+                    onClick={() => setActiveTab('updates')}
+                  >
+                    Gerenciar Atualizações
+                  </Button>
+                </Card>
+              </Grid.Col>
             </Grid>
 
             {/* Upcoming Features Section (Planejadas) */}
@@ -475,36 +505,25 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
                 <div>
                   <Title order={4}>🚀 Próximos Módulos de Manutenção</Title>
                   <Text size="xs" c="dimmed">
-                    Ferramentas planejadas para a gestão ativa deste site.
+                    Ferramentas em planejamento para a gestão ativa e hardening deste site.
                   </Text>
                 </div>
                 <Badge color="pink" variant="light">
-                  Em Planejamento
+                  Roadmap
                 </Badge>
               </Group>
 
               <Grid>
                 <Grid.Col span={{ base: 12, md: 4 }}>
-                  <Paper p="sm" radius="sm" bg="dark.7" style={{ opacity: 0.8 }}>
-                    <Group gap="xs" mb={4}>
-                      <IconRefresh size={18} style={{ color: '#4dabf7' }} />
-                      <Text size="sm" fw={600}>
-                        Atualizações Remotas
-                      </Text>
-                    </Group>
-                    <Text size="xs" c="dimmed">
-                      Atualize plugins, temas e a versão do WordPress em 1 clique diretamente pelo SaaS.
-                    </Text>
-                  </Paper>
-                </Grid.Col>
-
-                <Grid.Col span={{ base: 12, md: 4 }}>
-                  <Paper p="sm" radius="sm" bg="dark.7" style={{ opacity: 0.8 }}>
-                    <Group gap="xs" mb={4}>
-                      <IconLock size={18} style={{ color: '#ffec99' }} />
-                      <Text size="sm" fw={600}>
-                        Hardening em 1-Clique
-                      </Text>
+                  <Paper p="sm" radius="sm" bg="dark.7" style={{ opacity: 0.85 }}>
+                    <Group justify="space-between" mb={4}>
+                      <Group gap="xs">
+                        <IconLock size={18} style={{ color: '#ffec99' }} />
+                        <Text size="sm" fw={600}>
+                          Hardening em 1-Clique
+                        </Text>
+                      </Group>
+                      <Badge color="yellow" size="xs" variant="light">Módulo 2</Badge>
                     </Group>
                     <Text size="xs" c="dimmed">
                       Desative edição de código, bloqueie XML-RPC e oculte a versão do WP instantaneamente.
@@ -513,15 +532,35 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
                 </Grid.Col>
 
                 <Grid.Col span={{ base: 12, md: 4 }}>
-                  <Paper p="sm" radius="sm" bg="dark.7" style={{ opacity: 0.8 }}>
-                    <Group gap="xs" mb={4}>
-                      <IconFileCheck size={18} style={{ color: '#63e6be' }} />
-                      <Text size="sm" fw={600}>
-                        Verificador de Integridade
-                      </Text>
+                  <Paper p="sm" radius="sm" bg="dark.7" style={{ opacity: 0.85 }}>
+                    <Group justify="space-between" mb={4}>
+                      <Group gap="xs">
+                        <IconFileCheck size={18} style={{ color: '#63e6be' }} />
+                        <Text size="sm" fw={600}>
+                          Verificador de Integridade
+                        </Text>
+                      </Group>
+                      <Badge color="teal" size="xs" variant="light">Módulo 3</Badge>
                     </Group>
                     <Text size="xs" c="dimmed">
                       Verifique a autenticidade dos arquivos do sistema comparando os checksums oficiais do WordPress.org.
+                    </Text>
+                  </Paper>
+                </Grid.Col>
+
+                <Grid.Col span={{ base: 12, md: 4 }}>
+                  <Paper p="sm" radius="sm" bg="dark.7" style={{ opacity: 0.85 }}>
+                    <Group justify="space-between" mb={4}>
+                      <Group gap="xs">
+                        <IconDatabase size={18} style={{ color: '#b197fc' }} />
+                        <Text size="sm" fw={600}>
+                          Backups & Restauração
+                        </Text>
+                      </Group>
+                      <Badge color="grape" size="xs" variant="light">Módulo 4</Badge>
+                    </Group>
+                    <Text size="xs" c="dimmed">
+                      Geração de backups do banco e arquivos antes de rotinas de manutenção com restauração rápida.
                     </Text>
                   </Paper>
                 </Grid.Col>
