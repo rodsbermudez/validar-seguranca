@@ -214,3 +214,68 @@ export const restoreIntegrityFile = async (
   });
   return response.data;
 };
+
+export interface DiagnosticSummaryResponse {
+  status: number;
+  success: boolean;
+  generated_at: string;
+  website: {
+    id: number | string;
+    name: string;
+    url: string;
+    environment: string;
+    is_connected: number;
+    connected_at?: string | null;
+  };
+  data: {
+    latest_scan: any | null;
+    logs_48h: {
+      total_fatal_48h: number;
+      fatal_logs_48h: Array<{
+        timestamp: string;
+        level: string;
+        raw_line: string;
+        message: string;
+      }>;
+      has_logs_agent: boolean;
+      logging_enabled: boolean;
+    };
+    integrity: IntegrityScanData | null;
+    updates: {
+      summary: {
+        total_pending: number;
+        pending_plugins: number;
+        pending_themes: number;
+        pending_core: number;
+      };
+      core: {
+        current_version: string;
+        new_version: string;
+        has_update: boolean;
+      };
+      plugins: Array<{
+        file: string;
+        slug: string;
+        name: string;
+        current_version: string;
+        new_version: string;
+        has_update: boolean;
+        is_active?: boolean;
+      }>;
+      themes: Array<{
+        slug: string;
+        name: string;
+        current_version: string;
+        new_version: string;
+        has_update: boolean;
+      }>;
+    } | null;
+  };
+}
+
+export const getDiagnosticSummary = async (
+  websiteId: number | string
+): Promise<DiagnosticSummaryResponse> => {
+  const response = await api.get<DiagnosticSummaryResponse>(`/websites/${websiteId}/diagnostic-summary`);
+  return response.data;
+};

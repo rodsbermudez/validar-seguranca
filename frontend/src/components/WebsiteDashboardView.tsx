@@ -37,12 +37,14 @@ import {
   IconFileCheck,
   IconLayoutDashboard,
   IconDatabase,
+  IconFileText,
 } from '@tabler/icons-react';
 import { api } from '../api';
 import { ScanReport } from './ScanReport';
 import { WebsiteLogsView } from './WebsiteLogsView';
 import { WebsiteUpdatesView } from './WebsiteUpdatesView';
 import { WebsiteIntegrityView } from './WebsiteIntegrityView';
+import { WebsiteDiagnosticReportView } from './WebsiteDiagnosticReportView';
 
 interface Website {
   id: string;
@@ -68,6 +70,7 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
   onDeleteWebsite,
 }) => {
   const [activeTab, setActiveTab] = useState<string | null>('overview');
+  const [viewingDiagnostic, setViewingDiagnostic] = useState<boolean>(false);
   const [downloading, setDownloading] = useState(false);
   const [copiedToken, setCopiedToken] = useState(false);
   
@@ -184,6 +187,15 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
     }
   };
 
+  if (viewingDiagnostic) {
+    return (
+      <WebsiteDiagnosticReportView
+        website={website}
+        onBack={() => setViewingDiagnostic(false)}
+      />
+    );
+  }
+
   return (
     <Stack gap="md">
       {/* Top Banner Header */}
@@ -248,6 +260,16 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
                 AGENTE PENDENTE
               </Badge>
             )}
+
+            <Button
+              variant="filled"
+              color="indigo"
+              size="xs"
+              leftSection={<IconFileText size={15} />}
+              onClick={() => setViewingDiagnostic(true)}
+            >
+              Relatório
+            </Button>
 
             <Button
               variant="light"

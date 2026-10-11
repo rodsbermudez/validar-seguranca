@@ -829,4 +829,117 @@ class Websites extends ResourceController
 
         return $this->respond($res['body']);
     }
+
+    public function diagnosticSummary($id = null)
+    {
+        if (!$id) {
+            return $this->fail('ID do website não informado.', 400);
+        }
+
+        $effectiveUserId = $this->request->effectiveUserId ?? ($this->request->userData->id ?? null);
+        $userData        = $this->request->userData ?? null;
+        $isImpersonating = $this->request->isImpersonating ?? false;
+        $isAdmin         = (($userData->role ?? 'user') === 'admin') && !$isImpersonating;
+
+        $websiteModel = new WebsiteModel();
+        $website = $websiteModel->find($id);
+
+        if (!$website) {
+            return $this->failNotFound('Website não encontrado.');
+        }
+
+        if ($website['user_id'] != $effectiveUserId && !$isAdmin) {
+            return $this->failForbidden('Você não tem permissão para visualizar este website.');
+        }
+
+        // 1. Get latest security scan
+        $scanHistoryModel = new \App\Models\ScanHistoryModel();
+        $latestScanRow = $scanHistoryModel->where('website_id', $id)
+                                          ->where('status', 'completed')
+                                          ->orderBy('executed_at', 'DESC')
+                                          ->first();
+
+        $latestScan = null;
+        if ($latestScanRow && !empty($latestScanRow['scan_results_json'])) {
+            $latestScan = json_decode($latestScanRow['scan_results_json'], true);
+            if ($latestScan) {
+                $latestScan['executed_at'] = $latestScanRow['executed_at'];
+                $latestScan['score']       = $latestScanRow['score'];
+            }
+        }
+
+        // 2. Query Agent for Live Metrics if connected and token exists
+        $token = $website['agent_token'] ?? '';
+        $logsSummary = [
+            'total_fatal_48h' => 0,
+            'fatal_logs_48h'  => [],
+            'has_logs_agent'  => false,
+            'logging_enabled' => false,
+        ];
+        $integrityData = null;
+        $updatesData   = null;
+
+        if (!empty($token) && !empty($website['url'])) {
+            // A. Fetch recent fatal logs
+            $logsRes = $this->makeAgentRequestWithFallback($website['url'], '/logs', 'GET', $token, [
+                'limit'        => 100,
+                'filter_level' => 'all',
+            ]);
+
+            if (!empty($logsRes['body']) && $logsRes['status'] === 200) {
+                $logsSummary['has_logs_agent']  = true;
+                $logsSummary['logging_enabled'] = !empty($logsRes['body']['logging_enabled']);
+                $allLogs = $logsRes['body']['logs'] ?? [];
+
+                $time48hAgo = time() - (48 * 3600);
+                $fatal48h = [];
+
+                foreach ($allLogs as $logItem) {
+                    $lvl = strtolower($logItem['level'] ?? '');
+                    if ($lvl === 'fatal' || stripos($logItem['raw_line'] ?? '', 'fatal error') !== false || stripos($logItem['raw_line'] ?? '', 'parse error') !== false) {
+                        $logTime = !empty($logItem['timestamp']) ? strtotime($logItem['timestamp']) : null;
+                        // Include if timestamp is within 48h, or if timestamp could not be parsed, include as recent
+                        if ($logTime === false || $logTime === null || $logTime >= $time48hAgo) {
+                            $fatal48h[] = $logItem;
+                        }
+                    }
+                }
+
+                $logsSummary['total_fatal_48h'] = count($fatal48h);
+                $logsSummary['fatal_logs_48h']  = array_slice($fatal48h, 0, 20); // Top 20 fatal logs
+            }
+
+            // B. Fetch Core Integrity
+            $integrityRes = $this->makeAgentRequestWithFallback($website['url'], '/integrity', 'GET', $token);
+            if (!empty($integrityRes['body']) && $integrityRes['status'] === 200) {
+                $integrityData = $integrityRes['body']['data'] ?? $integrityRes['body'];
+            }
+
+            // C. Fetch Updates
+            $updatesRes = $this->makeAgentRequestWithFallback($website['url'], '/updates', 'GET', $token);
+            if (!empty($updatesRes['body']) && $updatesRes['status'] === 200) {
+                $updatesData = $updatesRes['body']['data'] ?? $updatesRes['body'];
+            }
+        }
+
+        return $this->respond([
+            'status'     => 200,
+            'success'    => true,
+            'generated_at' => date('Y-m-d H:i:s'),
+            'website'    => [
+                'id'           => $website['id'],
+                'name'         => $website['name'],
+                'url'          => $website['url'],
+                'environment'  => $website['environment'] ?? 'production',
+                'is_connected' => (int) ($website['is_connected'] ?? 0),
+                'connected_at' => $website['connected_at'] ?? null,
+            ],
+            'data'       => [
+                'latest_scan' => $latestScan,
+                'logs_48h'    => $logsSummary,
+                'integrity'   => $integrityData,
+                'updates'     => $updatesData,
+            ],
+        ]);
+    }
 }

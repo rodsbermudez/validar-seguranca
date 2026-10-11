@@ -1,0 +1,745 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  Paper,
+  Title,
+  Text,
+  Button,
+  Group,
+  Badge,
+  Stack,
+  Table,
+  ThemeIcon,
+  Alert,
+  Loader,
+  Center,
+  Grid,
+  Divider,
+  Box,
+  RingProgress,
+} from '@mantine/core';
+import {
+  IconArrowLeft,
+  IconPrinter,
+  IconRefresh,
+  IconShieldCheck,
+  IconAlertTriangle,
+  IconAlertCircle,
+  IconCheck,
+  IconFileCheck,
+  IconTerminal,
+  IconPlugConnected,
+  IconWorld,
+  IconPlug,
+  IconPalette,
+} from '@tabler/icons-react';
+import { getDiagnosticSummary, DiagnosticSummaryResponse } from '../api';
+
+interface WebsiteDiagnosticReportViewProps {
+  website: { id: string | number; name: string; url: string; environment?: string };
+  onBack: () => void;
+}
+
+export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewProps> = ({
+  website,
+  onBack,
+}) => {
+  const [loading, setLoading] = useState<boolean>(true);
+  const [report, setReport] = useState<DiagnosticSummaryResponse | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const fetchReport = useCallback(async () => {
+    setLoading(true);
+    setErrorMsg(null);
+    try {
+      const data = await getDiagnosticSummary(website.id);
+      setReport(data);
+    } catch (err: any) {
+      setErrorMsg(
+        err.response?.data?.messages?.error ||
+          err.response?.data?.message ||
+          err.message ||
+          'Falha ao carregar o diagnóstico completo do website.'
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [website.id]);
+
+  useEffect(() => {
+    fetchReport();
+  }, [fetchReport]);
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const latestScan = report?.data?.latest_scan;
+  const logs48h = report?.data?.logs_48h;
+  const integrity = report?.data?.integrity;
+  const updates = report?.data?.updates;
+
+  const score = latestScan?.score ?? null;
+  const grade = latestScan?.grade ?? 'N/A';
+  const scanSummary = latestScan?.summary;
+
+  const pendingPlugins = updates?.plugins?.filter((p) => p.has_update) || [];
+  const pendingThemes = updates?.themes?.filter((t) => t.has_update) || [];
+  const coreHasUpdate = !!updates?.core?.has_update;
+
+  return (
+    <>
+      {/* Print Specific CSS to ensure spotless white paper output and hide navigation */}
+      <style>{`
+        @media print {
+          body, html {
+            background-color: #ffffff !important;
+            color: #1a1a1a !important;
+            font-size: 11pt !important;
+          }
+          .no-print, header, nav, .mantine-AppShell-header {
+            display: none !important;
+          }
+          .report-sheet {
+            background-color: #ffffff !important;
+            color: #1a1a1a !important;
+            box-shadow: none !important;
+            border: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            max-width: 100% !important;
+          }
+          .report-card {
+            background-color: #f8fafc !important;
+            border: 1px solid #e2e8f0 !important;
+            color: #1e293b !important;
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
+          }
+          .print-text-dark {
+            color: #0f172a !important;
+          }
+          .print-text-muted {
+            color: #64748b !important;
+          }
+          .print-border {
+            border-color: #cbd5e1 !important;
+          }
+          .page-break {
+            page-break-before: always;
+          }
+          @page {
+            size: A4;
+            margin: 15mm 12mm 15mm 12mm;
+          }
+        }
+      `}</style>
+
+      <Box p={{ base: 'xs', sm: 'md', md: 'xl' }} style={{ maxWidth: 1120, margin: '0 auto' }}>
+        {/* Top Action Bar (Screen Only - Hidden in Print) */}
+        <Paper p="md" radius="md" bg="dark.7" withBorder mb="lg" className="no-print">
+          <Group justify="space-between" align="center" wrap="wrap">
+            <Group gap="sm">
+              <Button
+                variant="subtle"
+                color="gray"
+                leftSection={<IconArrowLeft size={16} />}
+                onClick={onBack}
+              >
+                Voltar ao Painel do Site
+              </Button>
+              <Badge color="indigo" variant="light" size="lg">
+                Visualização de Relatório Executivo
+              </Badge>
+            </Group>
+
+            <Group gap="sm">
+              <Button
+                variant="light"
+                color="blue"
+                size="sm"
+                leftSection={<IconRefresh size={16} />}
+                loading={loading}
+                onClick={fetchReport}
+              >
+                Atualizar Dados
+              </Button>
+
+              <Button
+                color="indigo"
+                size="sm"
+                leftSection={<IconPrinter size={16} />}
+                onClick={handlePrint}
+              >
+                Salvar como PDF / Imprimir
+              </Button>
+            </Group>
+          </Group>
+        </Paper>
+
+        {loading ? (
+          <Center p={80}>
+            <Stack align="center" gap="md">
+              <Loader size="xl" color="indigo" />
+              <Title order={4} c="dimmed">
+                Consolidando diagnóstico de segurança e integridade...
+              </Title>
+              <Text size="sm" c="dimmed">
+                Consultando logs das últimas 48h, varredura forense e atualizações do WordPress.
+              </Text>
+            </Stack>
+          </Center>
+        ) : errorMsg ? (
+          <Alert icon={<IconAlertCircle size={18} />} title="Erro ao carregar diagnóstico" color="red">
+            {errorMsg}
+          </Alert>
+        ) : (
+          <Paper
+            p={{ base: 'md', sm: 'xl' }}
+            radius="md"
+            bg="dark.8"
+            withBorder
+            className="report-sheet"
+            style={{ borderColor: '#373a40' }}
+          >
+            {/* Header: Branding & Target Info */}
+            <Group justify="space-between" align="flex-start" wrap="wrap" pb="md" style={{ borderBottom: '2px solid #475569' }}>
+              <div>
+                <Group gap="sm" mb={4}>
+                  <img
+                    src="/images/logo-Patropi.png"
+                    alt="Logo Patropi"
+                    style={{ maxHeight: 38, width: 'auto', objectFit: 'contain' }}
+                    onError={(e) => {
+                      (e.currentTarget as HTMLElement).style.display = 'none';
+                    }}
+                  />
+                  <div>
+                    <Title order={2} style={{ letterSpacing: -0.5 }}>
+                      Relatório Executivo de Diagnóstico
+                    </Title>
+                    <Text size="xs" c="dimmed" className="print-text-muted">
+                      Auditoria de Segurança, Integridade do Core, Logs & Manutenção
+                    </Text>
+                  </div>
+                </Group>
+              </div>
+
+              <div style={{ textAlign: 'right' }}>
+                <Text size="xs" c="dimmed" className="print-text-muted" fw={500}>
+                  EMITIDO EM:
+                </Text>
+                <Text fw={700} size="sm">
+                  {report?.generated_at ? new Date(report.generated_at).toLocaleString('pt-BR') : new Date().toLocaleString('pt-BR')}
+                </Text>
+                <Badge color="green" size="sm" variant="outline" mt={4}>
+                  Validar Segurança Platform
+                </Badge>
+              </div>
+            </Group>
+
+            {/* Target Website Metadata Banner */}
+            <Paper p="md" radius="sm" bg="dark.7" withBorder my="md" className="report-card">
+              <Grid align="center">
+                <Grid.Col span={{ base: 12, sm: 8 }}>
+                  <Text size="xs" c="dimmed" tt="uppercase" fw={700} className="print-text-muted">
+                    Website Alvo
+                  </Text>
+                  <Title order={3} mt={2}>
+                    {report?.website.name || website.name}
+                  </Title>
+                  <Text size="sm" c="blue.4" component="a" href={website.url} target="_blank" rel="noreferrer">
+                    {website.url}
+                  </Text>
+                </Grid.Col>
+
+                <Grid.Col span={{ base: 12, sm: 4 }} style={{ textAlign: 'right' }}>
+                  <Group justify="flex-end" gap="xs">
+                    <Badge color="red" size="md" variant="light">
+                      {(report?.website.environment || website.environment || 'PRODUCTION').toUpperCase()}
+                    </Badge>
+                    <Badge
+                      color={report?.website.is_connected ? 'teal' : 'gray'}
+                      size="md"
+                      variant="filled"
+                      leftSection={<IconPlugConnected size={14} />}
+                    >
+                      {report?.website.is_connected ? 'AGENTE ATIVO' : 'SEM AGENTE'}
+                    </Badge>
+                  </Group>
+                </Grid.Col>
+              </Grid>
+            </Paper>
+
+            {/* 1. SEÇÃO: RESUMO EXECUTIVO DE AUDITORIA & SCORE */}
+            <Box mb="xl" className="report-card" p="md" style={{ borderRadius: 8 }}>
+              <Group justify="space-between" align="center" mb="sm">
+                <Group gap="xs">
+                  <ThemeIcon color="indigo" variant="light" radius="md">
+                    <IconShieldCheck size={20} />
+                  </ThemeIcon>
+                  <Title order={4}>1. Avaliação de Segurança & Conformidade</Title>
+                </Group>
+                {latestScan?.executed_at && (
+                  <Text size="xs" c="dimmed" className="print-text-muted">
+                    Última auditoria realizada em: {new Date(latestScan.executed_at).toLocaleString('pt-BR')}
+                  </Text>
+                )}
+              </Group>
+
+              {latestScan ? (
+                <Grid align="center" mt="xs">
+                  <Grid.Col span={{ base: 12, sm: 4 }} ta="center">
+                    <Center>
+                      <RingProgress
+                        size={130}
+                        thickness={12}
+                        roundCaps
+                        sections={[
+                          {
+                            value: score ?? 0,
+                            color: (score ?? 0) >= 80 ? 'teal' : (score ?? 0) >= 60 ? 'yellow' : 'red',
+                          },
+                        ]}
+                        label={
+                          <Center>
+                            <Stack gap={0} align="center">
+                              <Text fw={800} size="xl">
+                                {grade}
+                              </Text>
+                              <Text size="xs" c="dimmed">
+                                {score !== null ? `${score}/100 pts` : 'N/A'}
+                              </Text>
+                            </Stack>
+                          </Center>
+                        }
+                      />
+                    </Center>
+                    <Text size="xs" c="dimmed" mt={4}>
+                      Classificação Geral de Risco
+                    </Text>
+                  </Grid.Col>
+
+                  <Grid.Col span={{ base: 12, sm: 8 }}>
+                    <Grid>
+                      <Grid.Col span={4}>
+                        <Paper p="xs" radius="sm" bg="dark.6" ta="center" className="report-card">
+                          <Text size="xs" c="dimmed">Aprovados</Text>
+                          <Text size="lg" fw={700} c="green.4">
+                            {scanSummary?.passed ?? 0}
+                          </Text>
+                        </Paper>
+                      </Grid.Col>
+                      <Grid.Col span={4}>
+                        <Paper p="xs" radius="sm" bg="dark.6" ta="center" className="report-card">
+                          <Text size="xs" c="dimmed">Alertas</Text>
+                          <Text size="lg" fw={700} c="yellow.4">
+                            {scanSummary?.warnings ?? 0}
+                          </Text>
+                        </Paper>
+                      </Grid.Col>
+                      <Grid.Col span={4}>
+                        <Paper p="xs" radius="sm" bg="dark.6" ta="center" className="report-card">
+                          <Text size="xs" c="dimmed">Falhas Críticas</Text>
+                          <Text size="lg" fw={700} c="red.4">
+                            {scanSummary?.failed ?? 0}
+                          </Text>
+                        </Paper>
+                      </Grid.Col>
+                    </Grid>
+
+                    <Text size="xs" c="dimmed" mt="sm">
+                      Varredura com análise profunda de cabeçalhos de resposta HTTP, permissões de diretórios, exposição de arquivos sensíveis e integridade da aplicação.
+                    </Text>
+                  </Grid.Col>
+                </Grid>
+              ) : (
+                <Alert icon={<IconAlertTriangle size={16} />} color="yellow" variant="light">
+                  Nenhuma varredura de auditoria foi executada para este site ainda.
+                </Alert>
+              )}
+            </Box>
+
+            {/* 2. SEÇÃO: LOGS DE ERROS FATAIS (ÚLTIMAS 48 HORAS) */}
+            <Box mb="xl" className="report-card" p="md" style={{ borderRadius: 8 }}>
+              <Group justify="space-between" align="center" mb="sm">
+                <Group gap="xs">
+                  <ThemeIcon color={logs48h?.total_fatal_48h ? 'red' : 'green'} variant="light" radius="md">
+                    <IconTerminal size={20} />
+                  </ThemeIcon>
+                  <div>
+                    <Title order={4}>2. Monitoramento de Erros Fatais (Últimas 48 Horas)</Title>
+                    <Text size="xs" c="dimmed" className="print-text-muted">
+                      Detecção de quebras de execução PHP, incompatibilidades e paradas de serviço
+                    </Text>
+                  </div>
+                </Group>
+
+                <Badge
+                  color={logs48h?.total_fatal_48h ? 'red' : 'green'}
+                  size="md"
+                  variant="filled"
+                >
+                  {logs48h?.total_fatal_48h ? `${logs48h.total_fatal_48h} ERRO(S) FATAL(IS)` : '0 ERROS FATAIS (100% ESTÁVEL)'}
+                </Badge>
+              </Group>
+
+              {logs48h?.total_fatal_48h && logs48h.total_fatal_48h > 0 ? (
+                <div>
+                  <Alert icon={<IconAlertCircle size={16} />} color="red" variant="light" mb="xs">
+                    Identificamos {logs48h.total_fatal_48h} erro(s) fatal(is) no WordPress nas últimas 48 horas que demandam atenção imediata.
+                  </Alert>
+
+                  <Table striped highlightOnHover withTableBorder withColumnBorders style={{ fontSize: 12 }}>
+                    <Table.Thead>
+                      <Table.Tr>
+                        <Table.Th style={{ width: 140 }}>Data / Hora</Table.Th>
+                        <Table.Th style={{ width: 90 }}>Nível</Table.Th>
+                        <Table.Th>Detalhes do Erro</Table.Th>
+                      </Table.Tr>
+                    </Table.Thead>
+                    <Table.Tbody>
+                      {logs48h.fatal_logs_48h.map((log, idx) => (
+                        <Table.Tr key={idx}>
+                          <Table.Td style={{ whiteSpace: 'nowrap' }}>
+                            <Text size="xs" fw={600}>
+                              {log.timestamp}
+                            </Text>
+                          </Table.Td>
+                          <Table.Td>
+                            <Badge color="red" size="xs">
+                              {log.level}
+                            </Badge>
+                          </Table.Td>
+                          <Table.Td>
+                            <Text size="xs" style={{ wordBreak: 'break-all' }}>
+                              {log.message}
+                            </Text>
+                          </Table.Td>
+                        </Table.Tr>
+                      ))}
+                    </Table.Tbody>
+                  </Table>
+                </div>
+              ) : (
+                <Paper p="md" radius="sm" bg="rgba(43, 138, 62, 0.1)" withBorder style={{ borderColor: '#2b8a3e' }}>
+                  <Group gap="sm">
+                    <ThemeIcon color="green" radius="xl" size="md">
+                      <IconCheck size={18} />
+                    </ThemeIcon>
+                    <div>
+                      <Text size="sm" fw={700} c="green.4">
+                        Nenhum erro fatal ou interrupção de execução detectada nas últimas 48 horas!
+                      </Text>
+                      <Text size="xs" c="dimmed" className="print-text-muted">
+                        O interpretador PHP e o WordPress operaram de forma contínua sem quebras catastróficas ou erros de sintaxe críticos.
+                      </Text>
+                    </div>
+                  </Group>
+                </Paper>
+              )}
+            </Box>
+
+            {/* 3. SEÇÃO: INTEGRIDADE DO CORE DO WORDPRESS */}
+            <Box mb="xl" className="report-card" p="md" style={{ borderRadius: 8 }}>
+              <Group justify="space-between" align="center" mb="sm">
+                <Group gap="xs">
+                  <ThemeIcon color="teal" variant="light" radius="md">
+                    <IconFileCheck size={20} />
+                  </ThemeIcon>
+                  <div>
+                    <Title order={4}>3. Verificação Forense de Integridade do Core</Title>
+                    <Text size="xs" c="dimmed" className="print-text-muted">
+                      Confronto dos arquivos locais contra os hashes criptográficos oficiais do WordPress.org
+                    </Text>
+                  </div>
+                </Group>
+
+                {integrity && (
+                  <Badge
+                    color={integrity.is_secure ? 'green' : 'red'}
+                    size="md"
+                    variant="filled"
+                  >
+                    {integrity.is_secure ? 'CORE 100% AUTÊNTICO' : `${integrity.summary.active_issues || integrity.issues?.length || 0} ANOMALIA(S)`}
+                  </Badge>
+                )}
+              </Group>
+
+              {integrity ? (
+                <>
+                  <Grid mb="sm">
+                    <Grid.Col span={{ base: 6, sm: 3 }}>
+                      <Paper p="xs" radius="sm" bg="dark.6" ta="center" className="report-card">
+                        <Text size="xs" c="dimmed">Versão Analisada</Text>
+                        <Text size="md" fw={700}>
+                          WP {integrity.wp_version} ({integrity.locale})
+                        </Text>
+                      </Paper>
+                    </Grid.Col>
+                    <Grid.Col span={{ base: 6, sm: 3 }}>
+                      <Paper p="xs" radius="sm" bg="dark.6" ta="center" className="report-card">
+                        <Text size="xs" c="dimmed">Arquivos Verificados</Text>
+                        <Text size="md" fw={700} c="green.4">
+                          {integrity.summary.passed} íntegros
+                        </Text>
+                      </Paper>
+                    </Grid.Col>
+                    <Grid.Col span={{ base: 6, sm: 3 }}>
+                      <Paper p="xs" radius="sm" bg="dark.6" ta="center" className="report-card">
+                        <Text size="xs" c="dimmed">Modificados</Text>
+                        <Text size="md" fw={700} c={integrity.summary.modified > 0 ? 'red.4' : 'dimmed'}>
+                          {integrity.summary.modified}
+                        </Text>
+                      </Paper>
+                    </Grid.Col>
+                    <Grid.Col span={{ base: 6, sm: 3 }}>
+                      <Paper p="xs" radius="sm" bg="dark.6" ta="center" className="report-card">
+                        <Text size="xs" c="dimmed">Suspeitos / Sobras</Text>
+                        <Text size="md" fw={700} c={integrity.summary.suspicious > 0 ? 'orange.4' : 'dimmed'}>
+                          {integrity.summary.suspicious}
+                        </Text>
+                      </Paper>
+                    </Grid.Col>
+                  </Grid>
+
+                  {integrity.issues && integrity.issues.length > 0 ? (
+                    <div>
+                      <Text size="xs" fw={600} mb={4} c="dimmed">
+                        Arquivos que divergiram do padrão oficial do WordPress:
+                      </Text>
+                      <Table striped highlightOnHover withTableBorder style={{ fontSize: 12 }}>
+                        <Table.Thead>
+                          <Table.Tr>
+                            <Table.Th>Arquivo</Table.Th>
+                            <Table.Th style={{ width: 110 }}>Classificação</Table.Th>
+                            <Table.Th style={{ width: 100 }}>Status</Table.Th>
+                            <Table.Th>Diagnóstico / Recomendação</Table.Th>
+                          </Table.Tr>
+                        </Table.Thead>
+                        <Table.Tbody>
+                          {integrity.issues.slice(0, 10).map((iss, idx) => (
+                            <Table.Tr key={idx}>
+                              <Table.Td>
+                                <Text size="xs" fw={600} style={{ wordBreak: 'break-all' }}>
+                                  {iss.file}
+                                </Text>
+                              </Table.Td>
+                              <Table.Td>
+                                <Badge
+                                  size="xs"
+                                  color={
+                                    iss.type === 'modified'
+                                      ? 'red'
+                                      : iss.type === 'suspicious'
+                                      ? 'orange'
+                                      : 'yellow'
+                                  }
+                                >
+                                  {iss.type.toUpperCase()}
+                                </Badge>
+                              </Table.Td>
+                              <Table.Td>
+                                <Badge size="xs" color={iss.is_ignored ? 'teal' : 'red'} variant="light">
+                                  {iss.is_ignored ? 'RESOLVIDO' : 'PENDENTE'}
+                                </Badge>
+                              </Table.Td>
+                              <Table.Td>
+                                <Text size="xs" c="dimmed">
+                                  {iss.description}
+                                </Text>
+                              </Table.Td>
+                            </Table.Tr>
+                          ))}
+                        </Table.Tbody>
+                      </Table>
+                    </div>
+                  ) : (
+                    <Paper p="md" radius="sm" bg="rgba(43, 138, 62, 0.1)" withBorder style={{ borderColor: '#2b8a3e' }}>
+                      <Group gap="sm">
+                        <ThemeIcon color="green" radius="xl" size="md">
+                          <IconCheck size={18} />
+                        </ThemeIcon>
+                        <div>
+                          <Text size="sm" fw={700} c="green.4">
+                            Todos os arquivos do sistema coincidem perfeitamente com os checksums oficiais!
+                          </Text>
+                          <Text size="xs" c="dimmed" className="print-text-muted">
+                            Nenhuma adulteração, backdoor em pastas de sistema ou arquivo corrompido foi identificado.
+                          </Text>
+                        </div>
+                      </Group>
+                    </Paper>
+                  )}
+                </>
+              ) : (
+                <Text size="xs" c="dimmed">
+                  Dados de integridade ainda não coletados para este website.
+                </Text>
+              )}
+            </Box>
+
+            {/* 4. SEÇÃO: ESTADO DAS ATUALIZAÇÕES (CORE, PLUGINS & TEMAS) */}
+            <Box mb="xl" className="report-card" p="md" style={{ borderRadius: 8 }}>
+              <Group justify="space-between" align="center" mb="sm">
+                <Group gap="xs">
+                  <ThemeIcon color="orange" variant="light" radius="md">
+                    <IconRefresh size={20} />
+                  </ThemeIcon>
+                  <div>
+                    <Title order={4}>4. Ciclo de Atualizações & Manutenção</Title>
+                    <Text size="xs" c="dimmed" className="print-text-muted">
+                      Verificação da versão do WordPress Core, Temas e Plugins instalados
+                    </Text>
+                  </div>
+                </Group>
+
+                {updates?.summary && (
+                  <Badge
+                    color={updates.summary.total_pending > 0 ? 'orange' : 'green'}
+                    size="md"
+                    variant="filled"
+                  >
+                    {updates.summary.total_pending > 0
+                      ? `${updates.summary.total_pending} ITEM(NS) DESATUALIZADO(S)`
+                      : 'SISTEMA 100% ATUALIZADO'}
+                  </Badge>
+                )}
+              </Group>
+
+              {updates ? (
+                <>
+                  {/* WordPress Core Status Card */}
+                  <Paper p="sm" radius="sm" bg="dark.6" withBorder mb="md" className="report-card">
+                    <Group justify="space-between" align="center">
+                      <Group gap="sm">
+                        <ThemeIcon color={coreHasUpdate ? 'orange' : 'green'} size="lg" radius="md">
+                          <IconWorld size={20} />
+                        </ThemeIcon>
+                        <div>
+                          <Text size="sm" fw={700}>
+                            WordPress Core (Motor Principal)
+                          </Text>
+                          <Text size="xs" c="dimmed" className="print-text-muted">
+                            Versão Instalada: <b>{updates.core.current_version}</b>
+                            {coreHasUpdate && (
+                              <span> | Nova versão disponível no WordPress.org: <b style={{ color: '#ff922b' }}>{updates.core.new_version}</b></span>
+                            )}
+                          </Text>
+                        </div>
+                      </Group>
+
+                      <Badge color={coreHasUpdate ? 'orange' : 'green'} variant="light">
+                        {coreHasUpdate ? 'UPGRADE DO WP DISPONÍVEL' : 'VERSÃO MAIS RECENTE'}
+                      </Badge>
+                    </Group>
+                  </Paper>
+
+                  {/* Plugins / Temas Tables */}
+                  {pendingPlugins.length > 0 || pendingThemes.length > 0 ? (
+                    <div>
+                      <Text size="xs" fw={700} c="dimmed" mb={4} tt="uppercase">
+                        Itens com Atualização Pendente no Servidor:
+                      </Text>
+                      <Table striped highlightOnHover withTableBorder style={{ fontSize: 12 }}>
+                        <Table.Thead>
+                          <Table.Tr>
+                            <Table.Th>Tipo</Table.Th>
+                            <Table.Th>Nome do Componente</Table.Th>
+                            <Table.Th style={{ width: 130 }}>Versão Instalada</Table.Th>
+                            <Table.Th style={{ width: 130 }}>Nova Versão</Table.Th>
+                          </Table.Tr>
+                        </Table.Thead>
+                        <Table.Tbody>
+                          {pendingPlugins.map((plugin, idx) => (
+                            <Table.Tr key={`p-${idx}`}>
+                              <Table.Td>
+                                <Badge size="xs" color="indigo" variant="light" leftSection={<IconPlug size={10} />}>
+                                  PLUGIN
+                                </Badge>
+                              </Table.Td>
+                              <Table.Td>
+                                <Text size="xs" fw={600}>
+                                  {plugin.name}
+                                </Text>
+                              </Table.Td>
+                              <Table.Td>
+                                <Text size="xs" c="dimmed">
+                                  {plugin.current_version}
+                                </Text>
+                              </Table.Td>
+                              <Table.Td>
+                                <Text size="xs" fw={700} c="orange.4">
+                                  {plugin.new_version}
+                                </Text>
+                              </Table.Td>
+                            </Table.Tr>
+                          ))}
+
+                          {pendingThemes.map((theme, idx) => (
+                            <Table.Tr key={`t-${idx}`}>
+                              <Table.Td>
+                                <Badge size="xs" color="grape" variant="light" leftSection={<IconPalette size={10} />}>
+                                  TEMA
+                                </Badge>
+                              </Table.Td>
+                              <Table.Td>
+                                <Text size="xs" fw={600}>
+                                  {theme.name}
+                                </Text>
+                              </Table.Td>
+                              <Table.Td>
+                                <Text size="xs" c="dimmed">
+                                  {theme.current_version}
+                                </Text>
+                              </Table.Td>
+                              <Table.Td>
+                                <Text size="xs" fw={700} c="orange.4">
+                                  {theme.new_version}
+                                </Text>
+                              </Table.Td>
+                            </Table.Tr>
+                          ))}
+                        </Table.Tbody>
+                      </Table>
+                    </div>
+                  ) : (
+                    <Paper p="md" radius="sm" bg="rgba(43, 138, 62, 0.1)" withBorder style={{ borderColor: '#2b8a3e' }}>
+                      <Group gap="sm">
+                        <ThemeIcon color="green" radius="xl" size="md">
+                          <IconCheck size={18} />
+                        </ThemeIcon>
+                        <div>
+                          <Text size="sm" fw={700} c="green.4">
+                            Todos os plugins e temas instalados estão em suas versões mais recentes!
+                          </Text>
+                          <Text size="xs" c="dimmed" className="print-text-muted">
+                            Manutenção preventiva em dia, minimizando exposição a brechas conhecidas e CVEs públicas.
+                          </Text>
+                        </div>
+                      </Group>
+                    </Paper>
+                  )}
+                </>
+              ) : (
+                <Text size="xs" c="dimmed">
+                  Informações de atualizações não sincronizadas.
+                </Text>
+              )}
+            </Box>
+
+            {/* Footer Sign-off Note */}
+            <Divider my="md" style={{ borderColor: '#475569' }} />
+            <Group justify="space-between" align="center" pt="xs">
+              <Text size="xs" c="dimmed" className="print-text-muted">
+                Relatório de diagnóstico gerado de forma automatizada por <b>Validar Segurança</b>.
+              </Text>
+              <Text size="xs" c="dimmed" className="print-text-muted">
+                Patropi Comunica — Auditoria & Hardening para WordPress
+              </Text>
+            </Group>
+          </Paper>
+        )}
+      </Box>
+    </>
+  );
+};
