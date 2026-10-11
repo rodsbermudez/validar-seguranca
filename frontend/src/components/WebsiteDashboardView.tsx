@@ -42,6 +42,7 @@ import { api } from '../api';
 import { ScanReport } from './ScanReport';
 import { WebsiteLogsView } from './WebsiteLogsView';
 import { WebsiteUpdatesView } from './WebsiteUpdatesView';
+import { WebsiteIntegrityView } from './WebsiteIntegrityView';
 
 interface Website {
   id: string;
@@ -280,6 +281,13 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
             Auditoria & Segurança
           </Tabs.Tab>
           <Tabs.Tab
+            value="integrity"
+            leftSection={<IconFileCheck size={16} />}
+            fw={600}
+          >
+            Integridade do Core
+          </Tabs.Tab>
+          <Tabs.Tab
             value="logs"
             leftSection={<IconTerminal size={16} />}
             fw={600}
@@ -410,7 +418,7 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
 
             {/* Status Summary Cards (Módulos Ativos) */}
             <Grid>
-              <Grid.Col span={{ base: 12, md: 4 }}>
+              <Grid.Col span={{ base: 12, sm: 6, lg: 3 }}>
                 <Card padding="lg" radius="md" withBorder bg="dark.7" h="100%">
                   <Group justify="space-between" mb="xs">
                     <Text size="xs" fw={700} c="dimmed" tt="uppercase">
@@ -420,13 +428,13 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
                       {isConnected ? <IconPlugConnected size={18} /> : <IconPlugConnectedX size={18} />}
                     </ThemeIcon>
                   </Group>
-                  <Text fw={700} size="lg" mb={4}>
-                    {isConnected ? 'Agente Ativo' : 'Pendente de Sincronização'}
+                  <Text fw={700} size="md" mb={4}>
+                    {isConnected ? 'Agente Ativo' : 'Pendente de Conexão'}
                   </Text>
                   <Text size="xs" c="dimmed" mb="md">
                     {isConnected
-                      ? 'O agente WP Patropi está comunicando com o SaaS com sucesso.'
-                      : 'Baixe e ative o plugin no seu painel WordPress para liberar os relatórios.'}
+                      ? 'O agente WP Patropi está conectado e sincronizado com o SaaS.'
+                      : 'Baixe e ative o plugin no painel WordPress para liberar as funções.'}
                   </Text>
                   <Button
                     variant="light"
@@ -435,41 +443,41 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
                     fullWidth
                     onClick={() => setActiveTab('agent')}
                   >
-                    {isConnected ? 'Ver Configuração do Agente' : 'Instalar Agente WordPress'}
+                    {isConnected ? 'Ver Conexão' : 'Instalar Agente'}
                   </Button>
                 </Card>
               </Grid.Col>
 
-              <Grid.Col span={{ base: 12, md: 4 }}>
+              <Grid.Col span={{ base: 12, sm: 6, lg: 3 }}>
                 <Card padding="lg" radius="md" withBorder bg="dark.7" h="100%">
                   <Group justify="space-between" mb="xs">
                     <Text size="xs" fw={700} c="dimmed" tt="uppercase">
-                      Logs de Execução WP
+                      Integridade do Core
                     </Text>
-                    <ThemeIcon color="cyan" variant="light" radius="xl">
-                      <IconTerminal size={18} />
+                    <ThemeIcon color="teal" variant="light" radius="xl">
+                      <IconFileCheck size={18} />
                     </ThemeIcon>
                   </Group>
-                  <Text fw={700} size="lg" mb={4}>
-                    Logs em Tempo Real
+                  <Text fw={700} size="md" mb={4}>
+                    Checksums Oficiais
                   </Text>
                   <Text size="xs" c="dimmed" mb="md">
-                    Consulte erros PHP, avisos do sistema e debugs gerados diretamente no WordPress.
+                    Verifica se arquivos do core foram adulterados ou se há backdoors ocultos.
                   </Text>
                   <Button
                     variant="light"
-                    color="cyan"
+                    color="teal"
                     size="xs"
                     fullWidth
-                    leftSection={<IconTerminal size={14} />}
-                    onClick={() => setActiveTab('logs')}
+                    leftSection={<IconFileCheck size={14} />}
+                    onClick={() => setActiveTab('integrity')}
                   >
-                    Acessar Console de Logs
+                    Verificar Integridade
                   </Button>
                 </Card>
               </Grid.Col>
 
-              <Grid.Col span={{ base: 12, md: 4 }}>
+              <Grid.Col span={{ base: 12, sm: 6, lg: 3 }}>
                 <Card padding="lg" radius="md" withBorder bg="dark.7" h="100%">
                   <Group justify="space-between" mb="xs">
                     <Text size="xs" fw={700} c="dimmed" tt="uppercase">
@@ -479,11 +487,11 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
                       <IconRefresh size={18} />
                     </ThemeIcon>
                   </Group>
-                  <Text fw={700} size="lg" mb={4}>
+                  <Text fw={700} size="md" mb={4}>
                     Plugins, Temas & Core
                   </Text>
                   <Text size="xs" c="dimmed" mb="md">
-                    Atualize itens em 1 clique remotamente com preservação automática de status ativo.
+                    Atualize itens remotamente em 1 clique com preservação de status ativo.
                   </Text>
                   <Button
                     variant="light"
@@ -494,6 +502,35 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
                     onClick={() => setActiveTab('updates')}
                   >
                     Gerenciar Atualizações
+                  </Button>
+                </Card>
+              </Grid.Col>
+
+              <Grid.Col span={{ base: 12, sm: 6, lg: 3 }}>
+                <Card padding="lg" radius="md" withBorder bg="dark.7" h="100%">
+                  <Group justify="space-between" mb="xs">
+                    <Text size="xs" fw={700} c="dimmed" tt="uppercase">
+                      Logs de Execução WP
+                    </Text>
+                    <ThemeIcon color="cyan" variant="light" radius="xl">
+                      <IconTerminal size={18} />
+                    </ThemeIcon>
+                  </Group>
+                  <Text fw={700} size="md" mb={4}>
+                    Logs em Tempo Real
+                  </Text>
+                  <Text size="xs" c="dimmed" mb="md">
+                    Consulte erros PHP, avisos do sistema e depuração gerados no site.
+                  </Text>
+                  <Button
+                    variant="light"
+                    color="cyan"
+                    size="xs"
+                    fullWidth
+                    leftSection={<IconTerminal size={14} />}
+                    onClick={() => setActiveTab('logs')}
+                  >
+                    Acessar Console
                   </Button>
                 </Card>
               </Grid.Col>
@@ -535,23 +572,6 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
                   <Paper p="sm" radius="sm" bg="dark.7" style={{ opacity: 0.85 }}>
                     <Group justify="space-between" mb={4}>
                       <Group gap="xs">
-                        <IconFileCheck size={18} style={{ color: '#63e6be' }} />
-                        <Text size="sm" fw={600}>
-                          Verificador de Integridade
-                        </Text>
-                      </Group>
-                      <Badge color="teal" size="xs" variant="light">Módulo 3</Badge>
-                    </Group>
-                    <Text size="xs" c="dimmed">
-                      Verifique a autenticidade dos arquivos do sistema comparando os checksums oficiais do WordPress.org.
-                    </Text>
-                  </Paper>
-                </Grid.Col>
-
-                <Grid.Col span={{ base: 12, md: 4 }}>
-                  <Paper p="sm" radius="sm" bg="dark.7" style={{ opacity: 0.85 }}>
-                    <Group justify="space-between" mb={4}>
-                      <Group gap="xs">
                         <IconDatabase size={18} style={{ color: '#b197fc' }} />
                         <Text size="sm" fw={600}>
                           Backups & Restauração
@@ -561,6 +581,23 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
                     </Group>
                     <Text size="xs" c="dimmed">
                       Geração de backups do banco e arquivos antes de rotinas de manutenção com restauração rápida.
+                    </Text>
+                  </Paper>
+                </Grid.Col>
+
+                <Grid.Col span={{ base: 12, md: 4 }}>
+                  <Paper p="sm" radius="sm" bg="dark.7" style={{ opacity: 0.85 }}>
+                    <Group justify="space-between" mb={4}>
+                      <Group gap="xs">
+                        <IconRadar size={18} style={{ color: '#63e6be' }} />
+                        <Text size="sm" fw={600}>
+                          Monitor de Alterações
+                        </Text>
+                      </Group>
+                      <Badge color="teal" size="xs" variant="light">Módulo 5</Badge>
+                    </Group>
+                    <Text size="xs" c="dimmed">
+                      Alerta automático quando novos arquivos PHP forem criados ou modificados no servidor.
                     </Text>
                   </Paper>
                 </Grid.Col>
@@ -574,12 +611,17 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
           <ScanReport website={website} onBack={() => setActiveTab('overview')} />
         </Tabs.Panel>
 
-        {/* Tab 3: Realtime Logs */}
+        {/* Tab 3: Core Integrity */}
+        <Tabs.Panel value="integrity" pt="md">
+          <WebsiteIntegrityView website={website} />
+        </Tabs.Panel>
+
+        {/* Tab 4: Realtime Logs */}
         <Tabs.Panel value="logs" pt="md">
           <WebsiteLogsView website={website} onBack={() => setActiveTab('overview')} />
         </Tabs.Panel>
 
-        {/* Tab 4: Remote Updates */}
+        {/* Tab 5: Remote Updates */}
         <Tabs.Panel value="updates" pt="md">
           <WebsiteUpdatesView website={website} />
         </Tabs.Panel>

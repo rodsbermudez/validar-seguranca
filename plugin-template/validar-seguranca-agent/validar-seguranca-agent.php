@@ -27,6 +27,7 @@ add_filter('plugin_action_links_' . plugin_basename(__FILE__), function ($links)
 
 require_path_once(VS_AGENT_PATH . 'includes/class-vs-collector.php');
 require_path_once(VS_AGENT_PATH . 'includes/class-vs-upgrader.php');
+require_path_once(VS_AGENT_PATH . 'includes/class-vs-integrity.php');
 require_path_once(VS_AGENT_PATH . 'includes/class-vs-rest-api.php');
 require_path_once(VS_AGENT_PATH . 'includes/class-vs-logger.php');
 require_path_once(VS_AGENT_PATH . 'includes/class-vs-admin.php');

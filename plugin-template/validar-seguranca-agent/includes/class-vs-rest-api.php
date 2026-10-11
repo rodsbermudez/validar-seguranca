@@ -50,6 +50,18 @@ class VS_Agent_REST_API {
                 'callback'            => array($this, 'handle_apply_update'),
                 'permission_callback' => array($this, 'check_permission'),
             ));
+
+            register_rest_route($ns, '/integrity', array(
+                'methods'             => array('GET', 'POST'),
+                'callback'            => array($this, 'handle_get_integrity'),
+                'permission_callback' => array($this, 'check_permission'),
+            ));
+
+            register_rest_route($ns, '/integrity/scan', array(
+                'methods'             => array('POST', 'GET'),
+                'callback'            => array($this, 'handle_scan_integrity'),
+                'permission_callback' => array($this, 'check_permission'),
+            ));
         }
     }
 
@@ -238,5 +250,19 @@ class VS_Agent_REST_API {
             'success' => true,
             'message' => isset($res['message']) ? $res['message'] : 'Atualização realizada com sucesso.',
         ), 200);
+    }
+
+    public function handle_get_integrity($request) {
+        $integrity = new VS_Agent_Integrity();
+        $res       = $integrity->get_last_result();
+
+        return new WP_REST_Response($res, isset($res['status']) ? (int)$res['status'] : 200);
+    }
+
+    public function handle_scan_integrity($request) {
+        $integrity = new VS_Agent_Integrity();
+        $res       = $integrity->verify_core_integrity();
+
+        return new WP_REST_Response($res, isset($res['status']) ? (int)$res['status'] : 200);
     }
 }

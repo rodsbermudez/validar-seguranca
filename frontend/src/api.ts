@@ -119,3 +119,51 @@ export const updateSettings = async (aiModel: string): Promise<PlatformSettingsR
   return response.data;
 };
 
+export interface IntegrityIssue {
+  file: string;
+  type: 'modified' | 'suspicious' | 'missing';
+  severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+  expected_hash?: string | null;
+  actual_hash?: string | null;
+  size?: number;
+  modified_at?: string | null;
+  description: string;
+  recommendation: string;
+}
+
+export interface IntegrityScanSummary {
+  total_checked: number;
+  passed: number;
+  modified: number;
+  suspicious: number;
+  missing: number;
+  issues_count: number;
+}
+
+export interface IntegrityScanData {
+  scanned_at: string;
+  wp_version: string;
+  locale: string;
+  is_secure: boolean;
+  summary: IntegrityScanSummary;
+  issues: IntegrityIssue[];
+}
+
+export interface WebsiteIntegrityResponse {
+  status: number;
+  success: boolean;
+  data: IntegrityScanData;
+  message?: string;
+}
+
+export const getWebsiteIntegrity = async (websiteId: number): Promise<WebsiteIntegrityResponse> => {
+  const response = await api.get<WebsiteIntegrityResponse>(`/websites/${websiteId}/integrity`);
+  return response.data;
+};
+
+export const scanWebsiteIntegrity = async (websiteId: number): Promise<WebsiteIntegrityResponse> => {
+  const response = await api.post<WebsiteIntegrityResponse>(`/websites/${websiteId}/integrity/scan`);
+  return response.data;
+};
+
+
