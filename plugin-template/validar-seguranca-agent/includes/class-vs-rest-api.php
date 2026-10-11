@@ -68,6 +68,12 @@ class VS_Agent_REST_API {
                 'callback'            => array($this, 'handle_toggle_ignore_integrity'),
                 'permission_callback' => array($this, 'check_permission'),
             ));
+
+            register_rest_route($ns, '/integrity/delete-file', array(
+                'methods'             => array('POST', 'GET'),
+                'callback'            => array($this, 'handle_delete_integrity_file'),
+                'permission_callback' => array($this, 'check_permission'),
+            ));
         }
     }
 
@@ -290,6 +296,22 @@ class VS_Agent_REST_API {
 
         $integrity = new VS_Agent_Integrity();
         $res       = $integrity->toggle_ignore_issue($file, $ignore_bool, $note ? $note : '');
+
+        return new WP_REST_Response($res, isset($res['status']) ? (int)$res['status'] : 200);
+    }
+
+    public function handle_delete_integrity_file($request) {
+        $file = $request->get_param('file');
+
+        if ($file === null) {
+            $json = $request->get_json_params();
+            if (!empty($json) && isset($json['file'])) {
+                $file = $json['file'];
+            }
+        }
+
+        $integrity = new VS_Agent_Integrity();
+        $res       = $integrity->delete_file($file);
 
         return new WP_REST_Response($res, isset($res['status']) ? (int)$res['status'] : 200);
     }

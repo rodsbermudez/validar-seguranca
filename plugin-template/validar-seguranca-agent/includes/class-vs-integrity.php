@@ -57,6 +57,45 @@ class VS_Agent_Integrity {
 
             $full_path = wp_normalize_path($abs_path . $file);
 
+            // Check for sample files or sensitive install leftovers that should not be in production
+            if ($file === 'wp-config-sample.php') {
+                if (file_exists($full_path)) {
+                    $size  = @filesize($full_path);
+                    $mtime = @filemtime($full_path);
+                    $suspicious[] = array(
+                        'file'           => $file,
+                        'type'           => 'suspicious',
+                        'severity'       => 'LOW',
+                        'expected_hash'  => null,
+                        'actual_hash'    => @md5_file($full_path),
+                        'size'           => $size ? (int)$size : 0,
+                        'modified_at'    => $mtime ? date('Y-m-d H:i:s', $mtime) : null,
+                        'description'    => 'Arquivo de exemplo (wp-config-sample.php) presente na raiz. Em servidores de produção, é uma boa prática de segurança excluí-lo.',
+                        'recommendation' => 'Exclua este arquivo diretamente pelo painel para reduzir informações expostas.',
+                    );
+                }
+                continue;
+            }
+
+            if ($file === 'readme.html') {
+                if (file_exists($full_path)) {
+                    $size  = @filesize($full_path);
+                    $mtime = @filemtime($full_path);
+                    $suspicious[] = array(
+                        'file'           => $file,
+                        'type'           => 'suspicious',
+                        'severity'       => 'LOW',
+                        'expected_hash'  => null,
+                        'actual_hash'    => @md5_file($full_path),
+                        'size'           => $size ? (int)$size : 0,
+                        'modified_at'    => $mtime ? date('Y-m-d H:i:s', $mtime) : null,
+                        'description'    => 'Arquivo de documentação (readme.html) exposto na raiz. Pode revelar a versão exata do WordPress para visitantes públicos e robôs de varredura.',
+                        'recommendation' => 'Exclua este arquivo pelo painel para ocultar a versão do WordPress de escaneamentos externos.',
+                    );
+                }
+                continue;
+            }
+
             if (!file_exists($full_path)) {
                 $missing[] = array(
                     'file'           => $file,
@@ -447,6 +486,153 @@ class VS_Agent_Integrity {
             'status'  => 200,
             'success' => true,
             'message' => $ignore ? 'Arquivo ignorado e marcado como resolvido.' : 'Arquivo reativado para monitoramento.',
+            'data'    => $result_data,
+        );
+    }
+
+    /**
+     * Safely delete an unneeded or malicious file from the WordPress installation
+     */
+    public function delete_file($file) {
+        $file = sanitize_text_field(trim($file));
+        if (empty($file)) {
+            return array(
+                'status'  => 400,
+                'success' => false,
+                'message' => 'Caminho do arquivo não informado.',
+            );
+        }
+
+        // Prevent directory traversal or stream wrappers
+        if (strpos($file, '..') !== false || strpos($file, '\\') !== false || strpos($file, '://') !== false) {
+            return array(
+                'status'  => 403,
+                'success' => false,
+                'message' => 'Caminho de arquivo inválido ou inseguro (tentativa de travessia bloqueada).',
+            );
+        }
+
+        $abs_path  = wp_normalize_path(ABSPATH);
+        $clean_rel = ltrim(wp_normalize_path($file), '/');
+        $full_path = wp_normalize_path($abs_path . $clean_rel);
+
+        // Ensure target is strictly inside ABSPATH
+        if (strpos($full_path, $abs_path) !== 0) {
+            return array(
+                'status'  => 403,
+                'success' => false,
+                'message' => 'Operação proibida fora da raiz da instalação do WordPress.',
+            );
+        }
+
+        // Protected files that must NEVER be deleted via API
+        $protected_files = array(
+            'wp-config.php',
+            '.htaccess',
+            'web.config',
+            'index.php',
+            'wp-load.php',
+            'wp-settings.php',
+            'wp-blog-header.php',
+            'wp-login.php',
+            'wp-cron.php',
+            'wp-activate.php',
+            'wp-mail.php',
+            'wp-links-opml.php',
+            'wp-trackback.php',
+            'wp-includes/version.php',
+        );
+
+        if (in_array($clean_rel, $protected_files, true)) {
+            return array(
+                'status'  => 403,
+                'success' => false,
+                'message' => 'O arquivo "' . $clean_rel . '" é essencial para o funcionamento do WordPress e não pode ser excluído.',
+            );
+        }
+
+        if (!file_exists($full_path)) {
+            return array(
+                'status'  => 404,
+                'success' => false,
+                'message' => 'Arquivo "' . $clean_rel . '" não foi encontrado no servidor.',
+            );
+        }
+
+        if (is_dir($full_path)) {
+            return array(
+                'status'  => 400,
+                'success' => false,
+                'message' => 'O caminho especificado é um diretório. Exclusão de pastas inteiras não é permitida.',
+            );
+        }
+
+        // Attempt deletion
+        $deleted = @unlink($full_path);
+        if (!$deleted) {
+            return array(
+                'status'  => 500,
+                'success' => false,
+                'message' => 'Não foi possível excluir o arquivo "' . $clean_rel . '". Verifique as permissões de escrita de arquivos do servidor (chmod/chown).',
+            );
+        }
+
+        // Clean up from ignored files list if it was present
+        $saved_ignored = get_option(self::OPTION_IGNORED_FILES, array());
+        if (is_array($saved_ignored) && isset($saved_ignored[$clean_rel])) {
+            unset($saved_ignored[$clean_rel]);
+            update_option(self::OPTION_IGNORED_FILES, $saved_ignored);
+        }
+
+        // Update cached scan result if present
+        $cached = get_option('vs_last_integrity_scan', null);
+        if ($cached && is_array($cached) && isset($cached['issues']) && is_array($cached['issues'])) {
+            $new_issues = array();
+            $active     = 0;
+            $ign_count  = 0;
+            $mod_count  = 0;
+            $susp_count = 0;
+            $miss_count = 0;
+
+            foreach ($cached['issues'] as $iss) {
+                if ($iss['file'] === $clean_rel) {
+                    continue; // Remove the deleted file from issues
+                }
+                if (!empty($iss['is_ignored'])) {
+                    $ign_count++;
+                } else {
+                    $active++;
+                }
+                if ($iss['type'] === 'modified') {
+                    $mod_count++;
+                } elseif ($iss['type'] === 'suspicious') {
+                    $susp_count++;
+                } elseif ($iss['type'] === 'missing') {
+                    $miss_count++;
+                }
+                $new_issues[] = $iss;
+            }
+
+            $cached['issues']                   = $new_issues;
+            $cached['is_secure']                = ($active === 0);
+            $cached['summary']['issues_count']   = count($new_issues);
+            $cached['summary']['active_issues']  = $active;
+            $cached['summary']['ignored_issues'] = $ign_count;
+            $cached['summary']['modified']       = $mod_count;
+            $cached['summary']['suspicious']     = $susp_count;
+            $cached['summary']['missing']        = $miss_count;
+
+            update_option('vs_last_integrity_scan', $cached);
+            $result_data = $cached;
+        } else {
+            $run = $this->verify_core_integrity();
+            $result_data = isset($run['data']) ? $run['data'] : null;
+        }
+
+        return array(
+            'status'  => 200,
+            'success' => true,
+            'message' => 'Arquivo "' . $clean_rel . '" excluído com sucesso do servidor.',
             'data'    => $result_data,
         );
     }

@@ -35,6 +35,7 @@ $routes->group('api', function ($routes) {
         $routes->get('websites/(:num)/integrity', 'Api\Websites::integrity/$1');
         $routes->post('websites/(:num)/integrity/scan', 'Api\Websites::scanIntegrity/$1');
         $routes->post('websites/(:num)/integrity/ignore', 'Api\Websites::ignoreIntegrityIssue/$1');
+        $routes->post('websites/(:num)/integrity/delete-file', 'Api\Websites::deleteIntegrityFile/$1');
 
         // Scan routes
         $routes->post('scan/trigger/(:num)', 'Api\Scan::trigger/$1');

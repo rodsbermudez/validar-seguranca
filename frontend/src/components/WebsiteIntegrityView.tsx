@@ -19,6 +19,7 @@ import {
   Box,
   Code,
   Tooltip,
+  Modal,
 } from '@mantine/core';
 import {
   IconFileCheck,
@@ -30,11 +31,13 @@ import {
   IconAlertCircle,
   IconCheck,
   IconRestore,
+  IconTrash,
 } from '@tabler/icons-react';
 import {
   getWebsiteIntegrity,
   scanWebsiteIntegrity,
   toggleIgnoreIntegrityIssue,
+  deleteIntegrityFile,
   IntegrityScanData,
   IntegrityIssue,
 } from '../api';
@@ -47,6 +50,9 @@ export const WebsiteIntegrityView: React.FC<WebsiteIntegrityViewProps> = ({ webs
   const [loading, setLoading] = useState<boolean>(true);
   const [scanning, setScanning] = useState<boolean>(false);
   const [actionLoadingFile, setActionLoadingFile] = useState<string | null>(null);
+  const [deleteModalOpened, setDeleteModalOpened] = useState<boolean>(false);
+  const [fileToDelete, setFileToDelete] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<boolean>(false);
   const [scanData, setScanData] = useState<IntegrityScanData | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -140,6 +146,38 @@ export const WebsiteIntegrityView: React.FC<WebsiteIntegrityViewProps> = ({ webs
       );
     } finally {
       setActionLoadingFile(null);
+    }
+  };
+
+  const handleOpenDeleteModal = (file: string) => {
+    setFileToDelete(file);
+    setDeleteModalOpened(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!fileToDelete) return;
+    setDeleting(true);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    try {
+      const res = await deleteIntegrityFile(websiteId, fileToDelete);
+      if (res.success && res.data) {
+        setScanData(res.data);
+        setSuccessMsg(`Arquivo "${fileToDelete}" foi excluído com sucesso do servidor!`);
+        setDeleteModalOpened(false);
+        setFileToDelete(null);
+        setTimeout(() => setSuccessMsg(null), 5000);
+      } else {
+        setErrorMsg(res.message || 'Falha ao excluir o arquivo no servidor.');
+      }
+    } catch (err: any) {
+      setErrorMsg(
+        err.response?.data?.messages?.error ||
+          err.response?.data?.message ||
+          'Erro ao comunicar com o servidor para excluir o arquivo.'
+      );
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -306,7 +344,7 @@ export const WebsiteIntegrityView: React.FC<WebsiteIntegrityViewProps> = ({ webs
                   </Group>
                   <Text size="sm" c="dimmed" mt={2}>
                     Foram identificadas <b>{activeCount}</b> inconsistência(s) ativas no core do WordPress
-                    {ignoredCount > 0 && ` (${ignoredCount} arquivo(s) já resolvidos/ignorados)`}. Se um arquivo pertencer a um plugin legítimo (como Wordfence), você pode marcá-lo como "Ignorar / Resolvido".
+                    {ignoredCount > 0 && ` (${ignoredCount} arquivo(s) já resolvidos/ignorados)`}. Você pode excluir arquivos dispensáveis (ex: wp-config-sample.php ou scripts suspeitos) ou marcar como resolvido se pertencer a plugins legítimos.
                   </Text>
                   <Text size="xs" c="dimmed" mt={4}>
                     Última verificação realizada em: <b>{scanData.scanned_at}</b>
@@ -453,13 +491,14 @@ export const WebsiteIntegrityView: React.FC<WebsiteIntegrityViewProps> = ({ webs
                     <Table.Th>Severidade</Table.Th>
                     <Table.Th>Status</Table.Th>
                     <Table.Th>Detalhes Técnicos</Table.Th>
-                    <Table.Th>Ação</Table.Th>
+                    <Table.Th>Ações</Table.Th>
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
                   {filteredIssues.map((issue, idx) => {
                     const isIgnored = !!issue.is_ignored;
                     const isToggling = actionLoadingFile === issue.file;
+                    const canDelete = issue.type !== 'missing';
 
                     return (
                       <Table.Tr
@@ -567,30 +606,44 @@ export const WebsiteIntegrityView: React.FC<WebsiteIntegrityViewProps> = ({ webs
                           )}
                         </Table.Td>
 
-                        <Table.Td style={{ minWidth: 160 }}>
-                          {isIgnored ? (
-                            <Button
-                              variant="subtle"
-                              color="yellow"
-                              size="xs"
-                              loading={isToggling}
-                              leftSection={<IconRestore size={14} />}
-                              onClick={() => handleToggleIgnore(issue.file, true)}
-                            >
-                              Reativar
-                            </Button>
-                          ) : (
-                            <Button
-                              variant="light"
-                              color="teal"
-                              size="xs"
-                              loading={isToggling}
-                              leftSection={<IconCheck size={14} />}
-                              onClick={() => handleToggleIgnore(issue.file, false)}
-                            >
-                              Ignorar / Resolvido
-                            </Button>
-                          )}
+                        <Table.Td style={{ minWidth: 200 }}>
+                          <Group gap={6} wrap="nowrap">
+                            {isIgnored ? (
+                              <Button
+                                variant="subtle"
+                                color="yellow"
+                                size="xs"
+                                loading={isToggling}
+                                leftSection={<IconRestore size={14} />}
+                                onClick={() => handleToggleIgnore(issue.file, true)}
+                              >
+                                Reativar
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="light"
+                                color="teal"
+                                size="xs"
+                                loading={isToggling}
+                                leftSection={<IconCheck size={14} />}
+                                onClick={() => handleToggleIgnore(issue.file, false)}
+                              >
+                                Ignorar / Resolvido
+                              </Button>
+                            )}
+
+                            {canDelete && (
+                              <Button
+                                variant="subtle"
+                                color="red"
+                                size="xs"
+                                leftSection={<IconTrash size={14} />}
+                                onClick={() => handleOpenDeleteModal(issue.file)}
+                              >
+                                Excluir
+                              </Button>
+                            )}
+                          </Group>
                         </Table.Td>
                       </Table.Tr>
                     );
@@ -621,6 +674,57 @@ export const WebsiteIntegrityView: React.FC<WebsiteIntegrityViewProps> = ({ webs
           </Button>
         </Paper>
       )}
+
+      {/* Confirmation Modal for File Deletion */}
+      <Modal
+        opened={deleteModalOpened}
+        onClose={() => !deleting && setDeleteModalOpened(false)}
+        title={
+          <Group gap="xs">
+            <ThemeIcon color="red" variant="light" size="md">
+              <IconAlertTriangle size={18} />
+            </ThemeIcon>
+            <Text fw={700}>Excluir Arquivo do Servidor</Text>
+          </Group>
+        }
+        centered
+      >
+        <Stack gap="md">
+          <Text size="sm">
+            Você tem certeza de que deseja excluir permanentemente o seguinte arquivo da instalação do WordPress?
+          </Text>
+
+          <Paper p="xs" bg="dark.8" withBorder style={{ borderColor: '#c92a2a' }}>
+            <Code block color="red.9" style={{ wordBreak: 'break-all' }}>
+              {fileToDelete}
+            </Code>
+          </Paper>
+
+          <Alert icon={<IconAlertCircle size={16} />} color="red" variant="light">
+            Esta ação é <b>irreversível</b> e removerá o arquivo físico do servidor. Certifique-se de que este arquivo não seja necessário para o funcionamento do seu site.
+          </Alert>
+
+          <Group justify="flex-end" gap="sm" mt="xs">
+            <Button
+              variant="default"
+              size="sm"
+              disabled={deleting}
+              onClick={() => setDeleteModalOpened(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              color="red"
+              size="sm"
+              loading={deleting}
+              leftSection={<IconTrash size={16} />}
+              onClick={handleConfirmDelete}
+            >
+              Excluir Permanentemente
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
     </Stack>
   );
 };

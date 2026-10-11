@@ -185,5 +185,16 @@ export const toggleIgnoreIntegrityIssue = async (
   return response.data;
 };
 
+export const deleteIntegrityFile = async (
+  websiteId: number,
+  file: string
+): Promise<WebsiteIntegrityResponse> => {
+  const response = await api.post<WebsiteIntegrityResponse>(`/websites/${websiteId}/integrity/delete-file`, {
+    file,
+  });
+  return response.data;
+};
+
+
 
 
