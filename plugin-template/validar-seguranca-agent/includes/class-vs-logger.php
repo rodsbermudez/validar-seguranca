@@ -19,10 +19,15 @@ class VS_Agent_Logger {
     }
 
     public static function enable_error_logging() {
+        if (null === self::$log_dir) {
+            self::$log_dir  = WP_CONTENT_DIR . '/uploads/wp-patropi-logs';
+            self::$log_file = self::$log_dir . '/debug.log';
+        }
+
         if (!file_exists(self::$log_dir)) {
             wp_mkdir_p(self::$log_dir);
             // Protect directory from direct HTTP listing/access
-            @file_put_contents(self::$log_dir . '/.htaccess', "Order deny,allow\nDeny from all\n");
+            @file_put_contents(self::$log_dir . '/.htaccess', "<IfModule !mod_authz_core.c>\nOrder deny,allow\nDeny from all\n</IfModule>\n<IfModule mod_authz_core.c>\nRequire all denied\n</IfModule>\n");
             @file_put_contents(self::$log_dir . '/index.php', '<?php // Silence is golden');
         }
 
@@ -35,6 +40,10 @@ class VS_Agent_Logger {
         // Register custom shutdown & error handlers to capture all errors
         set_error_handler(array(__CLASS__, 'handle_error'), E_ALL);
         register_shutdown_function(array(__CLASS__, 'handle_shutdown'));
+    }
+
+    public static function disable_error_logging() {
+        @ini_set('log_errors', 0);
     }
 
     public static function handle_error($errno, $errstr, $errfile, $errline) {

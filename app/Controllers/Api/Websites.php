@@ -340,9 +340,11 @@ class Websites extends ResourceController
 
         if ($method === 'POST') {
             curl_setopt($ch, CURLOPT_POST, true);
-            if (!empty($params)) {
-                curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($params));
+            $postData = !empty($params) ? $params : ['action' => 'execute', 'timestamp' => time()];
+            if (!empty($token) && !isset($postData['vs_token'])) {
+                $postData['vs_token'] = $token;
             }
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($postData));
         }
 
         $response   = curl_exec($ch);
@@ -397,6 +399,16 @@ class Websites extends ResourceController
             $lastRes = $this->makeAgentRequest($url, $method, $token, $params);
             if (!empty($lastRes['body']) && $lastRes['status'] === 200) {
                 return $lastRes;
+            }
+        }
+
+        // If POST failed or was blocked by WAF (406, 403, 405), attempt GET fallback
+        if ($method === 'POST') {
+            foreach ($routes as $url) {
+                $lastRes = $this->makeAgentRequest($url, 'GET', $token, $params);
+                if (!empty($lastRes['body']) && $lastRes['status'] === 200) {
+                    return $lastRes;
+                }
             }
         }
 
