@@ -48,11 +48,21 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && error.response.status === 401) {
-      localStorage.removeItem('jwt_token');
-      localStorage.removeItem('user');
-      localStorage.removeItem('impersonated_user');
-      localStorage.removeItem('impersonated_user_id');
-      window.dispatchEvent(new Event('auth-unauthorized'));
+      const url = String(error.config?.url || '').toLowerCase();
+      // Do not log out if the 401 is from an external agent communication endpoint
+      const isAgentEndpoint =
+        url.includes('/logs') ||
+        url.includes('/updates') ||
+        url.includes('/integrity') ||
+        url.includes('/connect');
+
+      if (!isAgentEndpoint) {
+        localStorage.removeItem('jwt_token');
+        localStorage.removeItem('user');
+        localStorage.removeItem('impersonated_user');
+        localStorage.removeItem('impersonated_user_id');
+        window.dispatchEvent(new Event('auth-unauthorized'));
+      }
     }
     return Promise.reject(error);
   }

@@ -264,7 +264,7 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
       </Paper>
 
       {/* Main Tabs Navigation */}
-      <Tabs value={activeTab} onChange={setActiveTab} variant="outline" radius="md">
+      <Tabs value={activeTab} onChange={setActiveTab} variant="outline" radius="md" keepMounted={false}>
         <Tabs.List bg="dark.8" p="xs" style={{ borderRadius: 8 }}>
           <Tabs.Tab
             value="overview"

@@ -419,6 +419,19 @@ class Websites extends ResourceController
         ];
     }
 
+    private function failAgentResponse(array $res, string $defaultMessage = 'Falha na comunicação com o agente WordPress')
+    {
+        $message = $res['message'] ?? ($res['body']['message'] ?? $defaultMessage);
+        $agentStatus = (int) ($res['status'] ?? 500);
+
+        // Crucial: Never return HTTP 401 or 403 to the client for WordPress agent errors.
+        // 401 is strictly reserved for SaaS JWT authentication session.
+        // If 401 is returned here, frontend interceptors think the user's SaaS session expired and log them out!
+        $httpStatus = ($agentStatus === 401 || $agentStatus === 403) ? 502 : ($agentStatus ?: 500);
+
+        return $this->fail($message, $httpStatus);
+    }
+
     public function logs($id = null)
     {
         if (!$id) {
@@ -454,7 +467,7 @@ class Websites extends ResourceController
         ]);
 
         if (empty($res['body']) || $res['status'] !== 200) {
-            return $this->fail($res['message'] ?? ($res['body']['message'] ?? 'Falha ao buscar logs do agente'), $res['status'] ?: 500);
+            return $this->failAgentResponse($res, 'Falha ao buscar logs do agente');
         }
 
         return $this->respond($res['body']);
@@ -489,7 +502,7 @@ class Websites extends ResourceController
         $res = $this->makeAgentRequestWithFallback($website['url'], '/logs/toggle', 'POST', $website['agent_token']);
 
         if (empty($res['body']) || $res['status'] !== 200) {
-            return $this->fail($res['message'] ?? ($res['body']['message'] ?? 'Falha ao alterar estado do log'), $res['status'] ?: 500);
+            return $this->failAgentResponse($res, 'Falha ao alterar estado do log');
         }
 
         return $this->respond($res['body']);
@@ -524,7 +537,7 @@ class Websites extends ResourceController
         $res = $this->makeAgentRequestWithFallback($website['url'], '/logs/clear', 'POST', $website['agent_token']);
 
         if (empty($res['body']) || $res['status'] !== 200) {
-            return $this->fail($res['message'] ?? ($res['body']['message'] ?? 'Falha ao limpar logs'), $res['status'] ?: 500);
+            return $this->failAgentResponse($res, 'Falha ao limpar logs');
         }
 
         return $this->respond($res['body']);
@@ -559,7 +572,7 @@ class Websites extends ResourceController
         $res = $this->makeAgentRequestWithFallback($website['url'], '/updates', 'GET', $website['agent_token']);
 
         if (empty($res['body']) || $res['status'] !== 200) {
-            return $this->fail($res['message'] ?? ($res['body']['message'] ?? 'Falha ao buscar atualizações do agente'), $res['status'] ?: 500);
+            return $this->failAgentResponse($res, 'Falha ao buscar atualizações do agente');
         }
 
         return $this->respond($res['body']);
@@ -604,7 +617,7 @@ class Websites extends ResourceController
         ]);
 
         if (empty($res['body']) || $res['status'] !== 200) {
-            return $this->fail($res['message'] ?? ($res['body']['message'] ?? 'Falha ao aplicar atualização'), $res['status'] ?: 500);
+            return $this->failAgentResponse($res, 'Falha ao aplicar atualização');
         }
 
         return $this->respond($res['body']);
@@ -639,7 +652,7 @@ class Websites extends ResourceController
         $res = $this->makeAgentRequestWithFallback($website['url'], '/integrity', 'GET', $website['agent_token']);
 
         if (empty($res['body']) || $res['status'] !== 200) {
-            return $this->fail($res['message'] ?? ($res['body']['message'] ?? 'Falha ao buscar integridade do agente'), $res['status'] ?: 500);
+            return $this->failAgentResponse($res, 'Falha ao buscar integridade do agente');
         }
 
         return $this->respond($res['body']);
@@ -676,7 +689,7 @@ class Websites extends ResourceController
         ]);
 
         if (empty($res['body']) || $res['status'] !== 200) {
-            return $this->fail($res['message'] ?? ($res['body']['message'] ?? 'Falha ao executar varredura de integridade'), $res['status'] ?: 500);
+            return $this->failAgentResponse($res, 'Falha ao executar varredura de integridade');
         }
 
         return $this->respond($res['body']);
@@ -725,7 +738,7 @@ class Websites extends ResourceController
         ]);
 
         if (empty($res['body']) || $res['status'] !== 200) {
-            return $this->fail($res['message'] ?? ($res['body']['message'] ?? 'Falha ao atualizar status de exceção do arquivo'), $res['status'] ?: 500);
+            return $this->failAgentResponse($res, 'Falha ao atualizar status de exceção do arquivo');
         }
 
         return $this->respond($res['body']);
@@ -768,7 +781,7 @@ class Websites extends ResourceController
         ]);
 
         if (empty($res['body']) || $res['status'] !== 200) {
-            return $this->fail($res['message'] ?? ($res['body']['message'] ?? 'Falha ao excluir arquivo do servidor'), $res['status'] ?: 500);
+            return $this->failAgentResponse($res, 'Falha ao excluir arquivo do servidor');
         }
 
         return $this->respond($res['body']);
