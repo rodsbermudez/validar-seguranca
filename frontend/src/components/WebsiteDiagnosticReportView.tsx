@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Paper,
   Title,
@@ -19,7 +19,7 @@ import {
 } from '@mantine/core';
 import {
   IconArrowLeft,
-  IconPrinter,
+  IconDownload,
   IconRefresh,
   IconAlertTriangle,
   IconAlertCircle,
@@ -32,6 +32,8 @@ import {
   IconPalette,
   IconRadar,
 } from '@tabler/icons-react';
+import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
 import { getDiagnosticSummary, DiagnosticSummaryResponse } from '../api';
 
 interface WebsiteDiagnosticReportViewProps {
@@ -69,8 +71,75 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
     fetchReport();
   }, [fetchReport]);
 
-  const handlePrint = () => {
-    window.print();
+  const reportRef = useRef<HTMLDivElement>(null);
+  const [generatingPdf, setGeneratingPdf] = useState<boolean>(false);
+
+  const handleDownloadPdf = async () => {
+    if (!reportRef.current) return;
+    setGeneratingPdf(true);
+
+    try {
+      const element = reportRef.current;
+
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#1A1B1E',
+        windowWidth: 1200,
+        onclone: (clonedDoc) => {
+          const clonedEl = clonedDoc.getElementById('report-pdf-content');
+          if (clonedEl) {
+            clonedEl.style.width = '1120px';
+            clonedEl.style.maxWidth = '1120px';
+            clonedEl.style.margin = '0 auto';
+          }
+        },
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+      });
+
+      const pageWidth = 210;
+      const pageHeight = 297;
+      const imgWidth = pageWidth;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      // Preenche fundo escuro (#1A1B1E) na primeira página
+      pdf.setFillColor(26, 27, 30);
+      pdf.rect(0, 0, pageWidth, pageHeight, 'F');
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight, undefined, 'FAST');
+      heightLeft -= pageHeight;
+
+      while (heightLeft > 0) {
+        position -= pageHeight;
+        pdf.addPage();
+        pdf.setFillColor(26, 27, 30);
+        pdf.rect(0, 0, pageWidth, pageHeight, 'F');
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight, undefined, 'FAST');
+        heightLeft -= pageHeight;
+      }
+
+      const siteHost = website.url
+        ? website.url.replace(/^https?:\/\//, '').replace(/\/.*$/, '')
+        : website.name.replace(/\s+/g, '-').toLowerCase();
+      const siteSlug = siteHost.replace(/[^a-zA-Z0-9_\-]/g, '-');
+      const dateStr = new Date().toISOString().slice(0, 10);
+
+      pdf.save(`relatorio-diagnostico-${siteSlug}-${dateStr}.pdf`);
+    } catch (err) {
+      console.error('Erro ao gerar PDF:', err);
+      alert('Houve um erro ao processar o download do PDF.');
+    } finally {
+      setGeneratingPdf(false);
+    }
   };
 
   const latestScan = report?.data?.latest_scan;
@@ -183,10 +252,11 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
               <Button
                 color="indigo"
                 size="sm"
-                leftSection={<IconPrinter size={16} />}
-                onClick={handlePrint}
+                leftSection={<IconDownload size={16} />}
+                loading={generatingPdf}
+                onClick={handleDownloadPdf}
               >
-                Salvar como PDF / Imprimir
+                Baixar Relatório em PDF
               </Button>
             </Group>
           </Group>
@@ -210,6 +280,8 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
           </Alert>
         ) : (
           <Paper
+            ref={reportRef}
+            id="report-pdf-content"
             p={{ base: 'md', sm: 'xl' }}
             radius="md"
             bg="dark.8"
