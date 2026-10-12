@@ -35,6 +35,7 @@ import {
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import { getDiagnosticSummary, DiagnosticSummaryResponse } from '../api';
+import { PATROPI_LOGO_BASE64 } from '../assets/logoBase64';
 
 interface WebsiteDiagnosticReportViewProps {
   website: { id: string | number; name: string; url: string; environment?: string };
@@ -93,6 +94,10 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
             clonedEl.style.width = '1120px';
             clonedEl.style.maxWidth = '1120px';
             clonedEl.style.margin = '0 auto';
+          }
+          const logoEl = clonedDoc.getElementById('pdf-report-logo');
+          if (logoEl) {
+            logoEl.style.display = 'block';
           }
         },
       });
@@ -289,27 +294,30 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
             className="report-sheet"
             style={{ borderColor: '#373a40' }}
           >
-            {/* Header: Branding & Target Info */}
+            {/* Header: Logo Exclusiva para o PDF (Oculta na tela normal para não duplicar com o header do SaaS) */}
+            <div id="pdf-report-logo" style={{ display: 'none', marginBottom: 20 }}>
+              <Group justify="space-between" align="center">
+                <img
+                  src={PATROPI_LOGO_BASE64}
+                  alt="Patropi Comunica"
+                  style={{ height: 42, width: 'auto', objectFit: 'contain' }}
+                />
+                <Badge color="green" size="sm" variant="light">
+                  Validar Segurança Platform
+                </Badge>
+              </Group>
+              <Divider my="sm" color="dark.5" />
+            </div>
+
+            {/* Header: Título & Metadados de Emissão */}
             <Group justify="space-between" align="flex-start" wrap="wrap" pb="md" style={{ borderBottom: '2px solid #475569' }}>
               <div>
-                <Group gap="sm" mb={4}>
-                  <img
-                    src="/images/logo-Patropi.png"
-                    alt="Logo Patropi"
-                    style={{ maxHeight: 38, width: 'auto', objectFit: 'contain' }}
-                    onError={(e) => {
-                      (e.currentTarget as HTMLElement).style.display = 'none';
-                    }}
-                  />
-                  <div>
-                    <Title order={2} style={{ letterSpacing: -0.5 }}>
-                      Relatório Executivo de Diagnóstico
-                    </Title>
-                    <Text size="xs" c="dimmed" className="print-text-muted">
-                      Auditoria de Segurança, Integridade do Core, Logs & Manutenção
-                    </Text>
-                  </div>
-                </Group>
+                <Title order={2} style={{ letterSpacing: -0.5 }}>
+                  Relatório Executivo de Diagnóstico
+                </Title>
+                <Text size="xs" c="dimmed" className="print-text-muted">
+                  Auditoria de Segurança, Integridade do Core, Logs & Manutenção
+                </Text>
               </div>
 
               <div style={{ textAlign: 'right' }}>
