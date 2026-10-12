@@ -119,14 +119,14 @@ class AIService
             "    */\n" .
             "2. Verifique 'if (!defined(\"ABSPATH\")) exit;' no topo por segurança.\n" .
             "3. REGRA CRÍTICA PARA LINK DE CONFIGURAÇÕES NA LISTA DE PLUGINS (plugins.php):\n" .
-            "   - Adicione o filtro 'plugin_action_links_' . plugin_basename(__FILE__) adicionando o link 'Configurações' direcionando para 'admin.php?page=wp-patropi-fixes'.\n" .
+            "   - Adicione o filtro 'plugin_action_links_' . plugin_basename(__FILE__) adicionando o link 'Configurações' direcionando para 'admin.php?page=wp-patropi'.\n" .
             "4. REGRA CRÍTICA PARA ESTRUTURA DE MENU NO WP ADMIN:\n" .
             "   - O menu principal deve se chamar 'WP Patropi' (slug: 'wp-patropi') com a posição 80 e ícone carregado de 'plugins_url(\"assets/favicon.png\", __FILE__)'.\n" .
             "   - Adicione via 'admin_head' o CSS para limitar a imagem do ícone do menu a 20x20px:\n" .
             "     add_action('admin_head', function() {\n" .
             "         echo '<style>#adminmenu .toplevel_page_wp-patropi .wp-menu-image img, #adminmenu #toplevel_page_wp-patropi .wp-menu-image img { max-width: 20px !important; max-height: 20px !important; width: 20px !important; height: 20px !important; padding: 3px 0 0 0 !important; object-fit: contain !important; }</style>';\n" .
             "     });\n" .
-            "   - Adicione a tela do plugin como subitem do menu 'WP Patropi' chamado 'WP Patropi - Fixes' (slug: 'wp-patropi-fixes').\n" .
+            "   - Adicione a tela do plugin como o primeiro subitem do menu 'WP Patropi' chamado 'Fixes' (usando o mesmo slug 'wp-patropi' para renomear o item raiz para 'Fixes'):\n" .
             "   - Exemplo de código do menu:\n" .
             "     add_action('admin_menu', function() {\n" .
             "         \$parent_slug = 'wp-patropi';\n" .
@@ -134,8 +134,8 @@ class AIService
             "         if (empty(\$GLOBALS['admin_page_hooks'][\$parent_slug])) {\n" .
             "             add_menu_page('WP Patropi', 'WP Patropi', 'manage_options', \$parent_slug, 'vs_render_remediation_admin_page', \$icon_url, 80);\n" .
             "         }\n" .
-            "         add_submenu_page(\$parent_slug, 'WP Patropi - Fixes', 'WP Patropi - Fixes', 'manage_options', 'wp-patropi-fixes', 'vs_render_remediation_admin_page');\n" .
-            "     });\n" .
+            "         add_submenu_page(\$parent_slug, 'Fixes', 'Fixes', 'manage_options', \$parent_slug, 'vs_render_remediation_admin_page');\n" .
+            "     }, 10);\n" .
             "5. NO TOPO DA PÁGINA ADMIN DO PLUGIN:\n" .
             "   - Inclua no início de <div class=\"wrap\"> as tags '<h1 class=\"wp-heading-inline\" style=\"display:none;\">WP Patropi - Fixes</h1><hr class=\"wp-header-end\" style=\"display:none;\" />' para que avisos do WordPress fiquem acima do card.\n" .
             "   - Exiba um cabeçalho estilizado contendo a logo em '<img src=\"' . esc_url(plugins_url('assets/logo-Patropi.png', __FILE__)) . '\" style=\"max-height:42px;height:42px;width:auto;object-fit:contain;\" />' e o título <h2>WP Patropi - Fixes</h2> com o crédito 'Desenvolvido por {$authorName} ({$authorUri})'.\n" .

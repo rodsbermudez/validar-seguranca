@@ -421,7 +421,7 @@ class Remediation extends ResourceController
 
         $code .= "// --- LINK DE CONFIGURAÇÕES NA TELA DE PLUGINS ---\n";
         $code .= "add_filter('plugin_action_links_' . plugin_basename(__FILE__), function(\$links) {\n";
-        $code .= "    \$settings_link = '<a href=\"' . esc_url(admin_url('admin.php?page=wp-patropi-fixes')) . '\">Configurações</a>';\n";
+        $code .= "    \$settings_link = '<a href=\"' . esc_url(admin_url('admin.php?page=wp-patropi')) . '\">Configurações</a>';\n";
         $code .= "    array_unshift(\$links, \$settings_link);\n";
         $code .= "    return \$links;\n";
         $code .= "});\n\n";
@@ -452,8 +452,8 @@ class Remediation extends ResourceController
         $code .= "    if (empty(\$GLOBALS['admin_page_hooks'][\$parent_slug])) {\n";
         $code .= "        add_menu_page('WP Patropi', 'WP Patropi', 'manage_options', \$parent_slug, 'vs_render_remediation_admin_page', \$icon_url, 80);\n";
         $code .= "    }\n";
-        $code .= "    add_submenu_page(\$parent_slug, 'WP Patropi - Fixes', 'WP Patropi - Fixes', 'manage_options', 'wp-patropi-fixes', 'vs_render_remediation_admin_page');\n";
-        $code .= "}, 20);\n\n";
+        $code .= "    add_submenu_page(\$parent_slug, 'Fixes', 'Fixes', 'manage_options', \$parent_slug, 'vs_render_remediation_admin_page');\n";
+        $code .= "}, 10);\n\n";
 
         $code .= "if (!function_exists('vs_render_remediation_admin_page')) {\n";
         $code .= "    function vs_render_remediation_admin_page() {\n";

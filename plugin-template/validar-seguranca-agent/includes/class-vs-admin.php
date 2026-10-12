@@ -7,7 +7,7 @@ if (!defined('ABSPATH')) {
 class VS_Agent_Admin {
 
     public function __construct() {
-        add_action('admin_menu', array($this, 'add_admin_menu'));
+        add_action('admin_menu', array($this, 'add_admin_menu'), 20);
         add_action('admin_init', array($this, 'handle_admin_actions'));
         add_action('admin_head', array($this, 'admin_head_styles'));
     }
@@ -71,29 +71,28 @@ class VS_Agent_Admin {
                 'WP Patropi',
                 'manage_options',
                 $parent_slug,
-                array($this, 'render_admin_page'),
+                array($this, 'render_logs_page'),
                 $icon,
                 80
             );
+            add_submenu_page(
+                $parent_slug,
+                'Logs',
+                'Logs',
+                'manage_options',
+                $parent_slug,
+                array($this, 'render_logs_page')
+            );
+        } else {
+            add_submenu_page(
+                $parent_slug,
+                'Logs',
+                'Logs',
+                'manage_options',
+                'wp-patropi-logs',
+                array($this, 'render_logs_page')
+            );
         }
-
-        add_submenu_page(
-            $parent_slug,
-            'WP Patropi - Diagnóstico',
-            'WP Patropi - Diagnóstico',
-            'manage_options',
-            $parent_slug,
-            array($this, 'render_admin_page')
-        );
-
-        add_submenu_page(
-            $parent_slug,
-            'Logs',
-            'Logs',
-            'manage_options',
-            'wp-patropi-logs',
-            array($this, 'render_logs_page')
-        );
     }
 
     public function handle_admin_actions() {
