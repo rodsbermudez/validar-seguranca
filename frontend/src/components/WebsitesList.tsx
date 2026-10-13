@@ -24,17 +24,24 @@ import {
   IconPencil,
   IconPlugConnected,
   IconLayoutDashboard,
+  IconUsers,
+  IconDoorExit,
 } from '@tabler/icons-react';
 import { api } from '../api';
 
 interface Website {
-  id: string;
+  id: string | number;
   name: string;
   url: string;
   environment: string;
   is_connected?: number | boolean;
   agent_token?: string;
   created_at: string;
+  is_owner?: boolean | number;
+  owner_name?: string;
+  owner_email?: string;
+  user_role?: string;
+  shares_count?: number;
 }
 
 interface WebsitesListProps {
@@ -114,13 +121,28 @@ export const WebsitesList: React.FC<WebsitesListProps> = ({ onSelectWebsite }) =
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Deseja realmente remover este website cadastrado?')) return;
-    try {
-      await api.delete(`/websites/${id}`);
-      fetchWebsites();
-    } catch (err) {
-      alert('Erro ao excluir website.');
+  const handleDelete = async (site: Website) => {
+    const isOwner = site.is_owner === undefined || site.is_owner === true || site.is_owner === 1;
+    if (isOwner) {
+      if (!confirm(`Deseja realmente remover o website "${site.name}"?`)) return;
+      try {
+        await api.delete(`/websites/${site.id}`);
+        fetchWebsites();
+      } catch (err: any) {
+        alert(err.response?.data?.messages?.error || err.response?.data?.error || 'Erro ao excluir website.');
+      }
+    } else {
+      if (!confirm(`Deseja remover seu acesso ao website compartilhado "${site.name}"?`)) return;
+      try {
+        const userJson = localStorage.getItem('user');
+        const user = userJson ? JSON.parse(userJson) : null;
+        if (user?.id) {
+          await api.delete(`/websites/${site.id}/shares/${user.id}`);
+          fetchWebsites();
+        }
+      } catch (err: any) {
+        alert(err.response?.data?.messages?.error || err.response?.data?.error || 'Erro ao sair do website.');
+      }
     }
   };
 
@@ -171,67 +193,87 @@ export const WebsitesList: React.FC<WebsitesListProps> = ({ onSelectWebsite }) =
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
-            {websites.map((site) => (
-              <Table.Tr key={site.id}>
-                <Table.Td>
-                  <Group gap="xs" wrap="nowrap">
-                    <Text
-                      fw={600}
-                      style={{ cursor: 'pointer' }}
-                      c="indigo.3"
-                      onClick={() => onSelectWebsite(site)}
-                    >
-                      {site.name}
+            {websites.map((site) => {
+              const isOwner = site.is_owner === undefined || site.is_owner === true || site.is_owner === 1;
+              return (
+                <Table.Tr key={site.id}>
+                  <Table.Td>
+                    <Group gap="xs" wrap="nowrap">
+                      <Text
+                        fw={600}
+                        style={{ cursor: 'pointer' }}
+                        c="indigo.3"
+                        onClick={() => onSelectWebsite(site)}
+                      >
+                        {site.name}
+                      </Text>
+                      <Badge
+                        size="xs"
+                        color={site.environment === 'production' ? 'red' : site.environment === 'staging' ? 'orange' : 'teal'}
+                        variant="light"
+                      >
+                        {(site.environment || 'production').toUpperCase()}
+                      </Badge>
+                      {!isOwner && (
+                        <Tooltip label={`Compartilhado por ${site.owner_name || site.owner_email || 'outro usuário'}`}>
+                          <Badge size="xs" color="violet" variant="outline" leftSection={<IconUsers size={11} />}>
+                            COMPARTILHADO
+                          </Badge>
+                        </Tooltip>
+                      )}
+                    </Group>
+                  </Table.Td>
+                  <Table.Td>
+                    <Text size="sm" c="blue" component="a" href={site.url} target="_blank" rel="noopener noreferrer">
+                      {site.url}
                     </Text>
-                    <Badge
-                      size="xs"
-                      color={site.environment === 'production' ? 'red' : site.environment === 'staging' ? 'orange' : 'teal'}
-                      variant="light"
-                    >
-                      {(site.environment || 'production').toUpperCase()}
-                    </Badge>
-                  </Group>
-                </Table.Td>
-                <Table.Td>
-                  <Text size="sm" c="blue" component="a" href={site.url} target="_blank" rel="noopener noreferrer">
-                    {site.url}
-                  </Text>
-                </Table.Td>
-                <Table.Td>
-                  {Number(site.is_connected) === 1 ? (
-                    <Badge color="green" variant="filled" leftSection={<IconPlugConnected size={12} />}>
-                      CONECTADO
-                    </Badge>
-                  ) : (
-                    <Badge color="gray" variant="light">
-                      PENDENTE
-                    </Badge>
-                  )}
-                </Table.Td>
-                <Table.Td style={{ textAlign: 'right' }}>
-                  <Group justify="flex-end" gap="xs" wrap="nowrap">
-                    <Button
-                      size="xs"
-                      color="indigo"
-                      leftSection={<IconLayoutDashboard size={14} />}
-                      onClick={() => onSelectWebsite(site)}
-                    >
-                      Acessar Painel
-                    </Button>
-                    <Tooltip label="Editar Configurações">
-                      <ActionIcon color="blue" variant="subtle" onClick={() => handleOpenEditModal(site)}>
-                        <IconPencil size={16} />
-                      </ActionIcon>
-                    </Tooltip>
-                    <Tooltip label="Excluir Website">
-                      <ActionIcon color="red" variant="subtle" onClick={() => handleDelete(site.id)}>
-                        <IconTrash size={16} />
-                      </ActionIcon>
-                    </Tooltip>
-                  </Group>
-                </Table.Td>
-              </Table.Tr>
-            ))}
+                  </Table.Td>
+                  <Table.Td>
+                    {Number(site.is_connected) === 1 ? (
+                      <Badge color="green" variant="filled" leftSection={<IconPlugConnected size={12} />}>
+                        CONECTADO
+                      </Badge>
+                    ) : (
+                      <Badge color="gray" variant="light">
+                        PENDENTE
+                      </Badge>
+                    )}
+                  </Table.Td>
+                  <Table.Td style={{ textAlign: 'right' }}>
+                    <Group justify="flex-end" gap="xs" wrap="nowrap">
+                      <Button
+                        size="xs"
+                        color="indigo"
+                        leftSection={<IconLayoutDashboard size={14} />}
+                        onClick={() => onSelectWebsite(site)}
+                      >
+                        Acessar Painel
+                      </Button>
+                      {isOwner ? (
+                        <>
+                          <Tooltip label="Editar Configurações">
+                            <ActionIcon color="blue" variant="subtle" onClick={() => handleOpenEditModal(site)}>
+                              <IconPencil size={16} />
+                            </ActionIcon>
+                          </Tooltip>
+                          <Tooltip label="Excluir Website">
+                            <ActionIcon color="red" variant="subtle" onClick={() => handleDelete(site)}>
+                              <IconTrash size={16} />
+                            </ActionIcon>
+                          </Tooltip>
+                        </>
+                      ) : (
+                        <Tooltip label="Sair do Monitoramento deste Website">
+                          <ActionIcon color="orange" variant="subtle" onClick={() => handleDelete(site)}>
+                            <IconDoorExit size={16} />
+                          </ActionIcon>
+                        </Tooltip>
+                      )}
+                    </Group>
+                  </Table.Td>
+                </Table.Tr>
+              );
+            })}
           </Table.Tbody>
         </Table>
       )}

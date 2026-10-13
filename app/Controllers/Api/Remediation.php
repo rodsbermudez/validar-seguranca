@@ -71,7 +71,7 @@ class Remediation extends ResourceController
             return $this->failNotFound('Website correspondente não encontrado.');
         }
 
-        if ($website['user_id'] != $effectiveUserId && !$isAdmin) {
+        if (!$websiteModel->canUserAccess((int)$scan['website_id'], $effectiveUserId, $isAdmin)) {
             return $this->failForbidden('Você não tem permissão para gerar plugins de remediação para este website.');
         }
 
@@ -242,7 +242,7 @@ class Remediation extends ResourceController
             return $this->failNotFound('Website correspondente não encontrado.');
         }
 
-        if ($website['user_id'] != $effectiveUserId && !$isAdmin) {
+        if (!$websiteModel->canUserAccess((int)$scan['website_id'], $effectiveUserId, $isAdmin)) {
             return $this->failForbidden('Você não tem permissão para visualizar o guia de remediação deste website.');
         }
 

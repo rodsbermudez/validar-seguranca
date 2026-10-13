@@ -279,3 +279,48 @@ export const getDiagnosticSummary = async (
   const response = await api.get<DiagnosticSummaryResponse>(`/websites/${websiteId}/diagnostic-summary`);
   return response.data;
 };
+
+export interface WebsiteShareMember {
+  id: number;
+  user_id: number;
+  name: string;
+  email: string;
+  role: string;
+  created_at: string;
+}
+
+export interface WebsiteSharesResponse {
+  status: number;
+  data: {
+    owner: {
+      id: number;
+      name: string;
+      email: string;
+    } | null;
+    shares: WebsiteShareMember[];
+    is_owner: boolean;
+  };
+}
+
+export const getWebsiteShares = async (websiteId: number | string): Promise<WebsiteSharesResponse> => {
+  const response = await api.get<WebsiteSharesResponse>(`/websites/${websiteId}/shares`);
+  return response.data;
+};
+
+export const addWebsiteShare = async (
+  websiteId: number | string,
+  email: string,
+  role: string = 'viewer'
+): Promise<{ status: number; message: string; data: WebsiteShareMember }> => {
+  const response = await api.post(`/websites/${websiteId}/shares`, { email, role });
+  return response.data;
+};
+
+export const removeWebsiteShare = async (
+  websiteId: number | string,
+  userId: number | string
+): Promise<{ status: number; message: string }> => {
+  const response = await api.delete(`/websites/${websiteId}/shares/${userId}`);
+  return response.data;
+};
+

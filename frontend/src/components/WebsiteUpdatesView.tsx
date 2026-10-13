@@ -66,7 +66,7 @@ interface UpdatesData {
 }
 
 interface WebsiteUpdatesViewProps {
-  website: { id: string; name: string; url: string };
+  website: { id: string | number; name: string; url: string };
   onBack?: () => void;
 }
 

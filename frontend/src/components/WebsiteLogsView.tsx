@@ -21,7 +21,6 @@ import {
   ThemeIcon,
 } from '@mantine/core';
 import {
-  IconArrowLeft,
   IconRefresh,
   IconTrash,
   IconSearch,
@@ -39,10 +38,10 @@ import { getWebsiteLogs, toggleWebsiteLogs, clearWebsiteLogs, LogEntry } from '.
 
 interface WebsiteLogsViewProps {
   website: { id: string | number; name: string; url: string; environment?: string };
-  onBack: () => void;
+  onBack?: () => void;
 }
 
-export const WebsiteLogsView: React.FC<WebsiteLogsViewProps> = ({ website, onBack }) => {
+export const WebsiteLogsView: React.FC<WebsiteLogsViewProps> = ({ website, onBack: _onBack }) => {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [logs, setLogs] = useState<LogEntry[]>([]);
@@ -167,26 +166,16 @@ export const WebsiteLogsView: React.FC<WebsiteLogsViewProps> = ({ website, onBac
       {/* Header Bar */}
       <Paper p="md" radius="md" withBorder bg="dark.8">
         <Group justify="space-between" align="center" wrap="wrap">
-          <Group gap="md">
-            <Button
-              variant="light"
-              color="gray"
-              leftSection={<IconArrowLeft size={16} />}
-              onClick={onBack}
-            >
-              Voltar aos Alvos
-            </Button>
-
-            <div>
-              <Group gap="xs">
-                <Title order={3}>Logs do WordPress em Tempo Real</Title>
-                <Badge
-                  color={website.environment === 'production' ? 'red' : website.environment === 'staging' ? 'orange' : 'teal'}
-                  variant="light"
-                >
-                  {(website.environment || 'production').toUpperCase()}
-                </Badge>
-              </Group>
+          <div>
+            <Group gap="xs">
+              <Title order={3}>Logs do WordPress em Tempo Real</Title>
+              <Badge
+                color={website.environment === 'production' ? 'red' : website.environment === 'staging' ? 'orange' : 'teal'}
+                variant="light"
+              >
+                {(website.environment || 'production').toUpperCase()}
+              </Badge>
+            </Group>
               <Text c="dimmed" size="sm">
                 Monitoramento remoto de erros PHP do site{' '}
                 <Text component="span" fw={600} c="indigo.3">
@@ -199,7 +188,6 @@ export const WebsiteLogsView: React.FC<WebsiteLogsViewProps> = ({ website, onBac
                 )
               </Text>
             </div>
-          </Group>
 
           <Badge
             size="lg"

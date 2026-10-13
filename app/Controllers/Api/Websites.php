@@ -14,18 +14,17 @@ class Websites extends ResourceController
 
     public function index()
     {
-        $effectiveUserId = $this->request->effectiveUserId ?? ($this->request->userData->id ?? null);
+        $effectiveUserId = (int) ($this->request->effectiveUserId ?? ($this->request->userData->id ?? 0));
 
         $websiteModel = new WebsiteModel();
-        $websites = $websiteModel
-            ->where('user_id', $effectiveUserId)
-            ->orderBy('created_at', 'DESC')
-            ->findAll();
+        $websites = $websiteModel->getUserWebsites($effectiveUserId);
 
         // Ensure agent_token exists for older records
         foreach ($websites as &$site) {
-            $site['id'] = (int)$site['id'];
-            $site['user_id'] = (int)$site['user_id'];
+            $site['id']           = (int)$site['id'];
+            $site['user_id']      = (int)$site['user_id'];
+            $site['is_owner']     = (bool)$site['is_owner'];
+            $site['shares_count'] = (int)($site['shares_count'] ?? 0);
             if (empty($site['agent_token'])) {
                 $token = bin2hex(random_bytes(16));
                 $websiteModel->update($site['id'], ['agent_token' => $token]);
@@ -89,7 +88,10 @@ class Websites extends ResourceController
             return $this->fail('ID do website não informado.', 400);
         }
 
-        $effectiveUserId = $this->request->effectiveUserId ?? ($this->request->userData->id ?? null);
+        $effectiveUserId = (int) ($this->request->effectiveUserId ?? ($this->request->userData->id ?? 0));
+        $userData        = $this->request->userData ?? null;
+        $isImpersonating = $this->request->isImpersonating ?? false;
+        $isAdmin         = (($userData->role ?? 'user') === 'admin') && !$isImpersonating;
 
         $websiteModel = new WebsiteModel();
         $website = $websiteModel->find($id);
@@ -98,8 +100,8 @@ class Websites extends ResourceController
             return $this->failNotFound('Website não encontrado.');
         }
 
-        if ($website['user_id'] != $effectiveUserId) {
-            return $this->failForbidden('Você não tem permissão para editar este website.');
+        if (!$websiteModel->canUserAccess((int)$id, $effectiveUserId, $isAdmin, true)) {
+            return $this->failForbidden('Apenas o proprietário ou administrador pode editar este website.');
         }
 
         $json = $this->request->getJSON(true) ?? $this->request->getRawInput();
@@ -142,7 +144,10 @@ class Websites extends ResourceController
             return $this->fail('ID do website não informado.', 400);
         }
 
-        $effectiveUserId = $this->request->effectiveUserId ?? ($this->request->userData->id ?? null);
+        $effectiveUserId = (int) ($this->request->effectiveUserId ?? ($this->request->userData->id ?? 0));
+        $userData        = $this->request->userData ?? null;
+        $isImpersonating = $this->request->isImpersonating ?? false;
+        $isAdmin         = (($userData->role ?? 'user') === 'admin') && !$isImpersonating;
 
         $websiteModel = new WebsiteModel();
         $website = $websiteModel->find($id);
@@ -151,8 +156,8 @@ class Websites extends ResourceController
             return $this->failNotFound('Website não encontrado.');
         }
 
-        if ($website['user_id'] != $effectiveUserId) {
-            return $this->failForbidden('Você não tem permissão para remover este website.');
+        if (!$websiteModel->canUserAccess((int)$id, $effectiveUserId, $isAdmin, true)) {
+            return $this->failForbidden('Apenas o proprietário ou administrador pode remover este website.');
         }
 
         $websiteModel->delete($id);
@@ -169,7 +174,10 @@ class Websites extends ResourceController
             return $this->fail('ID do website não informado.', 400);
         }
 
-        $effectiveUserId = $this->request->effectiveUserId ?? ($this->request->userData->id ?? null);
+        $effectiveUserId = (int) ($this->request->effectiveUserId ?? ($this->request->userData->id ?? 0));
+        $userData        = $this->request->userData ?? null;
+        $isImpersonating = $this->request->isImpersonating ?? false;
+        $isAdmin         = (($userData->role ?? 'user') === 'admin') && !$isImpersonating;
 
         $websiteModel = new WebsiteModel();
         $website = $websiteModel->find($id);
@@ -178,7 +186,7 @@ class Websites extends ResourceController
             return $this->failNotFound('Website não encontrado.');
         }
 
-        if ($website['user_id'] != $effectiveUserId) {
+        if (!$websiteModel->canUserAccess((int)$id, $effectiveUserId, $isAdmin, false)) {
             return $this->failForbidden('Você não tem permissão para baixar o plugin deste website.');
         }
 
@@ -438,7 +446,7 @@ class Websites extends ResourceController
             return $this->fail('ID do website não informado.', 400);
         }
 
-        $effectiveUserId = $this->request->effectiveUserId ?? ($this->request->userData->id ?? null);
+        $effectiveUserId = (int) ($this->request->effectiveUserId ?? ($this->request->userData->id ?? 0));
         $userData        = $this->request->userData ?? null;
         $isImpersonating = $this->request->isImpersonating ?? false;
         $isAdmin         = (($userData->role ?? 'user') === 'admin') && !$isImpersonating;
@@ -450,7 +458,7 @@ class Websites extends ResourceController
             return $this->failNotFound('Website não encontrado.');
         }
 
-        if ($website['user_id'] != $effectiveUserId && !$isAdmin) {
+        if (!$websiteModel->canUserAccess((int)$id, $effectiveUserId, $isAdmin)) {
             return $this->failForbidden('Você não tem permissão para acessar este website.');
         }
 
@@ -479,7 +487,7 @@ class Websites extends ResourceController
             return $this->fail('ID do website não informado.', 400);
         }
 
-        $effectiveUserId = $this->request->effectiveUserId ?? ($this->request->userData->id ?? null);
+        $effectiveUserId = (int) ($this->request->effectiveUserId ?? ($this->request->userData->id ?? 0));
         $userData        = $this->request->userData ?? null;
         $isImpersonating = $this->request->isImpersonating ?? false;
         $isAdmin         = (($userData->role ?? 'user') === 'admin') && !$isImpersonating;
@@ -491,7 +499,7 @@ class Websites extends ResourceController
             return $this->failNotFound('Website não encontrado.');
         }
 
-        if ($website['user_id'] != $effectiveUserId && !$isAdmin) {
+        if (!$websiteModel->canUserAccess((int)$id, $effectiveUserId, $isAdmin)) {
             return $this->failForbidden('Você não tem permissão para alterar este website.');
         }
 
@@ -514,7 +522,7 @@ class Websites extends ResourceController
             return $this->fail('ID do website não informado.', 400);
         }
 
-        $effectiveUserId = $this->request->effectiveUserId ?? ($this->request->userData->id ?? null);
+        $effectiveUserId = (int) ($this->request->effectiveUserId ?? ($this->request->userData->id ?? 0));
         $userData        = $this->request->userData ?? null;
         $isImpersonating = $this->request->isImpersonating ?? false;
         $isAdmin         = (($userData->role ?? 'user') === 'admin') && !$isImpersonating;
@@ -526,7 +534,7 @@ class Websites extends ResourceController
             return $this->failNotFound('Website não encontrado.');
         }
 
-        if ($website['user_id'] != $effectiveUserId && !$isAdmin) {
+        if (!$websiteModel->canUserAccess((int)$id, $effectiveUserId, $isAdmin)) {
             return $this->failForbidden('Você não tem permissão para alterar este website.');
         }
 
@@ -549,7 +557,7 @@ class Websites extends ResourceController
             return $this->fail('ID do website não informado.', 400);
         }
 
-        $effectiveUserId = $this->request->effectiveUserId ?? ($this->request->userData->id ?? null);
+        $effectiveUserId = (int) ($this->request->effectiveUserId ?? ($this->request->userData->id ?? 0));
         $userData        = $this->request->userData ?? null;
         $isImpersonating = $this->request->isImpersonating ?? false;
         $isAdmin         = (($userData->role ?? 'user') === 'admin') && !$isImpersonating;
@@ -561,7 +569,7 @@ class Websites extends ResourceController
             return $this->failNotFound('Website não encontrado.');
         }
 
-        if ($website['user_id'] != $effectiveUserId && !$isAdmin) {
+        if (!$websiteModel->canUserAccess((int)$id, $effectiveUserId, $isAdmin)) {
             return $this->failForbidden('Você não tem permissão para acessar este website.');
         }
 
@@ -591,7 +599,7 @@ class Websites extends ResourceController
             return $this->fail('Tipo de atualização não informado.', 400);
         }
 
-        $effectiveUserId = $this->request->effectiveUserId ?? ($this->request->userData->id ?? null);
+        $effectiveUserId = (int) ($this->request->effectiveUserId ?? ($this->request->userData->id ?? 0));
         $userData        = $this->request->userData ?? null;
         $isImpersonating = $this->request->isImpersonating ?? false;
         $isAdmin         = (($userData->role ?? 'user') === 'admin') && !$isImpersonating;
@@ -603,7 +611,7 @@ class Websites extends ResourceController
             return $this->failNotFound('Website não encontrado.');
         }
 
-        if ($website['user_id'] != $effectiveUserId && !$isAdmin) {
+        if (!$websiteModel->canUserAccess((int)$id, $effectiveUserId, $isAdmin)) {
             return $this->failForbidden('Você não tem permissão para alterar este website.');
         }
 
@@ -629,7 +637,7 @@ class Websites extends ResourceController
             return $this->fail('ID do website não informado.', 400);
         }
 
-        $effectiveUserId = $this->request->effectiveUserId ?? ($this->request->userData->id ?? null);
+        $effectiveUserId = (int) ($this->request->effectiveUserId ?? ($this->request->userData->id ?? 0));
         $userData        = $this->request->userData ?? null;
         $isImpersonating = $this->request->isImpersonating ?? false;
         $isAdmin         = (($userData->role ?? 'user') === 'admin') && !$isImpersonating;
@@ -641,7 +649,7 @@ class Websites extends ResourceController
             return $this->failNotFound('Website não encontrado.');
         }
 
-        if ($website['user_id'] != $effectiveUserId && !$isAdmin) {
+        if (!$websiteModel->canUserAccess((int)$id, $effectiveUserId, $isAdmin)) {
             return $this->failForbidden('Você não tem permissão para acessar este website.');
         }
 
@@ -664,7 +672,7 @@ class Websites extends ResourceController
             return $this->fail('ID do website não informado.', 400);
         }
 
-        $effectiveUserId = $this->request->effectiveUserId ?? ($this->request->userData->id ?? null);
+        $effectiveUserId = (int) ($this->request->effectiveUserId ?? ($this->request->userData->id ?? 0));
         $userData        = $this->request->userData ?? null;
         $isImpersonating = $this->request->isImpersonating ?? false;
         $isAdmin         = (($userData->role ?? 'user') === 'admin') && !$isImpersonating;
@@ -676,7 +684,7 @@ class Websites extends ResourceController
             return $this->failNotFound('Website não encontrado.');
         }
 
-        if ($website['user_id'] != $effectiveUserId && !$isAdmin) {
+        if (!$websiteModel->canUserAccess((int)$id, $effectiveUserId, $isAdmin)) {
             return $this->failForbidden('Você não tem permissão para executar ações neste website.');
         }
 
@@ -709,7 +717,7 @@ class Websites extends ResourceController
             return $this->fail('Caminho do arquivo não informado.', 400);
         }
 
-        $effectiveUserId = $this->request->effectiveUserId ?? ($this->request->userData->id ?? null);
+        $effectiveUserId = (int) ($this->request->effectiveUserId ?? ($this->request->userData->id ?? 0));
         $userData        = $this->request->userData ?? null;
         $isImpersonating = $this->request->isImpersonating ?? false;
         $isAdmin         = (($userData->role ?? 'user') === 'admin') && !$isImpersonating;
@@ -721,7 +729,7 @@ class Websites extends ResourceController
             return $this->failNotFound('Website não encontrado.');
         }
 
-        if ($website['user_id'] != $effectiveUserId && !$isAdmin) {
+        if (!$websiteModel->canUserAccess((int)$id, $effectiveUserId, $isAdmin)) {
             return $this->failForbidden('Você não tem permissão para alterar este website.');
         }
 
@@ -756,7 +764,7 @@ class Websites extends ResourceController
             return $this->fail('Caminho do arquivo não informado.', 400);
         }
 
-        $effectiveUserId = $this->request->effectiveUserId ?? ($this->request->userData->id ?? null);
+        $effectiveUserId = (int) ($this->request->effectiveUserId ?? ($this->request->userData->id ?? 0));
         $userData        = $this->request->userData ?? null;
         $isImpersonating = $this->request->isImpersonating ?? false;
         $isAdmin         = (($userData->role ?? 'user') === 'admin') && !$isImpersonating;
@@ -768,7 +776,7 @@ class Websites extends ResourceController
             return $this->failNotFound('Website não encontrado.');
         }
 
-        if ($website['user_id'] != $effectiveUserId && !$isAdmin) {
+        if (!$websiteModel->canUserAccess((int)$id, $effectiveUserId, $isAdmin)) {
             return $this->failForbidden('Você não tem permissão para alterar este website.');
         }
 
@@ -799,7 +807,7 @@ class Websites extends ResourceController
             return $this->fail('Caminho do arquivo não informado.', 400);
         }
 
-        $effectiveUserId = $this->request->effectiveUserId ?? ($this->request->userData->id ?? null);
+        $effectiveUserId = (int) ($this->request->effectiveUserId ?? ($this->request->userData->id ?? 0));
         $userData        = $this->request->userData ?? null;
         $isImpersonating = $this->request->isImpersonating ?? false;
         $isAdmin         = (($userData->role ?? 'user') === 'admin') && !$isImpersonating;
@@ -811,7 +819,7 @@ class Websites extends ResourceController
             return $this->failNotFound('Website não encontrado.');
         }
 
-        if ($website['user_id'] != $effectiveUserId && !$isAdmin) {
+        if (!$websiteModel->canUserAccess((int)$id, $effectiveUserId, $isAdmin)) {
             return $this->failForbidden('Você não tem permissão para alterar este website.');
         }
 
@@ -836,7 +844,7 @@ class Websites extends ResourceController
             return $this->fail('ID do website não informado.', 400);
         }
 
-        $effectiveUserId = $this->request->effectiveUserId ?? ($this->request->userData->id ?? null);
+        $effectiveUserId = (int) ($this->request->effectiveUserId ?? ($this->request->userData->id ?? 0));
         $userData        = $this->request->userData ?? null;
         $isImpersonating = $this->request->isImpersonating ?? false;
         $isAdmin         = (($userData->role ?? 'user') === 'admin') && !$isImpersonating;
@@ -848,7 +856,7 @@ class Websites extends ResourceController
             return $this->failNotFound('Website não encontrado.');
         }
 
-        if ($website['user_id'] != $effectiveUserId && !$isAdmin) {
+        if (!$websiteModel->canUserAccess((int)$id, $effectiveUserId, $isAdmin)) {
             return $this->failForbidden('Você não tem permissão para visualizar este website.');
         }
 
@@ -940,6 +948,171 @@ class Websites extends ResourceController
                 'integrity'   => $integrityData,
                 'updates'     => $updatesData,
             ],
+        ]);
+    }
+
+    public function shares($id = null)
+    {
+        if (!$id) {
+            return $this->fail('ID do website não informado.', 400);
+        }
+
+        $effectiveUserId = (int) ($this->request->effectiveUserId ?? ($this->request->userData->id ?? 0));
+        $userData        = $this->request->userData ?? null;
+        $isImpersonating = $this->request->isImpersonating ?? false;
+        $isAdmin         = (($userData->role ?? 'user') === 'admin') && !$isImpersonating;
+
+        $websiteModel = new WebsiteModel();
+        $website = $websiteModel->find($id);
+
+        if (!$website) {
+            return $this->failNotFound('Website não encontrado.');
+        }
+
+        if (!$websiteModel->canUserAccess((int)$id, $effectiveUserId, $isAdmin)) {
+            return $this->failForbidden('Você não tem permissão para visualizar este website.');
+        }
+
+        $userModel = new \App\Models\UserModel();
+        $owner = $userModel->find($website['user_id']);
+
+        $db = \Config\Database::connect();
+        $shares = $db->table('website_shares ws')
+            ->select('ws.id, ws.user_id, ws.role, ws.created_at, u.name, u.email')
+            ->join('users u', 'u.id = ws.user_id')
+            ->where('ws.website_id', (int)$id)
+            ->orderBy('ws.created_at', 'ASC')
+            ->get()
+            ->getResultArray();
+
+        return $this->respond([
+            'status' => 200,
+            'data'   => [
+                'website'  => [
+                    'id'   => (int)$website['id'],
+                    'name' => $website['name'],
+                    'url'  => $website['url'],
+                ],
+                'owner'    => [
+                    'id'    => (int)($owner['id'] ?? 0),
+                    'name'  => $owner['name'] ?? 'Usuário',
+                    'email' => $owner['email'] ?? '',
+                ],
+                'is_owner' => ((int)$website['user_id'] === $effectiveUserId) || $isAdmin,
+                'shares'   => $shares,
+            ]
+        ]);
+    }
+
+    public function addShare($id = null)
+    {
+        if (!$id) {
+            return $this->fail('ID do website não informado.', 400);
+        }
+
+        $effectiveUserId = (int) ($this->request->effectiveUserId ?? ($this->request->userData->id ?? 0));
+        $userData        = $this->request->userData ?? null;
+        $isImpersonating = $this->request->isImpersonating ?? false;
+        $isAdmin         = (($userData->role ?? 'user') === 'admin') && !$isImpersonating;
+
+        $websiteModel = new WebsiteModel();
+        $website = $websiteModel->find($id);
+
+        if (!$website) {
+            return $this->failNotFound('Website não encontrado.');
+        }
+
+        // Somente o dono do site ou Admin pode compartilhar
+        if (!$websiteModel->canUserAccess((int)$id, $effectiveUserId, $isAdmin, true)) {
+            return $this->failForbidden('Apenas o proprietário do website pode compartilhar o acesso.');
+        }
+
+        $json  = $this->request->getJSON(true) ?? $this->request->getPost();
+        $email = strtolower(trim($json['email'] ?? ''));
+        $role  = trim($json['role'] ?? 'viewer');
+
+        if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return $this->fail('Informe um e-mail válido para compartilhar.', 400);
+        }
+
+        $userModel = new \App\Models\UserModel();
+        $targetUser = $userModel->where('email', $email)->first();
+
+        if (!$targetUser) {
+            return $this->failNotFound('Nenhum usuário com o e-mail informado foi encontrado na plataforma.');
+        }
+
+        if ((int)$targetUser['id'] === (int)$website['user_id']) {
+            return $this->fail('Este usuário já é o proprietário do website.', 400);
+        }
+
+        $shareModel = new \App\Models\WebsiteShareModel();
+        $existing = $shareModel->where('website_id', (int)$id)
+                               ->where('user_id', (int)$targetUser['id'])
+                               ->first();
+
+        if ($existing) {
+            return $this->fail('Este website já está compartilhado com este usuário.', 400);
+        }
+
+        $shareModel->insert([
+            'website_id' => (int)$id,
+            'user_id'    => (int)$targetUser['id'],
+            'role'       => $role ?: 'viewer',
+        ]);
+
+        return $this->respondCreated([
+            'status'  => 201,
+            'message' => 'Website compartilhado com sucesso com ' . $targetUser['name'] . '.',
+            'data'    => [
+                'user_id' => (int)$targetUser['id'],
+                'name'    => $targetUser['name'],
+                'email'   => $targetUser['email'],
+                'role'    => $role ?: 'viewer',
+            ]
+        ]);
+    }
+
+    public function removeShare($id = null, $shareUserId = null)
+    {
+        if (!$id || !$shareUserId) {
+            return $this->fail('Parâmetros insuficientes para remover compartilhamento.', 400);
+        }
+
+        $effectiveUserId = (int) ($this->request->effectiveUserId ?? ($this->request->userData->id ?? 0));
+        $userData        = $this->request->userData ?? null;
+        $isImpersonating = $this->request->isImpersonating ?? false;
+        $isAdmin         = (($userData->role ?? 'user') === 'admin') && !$isImpersonating;
+
+        $websiteModel = new WebsiteModel();
+        $website = $websiteModel->find($id);
+
+        if (!$website) {
+            return $this->failNotFound('Website não encontrado.');
+        }
+
+        $isOwner = ((int)$website['user_id'] === $effectiveUserId) || $isAdmin;
+        $isSelf  = ((int)$shareUserId === $effectiveUserId);
+
+        // Somente o dono/admin pode remover qualquer membro, ou o próprio membro pode remover a si mesmo
+        if (!$isOwner && !$isSelf) {
+            return $this->failForbidden('Você não tem permissão para revogar este acesso.');
+        }
+
+        $shareModel = new \App\Models\WebsiteShareModel();
+        $share = $shareModel->where('website_id', (int)$id)
+                            ->where('user_id', (int)$shareUserId)
+                            ->first();
+
+        if (!$share) {
+            return $this->failNotFound('Compartilhamento não encontrado.');
+        }
+
+        $shareModel->delete($share['id']);
+
+        return $this->respond([
+            'status'  => 200,
+            'message' => $isSelf ? 'Você saiu do monitoramento deste website.' : 'Acesso revogado com sucesso.',
         ]);
     }
 }

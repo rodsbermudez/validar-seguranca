@@ -38,6 +38,9 @@ $routes->group('api', function ($routes) {
         $routes->post('websites/(:num)/integrity/delete-file', 'Api\Websites::deleteIntegrityFile/$1');
         $routes->post('websites/(:num)/integrity/restore-file', 'Api\Websites::restoreIntegrityFile/$1');
         $routes->get('websites/(:num)/diagnostic-summary', 'Api\Websites::diagnosticSummary/$1');
+        $routes->get('websites/(:num)/shares', 'Api\Websites::shares/$1');
+        $routes->post('websites/(:num)/shares', 'Api\Websites::addShare/$1');
+        $routes->delete('websites/(:num)/shares/(:num)', 'Api\Websites::removeShare/$1/$2');
 
         // Scan routes
         $routes->post('scan/trigger/(:num)', 'Api\Scan::trigger/$1');

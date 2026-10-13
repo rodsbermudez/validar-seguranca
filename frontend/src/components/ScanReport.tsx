@@ -22,7 +22,6 @@ import {
   Box,
 } from '@mantine/core';
 import {
-  IconArrowLeft,
   IconCheck,
   IconX,
   IconAlertTriangle,
@@ -43,11 +42,11 @@ import {
 import { api } from '../api';
 
 interface ScanReportProps {
-  website: { id: string; name: string; url: string };
-  onBack: () => void;
+  website: { id: string | number; name: string; url: string };
+  onBack?: () => void;
 }
 
-export const ScanReport: React.FC<ScanReportProps> = ({ website, onBack }) => {
+export const ScanReport: React.FC<ScanReportProps> = ({ website, onBack: _onBack }) => {
   const [scanResult, setScanResult] = useState<any | null>(null);
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -626,24 +625,19 @@ export const ScanReport: React.FC<ScanReportProps> = ({ website, onBack }) => {
     <Paper p="md" radius="md" withBorder bg="dark.8">
       {/* Header */}
       <Group justify="space-between" mb="lg">
-        <Group>
-          <Button variant="subtle" leftSection={<IconArrowLeft size={16} />} onClick={onBack}>
-            Voltar
-          </Button>
-          <div>
-            <Group gap="xs">
-              <Title order={3}>{website.name}</Title>
-              {scanResult?.is_hybrid && (
-                <Badge color="teal" variant="filled" leftSection={<IconPlugConnected size={12} />}>
-                  AUDITORIA HÍBRIDA (AGENTE ATIVO)
-                </Badge>
-              )}
-            </Group>
-            <Text c="dimmed" size="xs">
-              {website.url}
-            </Text>
-          </div>
-        </Group>
+        <div>
+          <Group gap="xs">
+            <Title order={3}>{website.name}</Title>
+            {scanResult?.is_hybrid && (
+              <Badge color="teal" variant="filled" leftSection={<IconPlugConnected size={12} />}>
+                AUDITORIA HÍBRIDA (AGENTE ATIVO)
+              </Badge>
+            )}
+          </Group>
+          <Text c="dimmed" size="xs">
+            {website.url}
+          </Text>
+        </div>
 
         <Group gap="xs">
           <Button

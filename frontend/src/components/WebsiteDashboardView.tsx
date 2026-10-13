@@ -19,6 +19,10 @@ import {
   RingProgress,
   Loader,
   Center,
+  Table,
+  Modal,
+  ActionIcon,
+  Tooltip,
 } from '@mantine/core';
 import {
   IconArrowLeft,
@@ -38,8 +42,13 @@ import {
   IconLayoutDashboard,
   IconDatabase,
   IconFileText,
+  IconUsers,
+  IconUserPlus,
+  IconUserX,
+  IconDoorExit,
+  IconMail,
 } from '@tabler/icons-react';
-import { api } from '../api';
+import { api, getWebsiteShares, addWebsiteShare, removeWebsiteShare, WebsiteShareMember } from '../api';
 import { ScanReport } from './ScanReport';
 import { WebsiteLogsView } from './WebsiteLogsView';
 import { WebsiteUpdatesView } from './WebsiteUpdatesView';
@@ -47,20 +56,25 @@ import { WebsiteIntegrityView } from './WebsiteIntegrityView';
 import { WebsiteDiagnosticReportView } from './WebsiteDiagnosticReportView';
 
 interface Website {
-  id: string;
+  id: string | number;
   name: string;
   url: string;
   environment: string;
   is_connected?: number | boolean;
   agent_token?: string;
   created_at: string;
+  is_owner?: boolean | number;
+  owner_name?: string;
+  owner_email?: string;
+  user_role?: string;
+  shares_count?: number;
 }
 
 interface WebsiteDashboardViewProps {
   website: Website;
   onBack: () => void;
   onUpdateWebsite?: (updatedSite: Website) => void;
-  onDeleteWebsite?: (siteId: string) => void;
+  onDeleteWebsite?: (siteId: string | number) => void;
 }
 
 export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
@@ -187,6 +201,99 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
     }
   };
 
+  // Sharing & Members State
+  const [shares, setShares] = useState<WebsiteShareMember[]>([]);
+  const [ownerInfo, setOwnerInfo] = useState<{ id: number; name: string; email: string } | null>(
+    website.owner_name ? { id: 0, name: website.owner_name, email: website.owner_email || '' } : null
+  );
+  const [isSiteOwner, setIsSiteOwner] = useState<boolean>(
+    website.is_owner === undefined || website.is_owner === true || website.is_owner === 1
+  );
+  const [sharesLoading, setSharesLoading] = useState(false);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState('viewer');
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
+
+  const fetchShares = useCallback(async () => {
+    setSharesLoading(true);
+    try {
+      const res = await getWebsiteShares(website.id);
+      if (res && res.data) {
+        setShares(res.data.shares || []);
+        setOwnerInfo(res.data.owner || null);
+        if (typeof res.data.is_owner === 'boolean') {
+          setIsSiteOwner(res.data.is_owner);
+        }
+      }
+    } catch (e) {
+      console.error('Erro ao buscar compartilhamentos:', e);
+    } finally {
+      setSharesLoading(false);
+    }
+  }, [website.id]);
+
+  useEffect(() => {
+    fetchShares();
+  }, [fetchShares]);
+
+  const handleInviteSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inviteEmail.trim()) return;
+    setInviteLoading(true);
+    setInviteError(null);
+    setInviteSuccess(null);
+    try {
+      const res = await addWebsiteShare(website.id, inviteEmail.trim(), inviteRole);
+      setInviteSuccess(res.message || 'Usuário adicionado com sucesso!');
+      setInviteEmail('');
+      fetchShares();
+      setTimeout(() => {
+        setShareModalOpen(false);
+        setInviteSuccess(null);
+      }, 1500);
+    } catch (err: any) {
+      setInviteError(
+        err.response?.data?.messages?.error ||
+        err.response?.data?.message ||
+        err.response?.data?.error ||
+        'Erro ao compartilhar website.'
+      );
+    } finally {
+      setInviteLoading(false);
+    }
+  };
+
+  const handleRemoveShare = async (userId: number, memberName: string) => {
+    if (!confirm(`Deseja revogar o acesso de "${memberName}" a este website?`)) {
+      return;
+    }
+    try {
+      await removeWebsiteShare(website.id, userId);
+      fetchShares();
+    } catch (err: any) {
+      alert(err.response?.data?.messages?.error || err.response?.data?.message || 'Erro ao revogar acesso.');
+    }
+  };
+
+  const handleLeaveWebsite = async () => {
+    if (!confirm('Deseja realmente sair do monitoramento deste website? Você perderá o acesso até ser convidado novamente.')) {
+      return;
+    }
+    try {
+      const userJson = localStorage.getItem('user');
+      const currentUser = userJson ? JSON.parse(userJson) : null;
+      if (currentUser?.id) {
+        await removeWebsiteShare(website.id, currentUser.id);
+        onBack();
+      }
+    } catch (err: any) {
+      alert(err.response?.data?.messages?.error || err.response?.data?.message || 'Erro ao sair do website.');
+    }
+  };
+
   if (viewingDiagnostic) {
     return (
       <WebsiteDiagnosticReportView
@@ -226,6 +333,11 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
                 >
                   {(website.environment || 'production').toUpperCase()}
                 </Badge>
+                {!isSiteOwner && (
+                  <Badge color="violet" variant="outline" size="sm" leftSection={<IconUsers size={12} />}>
+                    COMPARTILHADO
+                  </Badge>
+                )}
               </Group>
               <Text
                 size="sm"
@@ -740,71 +852,294 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
 
         {/* Tab 5: Settings */}
         <Tabs.Panel value="settings" pt="md">
-          <Paper p="lg" radius="md" withBorder bg="dark.7">
-            <Title order={4} mb="md">
-              Configurações do Website
-            </Title>
+          <Stack gap="lg">
+            {/* Bloco 1: Configurações Gerais do Website */}
+            <Paper p="lg" radius="md" withBorder bg="dark.7">
+              <Group justify="space-between" mb="md" align="flex-start">
+                <div>
+                  <Title order={4}>Configurações do Website</Title>
+                  <Text size="sm" c="dimmed">
+                    {isSiteOwner
+                      ? 'Edite as informações básicas e o ambiente de execução do site.'
+                      : 'Informações cadastrais deste website alvo.'}
+                  </Text>
+                </div>
+                {!isSiteOwner && (
+                  <Badge color="violet" variant="outline" leftSection={<IconUsers size={12} />}>
+                    Membro Convidado
+                  </Badge>
+                )}
+              </Group>
 
-            {formError && (
-              <Alert icon={<IconAlertCircle size={16} />} color="red" mb="md" onClose={() => setFormError(null)} withCloseButton>
-                {formError}
-              </Alert>
-            )}
+              {formError && (
+                <Alert icon={<IconAlertCircle size={16} />} color="red" mb="md" onClose={() => setFormError(null)} withCloseButton>
+                  {formError}
+                </Alert>
+              )}
 
-            {formSuccess && (
-              <Alert icon={<IconCheck size={16} />} color="green" mb="md" onClose={() => setFormSuccess(null)} withCloseButton>
-                {formSuccess}
-              </Alert>
-            )}
+              {formSuccess && (
+                <Alert icon={<IconCheck size={16} />} color="green" mb="md" onClose={() => setFormSuccess(null)} withCloseButton>
+                  {formSuccess}
+                </Alert>
+              )}
 
-            <form onSubmit={handleSaveSettings}>
-              <Stack gap="md" style={{ maxWidth: 600 }}>
-                <TextInput
-                  label="Nome do Site"
-                  placeholder="Ex: Blog Principal"
-                  required
-                  value={name}
-                  onChange={(e) => setName(e.currentTarget.value)}
-                />
-                <TextInput
-                  label="URL do WordPress"
-                  placeholder="http://localhost/wordpress"
-                  required
-                  value={url}
-                  onChange={(e) => setUrl(e.currentTarget.value)}
-                />
-                <Select
-                  label="Ambiente"
-                  data={[
-                    { value: 'production', label: 'Produção' },
-                    { value: 'staging', label: 'Staging / Homologação' },
-                    { value: 'local', label: 'Desenvolvimento Local' },
-                  ]}
-                  value={environment}
-                  onChange={(val) => setEnvironment(val || 'production')}
-                />
-                <Group justify="flex-start" mt="xs">
-                  <Button type="submit" color="indigo" loading={formLoading}>
-                    Salvar Alterações
+              <form onSubmit={handleSaveSettings}>
+                <Stack gap="md" style={{ maxWidth: 600 }}>
+                  <TextInput
+                    label="Nome do Site"
+                    placeholder="Ex: Blog Principal"
+                    required
+                    disabled={!isSiteOwner}
+                    value={name}
+                    onChange={(e) => setName(e.currentTarget.value)}
+                  />
+                  <TextInput
+                    label="URL do WordPress"
+                    placeholder="http://localhost/wordpress"
+                    required
+                    disabled={!isSiteOwner}
+                    value={url}
+                    onChange={(e) => setUrl(e.currentTarget.value)}
+                  />
+                  <Select
+                    label="Ambiente"
+                    disabled={!isSiteOwner}
+                    data={[
+                      { value: 'production', label: 'Produção' },
+                      { value: 'staging', label: 'Staging / Homologação' },
+                      { value: 'local', label: 'Desenvolvimento Local' },
+                    ]}
+                    value={environment}
+                    onChange={(val) => setEnvironment(val || 'production')}
+                  />
+                  {isSiteOwner && (
+                    <Group justify="flex-start" mt="xs">
+                      <Button type="submit" color="indigo" loading={formLoading}>
+                        Salvar Alterações
+                      </Button>
+                    </Group>
+                  )}
+                </Stack>
+              </form>
+            </Paper>
+
+            {/* Bloco 2: Gestão de Compartilhamento & Acessos */}
+            <Paper p="lg" radius="md" withBorder bg="dark.7">
+              <Group justify="space-between" mb="md" align="flex-start">
+                <div>
+                  <Group gap="xs" align="center">
+                    <ThemeIcon color="violet" variant="light" radius="md">
+                      <IconUsers size={18} />
+                    </ThemeIcon>
+                    <Title order={4}>Compartilhamento & Membros com Acesso</Title>
+                  </Group>
+                  <Text size="sm" c="dimmed" mt={4}>
+                    Compartilhe este website com outros usuários cadastrados na plataforma para monitorarem auditorias, logs e integridade juntos.
+                  </Text>
+                </div>
+
+                {isSiteOwner && (
+                  <Button
+                    color="violet"
+                    size="xs"
+                    leftSection={<IconUserPlus size={15} />}
+                    onClick={() => {
+                      setInviteEmail('');
+                      setInviteError(null);
+                      setInviteSuccess(null);
+                      setShareModalOpen(true);
+                    }}
+                  >
+                    Convidar Usuário
                   </Button>
-                </Group>
-              </Stack>
-            </form>
+                )}
+              </Group>
 
-            <Box mt="xl" pt="md" style={{ borderTop: '1px solid rgba(255, 255, 255, 0.1)' }}>
+              {sharesLoading ? (
+                <Center p="md">
+                  <Loader size="sm" color="violet" />
+                </Center>
+              ) : (
+                <Table verticalSpacing="sm" withTableBorder={false} highlightOnHover>
+                  <Table.Thead>
+                    <Table.Tr>
+                      <Table.Th>Usuário</Table.Th>
+                      <Table.Th>E-mail</Table.Th>
+                      <Table.Th>Papel</Table.Th>
+                      <Table.Th>Adicionado em</Table.Th>
+                      <Table.Th style={{ textAlign: 'right' }}>Ações</Table.Th>
+                    </Table.Tr>
+                  </Table.Thead>
+                  <Table.Tbody>
+                    {/* Linha do Proprietário */}
+                    {ownerInfo && (
+                      <Table.Tr>
+                        <Table.Td>
+                          <Group gap="xs">
+                            <Text fw={600} size="sm">{ownerInfo.name}</Text>
+                          </Group>
+                        </Table.Td>
+                        <Table.Td>
+                          <Text size="sm" c="dimmed">{ownerInfo.email}</Text>
+                        </Table.Td>
+                        <Table.Td>
+                          <Badge color="blue" variant="filled" size="sm">
+                            PROPRIETÁRIO
+                          </Badge>
+                        </Table.Td>
+                        <Table.Td>
+                          <Text size="xs" c="dimmed">Criação do site</Text>
+                        </Table.Td>
+                        <Table.Td style={{ textAlign: 'right' }}>
+                          <Text size="xs" c="dimmed">—</Text>
+                        </Table.Td>
+                      </Table.Tr>
+                    )}
+
+                    {/* Linhas de Membros Compartilhados */}
+                    {shares.map((member) => (
+                      <Table.Tr key={member.id}>
+                        <Table.Td>
+                          <Text fw={500} size="sm">{member.name}</Text>
+                        </Table.Td>
+                        <Table.Td>
+                          <Text size="sm" c="dimmed">{member.email}</Text>
+                        </Table.Td>
+                        <Table.Td>
+                          <Badge color="violet" variant="light" size="sm">
+                            {member.role === 'admin' ? 'ADMINISTRADOR' : 'MONITOR / AUDITOR'}
+                          </Badge>
+                        </Table.Td>
+                        <Table.Td>
+                          <Text size="xs" c="dimmed">
+                            {member.created_at ? new Date(member.created_at).toLocaleDateString('pt-BR') : '—'}
+                          </Text>
+                        </Table.Td>
+                        <Table.Td style={{ textAlign: 'right' }}>
+                          {isSiteOwner ? (
+                            <Tooltip label="Revogar acesso deste usuário">
+                              <ActionIcon
+                                color="red"
+                                variant="subtle"
+                                onClick={() => handleRemoveShare(member.user_id, member.name)}
+                              >
+                                <IconUserX size={16} />
+                              </ActionIcon>
+                            </Tooltip>
+                          ) : (
+                            <Text size="xs" c="dimmed">—</Text>
+                          )}
+                        </Table.Td>
+                      </Table.Tr>
+                    ))}
+
+                    {shares.length === 0 && (
+                      <Table.Tr>
+                        <Table.Td colSpan={5}>
+                          <Text size="sm" c="dimmed" ta="center" py="xs">
+                            Nenhum outro usuário possui acesso compartilhado a este website.
+                          </Text>
+                        </Table.Td>
+                      </Table.Tr>
+                    )}
+                  </Table.Tbody>
+                </Table>
+              )}
+            </Paper>
+
+            {/* Bloco 3: Zona de Perigo / Ações Críticas */}
+            <Paper p="lg" radius="md" withBorder bg="dark.7">
               <Title order={5} c="red" mb="xs">
-                Zona de Perigo
+                {isSiteOwner ? 'Zona de Perigo' : 'Ações de Acesso'}
               </Title>
-              <Text size="xs" c="dimmed" mb="md">
-                A exclusão do website removerá o cadastro no SaaS e todo o histórico de auditorias associadas a ele.
-              </Text>
-              <Button color="red" variant="light" leftSection={<IconTrash size={16} />} onClick={handleDelete}>
-                Excluir Website Alvo
-              </Button>
-            </Box>
-          </Paper>
+              {isSiteOwner ? (
+                <>
+                  <Text size="xs" c="dimmed" mb="md">
+                    A exclusão do website removerá o cadastro no SaaS e todo o histórico de auditorias associadas a ele.
+                  </Text>
+                  <Button color="red" variant="light" leftSection={<IconTrash size={16} />} onClick={handleDelete}>
+                    Excluir Website Alvo
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Text size="xs" c="dimmed" mb="md">
+                    Você pode remover seu próprio acesso a este website compartilhado a qualquer momento.
+                  </Text>
+                  <Button
+                    color="orange"
+                    variant="light"
+                    leftSection={<IconDoorExit size={16} />}
+                    onClick={handleLeaveWebsite}
+                  >
+                    Sair do Monitoramento deste Website
+                  </Button>
+                </>
+              )}
+            </Paper>
+          </Stack>
         </Tabs.Panel>
       </Tabs>
+
+      {/* Modal de Convidar Usuário / Compartilhar Website */}
+      <Modal
+        opened={shareModalOpen}
+        onClose={() => setShareModalOpen(false)}
+        title={
+          <Group gap="xs">
+            <IconUsers size={20} color="#7950f2" />
+            <Text fw={600}>Compartilhar Website</Text>
+          </Group>
+        }
+        centered
+      >
+        <form onSubmit={handleInviteSubmit}>
+          <Text size="sm" c="dimmed" mb="md">
+            Informe o e-mail do usuário cadastrado na plataforma para conceder acesso de monitoramento a este site.
+          </Text>
+
+          {inviteError && (
+            <Alert icon={<IconAlertCircle size={16} />} color="red" mb="md" onClose={() => setInviteError(null)} withCloseButton>
+              {inviteError}
+            </Alert>
+          )}
+
+          {inviteSuccess && (
+            <Alert icon={<IconCheck size={16} />} color="green" mb="md">
+              {inviteSuccess}
+            </Alert>
+          )}
+
+          <TextInput
+            label="E-mail do Usuário"
+            placeholder="usuario@email.com"
+            leftSection={<IconMail size={16} />}
+            required
+            value={inviteEmail}
+            onChange={(e) => setInviteEmail(e.currentTarget.value)}
+            mb="md"
+          />
+
+          <Select
+            label="Nível de Permissão"
+            value={inviteRole}
+            onChange={(val) => setInviteRole(val || 'viewer')}
+            data={[
+              { value: 'viewer', label: 'Monitor / Auditor (Visualizar auditorias, logs e integridade)' },
+            ]}
+            mb="lg"
+          />
+
+          <Group justify="flex-end" gap="sm">
+            <Button variant="default" onClick={() => setShareModalOpen(false)}>
+              Cancelar
+            </Button>
+            <Button type="submit" color="violet" loading={inviteLoading} leftSection={<IconUserPlus size={16} />}>
+              Adicionar Membro
+            </Button>
+          </Group>
+        </form>
+      </Modal>
     </Stack>
   );
 };
