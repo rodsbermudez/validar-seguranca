@@ -20,8 +20,11 @@ import {
   IconBook,
   IconHelpCircle,
   IconSettings,
+  IconLayoutDashboard,
+  IconChevronDown,
 } from '@tabler/icons-react';
 import { LoginView } from './components/LoginView';
+import { OverviewDashboardView } from './components/OverviewDashboardView';
 import { WebsitesList } from './components/WebsitesList';
 import { UsersList } from './components/UsersList';
 import { SolutionCatalogView } from './components/SolutionCatalogView';
@@ -33,7 +36,8 @@ export default function App() {
   const [user, setUser] = useState<any | null>(null);
   const [impersonatedUser, setImpersonatedUser] = useState<any | null>(null);
   const [selectedWebsite, setSelectedWebsite] = useState<any | null>(null);
-  const [viewMode, setViewMode] = useState<'list' | 'dashboard' | 'report' | 'users' | 'solutions' | 'logs' | 'settings'>('list');
+  const [dashboardTab, setDashboardTab] = useState<string>('overview');
+  const [viewMode, setViewMode] = useState<'overview' | 'list' | 'dashboard' | 'report' | 'users' | 'solutions' | 'logs' | 'settings'>('overview');
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
@@ -136,7 +140,7 @@ export default function App() {
 
         <Container size="xl" h={60}>
           <Group justify="space-between" h="100%">
-            <Group gap="sm" style={{ cursor: 'pointer' }} onClick={() => setViewMode('list')}>
+            <Group gap="sm" style={{ cursor: 'pointer' }} onClick={() => { setSelectedWebsite(null); setViewMode('overview'); }}>
               <img
                 src="images/logo-Patropi.png"
                 onError={(e) => {
@@ -154,45 +158,78 @@ export default function App() {
               />
             </Group>
 
-            <Group gap="md">
+            <Group gap="sm" wrap="nowrap">
               <Button
-                variant={viewMode === 'list' || viewMode === 'report' ? 'light' : 'subtle'}
+                variant={viewMode === 'overview' ? 'light' : 'subtle'}
+                color="patropi"
+                leftSection={<IconLayoutDashboard size={16} />}
+                onClick={() => {
+                  setSelectedWebsite(null);
+                  setViewMode('overview');
+                }}
+              >
+                Dashboard
+              </Button>
+
+              <Button
+                variant={viewMode === 'list' || (viewMode === 'dashboard' && !selectedWebsite) ? 'light' : 'subtle'}
                 color="patropi"
                 leftSection={<IconWorld size={16} />}
-                onClick={() => setViewMode('list')}
+                onClick={() => {
+                  setSelectedWebsite(null);
+                  setViewMode('list');
+                }}
               >
-                Websites Alvo
+                Websites
               </Button>
 
               {isAdmin && !impersonatedUser && (
-                <>
-                  <Button
-                    variant={viewMode === 'solutions' ? 'light' : 'subtle'}
-                    color="pink"
-                    leftSection={<IconBook size={16} />}
-                    onClick={() => setViewMode('solutions')}
-                  >
-                    Catálogo de Soluções
-                  </Button>
+                <Menu shadow="md" width={220} position="bottom-start">
+                  <Menu.Target>
+                    <Button
+                      variant={
+                        viewMode === 'settings' || viewMode === 'users' || viewMode === 'solutions'
+                          ? 'light'
+                          : 'subtle'
+                      }
+                      color="indigo"
+                      leftSection={<IconSettings size={16} />}
+                      rightSection={<IconChevronDown size={14} />}
+                    >
+                      Configurações
+                    </Button>
+                  </Menu.Target>
 
-                  <Button
-                    variant={viewMode === 'users' ? 'light' : 'subtle'}
-                    color="teal"
-                    leftSection={<IconUsers size={16} />}
-                    onClick={() => setViewMode('users')}
-                  >
-                    Gerenciar Usuários
-                  </Button>
-
-                  <Button
-                    variant={viewMode === 'settings' ? 'light' : 'subtle'}
-                    color="indigo"
-                    leftSection={<IconSettings size={16} />}
-                    onClick={() => setViewMode('settings')}
-                  >
-                    Configurações
-                  </Button>
-                </>
+                  <Menu.Dropdown>
+                    <Menu.Item
+                      leftSection={<IconSettings size={16} color="var(--mantine-color-indigo-6)" />}
+                      onClick={() => {
+                        setSelectedWebsite(null);
+                        setViewMode('settings');
+                      }}
+                    >
+                      Gerais
+                    </Menu.Item>
+                    <Menu.Item
+                      leftSection={<IconUsers size={16} color="var(--mantine-color-teal-6)" />}
+                      onClick={() => {
+                        setSelectedWebsite(null);
+                        setViewMode('users');
+                      }}
+                    >
+                      Usuários
+                    </Menu.Item>
+                    <Menu.Item
+                      leftSection={<IconBook size={16} color="var(--mantine-color-pink-6)" />}
+                      onClick={() => {
+                        setSelectedWebsite(null);
+                        setViewMode('solutions');
+                      }}
+                    >
+                      Catálogo de Soluções
+                    </Menu.Item>
+                  </Menu.Dropdown>
+                </Menu>
               )}
 
               <Button
@@ -256,17 +293,31 @@ export default function App() {
           ) : (viewMode === 'dashboard' || viewMode === 'report' || viewMode === 'logs') && selectedWebsite ? (
             <WebsiteDashboardView
               website={selectedWebsite}
+              initialTab={dashboardTab}
               onBack={() => {
                 setSelectedWebsite(null);
                 setViewMode('list');
               }}
               onUpdateWebsite={(updated) => setSelectedWebsite(updated)}
             />
-          ) : (
+          ) : viewMode === 'list' ? (
             <WebsitesList
               onSelectWebsite={(site) => {
                 setSelectedWebsite(site);
+                setDashboardTab('overview');
                 setViewMode('dashboard');
+              }}
+            />
+          ) : (
+            <OverviewDashboardView
+              onSelectWebsite={(site, initialTab = 'overview') => {
+                setSelectedWebsite(site);
+                setDashboardTab(initialTab);
+                setViewMode('dashboard');
+              }}
+              onNavigateToWebsites={() => {
+                setSelectedWebsite(null);
+                setViewMode('list');
               }}
             />
           )}

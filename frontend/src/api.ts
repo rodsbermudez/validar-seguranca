@@ -324,3 +324,193 @@ export const removeWebsiteShare = async (
   return response.data;
 };
 
+// Maintenance Cycle & Dashboard Types
+export interface Website {
+  id: string | number;
+  name: string;
+  url: string;
+  environment: string;
+  is_connected?: number | boolean;
+  agent_token?: string;
+  maintenance_day?: number | null;
+  created_at: string;
+  is_owner?: boolean | number;
+  owner_name?: string;
+  owner_email?: string;
+  user_role?: string;
+  shares_count?: number;
+  latest_score?: number | null;
+  latest_grade?: string | null;
+  latest_scanned_at?: string | null;
+  maintenance?: MaintenanceStatus;
+}
+
+export interface MaintenanceStatus {
+  status: 'completed' | 'overdue' | 'today' | 'upcoming' | 'not_scheduled';
+  label: string;
+  badge_color: 'green' | 'red' | 'yellow' | 'blue' | 'gray';
+  completed_at?: string | null;
+  completed_by?: string | null;
+  notes?: string | null;
+  target_day?: number | null;
+  target_date?: string | null;
+  year_month?: string;
+}
+
+export interface MaintenanceHistoryItem {
+  id: number;
+  website_id: number;
+  user_id: number;
+  year_month: string;
+  completed_at: string;
+  notes?: string | null;
+  user_name?: string | null;
+  user_email?: string | null;
+  created_at?: string;
+}
+
+export interface DashboardMetrics {
+  total_websites: number;
+  connected_websites: number;
+  pending_websites: number;
+  average_score: number | null;
+  total_scheduled: number;
+  completed_count: number;
+  overdue_count: number;
+  today_count: number;
+  upcoming_count: number;
+  not_scheduled_count: number;
+  progress_percent: number;
+  urgent_tasks_count: number;
+}
+
+export interface DashboardMaintenanceTask {
+  website_id: number;
+  website_name: string;
+  website_url: string;
+  environment: string;
+  is_owner: boolean;
+  owner_name?: string;
+  maintenance_day: number | null;
+  status: 'completed' | 'overdue' | 'today' | 'upcoming' | 'not_scheduled';
+  label: string;
+  badge_color: string;
+  target_day: number | null;
+  target_date?: string | null;
+  completed_at?: string | null;
+  completed_by?: string | null;
+  notes?: string | null;
+  latest_score?: number | null;
+  latest_grade?: string | null;
+}
+
+export interface DashboardSecurityRadarItem {
+  website_id: number;
+  website_name: string;
+  website_url: string;
+  environment: string;
+  is_connected: boolean;
+  latest_score: number | null;
+  latest_grade: string | null;
+  latest_scanned_at: string | null;
+  days_since_scan?: number | null;
+  is_outdated: boolean;
+  is_critical: boolean;
+  needs_scan: boolean;
+}
+
+export interface DashboardIntegrityRadarItem {
+  website_id: number;
+  website_name: string;
+  website_url: string;
+  environment: string;
+  is_connected: boolean;
+  issues_count?: number | null;
+  is_secure?: boolean | number | null;
+  last_scanned_at?: string | null;
+  days_since_scan?: number | null;
+  is_outdated: boolean;
+  needs_scan: boolean;
+}
+
+export interface DashboardRecentScanItem {
+  id: number;
+  website_id: number;
+  website_name: string;
+  website_url: string;
+  status: string;
+  score: number | null;
+  grade?: string | null;
+  executed_at: string;
+}
+
+export interface DashboardOverviewResponse {
+  status: number;
+  data: {
+    year_month: string;
+    year_month_label: string;
+    metrics: DashboardMetrics;
+    maintenances: DashboardMaintenanceTask[];
+    security_radar: DashboardSecurityRadarItem[];
+    integrity_radar: DashboardIntegrityRadarItem[];
+    recent_scans?: DashboardRecentScanItem[];
+  };
+}
+
+export const getDashboardOverview = async (yearMonth?: string): Promise<DashboardOverviewResponse> => {
+  const response = await api.get<DashboardOverviewResponse>('/dashboard/overview', {
+    params: yearMonth ? { year_month: yearMonth } : undefined,
+  });
+  return response.data;
+};
+
+export const completeWebsiteMaintenance = async (
+  websiteId: number | string,
+  yearMonth?: string,
+  notes?: string
+): Promise<{ status: number; message: string; data: { record: any; status: MaintenanceStatus } }> => {
+  const response = await api.post(`/websites/${websiteId}/maintenance/complete`, {
+    year_month: yearMonth,
+    notes,
+  });
+  return response.data;
+};
+
+export const uncompleteWebsiteMaintenance = async (
+  websiteId: number | string,
+  yearMonth?: string
+): Promise<{ status: number; message: string; data: { status: MaintenanceStatus } }> => {
+  const response = await api.delete(`/websites/${websiteId}/maintenance/complete`, {
+    params: yearMonth ? { year_month: yearMonth } : undefined,
+  });
+  return response.data;
+};
+
+export const getWebsiteMaintenanceHistory = async (
+  websiteId: number | string
+): Promise<{ status: number; data: MaintenanceHistoryItem[] }> => {
+  const response = await api.get(`/websites/${websiteId}/maintenance/history`);
+  return response.data;
+};
+
+export const getAvailableMaintenanceMonths = (): { value: string; label: string }[] => {
+  const options: { value: string; label: string }[] = [];
+  const now = new Date();
+
+  for (let i = 0; i < 12; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const value = `${yyyy}-${mm}`;
+
+    const monthName = d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+    const capitalized = monthName.charAt(0).toUpperCase() + monthName.slice(1);
+    const label = i === 0 ? `${capitalized} (Mês Atual)` : capitalized;
+
+    options.push({ value, label });
+  }
+
+  return options;
+};
+
+

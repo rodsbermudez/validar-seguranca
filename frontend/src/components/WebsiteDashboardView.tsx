@@ -23,6 +23,8 @@ import {
   Modal,
   ActionIcon,
   Tooltip,
+  NumberInput,
+  Textarea,
 } from '@mantine/core';
 import {
   IconArrowLeft,
@@ -47,34 +49,36 @@ import {
   IconUserX,
   IconDoorExit,
   IconMail,
+  IconCalendarCheck,
+  IconHistory,
+  IconRotateClockwise,
 } from '@tabler/icons-react';
-import { api, getWebsiteShares, addWebsiteShare, removeWebsiteShare, WebsiteShareMember } from '../api';
+import {
+  api,
+  getWebsiteShares,
+  addWebsiteShare,
+  removeWebsiteShare,
+  WebsiteShareMember,
+  Website,
+  MaintenanceStatus,
+  MaintenanceHistoryItem,
+  completeWebsiteMaintenance,
+  uncompleteWebsiteMaintenance,
+  getWebsiteMaintenanceHistory,
+  getAvailableMaintenanceMonths,
+} from '../api';
 import { ScanReport } from './ScanReport';
 import { WebsiteLogsView } from './WebsiteLogsView';
 import { WebsiteUpdatesView } from './WebsiteUpdatesView';
 import { WebsiteIntegrityView } from './WebsiteIntegrityView';
 import { WebsiteDiagnosticReportView } from './WebsiteDiagnosticReportView';
 
-interface Website {
-  id: string | number;
-  name: string;
-  url: string;
-  environment: string;
-  is_connected?: number | boolean;
-  agent_token?: string;
-  created_at: string;
-  is_owner?: boolean | number;
-  owner_name?: string;
-  owner_email?: string;
-  user_role?: string;
-  shares_count?: number;
-}
-
 interface WebsiteDashboardViewProps {
   website: Website;
   onBack: () => void;
   onUpdateWebsite?: (updatedSite: Website) => void;
   onDeleteWebsite?: (siteId: string | number) => void;
+  initialTab?: string;
 }
 
 export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
@@ -82,11 +86,18 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
   onBack,
   onUpdateWebsite,
   onDeleteWebsite,
+  initialTab,
 }) => {
-  const [activeTab, setActiveTab] = useState<string | null>('overview');
+  const [activeTab, setActiveTab] = useState<string | null>(initialTab || 'overview');
   const [viewingDiagnostic, setViewingDiagnostic] = useState<boolean>(false);
   const [downloading, setDownloading] = useState(false);
   const [copiedToken, setCopiedToken] = useState(false);
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
   
   // Latest Audit State
   const [latestScan, setLatestScan] = useState<any | null>(null);
@@ -96,9 +107,24 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
   const [name, setName] = useState(website.name);
   const [url, setUrl] = useState(website.url);
   const [environment, setEnvironment] = useState(website.environment || 'production');
+  const [maintenanceDay, setMaintenanceDay] = useState<number | string>(website.maintenance_day || '');
   const [formLoading, setFormLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
+
+  // Maintenance Cycle State
+  const maintenanceMonthOptions = getAvailableMaintenanceMonths();
+  const [maintenanceStatus, setMaintenanceStatus] = useState<MaintenanceStatus | null>(website.maintenance || null);
+  const [maintenanceLoading, setMaintenanceLoading] = useState(false);
+  const [completeModalOpen, setCompleteModalOpen] = useState(false);
+  const [maintenanceNotes, setMaintenanceNotes] = useState('');
+  const [selectedMaintenanceMonth, setSelectedMaintenanceMonth] = useState<string>(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  });
+  const [historyModalOpen, setHistoryModalOpen] = useState(false);
+  const [maintenanceHistory, setMaintenanceHistory] = useState<MaintenanceHistoryItem[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   const isConnected = Number(website.is_connected) === 1;
 
@@ -122,6 +148,60 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
   useEffect(() => {
     fetchLatestScan();
   }, [fetchLatestScan]);
+
+  const fetchMaintenanceHistory = async () => {
+    setHistoryLoading(true);
+    try {
+      const res = await getWebsiteMaintenanceHistory(website.id);
+      setMaintenanceHistory(res.data || []);
+      setHistoryModalOpen(true);
+    } catch (e) {
+      console.error('Erro ao buscar histórico de manutenções:', e);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const handleCompleteMaintenance = async () => {
+    setMaintenanceLoading(true);
+    try {
+      const res = await completeWebsiteMaintenance(website.id, selectedMaintenanceMonth, maintenanceNotes);
+      setMaintenanceStatus(res.data.status);
+      setCompleteModalOpen(false);
+      setMaintenanceNotes('');
+      if (onUpdateWebsite) {
+        onUpdateWebsite({ ...website, maintenance: res.data.status });
+      }
+    } catch (err: any) {
+      alert(
+        err.response?.data?.messages?.error ||
+        err.response?.data?.message ||
+        'Erro ao registrar manutenção.'
+      );
+    } finally {
+      setMaintenanceLoading(false);
+    }
+  };
+
+  const handleUncompleteMaintenance = async () => {
+    if (!confirm('Deseja realmente reabrir a manutenção deste mês?')) return;
+    setMaintenanceLoading(true);
+    try {
+      const res = await uncompleteWebsiteMaintenance(website.id);
+      setMaintenanceStatus(res.data.status);
+      if (onUpdateWebsite) {
+        onUpdateWebsite({ ...website, maintenance: res.data.status });
+      }
+    } catch (err: any) {
+      alert(
+        err.response?.data?.messages?.error ||
+        err.response?.data?.message ||
+        'Erro ao reabrir manutenção.'
+      );
+    } finally {
+      setMaintenanceLoading(false);
+    }
+  };
 
   const getScoreColor = (score: number) => {
     if (score >= 90) return 'teal';
@@ -169,9 +249,16 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
     setFormError(null);
     setFormSuccess(null);
 
+    const payload = {
+      name,
+      url,
+      environment,
+      maintenance_day: maintenanceDay === '' || maintenanceDay === null ? null : Number(maintenanceDay),
+    };
+
     try {
-      const response = await api.put(`/websites/${website.id}`, { name, url, environment });
-      const updated = response.data?.data || { ...website, name, url, environment };
+      const response = await api.put(`/websites/${website.id}`, payload);
+      const updated = response.data?.data || { ...website, ...payload };
       setFormSuccess('Dados do website atualizados com sucesso!');
       if (onUpdateWebsite) {
         onUpdateWebsite(updated);
@@ -550,6 +637,177 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
               )}
             </Paper>
 
+            {/* Card do Ciclo de Manutenção Preventiva do Mês */}
+            <Paper p="lg" radius="md" bg="dark.8" withBorder style={{ borderLeft: '4px solid #12b886' }}>
+              <Group justify="space-between" mb="sm" wrap="wrap" gap="md">
+                <Group gap="xs">
+                  <ThemeIcon color="teal" variant="light" radius="xl">
+                    <IconCalendarCheck size={18} />
+                  </ThemeIcon>
+                  <div>
+                    <Group gap="xs" align="center">
+                      <Title order={4}>Ciclo de Manutenção Preventiva</Title>
+                      <Badge color="teal" variant="light" size="sm">
+                        {new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(new Date()).toUpperCase()}
+                      </Badge>
+                    </Group>
+                    <Text size="xs" c="dimmed">
+                      Acompanhamento da rotina mensal de atualizações, integridade e testes do site.
+                    </Text>
+                  </div>
+                </Group>
+
+                <Group gap="xs">
+                  <Button
+                    variant="subtle"
+                    color="gray"
+                    size="xs"
+                    leftSection={<IconHistory size={14} />}
+                    onClick={fetchMaintenanceHistory}
+                    loading={historyLoading}
+                  >
+                    Histórico Anterior
+                  </Button>
+
+                  {maintenanceStatus?.status === 'completed' ? (
+                    <Button
+                      variant="outline"
+                      color="orange"
+                      size="xs"
+                      leftSection={<IconRotateClockwise size={14} />}
+                      loading={maintenanceLoading}
+                      onClick={handleUncompleteMaintenance}
+                    >
+                      Reabrir Manutenção
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="filled"
+                      color="teal"
+                      size="xs"
+                      leftSection={<IconCheck size={14} />}
+                      loading={maintenanceLoading}
+                      onClick={() => {
+                        setMaintenanceNotes('');
+                        setCompleteModalOpen(true);
+                      }}
+                    >
+                      Marcar Concluída este Mês
+                    </Button>
+                  )}
+                </Group>
+              </Group>
+
+              <Grid align="center" mt="xs">
+                <Grid.Col span={{ base: 12, md: 7 }}>
+                  <Stack gap="xs">
+                    <Group gap="xs" align="center">
+                      <Text size="sm" fw={600}>
+                        Status Atual:
+                      </Text>
+                      {maintenanceStatus ? (
+                        <Badge
+                          color={maintenanceStatus.badge_color}
+                          variant={maintenanceStatus.status === 'completed' ? 'filled' : 'light'}
+                          size="md"
+                        >
+                          {maintenanceStatus.label}
+                        </Badge>
+                      ) : website.maintenance_day ? (
+                        <Badge color="blue" variant="light" size="md">
+                          Todo dia {website.maintenance_day}
+                        </Badge>
+                      ) : (
+                        <Badge color="gray" variant="light" size="md">
+                          Dia não agendado
+                        </Badge>
+                      )}
+                    </Group>
+
+                    {website.maintenance_day ? (
+                      <Text size="sm" c="dimmed">
+                        Rotina agendada para <b>todo dia {website.maintenance_day} de cada mês</b>.
+                      </Text>
+                    ) : (
+                      <Group gap="xs">
+                        <Text size="xs" c="orange.4">
+                          Nenhum dia do mês definido para a manutenção preventiva.
+                        </Text>
+                        <Button
+                          variant="subtle"
+                          color="indigo"
+                          size="compact-xs"
+                          onClick={() => setActiveTab('settings')}
+                        >
+                          Configurar dia agora
+                        </Button>
+                      </Group>
+                    )}
+
+                    {maintenanceStatus?.status === 'completed' && (
+                      <Paper p="xs" bg="dark.7" radius="sm" withBorder mt={4}>
+                        <Group justify="space-between" mb={maintenanceStatus.notes ? 4 : 0}>
+                          <Text size="xs" c="green.4" fw={600}>
+                            ✓ Concluída em:{' '}
+                            {maintenanceStatus.completed_at
+                              ? new Date(maintenanceStatus.completed_at).toLocaleString('pt-BR')
+                              : 'Data N/D'}
+                          </Text>
+                          {maintenanceStatus.completed_by && (
+                            <Text size="xs" c="dimmed">
+                              Por: {maintenanceStatus.completed_by}
+                            </Text>
+                          )}
+                        </Group>
+                        {maintenanceStatus.notes && (
+                          <Text size="xs" c="dimmed" fs="italic">
+                            "{maintenanceStatus.notes}"
+                          </Text>
+                        )}
+                      </Paper>
+                    )}
+                  </Stack>
+                </Grid.Col>
+
+                <Grid.Col span={{ base: 12, md: 5 }}>
+                  <Paper p="sm" bg="dark.7" radius="md" withBorder ta="center">
+                    <Text size="xs" c="dimmed" mb={4}>
+                      Ações Recomendadas na Manutenção:
+                    </Text>
+                    <Group gap="xs" justify="center">
+                      <Button
+                        variant="light"
+                        color="blue"
+                        size="compact-xs"
+                        leftSection={<IconRefresh size={12} />}
+                        onClick={() => setActiveTab('updates')}
+                      >
+                        Atualizar Plugins
+                      </Button>
+                      <Button
+                        variant="light"
+                        color="teal"
+                        size="compact-xs"
+                        leftSection={<IconFileCheck size={12} />}
+                        onClick={() => setActiveTab('integrity')}
+                      >
+                        Checksums Core
+                      </Button>
+                      <Button
+                        variant="light"
+                        color="indigo"
+                        size="compact-xs"
+                        leftSection={<IconRadar size={12} />}
+                        onClick={() => setActiveTab('audit')}
+                      >
+                        Nova Auditoria
+                      </Button>
+                    </Group>
+                  </Paper>
+                </Grid.Col>
+              </Grid>
+            </Paper>
+
             {/* Status Summary Cards (Módulos Ativos) */}
             <Grid>
               <Grid.Col span={{ base: 12, sm: 6, lg: 3 }}>
@@ -912,6 +1170,16 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
                     value={environment}
                     onChange={(val) => setEnvironment(val || 'production')}
                   />
+                  <NumberInput
+                    label="Dia da Manutenção Mensal (Opcional)"
+                    description="Dia do mês (1 a 31) em que a manutenção preventiva deve ser executada. O sistema ajustará dinamicamente nos meses menores."
+                    placeholder="Ex: 15 (todo dia 15 de cada mês)"
+                    min={1}
+                    max={31}
+                    disabled={!isSiteOwner}
+                    value={maintenanceDay}
+                    onChange={(val) => setMaintenanceDay(val)}
+                  />
                   {isSiteOwner && (
                     <Group justify="flex-start" mt="xs">
                       <Button type="submit" color="indigo" loading={formLoading}>
@@ -1139,6 +1407,140 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
             </Button>
           </Group>
         </form>
+      </Modal>
+
+      {/* Modal de Conclusão da Manutenção */}
+      <Modal
+        opened={completeModalOpen}
+        onClose={() => setCompleteModalOpen(false)}
+        title={
+          <Group gap="xs">
+            <ThemeIcon color="teal" size="sm" radius="xl">
+              <IconCheck size={14} />
+            </ThemeIcon>
+            <Text fw={700} size="sm">
+              Registrar Conclusão da Manutenção
+            </Text>
+          </Group>
+        }
+        centered
+      >
+        <Stack gap="md">
+          <Paper p="xs" bg="dark.7" radius="sm" withBorder>
+            <Text size="xs" fw={700}>
+              {website.name}
+            </Text>
+            <Text size="xs" c="dimmed">
+              {website.url}
+            </Text>
+            {website.maintenance_day && (
+              <Group gap="xs" mt={4}>
+                <Badge size="xs" color="gray" variant="outline">
+                  Dia programado: {website.maintenance_day}
+                </Badge>
+              </Group>
+            )}
+          </Paper>
+
+          <Select
+            label="Mês de Referência da Manutenção"
+            description="Selecione o ciclo/mês em que esta manutenção foi realizada"
+            data={maintenanceMonthOptions}
+            value={selectedMaintenanceMonth}
+            onChange={(val) => val && setSelectedMaintenanceMonth(val)}
+            allowDeselect={false}
+          />
+
+          <Textarea
+            label="Notas do que foi realizado (opcional)"
+            description="Ex: Plugins WooCommerce e Elementor atualizados, backup realizado e testes de formulário efetuados."
+            placeholder="Descreva as atualizações ou verificações efetuadas..."
+            rows={3}
+            value={maintenanceNotes}
+            onChange={(e) => setMaintenanceNotes(e.currentTarget.value)}
+          />
+
+          <Group justify="flex-end" mt="sm">
+            <Button variant="default" onClick={() => setCompleteModalOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              color="teal"
+              leftSection={<IconCheck size={16} />}
+              loading={maintenanceLoading}
+              onClick={handleCompleteMaintenance}
+            >
+              Confirmar Conclusão
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      {/* Modal de Histórico de Manutenções */}
+      <Modal
+        opened={historyModalOpen}
+        onClose={() => setHistoryModalOpen(false)}
+        title={
+          <Group gap="xs">
+            <ThemeIcon color="indigo" size="sm" radius="xl">
+              <IconHistory size={14} />
+            </ThemeIcon>
+            <Text fw={700} size="sm">
+              Histórico de Manutenções - {website.name}
+            </Text>
+          </Group>
+        }
+        size="lg"
+        centered
+      >
+        {historyLoading ? (
+          <Center p="xl">
+            <Loader size="md" color="indigo" />
+          </Center>
+        ) : maintenanceHistory.length === 0 ? (
+          <Box p="lg" ta="center">
+            <Text size="sm" c="dimmed">
+              Nenhuma manutenção anterior registrada para este website.
+            </Text>
+          </Box>
+        ) : (
+          <Table verticalSpacing="sm" highlightOnHover>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Ciclo (Mês/Ano)</Table.Th>
+                <Table.Th>Concluída em</Table.Th>
+                <Table.Th>Responsável</Table.Th>
+                <Table.Th>Observações</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {maintenanceHistory.map((item) => (
+                <Table.Tr key={item.id}>
+                  <Table.Td>
+                    <Badge color="indigo" variant="light" size="sm">
+                      {item.year_month.split('-').reverse().join('/')}
+                    </Badge>
+                  </Table.Td>
+                  <Table.Td>
+                    <Text size="xs">
+                      {item.completed_at ? new Date(item.completed_at).toLocaleString('pt-BR') : '—'}
+                    </Text>
+                  </Table.Td>
+                  <Table.Td>
+                    <Text size="xs" fw={500}>
+                      {item.user_name || item.user_email || '—'}
+                    </Text>
+                  </Table.Td>
+                  <Table.Td>
+                    <Text size="xs" c="dimmed">
+                      {item.notes || 'Sem observações'}
+                    </Text>
+                  </Table.Td>
+                </Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+        )}
       </Modal>
     </Stack>
   );

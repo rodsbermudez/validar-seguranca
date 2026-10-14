@@ -9,6 +9,7 @@ import {
   ActionIcon,
   Modal,
   TextInput,
+  NumberInput,
   Select,
   Paper,
   Alert,
@@ -27,22 +28,7 @@ import {
   IconUsers,
   IconDoorExit,
 } from '@tabler/icons-react';
-import { api } from '../api';
-
-interface Website {
-  id: string | number;
-  name: string;
-  url: string;
-  environment: string;
-  is_connected?: number | boolean;
-  agent_token?: string;
-  created_at: string;
-  is_owner?: boolean | number;
-  owner_name?: string;
-  owner_email?: string;
-  user_role?: string;
-  shares_count?: number;
-}
+import { api, Website } from '../api';
 
 interface WebsitesListProps {
   onSelectWebsite: (website: Website) => void;
@@ -62,6 +48,7 @@ export const WebsitesList: React.FC<WebsitesListProps> = ({ onSelectWebsite }) =
   const [name, setName] = useState('');
   const [url, setUrl] = useState('');
   const [environment, setEnvironment] = useState<string>('production');
+  const [maintenanceDay, setMaintenanceDay] = useState<number | string>('');
 
   const fetchWebsites = async () => {
     setLoading(true);
@@ -84,6 +71,7 @@ export const WebsitesList: React.FC<WebsitesListProps> = ({ onSelectWebsite }) =
     setName('');
     setUrl('');
     setEnvironment('production');
+    setMaintenanceDay('');
     setError(null);
     setModalOpen(true);
   };
@@ -93,6 +81,7 @@ export const WebsitesList: React.FC<WebsitesListProps> = ({ onSelectWebsite }) =
     setName(site.name);
     setUrl(site.url);
     setEnvironment(site.environment || 'production');
+    setMaintenanceDay(site.maintenance_day || '');
     setError(null);
     setModalOpen(true);
   };
@@ -102,16 +91,24 @@ export const WebsitesList: React.FC<WebsitesListProps> = ({ onSelectWebsite }) =
     setFormLoading(true);
     setError(null);
 
+    const payload = {
+      name,
+      url,
+      environment,
+      maintenance_day: maintenanceDay === '' || maintenanceDay === null ? null : Number(maintenanceDay),
+    };
+
     try {
       if (editingWebsite) {
-        await api.put(`/websites/${editingWebsite.id}`, { name, url, environment });
+        await api.put(`/websites/${editingWebsite.id}`, payload);
       } else {
-        await api.post('/websites', { name, url, environment });
+        await api.post('/websites', payload);
       }
       setModalOpen(false);
       setName('');
       setUrl('');
       setEnvironment('production');
+      setMaintenanceDay('');
       setEditingWebsite(null);
       fetchWebsites();
     } catch (err: any) {
@@ -189,6 +186,7 @@ export const WebsitesList: React.FC<WebsitesListProps> = ({ onSelectWebsite }) =
               <Table.Th>Nome do Site</Table.Th>
               <Table.Th>URL do Alvo</Table.Th>
               <Table.Th>Status Agente WP</Table.Th>
+              <Table.Th>Manutenção Mensal</Table.Th>
               <Table.Th style={{ textAlign: 'right' }}>Ações</Table.Th>
             </Table.Tr>
           </Table.Thead>
@@ -237,6 +235,32 @@ export const WebsitesList: React.FC<WebsitesListProps> = ({ onSelectWebsite }) =
                       <Badge color="gray" variant="light">
                         PENDENTE
                       </Badge>
+                    )}
+                  </Table.Td>
+                  <Table.Td>
+                    {site.maintenance ? (
+                      <Group gap={6} wrap="nowrap">
+                        <Badge
+                          color={site.maintenance.badge_color}
+                          variant={site.maintenance.status === 'completed' ? 'filled' : 'light'}
+                          size="sm"
+                        >
+                          {site.maintenance.label}
+                        </Badge>
+                        {site.maintenance_day && (
+                          <Text size="xs" c="dimmed">
+                            (Dia {site.maintenance_day})
+                          </Text>
+                        )}
+                      </Group>
+                    ) : site.maintenance_day ? (
+                      <Badge color="blue" variant="light" size="sm">
+                        Todo dia {site.maintenance_day}
+                      </Badge>
+                    ) : (
+                      <Text size="xs" c="dimmed">
+                        Não definida
+                      </Text>
                     )}
                   </Table.Td>
                   <Table.Td style={{ textAlign: 'right' }}>
@@ -310,6 +334,16 @@ export const WebsitesList: React.FC<WebsitesListProps> = ({ onSelectWebsite }) =
             ]}
             value={environment}
             onChange={(val) => setEnvironment(val || 'production')}
+            mt="md"
+          />
+          <NumberInput
+            label="Dia da Manutenção Mensal (Opcional)"
+            description="Dia do mês (1 a 31) em que a rotina preventiva deve ser executada."
+            placeholder="Ex: 15 (todo dia 15 de cada mês)"
+            min={1}
+            max={31}
+            value={maintenanceDay}
+            onChange={(val) => setMaintenanceDay(val)}
             mt="md"
           />
           <Group justify="flex-end" mt="xl">

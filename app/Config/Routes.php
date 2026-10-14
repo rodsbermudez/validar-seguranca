@@ -42,6 +42,14 @@ $routes->group('api', function ($routes) {
         $routes->post('websites/(:num)/shares', 'Api\Websites::addShare/$1');
         $routes->delete('websites/(:num)/shares/(:num)', 'Api\Websites::removeShare/$1/$2');
 
+        // Website Maintenance Cycle routes
+        $routes->post('websites/(:num)/maintenance/complete', 'Api\Websites::completeMaintenance/$1');
+        $routes->delete('websites/(:num)/maintenance/complete', 'Api\Websites::uncompleteMaintenance/$1');
+        $routes->get('websites/(:num)/maintenance/history', 'Api\Websites::maintenanceHistory/$1');
+
+        // Dashboard Overview route
+        $routes->get('dashboard/overview', 'Api\Dashboard::overview');
+
         // Scan routes
         $routes->post('scan/trigger/(:num)', 'Api\Scan::trigger/$1');
         $routes->get('scan/history/(:num)', 'Api\Scan::history/$1');

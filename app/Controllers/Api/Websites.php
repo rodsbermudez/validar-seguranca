@@ -63,14 +63,20 @@ class Websites extends ResourceController
         $effectiveUserId = $this->request->effectiveUserId ?? ($this->request->userData->id ?? null);
         $agentToken      = bin2hex(random_bytes(16));
 
+        $maintenanceDay = isset($json['maintenance_day']) && $json['maintenance_day'] !== '' ? (int)$json['maintenance_day'] : null;
+        if ($maintenanceDay !== null && ($maintenanceDay < 1 || $maintenanceDay > 31)) {
+            $maintenanceDay = null;
+        }
+
         $websiteModel = new WebsiteModel();
         $newId = $websiteModel->insert([
-            'user_id'     => $effectiveUserId,
-            'name'        => $name,
-            'url'         => rtrim($url, '/'),
-            'environment' => $environment,
-            'agent_token' => $agentToken,
-            'is_connected'=> 0,
+            'user_id'         => $effectiveUserId,
+            'name'            => $name,
+            'url'             => rtrim($url, '/'),
+            'environment'     => $environment,
+            'maintenance_day' => $maintenanceDay,
+            'agent_token'     => $agentToken,
+            'is_connected'    => 0,
         ]);
 
         $createdWebsite = $websiteModel->find($newId);
@@ -123,10 +129,18 @@ class Websites extends ResourceController
             }
         }
 
+        $maintenanceDay = array_key_exists('maintenance_day', $json)
+            ? (($json['maintenance_day'] !== null && $json['maintenance_day'] !== '') ? (int)$json['maintenance_day'] : null)
+            : ($website['maintenance_day'] ?? null);
+        if ($maintenanceDay !== null && ($maintenanceDay < 1 || $maintenanceDay > 31)) {
+            $maintenanceDay = null;
+        }
+
         $websiteModel->update($id, [
-            'name'        => $name,
-            'url'         => rtrim($url, '/'),
-            'environment' => $environment,
+            'name'            => $name,
+            'url'             => rtrim($url, '/'),
+            'environment'     => $environment,
+            'maintenance_day' => $maintenanceDay,
         ]);
 
         $updatedWebsite = $websiteModel->find($id);
@@ -663,6 +677,20 @@ class Websites extends ResourceController
             return $this->failAgentResponse($res, 'Falha ao buscar integridade do agente');
         }
 
+        // Atualiza campos de integridade no banco do SaaS
+        $body = $res['body'];
+        $data = $body['data'] ?? $body;
+        if (!empty($data) && is_array($data)) {
+            $issuesCount = $data['summary']['active_issues'] ?? ($data['summary']['issues_count'] ?? count($data['issues'] ?? []));
+            $scannedAt   = $data['scanned_at'] ?? date('Y-m-d H:i:s');
+            $isSecure    = !empty($data['is_secure']) ? 1 : ($issuesCount === 0 ? 1 : 0);
+            $websiteModel->update($id, [
+                'last_integrity_scanned_at' => $scannedAt,
+                'integrity_issues_count'    => (int)$issuesCount,
+                'integrity_is_secure'       => (int)$isSecure,
+            ]);
+        }
+
         return $this->respond($res['body']);
     }
 
@@ -698,6 +726,20 @@ class Websites extends ResourceController
 
         if (empty($res['body']) || $res['status'] !== 200) {
             return $this->failAgentResponse($res, 'Falha ao executar varredura de integridade');
+        }
+
+        // Atualiza campos de integridade no banco do SaaS
+        $body = $res['body'];
+        $data = $body['data'] ?? $body;
+        if (!empty($data) && is_array($data)) {
+            $issuesCount = $data['summary']['active_issues'] ?? ($data['summary']['issues_count'] ?? count($data['issues'] ?? []));
+            $scannedAt   = $data['scanned_at'] ?? date('Y-m-d H:i:s');
+            $isSecure    = !empty($data['is_secure']) ? 1 : ($issuesCount === 0 ? 1 : 0);
+            $websiteModel->update($id, [
+                'last_integrity_scanned_at' => $scannedAt,
+                'integrity_issues_count'    => (int)$issuesCount,
+                'integrity_is_secure'       => (int)$isSecure,
+            ]);
         }
 
         return $this->respond($res['body']);
@@ -1113,6 +1155,129 @@ class Websites extends ResourceController
         return $this->respond([
             'status'  => 200,
             'message' => $isSelf ? 'Você saiu do monitoramento deste website.' : 'Acesso revogado com sucesso.',
+        ]);
+    }
+
+    public function completeMaintenance($id = null)
+    {
+        if (!$id) {
+            return $this->fail('ID do website não informado.', 400);
+        }
+
+        $effectiveUserId = (int) ($this->request->effectiveUserId ?? ($this->request->userData->id ?? 0));
+        $userData        = $this->request->userData ?? null;
+        $isImpersonating = $this->request->isImpersonating ?? false;
+        $isAdmin         = (($userData->role ?? 'user') === 'admin') && !$isImpersonating;
+
+        $websiteModel = new WebsiteModel();
+        $website = $websiteModel->find($id);
+
+        if (!$website) {
+            return $this->failNotFound('Website não encontrado.');
+        }
+
+        if (!$websiteModel->canUserAccess((int)$id, $effectiveUserId, $isAdmin)) {
+            return $this->failForbidden('Você não tem permissão para gerenciar manutenções deste website.');
+        }
+
+        $json = $this->request->getJSON(true) ?? $this->request->getPost();
+        $yearMonth = !empty($json['year_month']) ? trim($json['year_month']) : date('Y-m');
+        $notes = !empty($json['notes']) ? trim($json['notes']) : null;
+
+        $maintenanceModel = new \App\Models\WebsiteMaintenanceModel();
+        $record = $maintenanceModel->completeMaintenance((int)$id, $effectiveUserId, $yearMonth, $notes);
+
+        $userModel = new \App\Models\UserModel();
+        $completingUser = $userModel->find($effectiveUserId);
+        $record['user_name'] = $completingUser['name'] ?? null;
+        $record['user_email'] = $completingUser['email'] ?? null;
+
+        $status = \App\Models\WebsiteMaintenanceModel::calculateStatus(
+            isset($website['maintenance_day']) ? (int)$website['maintenance_day'] : null,
+            $record,
+            $yearMonth
+        );
+
+        return $this->respond([
+            'status'  => 200,
+            'message' => 'Manutenção registrada como concluída com sucesso!',
+            'data'    => [
+                'record' => $record,
+                'status' => $status,
+            ],
+        ]);
+    }
+
+    public function uncompleteMaintenance($id = null)
+    {
+        if (!$id) {
+            return $this->fail('ID do website não informado.', 400);
+        }
+
+        $effectiveUserId = (int) ($this->request->effectiveUserId ?? ($this->request->userData->id ?? 0));
+        $userData        = $this->request->userData ?? null;
+        $isImpersonating = $this->request->isImpersonating ?? false;
+        $isAdmin         = (($userData->role ?? 'user') === 'admin') && !$isImpersonating;
+
+        $websiteModel = new WebsiteModel();
+        $website = $websiteModel->find($id);
+
+        if (!$website) {
+            return $this->failNotFound('Website não encontrado.');
+        }
+
+        if (!$websiteModel->canUserAccess((int)$id, $effectiveUserId, $isAdmin)) {
+            return $this->failForbidden('Você não tem permissão para gerenciar manutenções deste website.');
+        }
+
+        $yearMonth = $this->request->getGet('year_month') ?? date('Y-m');
+
+        $maintenanceModel = new \App\Models\WebsiteMaintenanceModel();
+        $maintenanceModel->uncompleteMaintenance((int)$id, $yearMonth);
+
+        $status = \App\Models\WebsiteMaintenanceModel::calculateStatus(
+            isset($website['maintenance_day']) ? (int)$website['maintenance_day'] : null,
+            null,
+            $yearMonth
+        );
+
+        return $this->respond([
+            'status'  => 200,
+            'message' => 'Manutenção desmarcada.',
+            'data'    => [
+                'status' => $status,
+            ],
+        ]);
+    }
+
+    public function maintenanceHistory($id = null)
+    {
+        if (!$id) {
+            return $this->fail('ID do website não informado.', 400);
+        }
+
+        $effectiveUserId = (int) ($this->request->effectiveUserId ?? ($this->request->userData->id ?? 0));
+        $userData        = $this->request->userData ?? null;
+        $isImpersonating = $this->request->isImpersonating ?? false;
+        $isAdmin         = (($userData->role ?? 'user') === 'admin') && !$isImpersonating;
+
+        $websiteModel = new WebsiteModel();
+        $website = $websiteModel->find($id);
+
+        if (!$website) {
+            return $this->failNotFound('Website não encontrado.');
+        }
+
+        if (!$websiteModel->canUserAccess((int)$id, $effectiveUserId, $isAdmin)) {
+            return $this->failForbidden('Você não tem permissão para visualizar o histórico deste website.');
+        }
+
+        $maintenanceModel = new \App\Models\WebsiteMaintenanceModel();
+        $history = $maintenanceModel->getHistory((int)$id, 12);
+
+        return $this->respond([
+            'status' => 200,
+            'data'   => $history,
         ]);
     }
 }
