@@ -645,6 +645,34 @@ class Websites extends ResourceController
         return $this->respond($res['body']);
     }
 
+    /**
+     * Persiste os resultados detalhados da última varredura de integridade na tabela websites.
+     */
+    private function persistIntegrityScan(int $websiteId, array $data): void
+    {
+        $summary     = $data['summary'] ?? [];
+        $scannedAt   = $data['scanned_at'] ?? date('Y-m-d H:i:s');
+        $activeCount = isset($summary['active_issues'])
+            ? (int)$summary['active_issues']
+            : (isset($summary['issues_count']) ? (int)$summary['issues_count'] : count($data['issues'] ?? []));
+        $isSecure    = !empty($data['is_secure']) ? 1 : ($activeCount === 0 ? 1 : 0);
+
+        $updateData = [
+            'last_integrity_scanned_at' => $scannedAt,
+            'integrity_is_secure'       => $isSecure,
+            'integrity_issues_count'    => $activeCount,
+            'integrity_total_checked'   => isset($summary['total_checked']) ? (int)$summary['total_checked'] : null,
+            'integrity_passed'          => isset($summary['passed']) ? (int)$summary['passed'] : null,
+            'integrity_ignored_issues'  => isset($summary['ignored_issues']) ? (int)$summary['ignored_issues'] : 0,
+            'integrity_modified'        => isset($summary['modified']) ? (int)$summary['modified'] : 0,
+            'integrity_suspicious'      => isset($summary['suspicious']) ? (int)$summary['suspicious'] : 0,
+            'integrity_summary_json'    => json_encode($data, JSON_UNESCAPED_UNICODE),
+        ];
+
+        $websiteModel = new WebsiteModel();
+        $websiteModel->update($websiteId, $updateData);
+    }
+
     public function integrity($id = null)
     {
         if (!$id) {
@@ -674,6 +702,19 @@ class Websites extends ResourceController
         $res = $this->makeAgentRequestWithFallback($website['url'], '/integrity', 'GET', $website['agent_token']);
 
         if (empty($res['body']) || $res['status'] !== 200) {
+            // Se o agente falhou ou deu timeout mas já temos dados salvos no banco, retorne o cache
+            if (!empty($website['integrity_summary_json'])) {
+                $cachedData = json_decode($website['integrity_summary_json'], true);
+                if (!empty($cachedData)) {
+                    return $this->respond([
+                        'status'  => 200,
+                        'success' => true,
+                        'cached'  => true,
+                        'data'    => $cachedData,
+                        'message' => 'Exibindo dados da última varredura salva (agente não respondeu no momento).',
+                    ]);
+                }
+            }
             return $this->failAgentResponse($res, 'Falha ao buscar integridade do agente');
         }
 
@@ -681,14 +722,7 @@ class Websites extends ResourceController
         $body = $res['body'];
         $data = $body['data'] ?? $body;
         if (!empty($data) && is_array($data)) {
-            $issuesCount = $data['summary']['active_issues'] ?? ($data['summary']['issues_count'] ?? count($data['issues'] ?? []));
-            $scannedAt   = $data['scanned_at'] ?? date('Y-m-d H:i:s');
-            $isSecure    = !empty($data['is_secure']) ? 1 : ($issuesCount === 0 ? 1 : 0);
-            $websiteModel->update($id, [
-                'last_integrity_scanned_at' => $scannedAt,
-                'integrity_issues_count'    => (int)$issuesCount,
-                'integrity_is_secure'       => (int)$isSecure,
-            ]);
+            $this->persistIntegrityScan((int)$id, $data);
         }
 
         return $this->respond($res['body']);
@@ -732,14 +766,7 @@ class Websites extends ResourceController
         $body = $res['body'];
         $data = $body['data'] ?? $body;
         if (!empty($data) && is_array($data)) {
-            $issuesCount = $data['summary']['active_issues'] ?? ($data['summary']['issues_count'] ?? count($data['issues'] ?? []));
-            $scannedAt   = $data['scanned_at'] ?? date('Y-m-d H:i:s');
-            $isSecure    = !empty($data['is_secure']) ? 1 : ($issuesCount === 0 ? 1 : 0);
-            $websiteModel->update($id, [
-                'last_integrity_scanned_at' => $scannedAt,
-                'integrity_issues_count'    => (int)$issuesCount,
-                'integrity_is_secure'       => (int)$isSecure,
-            ]);
+            $this->persistIntegrityScan((int)$id, $data);
         }
 
         return $this->respond($res['body']);
@@ -791,6 +818,12 @@ class Websites extends ResourceController
             return $this->failAgentResponse($res, 'Falha ao atualizar status de exceção do arquivo');
         }
 
+        $body = $res['body'];
+        $data = $body['data'] ?? $body;
+        if (!empty($data) && is_array($data)) {
+            $this->persistIntegrityScan((int)$id, $data);
+        }
+
         return $this->respond($res['body']);
     }
 
@@ -832,6 +865,12 @@ class Websites extends ResourceController
 
         if (empty($res['body']) || $res['status'] !== 200) {
             return $this->failAgentResponse($res, 'Falha ao excluir arquivo do servidor');
+        }
+
+        $body = $res['body'];
+        $data = $body['data'] ?? $body;
+        if (!empty($data) && is_array($data)) {
+            $this->persistIntegrityScan((int)$id, $data);
         }
 
         return $this->respond($res['body']);
@@ -877,7 +916,76 @@ class Websites extends ResourceController
             return $this->failAgentResponse($res, 'Falha ao restaurar arquivo do core');
         }
 
+        $body = $res['body'];
+        $data = $body['data'] ?? $body;
+        if (!empty($data) && is_array($data)) {
+            $this->persistIntegrityScan((int)$id, $data);
+        }
+
         return $this->respond($res['body']);
+    }
+
+    public function syncIntegrityAll()
+    {
+        $effectiveUserId = (int) ($this->request->effectiveUserId ?? ($this->request->userData->id ?? 0));
+        $userData        = $this->request->userData ?? null;
+        $isImpersonating = $this->request->isImpersonating ?? false;
+        $isAdmin         = (($userData->role ?? 'user') === 'admin') && !$isImpersonating;
+
+        $websiteModel = new WebsiteModel();
+        $websites = $websiteModel->getUserWebsites($effectiveUserId);
+
+        $synced = 0;
+        $failed = 0;
+        $details = [];
+
+        foreach ($websites as $site) {
+            if (empty($site['agent_token']) || (int)($site['is_connected'] ?? 0) !== 1) {
+                continue;
+            }
+
+            try {
+                $res = $this->makeAgentRequestWithFallback($site['url'], '/integrity', 'GET', $site['agent_token']);
+                if (!empty($res['body']) && $res['status'] === 200) {
+                    $body = $res['body'];
+                    $data = $body['data'] ?? $body;
+                    if (!empty($data) && is_array($data)) {
+                        $this->persistIntegrityScan((int)$site['id'], $data);
+                        $synced++;
+                        $details[] = [
+                            'id'     => $site['id'],
+                            'name'   => $site['name'],
+                            'status' => 'success',
+                        ];
+                        continue;
+                    }
+                }
+                $failed++;
+                $details[] = [
+                    'id'     => $site['id'],
+                    'name'   => $site['name'],
+                    'status' => 'error',
+                ];
+            } catch (\Throwable $e) {
+                $failed++;
+                $details[] = [
+                    'id'     => $site['id'],
+                    'name'   => $site['name'],
+                    'status' => 'error',
+                    'error'  => $e->getMessage(),
+                ];
+            }
+        }
+
+        return $this->respond([
+            'status'  => 200,
+            'message' => "Sincronização de integridade finalizada: {$synced} atualizados com sucesso, {$failed} com falha.",
+            'data'    => [
+                'synced_count' => $synced,
+                'failed_count' => $failed,
+                'details'      => $details,
+            ],
+        ]);
     }
 
     public function diagnosticSummary($id = null)
@@ -963,6 +1071,11 @@ class Websites extends ResourceController
             $integrityRes = $this->makeAgentRequestWithFallback($website['url'], '/integrity', 'GET', $token);
             if (!empty($integrityRes['body']) && $integrityRes['status'] === 200) {
                 $integrityData = $integrityRes['body']['data'] ?? $integrityRes['body'];
+                if (!empty($integrityData) && is_array($integrityData)) {
+                    $this->persistIntegrityScan((int)$website['id'], $integrityData);
+                }
+            } elseif (!empty($website['integrity_summary_json'])) {
+                $integrityData = json_decode($website['integrity_summary_json'], true);
             }
 
             // C. Fetch Updates

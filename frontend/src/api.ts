@@ -425,7 +425,12 @@ export interface DashboardIntegrityRadarItem {
   website_url: string;
   environment: string;
   is_connected: boolean;
+  total_checked?: number | null;
+  passed?: number | null;
   issues_count?: number | null;
+  ignored_issues?: number | null;
+  modified?: number | null;
+  suspicious?: number | null;
   is_secure?: boolean | number | null;
   last_scanned_at?: string | null;
   days_since_scan?: number | null;
@@ -511,6 +516,15 @@ export const getAvailableMaintenanceMonths = (): { value: string; label: string 
   }
 
   return options;
+};
+
+export const syncAllIntegrityWebsites = async (): Promise<{
+  status: number;
+  message: string;
+  data: { synced_count: number; failed_count: number; details: any[] };
+}> => {
+  const response = await api.post('/websites/sync-integrity');
+  return response.data;
 };
 
 

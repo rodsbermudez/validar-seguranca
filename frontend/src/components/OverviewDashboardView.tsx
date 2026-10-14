@@ -43,6 +43,7 @@ import {
   completeWebsiteMaintenance,
   uncompleteWebsiteMaintenance,
   getAvailableMaintenanceMonths,
+  syncAllIntegrityWebsites,
   DashboardOverviewResponse,
   DashboardMaintenanceTask,
   Website,
@@ -59,6 +60,7 @@ export const OverviewDashboardView: React.FC<OverviewDashboardViewProps> = ({
 }) => {
   const [data, setData] = useState<DashboardOverviewResponse['data'] | null>(null);
   const [loading, setLoading] = useState(true);
+  const [syncingIntegrity, setSyncingIntegrity] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<string>('all');
 
@@ -141,6 +143,23 @@ export const OverviewDashboardView: React.FC<OverviewDashboardViewProps> = ({
       );
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const handleSyncIntegrity = async () => {
+    setSyncingIntegrity(true);
+    try {
+      const res = await syncAllIntegrityWebsites();
+      await fetchOverview();
+      alert(res.message || 'Integridades sincronizadas com sucesso!');
+    } catch (err: any) {
+      alert(
+        err.response?.data?.messages?.error ||
+        err.response?.data?.message ||
+        'Falha ao sincronizar integridades dos websites.'
+      );
+    } finally {
+      setSyncingIntegrity(false);
     }
   };
 
@@ -771,9 +790,23 @@ export const OverviewDashboardView: React.FC<OverviewDashboardViewProps> = ({
                   </ThemeIcon>
                   <Title order={4}>Radar de Integridade (6 Alvos Críticos)</Title>
                 </Group>
-                <Badge color="gray" variant="light" size="xs">
-                  {integrityRadar.length} Sites
-                </Badge>
+                <Group gap="xs">
+                  <Tooltip label="Sincronizar e salvar integridade de todos os sites conectados na base de dados">
+                    <Button
+                      size="xs"
+                      variant="light"
+                      color="cyan"
+                      loading={syncingIntegrity}
+                      leftSection={<IconRefresh size={14} />}
+                      onClick={handleSyncIntegrity}
+                    >
+                      Sincronizar
+                    </Button>
+                  </Tooltip>
+                  <Badge color="gray" variant="light" size="xs">
+                    {integrityRadar.length} Sites
+                  </Badge>
+                </Group>
               </Group>
               <Text size="xs" c="dimmed" mb="md">
                 Arquivos modificados do WordPress core ou sem verificação há mais de 30 dias.
@@ -826,6 +859,39 @@ export const OverviewDashboardView: React.FC<OverviewDashboardViewProps> = ({
                                 </Tooltip>
                               )}
                             </Group>
+
+                            {/* Métricas da varredura salvas na base de dados */}
+                            {item.total_checked !== null && item.total_checked !== undefined ? (
+                              <Group gap={4} mt={3} wrap="wrap">
+                                <Badge size="xs" variant="outline" color="gray">
+                                  {item.total_checked} verif.
+                                </Badge>
+                                <Badge size="xs" variant="light" color="green">
+                                  {item.passed} íntegros
+                                </Badge>
+                                {(item.issues_count ?? 0) > 0 && (
+                                  <Badge size="xs" variant="filled" color="red">
+                                    {item.issues_count} pend.
+                                  </Badge>
+                                )}
+                                {(item.ignored_issues ?? 0) > 0 && (
+                                  <Badge size="xs" variant="light" color="teal">
+                                    {item.ignored_issues} resolv.
+                                  </Badge>
+                                )}
+                                {(item.modified ?? 0) > 0 && (
+                                  <Badge size="xs" variant="light" color="red">
+                                    {item.modified} modif.
+                                  </Badge>
+                                )}
+                                {(item.suspicious ?? 0) > 0 && (
+                                  <Badge size="xs" variant="light" color="orange">
+                                    {item.suspicious} susp.
+                                  </Badge>
+                                )}
+                              </Group>
+                            ) : null}
+
                             <Group gap={6} mt={2}>
                               {item.is_outdated ? (
                                 <Badge
@@ -847,7 +913,7 @@ export const OverviewDashboardView: React.FC<OverviewDashboardViewProps> = ({
                             </Group>
                           </div>
 
-                          <div>
+                          <div style={{ textAlign: 'right' }}>
                             {hasIssues ? (
                               <Badge color="red" variant="filled" size="sm">
                                 {item.issues_count} {item.issues_count === 1 ? 'erro' : 'erros'}
