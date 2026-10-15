@@ -560,37 +560,6 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
         </Group>
       </Paper>
 
-      {/* Sub-header Indicador da Seção Ativa (quando fora de overview) */}
-      {activeTab !== 'overview' && (
-        <Paper p="xs" px="md" radius="md" bg="dark.8" withBorder>
-          <Group justify="space-between" align="center">
-            <Group gap="xs">
-              <Text size="xs" c="dimmed">
-                Visualizando tela:
-              </Text>
-              <Badge variant="dot" color="indigo" size="sm">
-                {activeTab === 'audit' && 'Auditoria & Segurança'}
-                {activeTab === 'integrity' && 'Integridade do Core'}
-                {activeTab === 'activity_logs' && 'Logs de Atividades & Diário Técnico'}
-                {activeTab === 'logs' && 'Logs em Tempo Real'}
-                {activeTab === 'updates' && 'Atualizações'}
-                {activeTab === 'agent' && 'Agente WordPress'}
-                {activeTab === 'settings' && 'Configurações'}
-              </Badge>
-            </Group>
-            <Button
-              size="compact-xs"
-              variant="subtle"
-              color="gray"
-              leftSection={<IconLayoutDashboard size={14} />}
-              onClick={() => setActiveTab('overview')}
-            >
-              Voltar para Visão Geral
-            </Button>
-          </Group>
-        </Paper>
-      )}
-
       {/* Main Tabs Navigation (sem Tabs.List para manter layout limpo) */}
       <Tabs value={activeTab} onChange={setActiveTab} keepMounted={false}>
 
