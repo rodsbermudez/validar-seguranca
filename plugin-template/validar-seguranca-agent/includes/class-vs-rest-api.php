@@ -80,6 +80,18 @@ class VS_Agent_REST_API {
                 'callback'            => array($this, 'handle_restore_integrity_file'),
                 'permission_callback' => array($this, 'check_permission'),
             ));
+
+            register_rest_route($ns, '/fixes', array(
+                'methods'             => array('GET', 'POST'),
+                'callback'            => array($this, 'handle_get_fixes'),
+                'permission_callback' => array($this, 'check_permission'),
+            ));
+
+            register_rest_route($ns, '/fixes/toggle', array(
+                'methods'             => array('POST', 'GET'),
+                'callback'            => array($this, 'handle_toggle_fix'),
+                'permission_callback' => array($this, 'check_permission'),
+            ));
         }
     }
 
@@ -336,5 +348,102 @@ class VS_Agent_REST_API {
         $res       = $integrity->restore_core_file($file);
 
         return new WP_REST_Response($res, isset($res['status']) ? (int)$res['status'] : 200);
+    }
+
+    public function handle_get_fixes($request) {
+        if (!function_exists('is_plugin_active')) {
+            require_once ABSPATH . 'wp-admin/includes/plugin.php';
+        }
+
+        $plugin_file = 'wp-patropi-fixes/wp-patropi-fixes.php';
+        $full_path   = WP_PLUGIN_DIR . '/' . $plugin_file;
+        $installed   = file_exists($full_path);
+        $active      = $installed && is_plugin_active($plugin_file);
+
+        if ($installed && !function_exists('vs_get_registered_fixes')) {
+            @include_once $full_path;
+        }
+
+        if (function_exists('vs_get_registered_fixes')) {
+            $registered = vs_get_registered_fixes();
+            $settings   = function_exists('vs_get_fixes_settings') ? vs_get_fixes_settings() : (array) get_option('wp_patropi_fixes_settings', array());
+            $items      = array();
+
+            foreach ($registered as $check_id => $data) {
+                $is_active = function_exists('vs_is_fix_active')
+                    ? vs_is_fix_active($check_id)
+                    : (!isset($settings[$check_id]) || !empty($settings[$check_id]));
+
+                $items[] = array(
+                    'check_id'    => $check_id,
+                    'title'       => isset($data['title']) ? $data['title'] : $check_id,
+                    'description' => isset($data['description']) ? $data['description'] : '',
+                    'active'      => (bool) $is_active,
+                );
+            }
+
+            return new WP_REST_Response(array(
+                'success'   => true,
+                'installed' => true,
+                'active'    => $active,
+                'version'   => defined('VS_FIXES_VERSION') ? VS_FIXES_VERSION : '1.0.0',
+                'fixes'     => $items,
+            ), 200);
+        }
+
+        return new WP_REST_Response(array(
+            'success'   => true,
+            'installed' => $installed,
+            'active'    => $active,
+            'version'   => null,
+            'fixes'     => array(),
+        ), 200);
+    }
+
+    public function handle_toggle_fix($request) {
+        $check_id = $request->get_param('check_id');
+        $enabled  = $request->get_param('enabled');
+
+        if ($check_id === null || $enabled === null) {
+            $json = $request->get_json_params();
+            if (!empty($json)) {
+                if (isset($json['check_id'])) {
+                    $check_id = $json['check_id'];
+                }
+                if (isset($json['enabled'])) {
+                    $enabled = $json['enabled'];
+                }
+            }
+        }
+
+        if (empty($check_id)) {
+            return new WP_REST_Response(array(
+                'success' => false,
+                'message' => 'Parâmetro check_id obrigatório.',
+            ), 400);
+        }
+
+        $enabled_bool = filter_var($enabled, FILTER_VALIDATE_BOOLEAN);
+
+        $plugin_file = 'wp-patropi-fixes/wp-patropi-fixes.php';
+        $full_path   = WP_PLUGIN_DIR . '/' . $plugin_file;
+        if (file_exists($full_path) && !function_exists('vs_set_fix_status')) {
+            @include_once $full_path;
+        }
+
+        if (function_exists('vs_set_fix_status')) {
+            vs_set_fix_status($check_id, $enabled_bool);
+        } else {
+            $settings = (array) get_option('wp_patropi_fixes_settings', array());
+            $settings[$check_id] = $enabled_bool;
+            update_option('wp_patropi_fixes_settings', $settings);
+        }
+
+        return new WP_REST_Response(array(
+            'success'  => true,
+            'check_id' => $check_id,
+            'active'   => $enabled_bool,
+            'message'  => 'Status da correção atualizado com sucesso.',
+        ), 200);
     }
 }

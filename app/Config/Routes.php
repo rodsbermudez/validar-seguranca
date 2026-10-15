@@ -43,6 +43,8 @@ $routes->group('api', function ($routes) {
         $routes->post('websites/(:num)/integrity/restore-file', 'Api\Websites::restoreIntegrityFile/$1');
         $routes->post('websites/sync-integrity', 'Api\Websites::syncIntegrityAll');
         $routes->get('websites/(:num)/diagnostic-summary', 'Api\Websites::diagnosticSummary/$1');
+        $routes->get('websites/(:num)/fixes', 'Api\Websites::fixes/$1');
+        $routes->post('websites/(:num)/fixes/toggle', 'Api\Websites::toggleFix/$1');
         $routes->get('websites/(:num)/shares', 'Api\Websites::shares/$1');
         $routes->post('websites/(:num)/shares', 'Api\Websites::addShare/$1');
         $routes->delete('websites/(:num)/shares/(:num)', 'Api\Websites::removeShare/$1/$2');

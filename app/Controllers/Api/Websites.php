@@ -925,6 +925,86 @@ class Websites extends ResourceController
         return $this->respond($res['body']);
     }
 
+    public function fixes($id = null)
+    {
+        if (!$id) {
+            return $this->fail('ID do website não informado.', 400);
+        }
+
+        $effectiveUserId = (int) ($this->request->effectiveUserId ?? ($this->request->userData->id ?? 0));
+        $userData        = $this->request->userData ?? null;
+        $isImpersonating = $this->request->isImpersonating ?? false;
+        $isAdmin         = (($userData->role ?? 'user') === 'admin') && !$isImpersonating;
+
+        $websiteModel = new WebsiteModel();
+        $website = $websiteModel->find($id);
+
+        if (!$website) {
+            return $this->failNotFound('Website não encontrado.');
+        }
+
+        if (!$websiteModel->canUserAccess((int)$id, $effectiveUserId, $isAdmin)) {
+            return $this->failForbidden('Você não tem permissão para acessar este website.');
+        }
+
+        if (empty($website['agent_token'])) {
+            return $this->fail('Este website não possui token do agente configurado.', 400);
+        }
+
+        $res = $this->makeAgentRequestWithFallback($website['url'], '/fixes', 'GET', $website['agent_token']);
+
+        if (empty($res['body']) || $res['status'] !== 200) {
+            return $this->failAgentResponse($res, 'Falha ao buscar configurações de correções do agente');
+        }
+
+        return $this->respond($res['body']);
+    }
+
+    public function toggleFix($id = null)
+    {
+        if (!$id) {
+            return $this->fail('ID do website não informado.', 400);
+        }
+
+        $checkId = $this->request->getVar('check_id');
+        $enabled = $this->request->getVar('enabled');
+
+        if (empty($checkId)) {
+            return $this->fail('Identificador da correção (check_id) não informado.', 400);
+        }
+
+        $effectiveUserId = (int) ($this->request->effectiveUserId ?? ($this->request->userData->id ?? 0));
+        $userData        = $this->request->userData ?? null;
+        $isImpersonating = $this->request->isImpersonating ?? false;
+        $isAdmin         = (($userData->role ?? 'user') === 'admin') && !$isImpersonating;
+
+        $websiteModel = new WebsiteModel();
+        $website = $websiteModel->find($id);
+
+        if (!$website) {
+            return $this->failNotFound('Website não encontrado.');
+        }
+
+        if (!$websiteModel->canUserAccess((int)$id, $effectiveUserId, $isAdmin)) {
+            return $this->failForbidden('Você não tem permissão para alterar este website.');
+        }
+
+        if (empty($website['agent_token'])) {
+            return $this->fail('Este website não possui token do agente configurado.', 400);
+        }
+
+        $res = $this->makeAgentRequestWithFallback($website['url'], '/fixes/toggle', 'POST', $website['agent_token'], [
+            'check_id' => $checkId,
+            'enabled'  => $enabled,
+        ]);
+
+        if (empty($res['body']) || $res['status'] !== 200) {
+            return $this->failAgentResponse($res, 'Falha ao alterar status da correção no agente');
+        }
+
+        return $this->respond($res['body']);
+    }
+
     public function syncIntegrityAll()
     {
         $effectiveUserId = (int) ($this->request->effectiveUserId ?? ($this->request->userData->id ?? 0));

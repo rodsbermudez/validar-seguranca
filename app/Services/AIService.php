@@ -139,7 +139,10 @@ class AIService
             "5. NO TOPO DA PÁGINA ADMIN DO PLUGIN:\n" .
             "   - Inclua no início de <div class=\"wrap\"> as tags '<h1 class=\"wp-heading-inline\" style=\"display:none;\">WP Patropi - Fixes</h1><hr class=\"wp-header-end\" style=\"display:none;\" />' para que avisos do WordPress fiquem acima do card.\n" .
             "   - Exiba um cabeçalho estilizado contendo a logo em '<img src=\"' . esc_url(plugins_url('assets/logo-Patropi.png', __FILE__)) . '\" style=\"max-height:42px;height:42px;width:auto;object-fit:contain;\" />' e o título <h2>WP Patropi - Fixes</h2> com o crédito 'Desenvolvido por {$authorName} ({$authorUri})'.\n" .
-            "   - Exiba a tabela formatada com a lista das correções ativas.\n" .
+            "   - Registre as correções na função 'vs_get_registered_fixes()' retornando array de cada check_id com title e description.\n" .
+            "   - Crie as funções 'vs_get_fixes_settings()', 'vs_is_fix_active(\$check_id)' e 'vs_set_fix_status(\$check_id, \$enabled)'.\n" .
+            "   - Cada regra de correção fornecida deve ser envolvida condicionalmente por 'if (vs_is_fix_active(\$check_id)) { ... }' para permitir ligar e desligar individualmente.\n" .
+            "   - Exiba a tabela formatada com switches/checkboxes e botão salvar para ativar/desativar cada correção individualmente.\n" .
             "6. REGRAS PARA EVITAR TELA EM BRANCO E ERROS FATAL PHP:\n" .
             "   - NÃO chame funções do WordPress como home_url() ou wp_redirect() no topo puro do arquivo PHP, pois elas ainda não foram carregadas pelo WordPress e causarão Fatal Error.\n" .
             "   - Insira OBRIGATORIAMENTE todas as funções de bloqueio/redirecionamento dentro do hook 'plugins_loaded' com prioridade 1 (add_action('plugins_loaded', function() { ... }, 1)):\n" .

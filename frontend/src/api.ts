@@ -280,6 +280,47 @@ export const getDiagnosticSummary = async (
   return response.data;
 };
 
+export interface WebsiteFixItem {
+  check_id: string;
+  title: string;
+  description: string;
+  active: boolean;
+}
+
+export interface WebsiteFixesResponse {
+  success: boolean;
+  installed: boolean;
+  active: boolean;
+  version?: string | null;
+  fixes: WebsiteFixItem[];
+}
+
+export interface ToggleFixResponse {
+  success: boolean;
+  check_id: string;
+  active: boolean;
+  message?: string;
+}
+
+export const getWebsiteFixes = async (
+  websiteId: number | string
+): Promise<WebsiteFixesResponse> => {
+  const response = await api.get<WebsiteFixesResponse>(`/websites/${websiteId}/fixes`);
+  return response.data;
+};
+
+export const toggleWebsiteFix = async (
+  websiteId: number | string,
+  checkId: string,
+  enabled: boolean
+): Promise<ToggleFixResponse> => {
+  const response = await api.post<ToggleFixResponse>(`/websites/${websiteId}/fixes/toggle`, {
+    check_id: checkId,
+    enabled,
+  });
+  return response.data;
+};
+
 export interface WebsiteShareMember {
   id: number;
   user_id: number;

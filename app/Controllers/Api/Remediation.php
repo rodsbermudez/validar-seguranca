@@ -418,6 +418,52 @@ class Remediation extends ResourceController
         $code .= " * Text Domain: wp-patropi-fixes\n";
         $code .= " */\n\n";
         $code .= "if (!defined('ABSPATH')) {\n    exit;\n}\n\n";
+        $code .= "if (!defined('VS_FIXES_VERSION')) {\n    define('VS_FIXES_VERSION', '1.0.0');\n}\n\n";
+
+        // Registered fixes catalog
+        $code .= "// --- CATÁLOGO DE CORREÇÕES REGISTRADAS ---\n";
+        $code .= "if (!function_exists('vs_get_registered_fixes')) {\n";
+        $code .= "    function vs_get_registered_fixes() {\n";
+        $code .= "        return array(\n";
+        foreach ($pluginFixes as $fix) {
+            $cid   = addslashes($fix['check_id'] ?? '');
+            $title = addslashes($fix['solution_title'] ?? ($fix['check_name'] ?? $cid));
+            $desc  = addslashes($fix['problem_description'] ?? ($fix['solution_instructions'] ?? ''));
+            $code .= "            '{$cid}' => array(\n";
+            $code .= "                'title'       => '{$title}',\n";
+            $code .= "                'description' => '{$desc}',\n";
+            $code .= "            ),\n";
+        }
+        $code .= "        );\n";
+        $code .= "    }\n";
+        $code .= "}\n\n";
+
+        // Helper functions
+        $code .= "// --- GESTÃO DE ESTADO DAS CORREÇÕES (ATIVO/INATIVO) ---\n";
+        $code .= "if (!function_exists('vs_get_fixes_settings')) {\n";
+        $code .= "    function vs_get_fixes_settings() {\n";
+        $code .= "        \$settings = get_option('wp_patropi_fixes_settings', array());\n";
+        $code .= "        return is_array(\$settings) ? \$settings : array();\n";
+        $code .= "    }\n";
+        $code .= "}\n\n";
+
+        $code .= "if (!function_exists('vs_is_fix_active')) {\n";
+        $code .= "    function vs_is_fix_active(\$check_id) {\n";
+        $code .= "        \$settings = vs_get_fixes_settings();\n";
+        $code .= "        if (!isset(\$settings[\$check_id])) {\n";
+        $code .= "            return true;\n";
+        $code .= "        }\n";
+        $code .= "        return !empty(\$settings[\$check_id]);\n";
+        $code .= "    }\n";
+        $code .= "}\n\n";
+
+        $code .= "if (!function_exists('vs_set_fix_status')) {\n";
+        $code .= "    function vs_set_fix_status(\$check_id, \$enabled) {\n";
+        $code .= "        \$settings = vs_get_fixes_settings();\n";
+        $code .= "        \$settings[\$check_id] = (bool) \$enabled;\n";
+        $code .= "        return update_option('wp_patropi_fixes_settings', \$settings);\n";
+        $code .= "    }\n";
+        $code .= "}\n\n";
 
         $code .= "// --- LINK DE CONFIGURAÇÕES NA TELA DE PLUGINS ---\n";
         $code .= "add_filter('plugin_action_links_' . plugin_basename(__FILE__), function(\$links) {\n";
@@ -426,22 +472,26 @@ class Remediation extends ResourceController
         $code .= "    return \$links;\n";
         $code .= "});\n\n";
 
-        $code .= "// --- APLICAÇÃO DIRETA DAS REGRAS DE REMEDIAÇÃO DE SEGURANÇA ---\n\n";
-
+        // Fix execution conditional on vs_is_fix_active
+        $code .= "// --- APLICAÇÃO CONDICIONAL DAS REGRAS DE REMEDIAÇÃO ---\n\n";
         foreach ($pluginFixes as $fix) {
+            $cid     = $fix['check_id'] ?? '';
             $snippet = trim($fix['fix_code_snippet'] ?? '');
             if (!empty($snippet)) {
                 $snippetClean = preg_replace('/^<\?php\s*/i', '', $snippet);
-                $code .= "// Check: {$fix['solution_title']} (ID: {$fix['check_id']})\n";
-                $code .= "try {\n";
+                $code .= "// Check: {$fix['solution_title']} (ID: {$cid})\n";
+                $code .= "if (vs_is_fix_active('{$cid}')) {\n";
+                $code .= "    try {\n";
                 foreach (explode("\n", $snippetClean) as $line) {
-                    $code .= "    " . $line . "\n";
+                    $code .= "        " . $line . "\n";
                 }
-                $code .= "} catch (\\Throwable \$e) {}\n\n";
+                $code .= "    } catch (\\Throwable \$e) {}\n";
+                $code .= "}\n\n";
             }
         }
 
-        $code .= "// --- INTERFACE DE VISUALIZAÇÃO NO PAINEL WP ADMIN ---\n";
+        // Admin interface
+        $code .= "// --- INTERFACE DE CONFIGURAÇÃO NO PAINEL WP ADMIN ---\n";
         $code .= "add_action('admin_head', function() {\n";
         $code .= "    echo '<style>#adminmenu .toplevel_page_wp-patropi .wp-menu-image img, #adminmenu #toplevel_page_wp-patropi .wp-menu-image img { max-width: 20px !important; max-height: 20px !important; width: 20px !important; height: 20px !important; padding: 3px 0 0 0 !important; object-fit: contain !important; box-sizing: border-box !important; }</style>';\n";
         $code .= "});\n\n";
@@ -457,10 +507,26 @@ class Remediation extends ResourceController
 
         $code .= "if (!function_exists('vs_render_remediation_admin_page')) {\n";
         $code .= "    function vs_render_remediation_admin_page() {\n";
+        $code .= "        if (!current_user_can('manage_options')) {\n";
+        $code .= "            return;\n";
+        $code .= "        }\n\n";
+        $code .= "        \$fixes = vs_get_registered_fixes();\n";
+        $code .= "        \$settings = vs_get_fixes_settings();\n";
+        $code .= "        \$notice = '';\n\n";
+        $code .= "        if (isset(\$_POST['vs_fixes_save_nonce']) && wp_verify_nonce(\$_POST['vs_fixes_save_nonce'], 'vs_save_fixes_action')) {\n";
+        $code .= "            \$new_settings = array();\n";
+        $code .= "            foreach (\$fixes as \$check_id => \$info) {\n";
+        $code .= "                \$new_settings[\$check_id] = isset(\$_POST['vs_fix_' . \$check_id]);\n";
+        $code .= "            }\n";
+        $code .= "            update_option('wp_patropi_fixes_settings', \$new_settings);\n";
+        $code .= "            \$settings = \$new_settings;\n";
+        $code .= "            \$notice = '<div class=\"notice notice-success is-dismissible\" style=\"margin: 15px 0 20px 0;\"><p><strong>Configurações de correções salvas com sucesso!</strong></p></div>';\n";
+        $code .= "        }\n\n";
         $code .= "        \$logo_url = plugins_url('assets/logo-Patropi.png', __FILE__);\n";
         $code .= "        echo '<div class=\"wrap\">';\n";
         $code .= "        echo '<h1 class=\"wp-heading-inline\" style=\"display:none;\">WP Patropi - Fixes</h1>';\n";
         $code .= "        echo '<hr class=\"wp-header-end\" style=\"display:none;\" />';\n";
+        $code .= "        if (\$notice) echo \$notice;\n";
         $code .= "        echo '<div style=\"display: flex; align-items: center; justify-content: space-between; margin: 15px 0; background: #fff; padding: 15px 20px; border-radius: 8px; border: 1px solid #e0e0e0; box-shadow: 0 1px 3px rgba(0,0,0,0.05);\">';\n";
         $code .= "        echo '  <div style=\"display: flex; align-items: center; gap: 15px;\">';\n";
         $code .= "        echo '    <img src=\"' . esc_url(\$logo_url) . '\" alt=\"Patropi Comunica\" style=\"max-height: 42px; height: 42px; width: auto; object-fit: contain;\" onerror=\"this.style.display=\\'none\\';\" />';\n";
@@ -470,12 +536,29 @@ class Remediation extends ResourceController
         $code .= "        echo '    </div>';\n";
         $code .= "        echo '  </div>';\n";
         $code .= "        echo '</div>';\n";
-        $code .= "        echo '<p>Plugin de remediação ativado para o site <strong>" . htmlspecialchars($siteHost) . "</strong>.</p>';\n";
-        $code .= "        echo '<table class=\"widefat fixed striped\"><thead><tr><th>ID da Verificação</th><th>Correção Aplicada</th><th>Status</th></tr></thead><tbody>';\n";
-        foreach ($pluginFixes as $fix) {
-            $code .= "        echo '<tr><td><code>" . htmlspecialchars($fix['check_id']) . "</code></td><td><strong>" . htmlspecialchars($fix['solution_title']) . "</strong></td><td><span style=\"background:#10B981;color:#fff;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600;\">Ativo</span></td></tr>';\n";
-        }
-        $code .= "        echo '</tbody></table></div>';\n";
+        $code .= "        echo '<style>';\n";
+        $code .= "        echo '.vs-switch { position: relative; display: inline-block; width: 44px; height: 24px; vertical-align: middle; }';\n";
+        $code .= "        echo '.vs-switch input { opacity: 0; width: 0; height: 0; margin: 0; }';\n";
+        $code .= "        echo '.vs-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #cbd5e1; transition: .25s ease; border-radius: 24px; }';\n";
+        $code .= "        echo '.vs-slider:before { position: absolute; content: \"\"; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .25s ease; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }';\n";
+        $code .= "        echo 'input:checked + .vs-slider { background-color: #10B981; }';\n";
+        $code .= "        echo 'input:checked + .vs-slider:before { transform: translateX(20px); }';\n";
+        $code .= "        echo '</style>';\n";
+        $code .= "        echo '<form method=\"post\">';\n";
+        $code .= "        wp_nonce_field('vs_save_fixes_action', 'vs_fixes_save_nonce');\n";
+        $code .= "        echo '<table class=\"widefat fixed striped\" style=\"background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.05);border:1px solid #e2e8f0;\">';\n";
+        $code .= "        echo '<thead><tr><th style=\"width:100px;text-align:center;\">Status</th><th>Correção / Funcionalidade</th><th style=\"width:220px;\">ID do Teste</th></tr></thead><tbody>';\n";
+        $code .= "        foreach (\$fixes as \$check_id => \$info) {\n";
+        $code .= "            \$is_active = vs_is_fix_active(\$check_id);\n";
+        $code .= "            echo '<tr>';\n";
+        $code .= "            echo '<td style=\"text-align:center;vertical-align:middle;\"><label class=\"vs-switch\"><input type=\"checkbox\" name=\"vs_fix_' . esc_attr(\$check_id) . '\" value=\"1\" ' . checked(\$is_active, true, false) . ' /><span class=\"vs-slider\"></span></label></td>';\n";
+        $code .= "            echo '<td style=\"vertical-align:middle;\"><strong>' . esc_html(\$info['title']) . '</strong><br /><span style=\"color:#64748b;font-size:12px;\">' . esc_html(\$info['description']) . '</span></td>';\n";
+        $code .= "            echo '<td style=\"vertical-align:middle;\"><code>' . esc_html(\$check_id) . '</code></td>';\n";
+        $code .= "            echo '</tr>';\n";
+        $code .= "        }\n";
+        $code .= "        echo '</tbody></table>';\n";
+        $code .= "        echo '<p style=\"margin-top:20px;\"><input type=\"submit\" class=\"button button-primary\" value=\"Salvar Alterações\" style=\"padding:6px 20px;height:auto;font-size:14px;background:#2563eb;border-color:#2563eb;\" /></p>';\n";
+        $code .= "        echo '</form></div>';\n";
         $code .= "    }\n";
         $code .= "}\n";
 

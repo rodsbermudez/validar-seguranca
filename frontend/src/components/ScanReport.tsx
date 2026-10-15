@@ -20,6 +20,8 @@ import {
   Tooltip,
   Progress,
   Box,
+  Switch,
+  Table,
 } from '@mantine/core';
 import {
   IconCheck,
@@ -39,7 +41,7 @@ import {
   IconPrinter,
   IconRefresh,
 } from '@tabler/icons-react';
-import { api } from '../api';
+import { api, getWebsiteFixes, toggleWebsiteFix, WebsiteFixesResponse } from '../api';
 
 interface ScanReportProps {
   website: { id: string | number; name: string; url: string };
@@ -94,6 +96,48 @@ export const ScanReport: React.FC<ScanReportProps> = ({ website, onBack: _onBack
   const [serverGuideHtml, setServerGuideHtml] = useState<string | null>(null);
   const [serverGuideError, setServerGuideError] = useState<string | null>(null);
 
+  // WP Patropi Fixes State
+  const [fixesData, setFixesData] = useState<WebsiteFixesResponse | null>(null);
+  const [fixesLoading, setFixesLoading] = useState(false);
+  const [togglingFixId, setTogglingFixId] = useState<string | null>(null);
+
+  const loadFixes = async () => {
+    setFixesLoading(true);
+    try {
+      const data = await getWebsiteFixes(website.id);
+      setFixesData(data);
+    } catch (err: any) {
+      console.warn('Erro ao carregar correções do plugin:', err);
+      setFixesData(null);
+    } finally {
+      setFixesLoading(false);
+    }
+  };
+
+  const handleToggleFix = async (checkId: string, enabled: boolean) => {
+    setTogglingFixId(checkId);
+    try {
+      await toggleWebsiteFix(website.id, checkId, enabled);
+      setFixesData((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          fixes: prev.fixes.map((f) =>
+            f.check_id === checkId ? { ...f, active: enabled } : f
+          ),
+        };
+      });
+    } catch (err: any) {
+      alert(
+        err.response?.data?.messages?.error ||
+        err.response?.data?.message ||
+        'Erro ao alterar status da correção no WordPress.'
+      );
+    } finally {
+      setTogglingFixId(null);
+    }
+  };
+
   const fetchSolutionsCatalog = async () => {
     try {
       const res = await api.get('/solutions');
@@ -129,6 +173,7 @@ export const ScanReport: React.FC<ScanReportProps> = ({ website, onBack: _onBack
     }
     fetchScanHistory();
     fetchSolutionsCatalog();
+    loadFixes();
   }, [website.id]);
 
   const isAdmin = currentUser?.role === 'admin';
@@ -608,6 +653,142 @@ export const ScanReport: React.FC<ScanReportProps> = ({ website, onBack: _onBack
 
   const serverFixableList = getServerFixableChecks();
 
+  const renderFixesCard = () => {
+    return (
+      <Paper p="md" radius="md" bg="dark.7" style={{ border: '1px solid #373A40' }}>
+        <Group justify="space-between" align="center" mb="sm">
+          <Group gap="xs">
+            <ThemeIcon size="md" radius="sm" color="teal" variant="light">
+              <IconShieldCheck size={20} />
+            </ThemeIcon>
+            <div>
+              <Group gap="xs" align="center">
+                <Text size="sm" fw={700} c="white">
+                  🛡️ Correções do WordPress (Plugin WP Patropi Fixes)
+                </Text>
+                {fixesData?.installed && fixesData.fixes.length > 0 && (
+                  <Badge color="teal" variant="light" size="xs">
+                    {fixesData.fixes.filter((f) => f.active).length} / {fixesData.fixes.length} Ativas
+                  </Badge>
+                )}
+                {fixesData?.version && (
+                  <Badge color="gray" variant="outline" size="xs">
+                    v{fixesData.version}
+                  </Badge>
+                )}
+              </Group>
+              <Text size="xs" c="dimmed">
+                Ative ou desative regras individuais de proteção aplicadas pelo plugin de remediação no WordPress deste site.
+              </Text>
+            </div>
+          </Group>
+
+          <Button
+            variant="subtle"
+            color="gray"
+            size="xs"
+            loading={fixesLoading}
+            leftSection={<IconRefresh size={14} />}
+            onClick={loadFixes}
+          >
+            Atualizar Status
+          </Button>
+        </Group>
+
+        {fixesLoading && !fixesData ? (
+          <Center p="xl">
+            <Stack align="center" gap="xs">
+              <Loader size="sm" color="teal" />
+              <Text size="xs" c="dimmed">Consultando plugin WP Patropi Fixes no WordPress...</Text>
+            </Stack>
+          </Center>
+        ) : fixesData?.installed && fixesData.fixes.length > 0 ? (
+          <Box style={{ overflowX: 'auto' }}>
+            <Table
+              highlightOnHover
+              verticalSpacing="sm"
+              styles={{
+                table: { width: '100%' },
+                thead: { backgroundColor: '#141517' },
+                th: { color: '#909296', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' },
+                tr: { borderBottom: '1px solid #2C2E33' },
+              }}
+            >
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th style={{ width: 80, textAlign: 'center' }}>Ativar</Table.Th>
+                  <Table.Th>Correção / Funcionalidade</Table.Th>
+                  <Table.Th style={{ width: 220 }}>ID da Verificação</Table.Th>
+                  <Table.Th style={{ width: 110, textAlign: 'center' }}>Status</Table.Th>
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
+                {fixesData.fixes.map((fix) => {
+                  const isToggling = togglingFixId === fix.check_id;
+                  return (
+                    <Table.Tr key={fix.check_id}>
+                      <Table.Td style={{ textAlign: 'center' }}>
+                        <Switch
+                          checked={fix.active}
+                          disabled={isToggling}
+                          color="teal"
+                          size="sm"
+                          onChange={(e) => handleToggleFix(fix.check_id, e.currentTarget.checked)}
+                        />
+                      </Table.Td>
+                      <Table.Td>
+                        <Text size="sm" fw={600} c={fix.active ? 'white' : 'dimmed'}>
+                          {fix.title}
+                        </Text>
+                        {fix.description && (
+                          <Text size="xs" c="dimmed" lineClamp={2}>
+                            {fix.description}
+                          </Text>
+                        )}
+                      </Table.Td>
+                      <Table.Td>
+                        <Badge variant="outline" color="gray" size="xs">
+                          {fix.check_id}
+                        </Badge>
+                      </Table.Td>
+                      <Table.Td style={{ textAlign: 'center' }}>
+                        {isToggling ? (
+                          <Loader size="xs" color="teal" />
+                        ) : fix.active ? (
+                          <Badge color="green" variant="light" size="xs">
+                            Ativo
+                          </Badge>
+                        ) : (
+                          <Badge color="gray" variant="light" size="xs">
+                            Desativado
+                          </Badge>
+                        )}
+                      </Table.Td>
+                    </Table.Tr>
+                  );
+                })}
+              </Table.Tbody>
+            </Table>
+          </Box>
+        ) : (
+          <Alert
+            icon={<IconPlug size={18} />}
+            color="blue"
+            variant="light"
+            radius="md"
+          >
+            <Text size="sm" fw={600}>
+              Plugin WP Patropi Fixes não detectado ou inativo
+            </Text>
+            <Text size="xs" mt={4}>
+              Para gerenciar as correções e habilitar/desabilitar proteções em tempo real, gere o plugin customizado pelo botão acima ou ative o plugin <strong>WP Patropi Fixes</strong> no WordPress do cliente.
+            </Text>
+          </Alert>
+        )}
+      </Paper>
+    );
+  };
+
   if (loading) {
     return (
       <Paper p="xl" radius="md" withBorder bg="dark.8">
@@ -680,21 +861,24 @@ export const ScanReport: React.FC<ScanReportProps> = ({ website, onBack: _onBack
 
 
       {!scanResult ? (
-        <Paper p="xl" ta="center" bg="dark.7" radius="md" my="xl">
-          <IconShieldOff size={50} style={{ opacity: 0.5 }} />
-          <Text mt="md" fw={600} size="lg">Nenhuma varredura realizada para este site.</Text>
-          <Text c="dimmed" size="sm" mb="lg">
-            Inicie a auditoria automatizada de segurança para analisar cabeçalhos, vazamento de arquivos e enumeração.
-          </Text>
-          <Group justify="center" gap="md">
-            <Button variant="light" color="teal" size="md" loading={downloadLoading} onClick={handleDownloadAgentPlugin} leftSection={<IconDownload size={18} />}>
-              Baixar Plugin Agente
-            </Button>
-            <Button color="indigo" size="md" loading={scanLoading} onClick={handleTriggerScan}>
-              Iniciar Varredura Agora
-            </Button>
-          </Group>
-        </Paper>
+        <Stack gap="lg" my="xl">
+          <Paper p="xl" ta="center" bg="dark.7" radius="md">
+            <IconShieldOff size={50} style={{ opacity: 0.5 }} />
+            <Text mt="md" fw={600} size="lg">Nenhuma varredura realizada para este site.</Text>
+            <Text c="dimmed" size="sm" mb="lg">
+              Inicie a auditoria automatizada de segurança para analisar cabeçalhos, vazamento de arquivos e enumeração.
+            </Text>
+            <Group justify="center" gap="md">
+              <Button variant="light" color="teal" size="md" loading={downloadLoading} onClick={handleDownloadAgentPlugin} leftSection={<IconDownload size={18} />}>
+                Baixar Plugin Agente
+              </Button>
+              <Button color="indigo" size="md" loading={scanLoading} onClick={handleTriggerScan}>
+                Iniciar Varredura Agora
+              </Button>
+            </Group>
+          </Paper>
+          {renderFixesCard()}
+        </Stack>
       ) : (
         <Stack gap="lg">
           {/* Action Bar for Remediation & AI */}
@@ -806,6 +990,9 @@ export const ScanReport: React.FC<ScanReportProps> = ({ website, onBack: _onBack
               </Grid.Col>
             </Grid>
           </Paper>
+
+          {/* Plugin WP Patropi Fixes Management */}
+          {renderFixesCard()}
 
           {/* Categorized Security Checks Accordion */}
           <Title order={4} mt="md">Detalhes dos Testes de Segurança</Title>
