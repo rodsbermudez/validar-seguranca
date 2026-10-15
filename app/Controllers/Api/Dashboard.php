@@ -47,6 +47,7 @@ class Dashboard extends ResourceController
 
         $maintenanceTasks = [];
         $securityRadar    = [];
+        $integrityRadar   = [];
 
         foreach ($websites as $site) {
             if (!empty($site['is_connected']) && (int)$site['is_connected'] === 1) {

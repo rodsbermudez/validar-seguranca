@@ -37,6 +37,7 @@ import {
   IconNotes,
   IconCalendarEvent,
   IconRotateClockwise,
+  IconPlus,
 } from '@tabler/icons-react';
 import {
   getDashboardOverview,
@@ -270,6 +271,41 @@ export const OverviewDashboardView: React.FC<OverviewDashboardViewProps> = ({
           </Group>
         </Group>
       </Paper>
+
+      {/* Empty State Onboarding Banner if 0 websites */}
+      {metrics.total_websites === 0 && (
+        <Paper
+          p="xl"
+          radius="md"
+          withBorder
+          bg="dark.7"
+          style={{
+            textAlign: 'center',
+            borderColor: 'rgba(99, 102, 241, 0.4)',
+            background: 'linear-gradient(180deg, rgba(99, 102, 241, 0.08) 0%, rgba(17, 17, 17, 0.8) 100%)',
+          }}
+        >
+          <Center mb="md">
+            <ThemeIcon size={64} radius="xl" color="indigo" variant="light">
+              <IconWorld size={36} />
+            </ThemeIcon>
+          </Center>
+          <Title order={3} mb="xs">
+            Bem-vindo ao Validar Segurança!
+          </Title>
+          <Text size="sm" c="dimmed" style={{ maxWidth: 540, margin: '0 auto' }} mb="lg">
+            Você ainda não possui nenhum website cadastrado nesta conta. Cadastre seu primeiro site WordPress para iniciar auditorias de segurança, monitorar a integridade dos arquivos e gerenciar o cronograma de manutenções.
+          </Text>
+          <Button
+            size="md"
+            color="indigo"
+            leftSection={<IconPlus size={18} />}
+            onClick={onNavigateToWebsites}
+          >
+            Cadastrar Primeiro Website
+          </Button>
+        </Paper>
+      )}
 
       {/* KPI Metrics Cards */}
       <Grid>
