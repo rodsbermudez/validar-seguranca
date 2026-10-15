@@ -57,6 +57,7 @@ import {
   regeneratePublicLogToken,
 } from '../api';
 import { RichNoteContent } from './RichNoteContent';
+import { formatDateTime } from '../utils/date';
 
 interface WebsiteActivityLogsViewProps {
   website: Website;
@@ -299,20 +300,7 @@ export const WebsiteActivityLogsView: React.FC<WebsiteActivityLogsViewProps> = (
   };
 
   const formatDate = (dateStr: string) => {
-    if (!dateStr) return '-';
-    try {
-      const d = new Date(dateStr.replace(' ', 'T'));
-      if (isNaN(d.getTime())) return dateStr;
-      return d.toLocaleDateString('pt-BR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-    } catch {
-      return dateStr;
-    }
+    return formatDateTime(dateStr, '-');
   };
 
   return (

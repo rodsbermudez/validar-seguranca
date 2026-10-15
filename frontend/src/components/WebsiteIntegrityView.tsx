@@ -43,6 +43,7 @@ import {
   IntegrityScanData,
   IntegrityIssue,
 } from '../api';
+import { formatDateTime } from '../utils/date';
 
 interface WebsiteIntegrityViewProps {
   website: { id: string | number; name: string; url: string; environment?: string };
@@ -351,7 +352,7 @@ export const WebsiteIntegrityView: React.FC<WebsiteIntegrityViewProps> = ({ webs
                       : `Todos os ${summary?.total_checked} arquivos do WordPress ${scanData.wp_version} correspondem com exatidão aos originais publicados pelo WordPress.org. Nenhum arquivo foi adulterado.`}
                   </Text>
                   <Text size="xs" c="dimmed" mt={4}>
-                    Última verificação realizada em: <b>{scanData.scanned_at}</b>
+                    Última verificação realizada em: <b>{formatDateTime(scanData.scanned_at)}</b>
                   </Text>
                 </div>
               </Group>
@@ -384,7 +385,7 @@ export const WebsiteIntegrityView: React.FC<WebsiteIntegrityViewProps> = ({ webs
                     {ignoredCount > 0 && ` (${ignoredCount} arquivo(s) já resolvidos/ignorados)`}. Você pode excluir arquivos dispensáveis (ex: wp-config-sample.php ou scripts suspeitos) ou marcar como resolvido se pertencer a plugins legítimos.
                   </Text>
                   <Text size="xs" c="dimmed" mt={4}>
-                    Última verificação realizada em: <b>{scanData.scanned_at}</b>
+                    Última verificação realizada em: <b>{formatDateTime(scanData.scanned_at)}</b>
                   </Text>
                 </div>
               </Group>
@@ -613,7 +614,7 @@ export const WebsiteIntegrityView: React.FC<WebsiteIntegrityViewProps> = ({ webs
                         <Table.Td>
                           {isIgnored ? (
                             <Tooltip
-                              label={`Ignorado em ${issue.ignored_at || 'Data anterior'}. Se este arquivo for removido do servidor, a regra será limpa automaticamente.`}
+                              label={`Ignorado em ${formatDateTime(issue.ignored_at, 'Data anterior')}. Se este arquivo for removido do servidor, a regra será limpa automaticamente.`}
                               multiline
                               w={260}
                             >

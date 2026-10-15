@@ -42,6 +42,7 @@ import {
   IconRefresh,
 } from '@tabler/icons-react';
 import { api, getWebsiteFixes, toggleWebsiteFix, WebsiteFixesResponse } from '../api';
+import { formatDateTime } from '../utils/date';
 
 interface ScanReportProps {
   website: { id: string | number; name: string; url: string };
@@ -987,7 +988,7 @@ export const ScanReport: React.FC<ScanReportProps> = ({ website, onBack: _onBack
               <Grid.Col span={{ base: 12, md: 8 }}>
                 <Stack gap="xs">
                   <Text size="sm" fw={700} c="dimmed">
-                    RESUMO DA AUDITORIA ({scanResult.scanned_at})
+                    RESUMO DA AUDITORIA ({formatDateTime(scanResult.scanned_at)})
                   </Text>
 
                   <Group gap="md" mt="xs" style={{ width: '100%' }}>
@@ -1224,7 +1225,7 @@ export const ScanReport: React.FC<ScanReportProps> = ({ website, onBack: _onBack
               <Group justify="space-between">
                 <div>
                   <Text size="xs" c="dimmed">
-                    Executado em: {new Date(item.executed_at).toLocaleString('pt-BR')}
+                    Executado em: {formatDateTime(item.executed_at)}
                   </Text>
                   <Group gap="xs" mt={4}>
                     <Badge color={getScoreColor(item.score)}>SCORE: {item.score} / 100</Badge>
@@ -1295,7 +1296,7 @@ export const ScanReport: React.FC<ScanReportProps> = ({ website, onBack: _onBack
               </Text>
               {scanResult?.server_guide_generated_at && (
                 <Text size="xs" c="orange.4" mt={2} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  💾 Guia salvo em: <b>{new Date(scanResult.server_guide_generated_at).toLocaleString('pt-BR')}</b>
+                  💾 Guia salvo em: <b>{formatDateTime(scanResult.server_guide_generated_at)}</b>
                 </Text>
               )}
             </div>
@@ -1334,7 +1335,7 @@ export const ScanReport: React.FC<ScanReportProps> = ({ website, onBack: _onBack
                           </head>
                           <body>
                             <h1>🛡️ Guia de Remediação do Servidor: ${website.name}</h1>
-                            <p><b>URL:</b> ${website.url} | <b>Data:</b> ${new Date().toLocaleString('pt-BR')}</p>
+                            <p><b>URL:</b> ${website.url} | <b>Data:</b> ${formatDateTime(new Date())}</p>
                             <hr/>
                             ${serverGuideHtml}
                           </body>

@@ -35,6 +35,7 @@ import {
   IconFileText,
 } from '@tabler/icons-react';
 import { getWebsiteLogs, toggleWebsiteLogs, clearWebsiteLogs, LogEntry } from '../api';
+import { formatDateTime } from '../utils/date';
 
 interface WebsiteLogsViewProps {
   website: { id: string | number; name: string; url: string; environment?: string };
@@ -396,7 +397,7 @@ export const WebsiteLogsView: React.FC<WebsiteLogsViewProps> = ({ website, onBac
                       {log.level.toUpperCase()}
                     </Badge>
                     <Text size="xs" c="dimmed" ff="monospace">
-                      {log.timestamp}
+                      {formatDateTime(log.timestamp, log.timestamp, { includeSeconds: true })}
                     </Text>
                   </Group>
 

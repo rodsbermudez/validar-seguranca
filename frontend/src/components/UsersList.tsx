@@ -17,6 +17,7 @@ import {
 } from '@mantine/core';
 import { IconUserPlus, IconTrash, IconEye, IconPencil, IconPower } from '@tabler/icons-react';
 import { api } from '../api';
+import { formatDateOnly } from '../utils/date';
 
 interface User {
   id: number;
@@ -224,7 +225,7 @@ export function UsersList({ onImpersonate, currentUserId }: UsersListProps) {
                       {isUserActive ? 'ATIVO' : 'INATIVO'}
                     </Badge>
                   </Table.Td>
-                  <Table.Td>{new Date(user.created_at).toLocaleDateString('pt-BR')}</Table.Td>
+                  <Table.Td>{formatDateOnly(user.created_at)}</Table.Td>
                   <Table.Td style={{ textAlign: 'right' }}>
                     <Group gap="xs" justify="flex-end">
                       <Tooltip label={`Ver painel como ${user.name}`}>

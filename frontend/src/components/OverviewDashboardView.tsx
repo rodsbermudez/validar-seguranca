@@ -49,6 +49,7 @@ import {
   DashboardMaintenanceTask,
   Website,
 } from '../api';
+import { formatDateOnly, formatDateTime } from '../utils/date';
 
 interface OverviewDashboardViewProps {
   onSelectWebsite: (website: Website | any, initialTab?: string) => void;
@@ -589,7 +590,7 @@ export const OverviewDashboardView: React.FC<OverviewDashboardViewProps> = ({
                               </Text>
                               {task.target_date && (
                                 <Text size="xs" c="dimmed">
-                                  Previsto: {task.target_date.split('-').reverse().join('/')}
+                                  Previsto: {formatDateOnly(task.target_date)}
                                 </Text>
                               )}
                             </div>
@@ -613,12 +614,7 @@ export const OverviewDashboardView: React.FC<OverviewDashboardViewProps> = ({
                             {isCompleted && task.completed_at && (
                               <Group gap={4} mt={3}>
                                 <Text size="xs" c="dimmed">
-                                  {new Date(task.completed_at).toLocaleDateString('pt-BR', {
-                                    day: '2-digit',
-                                    month: '2-digit',
-                                    hour: '2-digit',
-                                    minute: '2-digit',
-                                  })}
+                                  {formatDateTime(task.completed_at)}
                                 </Text>
                                 {task.completed_by && (
                                   <Text size="xs" c="dimmed">

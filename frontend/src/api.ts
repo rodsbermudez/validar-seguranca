@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { formatMonthYear } from './utils/date';
 
 const getApiBaseUrl = () => {
   if (import.meta.env.VITE_API_BASE_URL) {
@@ -549,9 +550,8 @@ export const getAvailableMaintenanceMonths = (): { value: string; label: string 
     const mm = String(d.getMonth() + 1).padStart(2, '0');
     const value = `${yyyy}-${mm}`;
 
-    const monthName = d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-    const capitalized = monthName.charAt(0).toUpperCase() + monthName.slice(1);
-    const label = i === 0 ? `${capitalized} (Mês Atual)` : capitalized;
+    const monthName = formatMonthYear(value, 'long');
+    const label = i === 0 ? `${monthName} (Mês Atual)` : monthName;
 
     options.push({ value, label });
   }

@@ -36,6 +36,7 @@ import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import { getDiagnosticSummary, DiagnosticSummaryResponse } from '../api';
 import { PATROPI_LOGO_BASE64 } from '../assets/logoBase64';
+import { formatDateTime } from '../utils/date';
 
 interface WebsiteDiagnosticReportViewProps {
   website: { id: string | number; name: string; url: string; environment?: string };
@@ -166,11 +167,7 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
   };
 
   const rawScanDate = latestScan?.scanned_at || latestScan?.executed_at;
-  const formattedScanDate = rawScanDate
-    ? rawScanDate.includes('T')
-      ? new Date(rawScanDate).toLocaleString('pt-BR')
-      : rawScanDate
-    : 'DATA N/D';
+  const formattedScanDate = formatDateTime(rawScanDate, 'DATA N/D');
 
   const pendingPlugins = updates?.plugins?.filter((p) => p.has_update) || [];
   const pendingThemes = updates?.themes?.filter((t) => t.has_update) || [];
@@ -325,7 +322,7 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
                   EMITIDO EM:
                 </Text>
                 <Text fw={700} size="sm">
-                  {report?.generated_at ? new Date(report.generated_at).toLocaleString('pt-BR') : new Date().toLocaleString('pt-BR')}
+                  {formatDateTime(report?.generated_at || new Date())}
                 </Text>
                 <Badge color="green" size="sm" variant="outline" mt={4}>
                   Validar Segurança Platform

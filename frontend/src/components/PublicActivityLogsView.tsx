@@ -38,6 +38,7 @@ import {
 } from '@tabler/icons-react';
 import { getPublicActivityLogs, ActivityLogItem } from '../api';
 import { RichNoteContent } from './RichNoteContent';
+import { formatDateTime } from '../utils/date';
 
 interface PublicActivityLogsViewProps {
   shareToken: string;
@@ -112,20 +113,7 @@ export const PublicActivityLogsView: React.FC<PublicActivityLogsViewProps> = ({
   };
 
   const formatDate = (dateStr: string) => {
-    if (!dateStr) return '-';
-    try {
-      const d = new Date(dateStr.replace(' ', 'T'));
-      if (isNaN(d.getTime())) return dateStr;
-      return d.toLocaleDateString('pt-BR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-    } catch {
-      return dateStr;
-    }
+    return formatDateTime(dateStr, '-');
   };
 
   // Filtragem dos registros

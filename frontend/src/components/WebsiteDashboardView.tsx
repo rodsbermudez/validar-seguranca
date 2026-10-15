@@ -77,6 +77,7 @@ import { WebsiteUpdatesView } from './WebsiteUpdatesView';
 import { WebsiteIntegrityView } from './WebsiteIntegrityView';
 import { WebsiteDiagnosticReportView } from './WebsiteDiagnosticReportView';
 import { WebsiteActivityLogsView } from './WebsiteActivityLogsView';
+import { formatDateOnly, formatDateTime, formatMonthYear } from '../utils/date';
 
 interface WebsiteDashboardViewProps {
   website: Website;
@@ -577,7 +578,7 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
                 </Group>
                 {latestScan && (
                   <Badge color="gray" variant="light">
-                    Realizada em: {latestScan.scanned_at || 'Data N/D'}
+                    Realizada em: {formatDateTime(latestScan.scanned_at, 'Data N/D')}
                   </Badge>
                 )}
               </Group>
@@ -673,7 +674,7 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
                     <Group gap="xs" align="center">
                       <Title order={4}>Ciclo de Manutenção Preventiva</Title>
                       <Badge color="teal" variant="light" size="sm">
-                        {new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(new Date()).toUpperCase()}
+                        {formatMonthYear(new Date()).toUpperCase()}
                       </Badge>
                     </Group>
                     <Text size="xs" c="dimmed">
@@ -784,9 +785,7 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
                         <Group justify="space-between" mb={maintenanceStatus.notes ? 4 : 0}>
                           <Text size="xs" c="green.4" fw={600}>
                             ✓ Concluída em:{' '}
-                            {maintenanceStatus.completed_at
-                              ? new Date(maintenanceStatus.completed_at).toLocaleString('pt-BR')
-                              : 'Data N/D'}
+                            {formatDateTime(maintenanceStatus.completed_at, 'Data N/D')}
                           </Text>
                           {maintenanceStatus.completed_by && (
                             <Text size="xs" c="dimmed">
@@ -1320,7 +1319,7 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
                         </Table.Td>
                         <Table.Td>
                           <Text size="xs" c="dimmed">
-                            {member.created_at ? new Date(member.created_at).toLocaleDateString('pt-BR') : '—'}
+                            {formatDateOnly(member.created_at)}
                           </Text>
                         </Table.Td>
                         <Table.Td style={{ textAlign: 'right' }}>
@@ -1558,12 +1557,12 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
                 <Table.Tr key={item.id}>
                   <Table.Td>
                     <Badge color="indigo" variant="light" size="sm">
-                      {item.year_month.split('-').reverse().join('/')}
+                      {formatMonthYear(item.year_month)}
                     </Badge>
                   </Table.Td>
                   <Table.Td>
                     <Text size="xs">
-                      {item.completed_at ? new Date(item.completed_at).toLocaleString('pt-BR') : '—'}
+                      {formatDateTime(item.completed_at)}
                     </Text>
                   </Table.Td>
                   <Table.Td>
