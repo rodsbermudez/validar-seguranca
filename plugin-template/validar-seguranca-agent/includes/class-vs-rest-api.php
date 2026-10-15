@@ -355,18 +355,39 @@ class VS_Agent_REST_API {
             require_once ABSPATH . 'wp-admin/includes/plugin.php';
         }
 
-        $plugin_file = 'wp-patropi-fixes/wp-patropi-fixes.php';
-        $full_path   = WP_PLUGIN_DIR . '/' . $plugin_file;
-        $installed   = file_exists($full_path);
-        $active      = $installed && is_plugin_active($plugin_file);
+        $installed = false;
+        $active    = false;
 
-        if ($installed && !function_exists('vs_get_registered_fixes')) {
-            @include_once $full_path;
+        if (function_exists('vs_get_registered_fixes')) {
+            $installed = true;
+            $active    = true;
+        } else {
+            $plugin_file = 'wp-patropi-fixes/wp-patropi-fixes.php';
+            $full_path   = WP_PLUGIN_DIR . '/' . $plugin_file;
+            if (file_exists($full_path)) {
+                $installed = true;
+                $active    = is_plugin_active($plugin_file);
+                @include_once $full_path;
+            } else {
+                $matches = glob(WP_PLUGIN_DIR . '/*fixes*/wp-patropi-fixes*.php');
+                if (!empty($matches)) {
+                    foreach ($matches as $match) {
+                        @include_once $match;
+                        if (function_exists('vs_get_registered_fixes')) {
+                            $installed = true;
+                            $active    = true;
+                            break;
+                        }
+                    }
+                }
+            }
         }
 
         if (function_exists('vs_get_registered_fixes')) {
             $registered = vs_get_registered_fixes();
-            $settings   = function_exists('vs_get_fixes_settings') ? vs_get_fixes_settings() : (array) get_option('wp_patropi_fixes_settings', array());
+            $settings   = function_exists('vs_get_fixes_settings')
+                ? vs_get_fixes_settings()
+                : (get_option('wp_patropi_fixes_settings', null) ?: (array) get_option('vs_patropi_fixes_settings', array()));
             $items      = array();
 
             foreach ($registered as $check_id => $data) {
@@ -425,10 +446,22 @@ class VS_Agent_REST_API {
 
         $enabled_bool = filter_var($enabled, FILTER_VALIDATE_BOOLEAN);
 
-        $plugin_file = 'wp-patropi-fixes/wp-patropi-fixes.php';
-        $full_path   = WP_PLUGIN_DIR . '/' . $plugin_file;
-        if (file_exists($full_path) && !function_exists('vs_set_fix_status')) {
-            @include_once $full_path;
+        if (!function_exists('vs_set_fix_status')) {
+            $plugin_file = 'wp-patropi-fixes/wp-patropi-fixes.php';
+            $full_path   = WP_PLUGIN_DIR . '/' . $plugin_file;
+            if (file_exists($full_path)) {
+                @include_once $full_path;
+            } else {
+                $matches = glob(WP_PLUGIN_DIR . '/*fixes*/wp-patropi-fixes*.php');
+                if (!empty($matches)) {
+                    foreach ($matches as $match) {
+                        @include_once $match;
+                        if (function_exists('vs_set_fix_status')) {
+                            break;
+                        }
+                    }
+                }
+            }
         }
 
         if (function_exists('vs_set_fix_status')) {
@@ -437,6 +470,7 @@ class VS_Agent_REST_API {
             $settings = (array) get_option('wp_patropi_fixes_settings', array());
             $settings[$check_id] = $enabled_bool;
             update_option('wp_patropi_fixes_settings', $settings);
+            update_option('vs_patropi_fixes_settings', $settings);
         }
 
         return new WP_REST_Response(array(

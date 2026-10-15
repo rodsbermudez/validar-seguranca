@@ -99,15 +99,23 @@ export const ScanReport: React.FC<ScanReportProps> = ({ website, onBack: _onBack
   // WP Patropi Fixes State
   const [fixesData, setFixesData] = useState<WebsiteFixesResponse | null>(null);
   const [fixesLoading, setFixesLoading] = useState(false);
+  const [fixesError, setFixesError] = useState<string | null>(null);
   const [togglingFixId, setTogglingFixId] = useState<string | null>(null);
 
   const loadFixes = async () => {
     setFixesLoading(true);
+    setFixesError(null);
     try {
       const data = await getWebsiteFixes(website.id);
       setFixesData(data);
     } catch (err: any) {
       console.warn('Erro ao carregar correções do plugin:', err);
+      const errMsg =
+        err.response?.data?.messages?.error ||
+        err.response?.data?.message ||
+        err.message ||
+        'Não foi possível se comunicar com o WordPress.';
+      setFixesError(errMsg);
       setFixesData(null);
     } finally {
       setFixesLoading(false);
@@ -770,6 +778,23 @@ export const ScanReport: React.FC<ScanReportProps> = ({ website, onBack: _onBack
               </Table.Tbody>
             </Table>
           </Box>
+        ) : fixesError ? (
+          <Alert
+            icon={<IconAlertTriangle size={18} />}
+            color="yellow"
+            variant="light"
+            radius="md"
+          >
+            <Text size="sm" fw={600}>
+              Não foi possível sincronizar as correções com o WordPress
+            </Text>
+            <Text size="xs" mt={4} c="dimmed">
+              {fixesError}
+            </Text>
+            <Text size="xs" mt={8} c="yellow.2">
+              💡 <strong>Como resolver:</strong> Certifique-se de que a nova versão do plugin <strong>WP Patropi Fixes</strong> (ou do <strong>WP Patropi Diagnóstico</strong>) está instalada e ativa no WordPress do site. Novos plugins de correção gerados já incluem comunicação direta com o SaaS.
+            </Text>
+          </Alert>
         ) : (
           <Alert
             icon={<IconPlug size={18} />}

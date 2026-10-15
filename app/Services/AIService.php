@@ -142,6 +142,7 @@ class AIService
             "   - Registre as correções na função 'vs_get_registered_fixes()' retornando array de cada check_id com title e description.\n" .
             "   - Crie as funções 'vs_get_fixes_settings()', 'vs_is_fix_active(\$check_id)' e 'vs_set_fix_status(\$check_id, \$enabled)'.\n" .
             "   - Cada regra de correção fornecida deve ser envolvida condicionalmente por 'if (vs_is_fix_active(\$check_id)) { ... }' para permitir ligar e desligar individualmente.\n" .
+            "   - Registre no hook 'rest_api_init' as rotas '/fixes' e '/fixes/toggle' (sob os namespaces 'wp-patropi/v1' e 'validar-seguranca/v1') para permitir que o SaaS consulte e alterne as correções via REST API.\n" .
             "   - Exiba a tabela formatada com switches/checkboxes e botão salvar para ativar/desativar cada correção individualmente.\n" .
             "6. REGRAS PARA EVITAR TELA EM BRANCO E ERROS FATAL PHP:\n" .
             "   - NÃO chame funções do WordPress como home_url() ou wp_redirect() no topo puro do arquivo PHP, pois elas ainda não foram carregadas pelo WordPress e causarão Fatal Error.\n" .
