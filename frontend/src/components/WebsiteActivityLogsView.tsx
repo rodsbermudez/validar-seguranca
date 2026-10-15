@@ -223,19 +223,19 @@ export const WebsiteActivityLogsView: React.FC<WebsiteActivityLogsViewProps> = (
   const getCategoryMeta = (cat: string) => {
     switch (cat) {
       case 'seguranca':
-        return { label: 'Segurança', color: 'red', icon: <IconShield size={13} /> };
+        return { label: 'Segurança', color: 'red', icon: <IconShield size={12} /> };
       case 'otimizacao':
-        return { label: 'Otimização', color: 'teal', icon: <IconSparkles size={13} /> };
+        return { label: 'Otimização', color: 'teal', icon: <IconSparkles size={12} /> };
       case 'servidor':
-        return { label: 'Servidor', color: 'orange', icon: <IconServer size={13} /> };
+        return { label: 'Servidor', color: 'orange', icon: <IconServer size={12} /> };
       case 'bugfix':
-        return { label: 'Correção de Bug', color: 'grape', icon: <IconBug size={13} /> };
+        return { label: 'Correção de Bug', color: 'grape', icon: <IconBug size={12} /> };
       case 'layout':
-        return { label: 'Ajustes de Layout', color: 'cyan', icon: <IconPalette size={13} /> };
+        return { label: 'Ajustes de Layout', color: 'cyan', icon: <IconPalette size={12} /> };
       case 'manutencao':
-        return { label: 'Manutenção Mensal', color: 'blue', icon: <IconCalendarCheck size={13} /> };
+        return { label: 'Manutenção Mensal', color: 'blue', icon: <IconCalendarCheck size={12} /> };
       default:
-        return { label: 'Geral', color: 'gray', icon: <IconNote size={13} /> };
+        return { label: 'Geral', color: 'gray', icon: <IconNote size={12} /> };
     }
   };
 
@@ -406,7 +406,7 @@ export const WebsiteActivityLogsView: React.FC<WebsiteActivityLogsViewProps> = (
               >
                 <Group justify="space-between" align="flex-start" wrap="nowrap" mb="xs">
                   <Stack gap={4}>
-                    <Group gap="xs" wrap="wrap">
+                    <Group gap="xs" wrap="wrap" align="center">
                       {isMaintenance ? (
                         <Badge
                           color="cyan"
@@ -428,7 +428,7 @@ export const WebsiteActivityLogsView: React.FC<WebsiteActivityLogsViewProps> = (
                           </Badge>
                           <Badge
                             color={catMeta.color}
-                            variant="dot"
+                            variant="light"
                             size="sm"
                             leftSection={catMeta.icon}
                           >
@@ -437,12 +437,12 @@ export const WebsiteActivityLogsView: React.FC<WebsiteActivityLogsViewProps> = (
                         </>
                       )}
 
-                      <Text size="xs" c="dimmed">
-                        <Group gap={4} component="span">
-                          <IconClock size={12} />
+                      <Group gap={4} align="center" style={{ color: '#909296' }}>
+                        <IconClock size={13} />
+                        <Text size="xs" c="dimmed">
                           {formatDate(item.action_date)}
-                        </Group>
-                      </Text>
+                        </Text>
+                      </Group>
                     </Group>
 
                     <Title order={4} c="white">
