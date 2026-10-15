@@ -31,14 +31,16 @@ import { SolutionCatalogView } from './components/SolutionCatalogView';
 import { SettingsView } from './components/SettingsView';
 import { WebsiteDashboardView } from './components/WebsiteDashboardView';
 import { PublicActivityLogsView } from './components/PublicActivityLogsView';
+import { UserAiManagementView } from './components/UserAiManagementView';
 import { getDocsUrl } from './api';
 
 export default function App() {
   const [user, setUser] = useState<any | null>(null);
   const [impersonatedUser, setImpersonatedUser] = useState<any | null>(null);
   const [selectedWebsite, setSelectedWebsite] = useState<any | null>(null);
+  const [selectedAiUser, setSelectedAiUser] = useState<any | null>(null);
   const [dashboardTab, setDashboardTab] = useState<string>('overview');
-  const [viewMode, setViewMode] = useState<'overview' | 'list' | 'dashboard' | 'report' | 'users' | 'solutions' | 'logs' | 'settings'>('overview');
+  const [viewMode, setViewMode] = useState<'overview' | 'list' | 'dashboard' | 'report' | 'users' | 'solutions' | 'logs' | 'settings' | 'user-ai'>('overview');
 
   // Detecta se a página foi acessada via link de compartilhamento de logs para o cliente
   const [shareToken, setShareToken] = useState<string | null>(() => {
@@ -322,8 +324,23 @@ export default function App() {
             <SettingsView onBack={() => setViewMode('list')} currentUserRole={user.role} />
           ) : viewMode === 'solutions' && isAdmin && !impersonatedUser ? (
             <SolutionCatalogView />
+          ) : viewMode === 'user-ai' && selectedAiUser && isAdmin && !impersonatedUser ? (
+            <UserAiManagementView
+              user={selectedAiUser}
+              onBack={() => {
+                setSelectedAiUser(null);
+                setViewMode('users');
+              }}
+            />
           ) : viewMode === 'users' && isAdmin && !impersonatedUser ? (
-            <UsersList onImpersonate={handleImpersonate} currentUserId={user.id} />
+            <UsersList
+              onImpersonate={handleImpersonate}
+              onManageAi={(targetUser) => {
+                setSelectedAiUser(targetUser);
+                setViewMode('user-ai');
+              }}
+              currentUserId={user.id}
+            />
           ) : (viewMode === 'dashboard' || viewMode === 'report' || viewMode === 'logs') && selectedWebsite ? (
             <WebsiteDashboardView
               website={selectedWebsite}

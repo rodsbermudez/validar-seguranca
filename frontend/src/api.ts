@@ -655,6 +655,88 @@ export const getPublicActivityLogs = async (
   return response.data;
 };
 
+export interface UserAiMetrics {
+  total_requests: number;
+  successful_requests: number;
+  failed_requests: number;
+  total_prompt_tokens: number;
+  total_completion_tokens: number;
+  total_tokens: number;
+  avg_duration_ms: number;
+  current_month_tokens: number;
+  by_action: Array<{
+    action_type: string;
+    count: number;
+    tokens: number;
+  }>;
+}
+
+export interface UserAiSettings {
+  id: number;
+  name: string;
+  email: string;
+  role: 'admin' | 'user';
+  is_active: number;
+  ai_enabled: number;
+  ai_monthly_token_limit: number | null;
+  created_at?: string;
+}
+
+export interface AiUsageLogItem {
+  id: number;
+  user_id: number;
+  website_id?: number | null;
+  website_name?: string | null;
+  website_url?: string | null;
+  action_type: string;
+  model: string;
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+  duration_ms: number;
+  status: 'success' | 'error';
+  error_message?: string | null;
+  created_at: string;
+}
+
+export interface UserAiMetricsResponse {
+  status: number;
+  user: UserAiSettings;
+  metrics: UserAiMetrics;
+}
+
+export interface UserAiLogsResponse {
+  status: number;
+  data: AiUsageLogItem[];
+  pagination: {
+    total: number;
+    limit: number;
+    offset: number;
+  };
+}
+
+export const getUserAiMetrics = async (userId: number): Promise<UserAiMetricsResponse> => {
+  const response = await api.get<UserAiMetricsResponse>(`/users/${userId}/ai-metrics`);
+  return response.data;
+};
+
+export const updateUserAiLimits = async (
+  userId: number,
+  payload: { ai_enabled?: boolean | number; ai_monthly_token_limit?: number | null }
+): Promise<{ status: number; message: string; data: UserAiSettings }> => {
+  const response = await api.put(`/users/${userId}/ai-limits`, payload);
+  return response.data;
+};
+
+export const getUserAiLogs = async (
+  userId: number,
+  params?: { limit?: number; offset?: number }
+): Promise<UserAiLogsResponse> => {
+  const response = await api.get<UserAiLogsResponse>(`/users/${userId}/ai-logs`, { params });
+  return response.data;
+};
+
+
 
 
 

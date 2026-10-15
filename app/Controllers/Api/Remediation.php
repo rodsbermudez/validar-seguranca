@@ -118,7 +118,7 @@ class Remediation extends ResourceController
         if (!empty($customPrompt)) {
             try {
                 $aiService = new AIService($apiKey);
-                $pluginCode = $aiService->generateRemediationPlugin($pluginFixableSolutions, $website['url'], $customPrompt);
+                $pluginCode = $aiService->generateRemediationPlugin($pluginFixableSolutions, $website['url'], $customPrompt, (int)$effectiveUserId, (int)$website['id']);
                 if (!str_contains($pluginCode, 'vs_fixes_check_rest_permission')) {
                     $pluginCode .= "\n\n" . $this->getRemediationInfrastructurePhp($website, $pluginFixableSolutions);
                 }
@@ -342,7 +342,7 @@ class Remediation extends ResourceController
         } else {
             try {
                 $aiService = new AIService($apiKey);
-                $guideHtml = $aiService->generateServerGuide($serverFixableItems, $website['url']);
+                $guideHtml = $aiService->generateServerGuide($serverFixableItems, $website['url'], (int)$effectiveUserId, (int)$website['id']);
             } catch (\Exception $e) {
                 log_message('error', 'Erro na geração do Guia de Servidor via IA: ' . $e->getMessage());
                 // Fallback to rich built-in template HTML guide if AI is unreachable or API key missing

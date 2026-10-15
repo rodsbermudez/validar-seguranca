@@ -15,25 +15,29 @@ import {
   Stack,
   Tooltip,
 } from '@mantine/core';
-import { IconUserPlus, IconTrash, IconEye, IconPencil, IconPower } from '@tabler/icons-react';
+import { IconUserPlus, IconTrash, IconEye, IconPencil, IconPower, IconBrain } from '@tabler/icons-react';
 import { api } from '../api';
 import { formatDateOnly } from '../utils/date';
 
-interface User {
+export interface User {
   id: number;
   name: string;
   email: string;
   role: 'admin' | 'user';
   is_active: number;
+  ai_enabled?: number;
+  ai_monthly_token_limit?: number | null;
+  current_month_tokens?: number;
   created_at: string;
 }
 
 interface UsersListProps {
   onImpersonate: (user: User) => void;
+  onManageAi: (user: User) => void;
   currentUserId: number;
 }
 
-export function UsersList({ onImpersonate, currentUserId }: UsersListProps) {
+export function UsersList({ onImpersonate, onManageAi, currentUserId }: UsersListProps) {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [openedModal, setOpenedModal] = useState(false);
@@ -190,6 +194,7 @@ export function UsersList({ onImpersonate, currentUserId }: UsersListProps) {
             <Table.Th>E-mail</Table.Th>
             <Table.Th>Perfil</Table.Th>
             <Table.Th>Status</Table.Th>
+            <Table.Th>Uso de IA (Mês)</Table.Th>
             <Table.Th>Data de Cadastro</Table.Th>
             <Table.Th style={{ textAlign: 'right' }}>Ações</Table.Th>
           </Table.Tr>
@@ -197,19 +202,21 @@ export function UsersList({ onImpersonate, currentUserId }: UsersListProps) {
         <Table.Tbody>
           {loading ? (
             <Table.Tr>
-              <Table.Td colSpan={7} align="center">
+              <Table.Td colSpan={8} align="center">
                 Carregando usuários...
               </Table.Td>
             </Table.Tr>
           ) : users.length === 0 ? (
             <Table.Tr>
-              <Table.Td colSpan={7} align="center">
+              <Table.Td colSpan={8} align="center">
                 Nenhum usuário cadastrado.
               </Table.Td>
             </Table.Tr>
           ) : (
             users.map((user) => {
               const isUserActive = Number(user.is_active) === 1;
+              const isAiDisabled = Number(user.ai_enabled ?? 1) === 0;
+
               return (
                 <Table.Tr key={user.id} style={{ opacity: !isUserActive ? 0.6 : 1 }}>
                   <Table.Td>{user.id}</Table.Td>
@@ -225,9 +232,38 @@ export function UsersList({ onImpersonate, currentUserId }: UsersListProps) {
                       {isUserActive ? 'ATIVO' : 'INATIVO'}
                     </Badge>
                   </Table.Td>
+                  <Table.Td>
+                    {isAiDisabled ? (
+                      <Badge color="gray" variant="light" size="xs">
+                        Desativada
+                      </Badge>
+                    ) : (
+                      <Group gap={4}>
+                        <IconBrain size={13} color="#a78bfa" />
+                        <Text size="xs" fw={600}>
+                          {user.current_month_tokens ? Number(user.current_month_tokens).toLocaleString('pt-BR') : '0'}
+                        </Text>
+                        <Text size="xs" c="dimmed">
+                          {user.ai_monthly_token_limit ? `/ ${Number(user.ai_monthly_token_limit).toLocaleString('pt-BR')}` : '(Ilim.)'}
+                        </Text>
+                      </Group>
+                    )}
+                  </Table.Td>
                   <Table.Td>{formatDateOnly(user.created_at)}</Table.Td>
                   <Table.Td style={{ textAlign: 'right' }}>
                     <Group gap="xs" justify="flex-end">
+                      <Tooltip label={`Monitorar consumo de IA e gerenciar limites de ${user.name}`}>
+                        <Button
+                          size="xs"
+                          variant="light"
+                          color="violet"
+                          leftSection={<IconBrain size={14} />}
+                          onClick={() => onManageAi(user)}
+                        >
+                          Gestão de IA
+                        </Button>
+                      </Tooltip>
+
                       <Tooltip label={`Ver painel como ${user.name}`}>
                         <Button
                           size="xs"

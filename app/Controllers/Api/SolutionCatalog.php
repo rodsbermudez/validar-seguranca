@@ -108,13 +108,14 @@ class SolutionCatalog extends ResourceController
         }
 
         try {
+            $currentUserId = $this->request->userData->id ?? null;
             $aiService = new AIService($apiKey);
             $generated = $aiService->generateSolutionForCheck([
                 'check_id'   => $checkId,
                 'check_name' => $checkName,
                 'details'    => $details,
                 'severity'   => $severity,
-            ]);
+            ], $currentUserId, null, 'single_check');
 
             $catalogModel = new SolutionCatalogModel();
             $existing = $catalogModel->getByCheckId($checkId);
@@ -233,13 +234,15 @@ class SolutionCatalog extends ResourceController
             }
 
             try {
+                $currentUserId = $this->request->userData->id ?? null;
+                $websiteId = (int) ($scan['website_id'] ?? 0) ?: null;
                 // 1 cURL request per check for isolated AI analysis
                 $generated = $aiService->generateSolutionForCheck([
                     'check_id'   => $checkId,
                     'check_name' => $checkName,
                     'details'    => $details,
                     'severity'   => $severity,
-                ]);
+                ], $currentUserId, $websiteId, 'batch_check');
 
                 if ($existing) {
                     $catalogModel->update($existing['id'], $generated);

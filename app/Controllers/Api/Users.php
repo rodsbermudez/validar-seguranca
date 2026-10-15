@@ -19,13 +19,17 @@ class Users extends ResourceController
 
         $userModel = new UserModel();
         $users = $userModel
-            ->select('id, name, email, role, is_active, created_at')
+            ->select('id, name, email, role, is_active, ai_enabled, ai_monthly_token_limit, created_at')
             ->orderBy('created_at', 'DESC')
             ->findAll();
 
+        $aiLogModel = new \App\Models\AiUsageLogModel();
         foreach ($users as &$user) {
             $user['id'] = (int) $user['id'];
             $user['is_active'] = (int) $user['is_active'];
+            $user['ai_enabled'] = isset($user['ai_enabled']) ? (int) $user['ai_enabled'] : 1;
+            $user['ai_monthly_token_limit'] = $user['ai_monthly_token_limit'] !== null ? (int) $user['ai_monthly_token_limit'] : null;
+            $user['current_month_tokens'] = $aiLogModel->getUserMonthlyTokens($user['id']);
         }
 
         return $this->respond([
@@ -220,6 +224,132 @@ class Users extends ResourceController
         return $this->respond([
             'status'  => 200,
             'message' => 'Usuário removido com sucesso.',
+        ]);
+    }
+
+    /**
+     * GET /api/users/(:num)/ai-metrics
+     */
+    public function aiMetrics($id = null)
+    {
+        $userData = $this->request->userData ?? null;
+        if (($userData->role ?? 'user') !== 'admin') {
+            return $this->failForbidden('Acesso restrito a administradores.');
+        }
+
+        if (!$id) {
+            return $this->fail('ID do usuário não informado.', 400);
+        }
+
+        $userModel = new UserModel();
+        $user = $userModel->select('id, name, email, role, is_active, ai_enabled, ai_monthly_token_limit, created_at')->find($id);
+
+        if (!$user) {
+            return $this->failNotFound('Usuário não encontrado.');
+        }
+
+        $user['id'] = (int) $user['id'];
+        $user['is_active'] = (int) $user['is_active'];
+        $user['ai_enabled'] = isset($user['ai_enabled']) ? (int) $user['ai_enabled'] : 1;
+        $user['ai_monthly_token_limit'] = $user['ai_monthly_token_limit'] !== null ? (int) $user['ai_monthly_token_limit'] : null;
+
+        $logModel = new \App\Models\AiUsageLogModel();
+        $stats = $logModel->getUserStats((int) $id);
+
+        return $this->respond([
+            'status'  => 200,
+            'user'    => $user,
+            'metrics' => $stats,
+        ]);
+    }
+
+    /**
+     * PUT /api/users/(:num)/ai-limits
+     */
+    public function updateAiLimits($id = null)
+    {
+        $userData = $this->request->userData ?? null;
+        if (($userData->role ?? 'user') !== 'admin') {
+            return $this->failForbidden('Acesso restrito a administradores.');
+        }
+
+        if (!$id) {
+            return $this->fail('ID do usuário não informado.', 400);
+        }
+
+        $userModel = new UserModel();
+        $user = $userModel->find($id);
+
+        if (!$user) {
+            return $this->failNotFound('Usuário não encontrado.');
+        }
+
+        $json = $this->request->getJSON(true) ?? $this->request->getRawInput();
+
+        $dataToUpdate = [];
+        if (isset($json['ai_enabled'])) {
+            $dataToUpdate['ai_enabled'] = !empty($json['ai_enabled']) ? 1 : 0;
+        }
+
+        if (array_key_exists('ai_monthly_token_limit', $json)) {
+            $limit = $json['ai_monthly_token_limit'];
+            if ($limit === null || $limit === '' || $limit === 0 || $limit === '0') {
+                $dataToUpdate['ai_monthly_token_limit'] = null;
+            } else {
+                $limitInt = (int) $limit;
+                if ($limitInt < 0) {
+                    return $this->fail('O limite de tokens deve ser um número positivo ou nulo.', 400);
+                }
+                $dataToUpdate['ai_monthly_token_limit'] = $limitInt;
+            }
+        }
+
+        if (!empty($dataToUpdate)) {
+            $userModel->update($id, $dataToUpdate);
+        }
+
+        $updatedUser = $userModel->select('id, name, email, role, is_active, ai_enabled, ai_monthly_token_limit')->find($id);
+        $updatedUser['id'] = (int) $updatedUser['id'];
+        $updatedUser['is_active'] = (int) $updatedUser['is_active'];
+        $updatedUser['ai_enabled'] = isset($updatedUser['ai_enabled']) ? (int) $updatedUser['ai_enabled'] : 1;
+        $updatedUser['ai_monthly_token_limit'] = $updatedUser['ai_monthly_token_limit'] !== null ? (int) $updatedUser['ai_monthly_token_limit'] : null;
+
+        return $this->respond([
+            'status'  => 200,
+            'message' => 'Configurações de IA do usuário atualizadas com sucesso.',
+            'data'    => $updatedUser,
+        ]);
+    }
+
+    /**
+     * GET /api/users/(:num)/ai-logs
+     */
+    public function aiLogs($id = null)
+    {
+        $userData = $this->request->userData ?? null;
+        if (($userData->role ?? 'user') !== 'admin') {
+            return $this->failForbidden('Acesso restrito a administradores.');
+        }
+
+        if (!$id) {
+            return $this->fail('ID do usuário não informado.', 400);
+        }
+
+        $limit = max(1, min(200, (int) ($this->request->getGet('limit') ?: 50)));
+        $offset = max(0, (int) ($this->request->getGet('offset') ?: 0));
+
+        $logModel = new \App\Models\AiUsageLogModel();
+        $totalLogs = $logModel->where('user_id', (int) $id)->countAllResults();
+        $logs = $logModel->getUserLogs((int) $id, $limit, $offset);
+
+        return $this->respond([
+            'status'     => 200,
+            'data'       => $logs,
+            'pagination' => [
+                'total'  => $totalLogs,
+                'limit'  => $limit,
+                'offset' => $offset,
+            ],
         ]);
     }
 }

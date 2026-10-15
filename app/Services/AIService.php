@@ -9,6 +9,9 @@ class AIService
     protected string $apiKey;
     protected string $apiUrl;
     protected string $model;
+    protected ?int $userId = null;
+    protected ?int $websiteId = null;
+    protected string $actionType = 'ai_call';
 
     public function __construct(?string $overrideApiKey = null)
     {
@@ -34,10 +37,93 @@ class AIService
     }
 
     /**
+     * Set user and website context for quota enforcement and audit logging
+     */
+    public function setContext(?int $userId, ?int $websiteId = null, string $actionType = 'ai_call'): self
+    {
+        $this->userId = $userId;
+        $this->websiteId = $websiteId;
+        $this->actionType = $actionType;
+        return $this;
+    }
+
+    /**
+     * Verify user AI permission and monthly token limits
+     */
+    protected function checkUserAiLimits(?int $userId): void
+    {
+        if (!$userId) {
+            return;
+        }
+
+        $userModel = new \App\Models\UserModel();
+        $user = $userModel->find($userId);
+        if (!$user) {
+            return;
+        }
+
+        if (isset($user['ai_enabled']) && !(bool)$user['ai_enabled']) {
+            throw new \RuntimeException("O uso de inteligência artificial está desabilitado para este usuário. Entre em contato com o suporte ou administrador.");
+        }
+
+        $monthlyLimit = isset($user['ai_monthly_token_limit']) && $user['ai_monthly_token_limit'] !== null ? (int)$user['ai_monthly_token_limit'] : null;
+        if ($monthlyLimit !== null && $monthlyLimit > 0) {
+            $logModel = new \App\Models\AiUsageLogModel();
+            $usedTokens = $logModel->getUserMonthlyTokens($userId);
+            if ($usedTokens >= $monthlyLimit) {
+                throw new \RuntimeException("Limite mensal de tokens de IA atingido ({$usedTokens} de {$monthlyLimit} tokens). Solicite um aumento de limite ao administrador.");
+            }
+        }
+    }
+
+    /**
+     * Log AI interaction to ai_usage_logs table
+     */
+    protected function logAiUsage(
+        ?int $userId,
+        ?int $websiteId,
+        string $actionType,
+        string $model,
+        int $promptTokens,
+        int $completionTokens,
+        int $totalTokens,
+        int $durationMs,
+        string $status,
+        ?string $errorMessage = null
+    ): void {
+        try {
+            $logModel = new \App\Models\AiUsageLogModel();
+            $logModel->insert([
+                'user_id'           => $userId ?: 1,
+                'website_id'        => $websiteId,
+                'action_type'       => $actionType,
+                'model'             => $model,
+                'prompt_tokens'     => $promptTokens,
+                'completion_tokens' => $completionTokens,
+                'total_tokens'      => $totalTokens,
+                'duration_ms'       => $durationMs,
+                'status'            => $status,
+                'error_message'     => $errorMessage ? substr($errorMessage, 0, 1000) : null,
+                'created_at'        => date('Y-m-d H:i:s'),
+            ]);
+        } catch (\Throwable $e) {
+            log_message('error', 'Falha ao registrar log de uso de IA: ' . $e->getMessage());
+        }
+    }
+
+    /**
      * Generate solution data for a single security check using OpenCode AI.
      */
-    public function generateSolutionForCheck(array $checkDetails): array
+    public function generateSolutionForCheck(array $checkDetails, ?int $userId = null, ?int $websiteId = null, string $actionType = 'single_check'): array
     {
+        if ($userId !== null) {
+            $this->userId = $userId;
+        }
+        if ($websiteId !== null) {
+            $this->websiteId = $websiteId;
+        }
+        $this->actionType = $actionType;
+
         $checkId   = $checkDetails['check_id'] ?? 'unknown_check';
         $checkName = $checkDetails['check_name'] ?? 'Checagem de Segurança';
         $details   = $checkDetails['details'] ?? '';
@@ -72,8 +158,16 @@ class AIService
     /**
      * Generate the complete PHP code for the custom remediation plugin.
      */
-    public function generateRemediationPlugin(array $pluginFixes, string $websiteUrl, string $customPrompt = ''): string
+    public function generateRemediationPlugin(array $pluginFixes, string $websiteUrl, string $customPrompt = '', ?int $userId = null, ?int $websiteId = null): string
     {
+        if ($userId !== null) {
+            $this->userId = $userId;
+        }
+        if ($websiteId !== null) {
+            $this->websiteId = $websiteId;
+        }
+        $this->actionType = 'plugin_generation';
+
         $siteHost = parse_url($websiteUrl, PHP_URL_HOST) ?: 'wordpress-site';
         $siteHostClean = preg_replace('/[^a-zA-Z0-9_\-]/', '_', $siteHost);
 
@@ -194,7 +288,7 @@ class AIService
     }
 
     /**
-     * Send cURL request to OpenCode / OpenAI Compatible API with automatic fallback retry
+     * Send cURL request to OpenCode / OpenAI Compatible API with automatic fallback retry and usage telemetry
      */
     protected function callOpenCodeApi(string $systemPrompt, string $userPrompt, bool $expectJson = false, int $timeout = 120): string
     {
@@ -203,6 +297,12 @@ class AIService
         if (empty($this->apiKey)) {
             throw new \RuntimeException("Chave da API OpenCode não configurada. Por favor, forneça uma API Key válida no arquivo .env ou nas configurações do sistema.");
         }
+
+        $startTime = microtime(true);
+        $durationMs = 0;
+
+        // Check user quota and access permissions before consuming API resources
+        $this->checkUserAiLimits($this->userId);
 
         $sessionId = 'vs_sess_' . md5(uniqid('', true));
 
@@ -225,32 +325,69 @@ class AIService
             $payload['response_format'] = ['type' => 'json_object'];
         }
 
-        $response = $this->executeCurlCall($this->apiUrl, $headers, $payload, $timeout);
-
-        // Fallback retry: If HTTP 400 occurs due to response_format or temperature parameters, retry with minimal payload
-        if ($response['code'] === 400 && $expectJson) {
-            unset($payload['response_format']);
+        try {
             $response = $this->executeCurlCall($this->apiUrl, $headers, $payload, $timeout);
-        }
 
-        if ($response['error']) {
-            throw new \RuntimeException("Erro cURL ao conectar à API OpenCode: " . $response['error']);
-        }
+            // Fallback retry: If HTTP 400 occurs due to response_format or temperature parameters, retry with minimal payload
+            if ($response['code'] === 400 && $expectJson) {
+                unset($payload['response_format']);
+                $response = $this->executeCurlCall($this->apiUrl, $headers, $payload, $timeout);
+            }
 
-        if ($response['code'] >= 400) {
-            throw new \RuntimeException("API OpenCode respondeu com erro (HTTP {$response['code']}): " . $response['body']);
-        }
+            $durationMs = (int) round((microtime(true) - $startTime) * 1000);
 
-        $json = json_decode($response['body'], true);
-        if (isset($json['choices'][0]['message']['content'])) {
-            return trim($json['choices'][0]['message']['content']);
-        }
+            if ($response['error']) {
+                $err = "Erro cURL ao conectar à API OpenCode: " . $response['error'];
+                $this->logAiUsage($this->userId, $this->websiteId, $this->actionType, $this->model, 0, 0, 0, $durationMs, 'error', $err);
+                throw new \RuntimeException($err);
+            }
 
-        if (trim($response['body']) === 'Not Found') {
-            throw new \RuntimeException("URL da API OpenCode inválida (retornou Not Found). Verifique se a variável OPENCODE_API_URL no .env está configurada como 'https://opencode.ai/zen/go/v1/chat/completions'.");
-        }
+            if ($response['code'] >= 400) {
+                $err = "API OpenCode respondeu com erro (HTTP {$response['code']}): " . $response['body'];
+                $this->logAiUsage($this->userId, $this->websiteId, $this->actionType, $this->model, 0, 0, 0, $durationMs, 'error', $err);
+                throw new \RuntimeException($err);
+            }
 
-        throw new \RuntimeException("Resposta inesperada da API OpenCode: " . $response['body']);
+            $json = json_decode($response['body'], true);
+            if (isset($json['choices'][0]['message']['content'])) {
+                $promptTokens = (int) ($json['usage']['prompt_tokens'] ?? 0);
+                $completionTokens = (int) ($json['usage']['completion_tokens'] ?? 0);
+                $totalTokens = (int) ($json['usage']['total_tokens'] ?? ($promptTokens + $completionTokens));
+
+                $this->logAiUsage(
+                    $this->userId,
+                    $this->websiteId,
+                    $this->actionType,
+                    $this->model,
+                    $promptTokens,
+                    $completionTokens,
+                    $totalTokens,
+                    $durationMs,
+                    'success',
+                    null
+                );
+
+                return trim($json['choices'][0]['message']['content']);
+            }
+
+            if (trim($response['body']) === 'Not Found') {
+                $err = "URL da API OpenCode inválida (retornou Not Found). Verifique se a variável OPENCODE_API_URL no .env está configurada como 'https://opencode.ai/zen/go/v1/chat/completions'.";
+                $this->logAiUsage($this->userId, $this->websiteId, $this->actionType, $this->model, 0, 0, 0, $durationMs, 'error', $err);
+                throw new \RuntimeException($err);
+            }
+
+            $err = "Resposta inesperada da API OpenCode: " . $response['body'];
+            $this->logAiUsage($this->userId, $this->websiteId, $this->actionType, $this->model, 0, 0, 0, $durationMs, 'error', $err);
+            throw new \RuntimeException($err);
+        } catch (\Throwable $e) {
+            if ($durationMs === 0) {
+                $durationMs = (int) round((microtime(true) - $startTime) * 1000);
+            }
+            if (str_contains($e->getMessage(), 'desabilitado') || str_contains($e->getMessage(), 'Limite mensal')) {
+                $this->logAiUsage($this->userId, $this->websiteId, $this->actionType, $this->model, 0, 0, 0, $durationMs, 'error', $e->getMessage());
+            }
+            throw $e;
+        }
     }
 
     /**
@@ -337,8 +474,16 @@ class AIService
     /**
      * Generate step-by-step resolution guide for SERVER_CONFIG & MANUAL_ACTION issues.
      */
-    public function generateServerGuide(array $serverFixes, string $siteUrl): string
+    public function generateServerGuide(array $serverFixes, string $siteUrl, ?int $userId = null, ?int $websiteId = null): string
     {
+        if ($userId !== null) {
+            $this->userId = $userId;
+        }
+        if ($websiteId !== null) {
+            $this->websiteId = $websiteId;
+        }
+        $this->actionType = 'server_guide';
+
         $issuesSummary = "";
         foreach ($serverFixes as $idx => $fix) {
             $num = $idx + 1;

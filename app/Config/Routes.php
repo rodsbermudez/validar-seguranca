@@ -75,6 +75,9 @@ $routes->group('api', function ($routes) {
         $routes->put('users/(:num)', 'Api\Users::update/$1');
         $routes->post('users/(:num)/toggle-status', 'Api\Users::toggleStatus/$1');
         $routes->delete('users/(:num)', 'Api\Users::delete/$1');
+        $routes->get('users/(:num)/ai-metrics', 'Api\Users::aiMetrics/$1');
+        $routes->put('users/(:num)/ai-limits', 'Api\Users::updateAiLimits/$1');
+        $routes->get('users/(:num)/ai-logs', 'Api\Users::aiLogs/$1');
 
         // Solution Catalog routes (Admin)
         $routes->get('solutions', 'Api\SolutionCatalog::index');
