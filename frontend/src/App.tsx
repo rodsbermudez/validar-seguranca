@@ -394,6 +394,11 @@ export default function App() {
                 setSelectedWebsite(null);
                 setViewMode('list');
               }}
+              onNavigateToAiUsage={() => {
+                setSelectedWebsite(null);
+                setSelectedAiUser(impersonatedUser || user);
+                setViewMode('user-ai-view');
+              }}
             />
           )}
         </Container>

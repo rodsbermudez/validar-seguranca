@@ -498,12 +498,24 @@ export interface DashboardRecentScanItem {
   executed_at: string;
 }
 
+export interface DashboardAiUsage {
+  ai_enabled: number;
+  monthly_token_limit: number | null;
+  is_unlimited: boolean;
+  current_month_tokens: number;
+  percent_used: number;
+  tokens_remaining: number | null;
+  estimated_cost: number;
+  token_price_per_1k: number;
+}
+
 export interface DashboardOverviewResponse {
   status: number;
   data: {
     year_month: string;
     year_month_label: string;
     metrics: DashboardMetrics;
+    ai_usage?: DashboardAiUsage;
     maintenances: DashboardMaintenanceTask[];
     security_radar: DashboardSecurityRadarItem[];
     integrity_radar: DashboardIntegrityRadarItem[];

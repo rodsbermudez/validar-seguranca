@@ -38,6 +38,7 @@ import {
   IconCalendarEvent,
   IconRotateClockwise,
   IconPlus,
+  IconBrain,
 } from '@tabler/icons-react';
 import {
   getDashboardOverview,
@@ -54,11 +55,13 @@ import { formatDateOnly, formatDateTime } from '../utils/date';
 interface OverviewDashboardViewProps {
   onSelectWebsite: (website: Website | any, initialTab?: string) => void;
   onNavigateToWebsites: () => void;
+  onNavigateToAiUsage?: () => void;
 }
 
 export const OverviewDashboardView: React.FC<OverviewDashboardViewProps> = ({
   onSelectWebsite,
   onNavigateToWebsites,
+  onNavigateToAiUsage,
 }) => {
   const [data, setData] = useState<DashboardOverviewResponse['data'] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -220,6 +223,20 @@ export const OverviewDashboardView: React.FC<OverviewDashboardViewProps> = ({
   const maintenances = data?.maintenances || [];
   const securityRadar = data?.security_radar || [];
   const integrityRadar = data?.integrity_radar || [];
+
+  const aiUsage = data?.ai_usage;
+  const isAiDisabled = Number(aiUsage?.ai_enabled ?? 1) === 0;
+  const isUnlimited = aiUsage?.is_unlimited ?? true;
+  const aiPercent = aiUsage?.percent_used || 0;
+  const aiProgressColor = isAiDisabled
+    ? 'gray'
+    : isUnlimited
+    ? 'indigo'
+    : aiPercent > 90
+    ? 'red'
+    : aiPercent > 70
+    ? 'yellow'
+    : 'teal';
 
   // Filter maintenance list according to active tab
   const filteredMaintenances = maintenances.filter((item) => {
@@ -452,6 +469,113 @@ export const OverviewDashboardView: React.FC<OverviewDashboardViewProps> = ({
           </Card>
         </Grid.Col>
       </Grid>
+
+      {/* AI Contracted Usage Progress Bar Card */}
+      {aiUsage && (
+        <Paper
+          p="md"
+          radius="md"
+          withBorder
+          bg="dark.7"
+          style={{
+            borderLeft: `4px solid ${
+              isAiDisabled
+                ? '#6b7280'
+                : isUnlimited
+                ? '#8b5cf6'
+                : aiPercent > 90
+                ? '#ef4444'
+                : aiPercent > 70
+                ? '#eab308'
+                : '#10b981'
+            }`,
+          }}
+        >
+          <Group justify="space-between" align="center" mb="xs" wrap="wrap" gap="sm">
+            <Group gap="xs">
+              <ThemeIcon color={aiProgressColor} variant="light" size="md" radius="md">
+                <IconBrain size={18} />
+              </ThemeIcon>
+              <div>
+                <Group gap="xs" align="center">
+                  <Text fw={700} size="sm">
+                    Consumo de Inteligência Artificial Contratada
+                  </Text>
+                  {isAiDisabled ? (
+                    <Badge color="gray" variant="light" size="xs">
+                      IA Desativada
+                    </Badge>
+                  ) : isUnlimited ? (
+                    <Badge color="violet" variant="light" size="xs">
+                      Cota Ilimitada
+                    </Badge>
+                  ) : (
+                    <Badge color={aiProgressColor} variant="light" size="xs">
+                      {aiPercent}% Consumido
+                    </Badge>
+                  )}
+                </Group>
+                <Text size="xs" c="dimmed">
+                  Cota mensal em diagnósticos, correções automáticas e análises inteligentes de segurança.
+                </Text>
+              </div>
+            </Group>
+
+            <Group gap="md">
+              {aiUsage.estimated_cost !== undefined && aiUsage.estimated_cost > 0 && (
+                <div>
+                  <Text size="11px" c="dimmed" ta="right">
+                    Custo Estimado ({data?.year_month_label?.split(' ')[0] || 'Mês'})
+                  </Text>
+                  <Text size="xs" fw={700} c="teal.4" ta="right">
+                    {aiUsage.estimated_cost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                  </Text>
+                </div>
+              )}
+              {onNavigateToAiUsage && (
+                <Button
+                  variant="subtle"
+                  color="violet"
+                  size="xs"
+                  rightSection={<IconArrowRight size={14} />}
+                  onClick={onNavigateToAiUsage}
+                >
+                  Ver Detalhes & Histórico
+                </Button>
+              )}
+            </Group>
+          </Group>
+
+          {/* Progress Bar */}
+          <Progress
+            value={isUnlimited ? 100 : aiPercent}
+            color={aiProgressColor}
+            size="md"
+            radius="xl"
+            striped={!isUnlimited && aiPercent > 70}
+            animated={!isUnlimited && aiPercent > 85}
+          />
+
+          <Group justify="space-between" mt={6}>
+            <Text size="xs" fw={600}>
+              {Number(aiUsage.current_month_tokens || 0).toLocaleString('pt-BR')} tokens consumidos
+              {isUnlimited ? (
+                <Text component="span" c="dimmed" fw={400}> (Cota Ilimitada)</Text>
+              ) : (
+                <Text component="span" c="dimmed" fw={400}>
+                  {' '}de {Number(aiUsage.monthly_token_limit || 0).toLocaleString('pt-BR')} tokens contratados
+                </Text>
+              )}
+            </Text>
+
+            {!isUnlimited && (
+              <Text size="xs" c={aiProgressColor} fw={600}>
+                {Number(aiUsage.tokens_remaining || 0).toLocaleString('pt-BR')} tokens disponíveis este mês
+              </Text>
+            )}
+          </Group>
+        </Paper>
+      )}
 
       {/* Main Grid: Left = Maintenance Queue, Right = Security Radar & Scans */}
       <Grid>

@@ -222,6 +222,35 @@ class Dashboard extends ResourceController
         $averageScore = count($scores) > 0 ? (int)round(array_sum($scores) / count($scores)) : null;
         $progressPercent = $totalScheduled > 0 ? (int)round(($completedCount / $totalScheduled) * 100) : 0;
 
+        // Consumo e Cota de IA Contratada do Usuário
+        $userModel = new \App\Models\UserModel();
+        $userRecord = $effectiveUserId ? $userModel->select('id, name, email, role, ai_enabled, ai_monthly_token_limit')->find($effectiveUserId) : null;
+
+        $aiLogModel = new \App\Models\AiUsageLogModel();
+        $currentMonthTokens = $effectiveUserId ? $aiLogModel->getUserMonthlyTokens($effectiveUserId) : 0;
+        $tokenPrice = (float) \App\Models\SettingsModel::getSetting('ai_token_price_per_1k', '0.00');
+
+        $aiEnabled = isset($userRecord['ai_enabled']) ? (int) $userRecord['ai_enabled'] : 1;
+        $aiMonthlyTokenLimit = isset($userRecord['ai_monthly_token_limit']) && $userRecord['ai_monthly_token_limit'] !== null
+            ? (int) $userRecord['ai_monthly_token_limit']
+            : null;
+        $isUnlimited = ($aiMonthlyTokenLimit === null || $aiMonthlyTokenLimit <= 0);
+        $usedTokens = (int) $currentMonthTokens;
+        $percentUsed = $isUnlimited ? 0 : min(100, (int) round(($usedTokens / $aiMonthlyTokenLimit) * 100));
+        $tokensRemaining = $isUnlimited ? null : max(0, $aiMonthlyTokenLimit - $usedTokens);
+        $estimatedCost = round(($usedTokens / 1000) * $tokenPrice, 2);
+
+        $aiUsage = [
+            'ai_enabled'            => $aiEnabled,
+            'monthly_token_limit'   => $aiMonthlyTokenLimit,
+            'is_unlimited'          => $isUnlimited,
+            'current_month_tokens'  => $usedTokens,
+            'percent_used'          => $percentUsed,
+            'tokens_remaining'      => $tokensRemaining,
+            'estimated_cost'        => $estimatedCost,
+            'token_price_per_1k'    => $tokenPrice,
+        ];
+
         return $this->respond([
             'status' => 200,
             'data'   => [
@@ -241,6 +270,7 @@ class Dashboard extends ResourceController
                     'progress_percent'    => $progressPercent,
                     'urgent_tasks_count'  => $overdueCount + $todayCount,
                 ],
+                'ai_usage'         => $aiUsage,
                 'maintenances'     => $maintenanceTasks,
                 'security_radar'   => $securityRadar,
                 'integrity_radar'  => $integrityRadar,
