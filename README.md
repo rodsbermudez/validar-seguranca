@@ -20,14 +20,37 @@ Uma plataforma completa para **auditoria de segurança**, **triagem inteligente 
   - **Guia do Servidor & Ações Manuais**: Instruções passo a passo geradas por IA para edições em `.htaccess`, `nginx.conf`, `php.ini`, `wp-config.php` e rotinas do painel SSH/cPanel. Inclui timeout expandido para 120s, exibição de alerta de erro com causa detalhada na modal e alternância instantânea para Guia Padrão (Sem IA) caso ocorra indisponibilidade da API.
   - **Cache & Persistência de Guias**: Salvamento automático dos conselhos da IA no banco de dados para carregamento instantâneo sem chamadas redundantes.
 
+- **📝 Logs de Atividades & Diário Técnico Unificado**:
+  - **Timeline Consolidada**: Linha do tempo cronológica que unifica as notas das manutenções mensais e anotações técnicas avulsas realizadas no dia a dia.
+  - **Categorização Visual**: Classificação em badges de status por categorias (`Geral`, `Segurança`, `Otimização`, `Servidor`, `Correção de Bug`, `Ajustes de Layout`).
+  - **Formatação Técnica Rica**: Reconhecimento automático de URLs clicáveis e blocos de código (`code snippets`) com botão de cópia rápida em 1 clique.
+  - **Acesso Colaborativo**: Suporte a equipes com permissão de criação e consulta de notas para todos os membros com acesso ao site.
+
+- **🔗 Link Público de Visualização para Clientes**:
+  - **Visão Dedicada para o Cliente**: Página pública externa (`/public/logs/:token`) com cabeçalho limpo contendo unicamente a logomarca da Patropi Comunica.
+  - **Modo Estrito de Consulta**: Permite ao cliente final auditar o histórico de manutenções e intervenções técnicas, com pesquisa e filtros, sem capacidade de edição, exclusão ou criação de dados.
+  - **Gestão de Tokens Criptográficos**: Geração de tokens de 64 caracteres com botão no painel para copiar a URL ou regenerar o token a qualquer momento.
+
+- **🔍 Verificador Forense de Integridade do Core & Auto-Fix**:
+  - **Compatibilidade Internacional e pt_BR**: Varredura inteligente de checksums compatível com pacotes traduzidos do WordPress (`pt_BR`) e internacional (`en_US`), com normalização de quebras de linha CRLF/LF.
+  - **Auditoria Heurística de Tokens**: Inspeção profunda de tokens PHP no arquivo `wp-includes/version.php`, prevenindo falsos positivos de adulteração enquanto bloqueia rigorosamente injeções maliciosas (`eval`, `base64_decode`, backdoors).
+  - **Restauração em 1 Clique com Preservação de Idioma**: Auto-fix confiável que baixa arquivos oficiais do GitHub/SVN e reconstrói o arquivo autêntico com fidelidade criptográfica total.
+  - **Persistência de Resultados no Banco**: Armazenamento automático da última varredura no banco de dados para evitar relatórios pendentes ao relogar na plataforma.
+
+- **🧭 Nova Interface & Navegação Otimizada**:
+  - **Menu Global com Dropdown Configurações**: Top bar reorganizada com acessos de primeiro nível a `Websites`, `Configurações` (dropdown reunindo Gerais, Usuários e Catálogo de Soluções), `Documentação` e perfil do usuário.
+  - **Dashboard com Radar de Segurança e Integridade**: Monitoramento com destaque em amarelo para sites que não são auditados ou verificados há mais de 30 dias e listagem dos 6 piores sites em cada aspecto para correção prioritária.
+  - **Menu Ferramentas nos Sites**: Barra do site compacta com selo de status de conexão do agente e menu dropdown unificado reunindo todas as abas, relatórios e downloads.
+  - **Modal de Manutenções com Mês de Referência**: Permite selecionar o mês atual ou meses anteriores no modal de conclusão de manutenção para registros retroativos.
+
 - **🔌 Plugin Agente Patropi (WordPress Companion)**:
-  - Integração nativa no painel do WordPress com menu dedicado, histórico de diagnósticos e **botão de reconexão/re-sincronização de ponte** para restabelecer a comunicação com a plataforma instantaneamente.
+  - Integração nativa no painel do WordPress com menu dedicado, histórico de diagnósticos, logs em tempo real e **botão de reconexão/re-sincronização de ponte** para restabelecer a comunicação com a plataforma instantaneamente.
 
 - **📊 Catálogo de Soluções Integrado (`SolutionCatalogSeeder`)**:
   - Mapeamento detalhado de cada teste de segurança (`check_id`) associado a tipos de ação (`PLUGIN_AUTO_FIX`, `SERVER_CONFIG`, `MANUAL_ACTION`), gravidade e instruções de correção (incluindo snippets PHP para desativar sitemaps de autores no Yoast/Rank Math/Nativo e bloquear requisições com HTTP 404).
 
 - **📖 Central de Documentação Integrada (`/docs`)**:
-  - Portal completo de documentação da plataforma desenvolvido em CodeIgniter, cobrindo funcionamento de auditoria, agente interno, remediação por IA, proteção contra enumeração em sitemaps XML e boas práticas, com busca em tempo real e navegação fluida por scroll offset.
+  - Portal completo de documentação da plataforma desenvolvido em CodeIgniter, cobrindo funcionamento de auditoria, agente interno, integridade do core, logs de atividades, links públicos para clientes, remediação por IA e boas práticas, com busca em tempo real e navegação fluida por scroll offset.
 
 - **🎨 Identidade Visual Patropi Comunica & Cores Customizadas**:
   - Integração da nova logo horizontal (`logo-Patropi.png`) e favicon (`favicon.png`).

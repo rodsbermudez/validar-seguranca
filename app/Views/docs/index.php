@@ -459,9 +459,11 @@
                 <ul class="nav-list">
                     <li class="nav-item"><a href="#auditoria-de-seguranca"><span class="nav-icon">🛡️</span> Auditoria & Varreduras</a></li>
                     <li class="nav-item"><a href="#plugin-agente"><span class="nav-icon">🔌</span> Plugin Agente WordPress</a></li>
+                    <li class="nav-item"><a href="#integridade-do-core"><span class="nav-icon">🔍</span> Integridade do Core & Auto-Fix</a></li>
+                    <li class="nav-item"><a href="#logs-de-atividades"><span class="nav-icon">📝</span> Logs de Atividades & Diário Técnico</a></li>
+                    <li class="nav-item"><a href="#link-publico-clientes"><span class="nav-icon">🔗</span> Link Público para Clientes</a></li>
                     <li class="nav-item"><a href="#logs-em-tempo-real"><span class="nav-icon">📜</span> Logs de Execução em Tempo Real</a></li>
                     <li class="nav-item"><a href="#atualizacoes-remotas"><span class="nav-icon">🔄</span> Atualizações Remotas (Plugins/Temas/Core)</a></li>
-                    <li class="nav-item"><a href="#integridade-do-core"><span class="nav-icon">🔍</span> Integridade do Core & Auto-Fix</a></li>
                     <li class="nav-item"><a href="#remediacao-e-ia"><span class="nav-icon">🤖</span> Remediação Híbrida & IA</a></li>
                 </ul>
             </div>
@@ -502,6 +504,17 @@
                     <li><strong>Diagnóstico Instantâneo:</strong> Execução de varreduras em menos de 10 segundos com relatórios categorizados.</li>
                     <li><strong>Triagem Automática:</strong> Separação entre falhas que podem ser corrigidas por plugin e falhas que exigem configurações no servidor web.</li>
                     <li><strong>Remediação com IA:</strong> Geração automatizada de plugins PHP sob medida e guias de servidor detalhados alimentados pelo modelo <code>Kimi K2.7 Code</code> via OpenCode Zen API.</li>
+                    <li><strong>Logs de Atividades & Diário Técnico:</strong> Linha do tempo unificada com manutenções e intervenções avulsas, suporte a código e links clicáveis.</li>
+                    <li><strong>Link Público para Clientes:</strong> Compartilhamento direto com o cliente em modo somente leitura com identidade visual da Patropi.</li>
+                </ul>
+
+                <h2>Navegação e Menus da Plataforma</h2>
+                <p>A interface foi estruturada com foco em produtividade e elegância visual:</p>
+                <ul>
+                    <li><strong>Menu Global Superior:</strong> Acesso rápido em primeiro nível a <em>Websites</em>, <em>Configurações</em> (com dropdown reunindo Gerais, Usuários e Catálogo de Soluções), <em>Documentação</em> e menu do usuário logado (com suporte a impersonação para administradores).</li>
+                    <li><strong>Dashboard Central com Destaque de 30+ Dias:</strong> O painel principal exibe dois radares estratégicos: o <strong>Radar de Segurança</strong> (notas e status das auditorias remotas) e o <strong>Resumo de Integridades do Core</strong> (sites seguros, pendentes ou com arquivos adulterados). Sites que não são auditados ou verificados há mais de 30 dias recebem destaque visual em amarelo, e os 6 piores sites de cada radar são listados para intervenção prioritária.</li>
+                    <li><strong>Menu Ferramentas nos Sites:</strong> Na barra superior interna de cada site, o selo de status de conexão do agente fica posicionado ao lado do botão <strong>Ferramentas</strong>, abrindo um menu dropdown que reúne todas as áreas (Visão Geral, Auditoria, Integridade, Logs de Atividades, Logs em Tempo Real, Atualizações, Agente WP, Configurações, Relatórios e Download do Agente).</li>
+                    <li><strong>Registro de Manutenções com Mês de Referência:</strong> No modal de conclusão de manutenção mensal, você pode selecionar o mês vigente ou marcar meses anteriores para registrar intervenções retroativas com histórico completo.</li>
                 </ul>
             </section>
 
@@ -704,6 +717,63 @@
                     <li>A decisão fica memorizada enquanto o arquivo continuar existindo no servidor.</li>
                     <li><strong>Purga Automática:</strong> Se o arquivo deixar de existir no servidor e for recriado futuramente, a regra é purgada automaticamente e o arquivo voltará a ser apontado como pendente, evitando falsos negativos.</li>
                 </ul>
+
+                <h3>4. Scanner Heurístico & Compatibilidade com Pacotes em Português (pt_BR)</h3>
+                <p>O arquivo <code>wp-includes/version.php</code> em instalações baixadas em Português do Brasil contém a variável legítima <code>$wp_local_package = 'pt_BR';</code>, o que gerava divergências de hash contra repositórios internacionais.</p>
+                <ul>
+                    <li><strong>Validação Multinível:</strong> O agente compara tanto o hash do locale local quanto o hash do build base internacional, normalizando variações de quebra de linha (CRLF vs LF).</li>
+                    <li><strong>Análise Estrutural de Tokens:</strong> O agente audita os tokens PHP do arquivo. Ele só é considerado íntegro se contiver estritamente variáveis permitidas do WordPress (com versão coincidente) e nenhuma chamada de função executável ou código malicioso.</li>
+                    <li><strong>Restauração com Preservação de Idioma:</strong> Ao restaurar o <code>version.php</code>, o agente injeta a definição do pacote local com fidelidade criptográfica total, prevenindo erros de mismatch.</li>
+                    <li><strong>Persistência no Banco de Dados:</strong> O resultado da última varredura (status, contadores e data) é gravado no banco de dados do SaaS, garantindo que o status do site permaneça visível mesmo após novo login na plataforma.</li>
+                </ul>
+            </section>
+
+            <!-- 8. Logs de Atividades & Diário Técnico -->
+            <section id="logs-de-atividades" class="doc-section">
+                <h1>📝 Logs de Atividades & Diário Técnico</h1>
+                <p>A tela de <strong>Logs de Atividades</strong> atua como um livro-razão e diário técnico contínuo para cada site gerenciado, permitindo que a equipe registre todas as intervenções executadas e forneça transparência total para o cliente e administradores.</p>
+
+                <h2>Timeline Unificada de Eventos</h2>
+                <p>A lista de atividades consolida automaticamente dois tipos de registros em uma linha do tempo única e cronológica:</p>
+                <ol>
+                    <li><strong>Anotações das Manutenções Mensais:</strong> Toda vez que uma manutenção periódica é concluída no painel com o relatório de atividades e mês selecionado, ela entra diretamente na linha do tempo como registro oficial de manutenção.</li>
+                    <li><strong>Notas Técnicas Avulsas:</strong> Observações, diagnósticos e ajustes pontuais realizados no dia a dia podem ser criados a qualquer momento pela equipe técnica sem depender do ciclo mensal de manutenção.</li>
+                </ol>
+
+                <h2>Categorias Pré-definidas</h2>
+                <p>Cada nota técnica pode ser classificada em categorias visuais que facilitam a filtragem e localização de históricos:</p>
+                <ul>
+                    <li><span class="badge" style="background:#236baa; color:#fff; padding:2px 8px; border-radius:4px; font-size:0.8rem; font-weight:600;">Geral</span> — Notas operacionais e registros rotineiros.</li>
+                    <li><span class="badge" style="background:#ef4444; color:#fff; padding:2px 8px; border-radius:4px; font-size:0.8rem; font-weight:600;">Segurança</span> — Aplicação de patches, mitigação de vulnerabilidades e bloqueios de IP.</li>
+                    <li><span class="badge" style="background:#10b981; color:#fff; padding:2px 8px; border-radius:4px; font-size:0.8rem; font-weight:600;">Otimização</span> — Ajustes de performance, cache e Core Web Vitals.</li>
+                    <li><span class="badge" style="background:#8b5cf6; color:#fff; padding:2px 8px; border-radius:4px; font-size:0.8rem; font-weight:600;">Servidor</span> — Configurações de DNS, PHP, Apache/Nginx ou banco de dados.</li>
+                    <li><span class="badge" style="background:#f97316; color:#fff; padding:2px 8px; border-radius:4px; font-size:0.8rem; font-weight:600;">Correção de Bug</span> — Resolução de erros 500, incompatibilidades de plugins ou conflitos de código.</li>
+                    <li><span class="badge" style="background:#ec1c66; color:#fff; padding:2px 8px; border-radius:4px; font-size:0.8rem; font-weight:600;">Ajustes de Layout</span> — Modificações em CSS, temas filhos e ajustes visuais solicitados.</li>
+                </ul>
+
+                <h2>Formatação Rica com Suporte a Código e Links</h2>
+                <p>O campo de conteúdo das notas aceita formatação técnica avançada:</p>
+                <ul>
+                    <li><strong>Links Clicáveis:</strong> URLs inseridas nas notas são detectadas automaticamente e renderizadas como links seguros com abertura em nova aba (<code>target="_blank"</code>).</li>
+                    <li><strong>Blocos de Código com 1-Click Copy:</strong> Trechos de código formatados com crases triplas (<code>```código```</code>) ou crases simples (<code>`snippet`</code>) são renderizados em tipografia monospace com destaque e botão integrado <strong>"Copiar Código"</strong>.</li>
+                </ul>
+
+                <h2>Acesso Compartilhado Colaborativo</h2>
+                <p>Qualquer usuário com acesso compartilhado ao website tem permissão integral para registrar notas, visualizar a linha do tempo e consultar quem foi o autor de cada anotação técnica.</p>
+            </section>
+
+            <!-- 9. Link Público de Visualização para Clientes -->
+            <section id="link-publico-clientes" class="doc-section">
+                <h1>🔗 Link Público de Visualização de Logs para Clientes</h1>
+                <p>O <strong>Link Público</strong> permite que você envie para o seu cliente uma página externa segura e moderna para ele acompanhar todo o histórico de manutenções e intervenções técnicas realizadas no site dele, sem necessidade de criar usuário ou fazer login no SaaS.</p>
+
+                <h2>Características da Visão do Cliente</h2>
+                <ul>
+                    <li><strong>Identidade Visual Patropi Comunica:</strong> O cabeçalho da visualização pública é minimalista e limpo, contendo exclusivamente a logomarca da Patropi Comunica, garantindo profissionalismo e foco no conteúdo.</li>
+                    <li><strong>Modo Estrito de Leitura (Sem Edição):</strong> O cliente pode navegar, pesquisar palavras-chave e filtrar por categoria, mas não possui permissão para editar, excluir ou criar novas notas.</li>
+                    <li><strong>Segurança via Token Criptográfico:</strong> O acesso é liberado por meio de um token aleatório de 64 caracteres hexadecimais (<code>public_log_token</code>), sem expor IDs internos do banco de dados.</li>
+                    <li><strong>Regeneração Instantânea:</strong> No painel do site, ao clicar em <strong>"Link para Cliente"</strong>, você pode copiar a URL pública ou regenerar o token a qualquer momento caso queira revogar acessos antigos.</li>
+                </ul>
             </section>
 
             <!-- 8. Remediação Híbrida & IA -->
@@ -798,6 +868,16 @@ add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" alway
                             <td>Gerenciar Usuários da Plataforma</td>
                             <td>✅ Criar/Editar/Desativar</td>
                             <td>❌ Sem acesso</td>
+                        </tr>
+                        <tr>
+                            <td>Registrar e Consultar Logs de Atividades</td>
+                            <td>✅ Todos os sites</td>
+                            <td>✅ Sites próprios e compartilhados</td>
+                        </tr>
+                        <tr>
+                            <td>Gerar e Compartilhar Link Público para Clientes</td>
+                            <td>✅ Sim</td>
+                            <td>✅ Sim (sites autorizados)</td>
                         </tr>
                     </tbody>
                 </table>
