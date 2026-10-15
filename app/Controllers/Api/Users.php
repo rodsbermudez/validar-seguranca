@@ -233,12 +233,15 @@ class Users extends ResourceController
     public function aiMetrics($id = null)
     {
         $userData = $this->request->userData ?? null;
-        if (($userData->role ?? 'user') !== 'admin') {
-            return $this->failForbidden('Acesso restrito a administradores.');
-        }
+        $effectiveUserId = $this->request->effectiveUserId ?? ($userData->id ?? null);
+        $isAdmin = (($userData->role ?? 'user') === 'admin');
 
         if (!$id) {
             return $this->fail('ID do usuário não informado.', 400);
+        }
+
+        if (!$isAdmin && (int)$id !== (int)$effectiveUserId) {
+            return $this->failForbidden('Acesso não autorizado às métricas de IA de outro usuário.');
         }
 
         $userModel = new UserModel();
@@ -327,12 +330,15 @@ class Users extends ResourceController
     public function aiLogs($id = null)
     {
         $userData = $this->request->userData ?? null;
-        if (($userData->role ?? 'user') !== 'admin') {
-            return $this->failForbidden('Acesso restrito a administradores.');
-        }
+        $effectiveUserId = $this->request->effectiveUserId ?? ($userData->id ?? null);
+        $isAdmin = (($userData->role ?? 'user') === 'admin');
 
         if (!$id) {
             return $this->fail('ID do usuário não informado.', 400);
+        }
+
+        if (!$isAdmin && (int)$id !== (int)$effectiveUserId) {
+            return $this->failForbidden('Acesso não autorizado aos logs de IA de outro usuário.');
         }
 
         $limit = max(1, min(200, (int) ($this->request->getGet('limit') ?: 50)));

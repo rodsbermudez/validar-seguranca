@@ -134,7 +134,8 @@ class SolutionCatalog extends ResourceController
                 'data'    => $saved,
             ]);
         } catch (\Exception $e) {
-            return $this->failServerError("Falha na geração da solução com IA: " . $e->getMessage());
+            $statusCode = (str_contains($e->getMessage(), 'desabilitado') || str_contains($e->getMessage(), 'Limite mensal')) ? 403 : 500;
+            return $this->fail($e->getMessage(), $statusCode);
         }
     }
 

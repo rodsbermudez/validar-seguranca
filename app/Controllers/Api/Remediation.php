@@ -123,6 +123,9 @@ class Remediation extends ResourceController
                     $pluginCode .= "\n\n" . $this->getRemediationInfrastructurePhp($website, $pluginFixableSolutions);
                 }
             } catch (\Exception $e) {
+                if (str_contains($e->getMessage(), 'desabilitado') || str_contains($e->getMessage(), 'Limite mensal')) {
+                    return $this->fail($e->getMessage(), 403);
+                }
                 $pluginCode = $this->buildNativeRemediationPlugin($pluginFixableSolutions, $website);
             }
         } else {
@@ -344,6 +347,9 @@ class Remediation extends ResourceController
                 $aiService = new AIService($apiKey);
                 $guideHtml = $aiService->generateServerGuide($serverFixableItems, $website['url'], (int)$effectiveUserId, (int)$website['id']);
             } catch (\Exception $e) {
+                if (str_contains($e->getMessage(), 'desabilitado') || str_contains($e->getMessage(), 'Limite mensal')) {
+                    return $this->fail($e->getMessage(), 403);
+                }
                 log_message('error', 'Erro na geração do Guia de Servidor via IA: ' . $e->getMessage());
                 // Fallback to rich built-in template HTML guide if AI is unreachable or API key missing
                 $guideHtml = $this->buildFallbackServerGuideHtml($serverFixableItems, $website['url']);

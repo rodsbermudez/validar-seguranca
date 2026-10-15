@@ -22,6 +22,7 @@ import {
   IconSettings,
   IconLayoutDashboard,
   IconChevronDown,
+  IconBrain,
 } from '@tabler/icons-react';
 import { LoginView } from './components/LoginView';
 import { OverviewDashboardView } from './components/OverviewDashboardView';
@@ -40,7 +41,7 @@ export default function App() {
   const [selectedWebsite, setSelectedWebsite] = useState<any | null>(null);
   const [selectedAiUser, setSelectedAiUser] = useState<any | null>(null);
   const [dashboardTab, setDashboardTab] = useState<string>('overview');
-  const [viewMode, setViewMode] = useState<'overview' | 'list' | 'dashboard' | 'report' | 'users' | 'solutions' | 'logs' | 'settings' | 'user-ai'>('overview');
+  const [viewMode, setViewMode] = useState<'overview' | 'list' | 'dashboard' | 'report' | 'users' | 'solutions' | 'logs' | 'settings' | 'user-ai' | 'user-ai-view'>('overview');
 
   // Detecta se a página foi acessada via link de compartilhamento de logs para o cliente
   const [shareToken, setShareToken] = useState<string | null>(() => {
@@ -269,6 +270,19 @@ export default function App() {
               )}
 
               <Button
+                variant={viewMode === 'user-ai-view' ? 'light' : 'subtle'}
+                color="violet"
+                leftSection={<IconBrain size={16} />}
+                onClick={() => {
+                  setSelectedWebsite(null);
+                  setSelectedAiUser(impersonatedUser || user);
+                  setViewMode('user-ai-view');
+                }}
+              >
+                Consumo de IA
+              </Button>
+
+              <Button
                 component="a"
                 href={getDocsUrl()}
                 target="_blank"
@@ -324,6 +338,15 @@ export default function App() {
             <SettingsView onBack={() => setViewMode('list')} currentUserRole={user.role} />
           ) : viewMode === 'solutions' && isAdmin && !impersonatedUser ? (
             <SolutionCatalogView />
+          ) : viewMode === 'user-ai-view' ? (
+            <UserAiManagementView
+              user={impersonatedUser || user}
+              onBack={() => {
+                setSelectedAiUser(null);
+                setViewMode('overview');
+              }}
+              readOnly={true}
+            />
           ) : viewMode === 'user-ai' && selectedAiUser && isAdmin && !impersonatedUser ? (
             <UserAiManagementView
               user={selectedAiUser}
@@ -331,6 +354,7 @@ export default function App() {
                 setSelectedAiUser(null);
                 setViewMode('users');
               }}
+              readOnly={false}
             />
           ) : viewMode === 'users' && isAdmin && !impersonatedUser ? (
             <UsersList

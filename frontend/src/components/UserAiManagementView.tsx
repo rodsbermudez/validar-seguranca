@@ -57,9 +57,14 @@ interface UserAiManagementViewProps {
     ai_monthly_token_limit?: number | null;
   };
   onBack: () => void;
+  readOnly?: boolean;
 }
 
-export function UserAiManagementView({ user: initialUser, onBack }: UserAiManagementViewProps) {
+export function UserAiManagementView({
+  user: initialUser,
+  onBack,
+  readOnly = false,
+}: UserAiManagementViewProps) {
   const [user, setUser] = useState<UserAiSettings>({
     id: initialUser.id,
     name: initialUser.name,
@@ -203,13 +208,13 @@ export function UserAiManagementView({ user: initialUser, onBack }: UserAiManage
               leftSection={<IconArrowLeft size={16} />}
               onClick={onBack}
             >
-              Voltar para Usuários
+              {readOnly ? 'Voltar para o Painel' : 'Voltar para Usuários'}
             </Button>
             <Divider orientation="vertical" />
             <div>
               <Group gap="xs">
                 <Title order={3} fw={700}>
-                  {user.name}
+                  {readOnly ? 'Meu Consumo de Inteligência Artificial' : user.name}
                 </Title>
                 <Badge color={user.role === 'admin' ? 'indigo' : 'gray'} variant="light">
                   {user.role === 'admin' ? 'ADMIN' : 'USUÁRIO'}
@@ -219,7 +224,7 @@ export function UserAiManagementView({ user: initialUser, onBack }: UserAiManage
                 </Badge>
               </Group>
               <Text c="dimmed" size="xs">
-                {user.email} • ID #{user.id}
+                {readOnly ? `${user.name} (${user.email}) • Métricas e histórico auditável de IA` : `${user.email} • ID #${user.id}`}
               </Text>
             </div>
           </Group>
@@ -353,84 +358,107 @@ export function UserAiManagementView({ user: initialUser, onBack }: UserAiManage
       </Grid>
 
       {/* Governance & Limits Configuration Card */}
-      <Paper p="xl" radius="md" bg="dark.8" withBorder style={{ borderColor: '#374151' }}>
-        <Title order={4} mb="xs">
-          Regras de Acesso e Limites de Consumo
-        </Title>
-        <Text c="dimmed" size="sm" mb="lg">
-          Controle permissões de uso de Inteligência Artificial e estabeleça limites mensais de tokens para este usuário.
-        </Text>
-
-        <Grid gutter="lg" align="flex-end">
-          <Grid.Col span={{ base: 12, md: 5 }}>
-            <Switch
-              label="Habilitar Recursos de Inteligência Artificial"
-              description="Quando desativado, o usuário não poderá gerar correções automáticas nem guias de servidor com IA."
-              checked={aiEnabled}
-              onChange={(e) => setAiEnabled(e.currentTarget.checked)}
-              color="indigo"
-              size="md"
-            />
-          </Grid.Col>
-
-          <Grid.Col span={{ base: 12, md: 4 }}>
-            <NumberInput
-              label="Limite Mensal de Tokens"
-              description="Defina 0 ou deixe em branco para cota ilimitada."
-              placeholder="Ex: 50000"
-              min={0}
-              step={10000}
-              thousandSeparator="."
-              decimalSeparator=","
-              value={tokenLimit}
-              onChange={(val) => setTokenLimit(val)}
-              disabled={!aiEnabled}
-            />
-          </Grid.Col>
-
-          <Grid.Col span={{ base: 12, md: 3 }}>
-            <Button
-              color="indigo"
-              fullWidth
-              leftSection={<IconDeviceFloppy size={16} />}
-              onClick={handleSaveLimits}
-              loading={savingLimits}
-            >
-              Salvar Limites
-            </Button>
-          </Grid.Col>
-        </Grid>
-
-        {/* Quick limit presets */}
-        {aiEnabled && (
-          <Group gap="xs" mt="sm">
-            <Text size="xs" c="dimmed">
-              Atalhos de Cota:
-            </Text>
-            <Button size="compact-xs" variant="subtle" color="gray" onClick={() => setTokenLimit(25000)}>
-              25k
-            </Button>
-            <Button size="compact-xs" variant="subtle" color="gray" onClick={() => setTokenLimit(50000)}>
-              50k
-            </Button>
-            <Button size="compact-xs" variant="subtle" color="gray" onClick={() => setTokenLimit(100000)}>
-              100k
-            </Button>
-            <Button size="compact-xs" variant="subtle" color="gray" onClick={() => setTokenLimit(250000)}>
-              250k
-            </Button>
-            <Button size="compact-xs" variant="subtle" color="indigo" onClick={() => setTokenLimit('')}>
-              Ilimitado
-            </Button>
+      {readOnly ? (
+        <Paper p="lg" radius="md" bg="dark.8" withBorder style={{ borderColor: '#374151' }}>
+          <Group justify="space-between" align="center">
+            <div>
+              <Title order={4} mb={4}>
+                Status da Conta e Política de Cota de IA
+              </Title>
+              <Text c="dimmed" size="sm">
+                Informações de permissão e cota mensal estabelecidas para seu usuário. Para solicitar alterações ou aumento de limite, contate o administrador da plataforma.
+              </Text>
+            </div>
+            <Group gap="sm">
+              <Badge color={aiEnabled ? 'teal' : 'red'} size="lg" variant="light">
+                {aiEnabled ? 'Recursos de IA Habilitados' : 'Recursos de IA Desativados'}
+              </Badge>
+              <Badge color={isUnlimited ? 'indigo' : 'cyan'} size="lg" variant="outline">
+                {isUnlimited ? 'Cota Mensal: Ilimitada' : `Cota Mensal: ${formatTokens(monthlyLimit)} tokens`}
+              </Badge>
+            </Group>
           </Group>
-        )}
+        </Paper>
+      ) : (
+        <Paper p="xl" radius="md" bg="dark.8" withBorder style={{ borderColor: '#374151' }}>
+          <Title order={4} mb="xs">
+            Regras de Acesso e Limites de Consumo
+          </Title>
+          <Text c="dimmed" size="sm" mb="lg">
+            Controle permissões de uso de Inteligência Artificial e estabeleça limites mensais de tokens para este usuário.
+          </Text>
 
-        {saveSuccess && (
-          <Alert icon={<IconCheck size={16} />} color="teal" variant="light" mt="md">
-            Limites de IA do usuário atualizados com sucesso!
-          </Alert>
-        )}
-      </Paper>
+          <Grid gutter="lg" align="flex-end">
+            <Grid.Col span={{ base: 12, md: 5 }}>
+              <Switch
+                label="Habilitar Recursos de Inteligência Artificial"
+                description="Quando desativado, o usuário não poderá gerar correções automáticas nem guias de servidor com IA."
+                checked={aiEnabled}
+                onChange={(e) => setAiEnabled(e.currentTarget.checked)}
+                color="indigo"
+                size="md"
+              />
+            </Grid.Col>
+
+            <Grid.Col span={{ base: 12, md: 4 }}>
+              <NumberInput
+                label="Limite Mensal de Tokens"
+                description="Defina 0 ou deixe em branco para cota ilimitada."
+                placeholder="Ex: 50000"
+                min={0}
+                step={10000}
+                thousandSeparator="."
+                decimalSeparator=","
+                value={tokenLimit}
+                onChange={(val) => setTokenLimit(val)}
+                disabled={!aiEnabled}
+              />
+            </Grid.Col>
+
+            <Grid.Col span={{ base: 12, md: 3 }}>
+              <Button
+                color="indigo"
+                fullWidth
+                leftSection={<IconDeviceFloppy size={16} />}
+                onClick={handleSaveLimits}
+                loading={savingLimits}
+              >
+                Salvar Limites
+              </Button>
+            </Grid.Col>
+          </Grid>
+
+          {/* Quick limit presets */}
+          {aiEnabled && (
+            <Group gap="xs" mt="sm">
+              <Text size="xs" c="dimmed">
+                Atalhos de Cota:
+              </Text>
+              <Button size="compact-xs" variant="subtle" color="gray" onClick={() => setTokenLimit(25000)}>
+                25k
+              </Button>
+              <Button size="compact-xs" variant="subtle" color="gray" onClick={() => setTokenLimit(50000)}>
+                50k
+              </Button>
+              <Button size="compact-xs" variant="subtle" color="gray" onClick={() => setTokenLimit(100000)}>
+                100k
+              </Button>
+              <Button size="compact-xs" variant="subtle" color="gray" onClick={() => setTokenLimit(250000)}>
+                250k
+              </Button>
+              <Button size="compact-xs" variant="subtle" color="indigo" onClick={() => setTokenLimit('')}>
+                Ilimitado
+              </Button>
+            </Group>
+          )}
+
+          {saveSuccess && (
+            <Alert icon={<IconCheck size={16} />} color="teal" variant="light" mt="md">
+              Limites de IA do usuário atualizados com sucesso!
+            </Alert>
+          )}
+        </Paper>
+      )}
 
       {/* Breakdown by Action Type */}
       {metrics?.by_action && metrics.by_action.length > 0 && (
