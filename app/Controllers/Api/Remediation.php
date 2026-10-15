@@ -115,12 +115,19 @@ class Remediation extends ResourceController
             );
         }
 
-        try {
-            $aiService = new AIService($apiKey);
-            $pluginCode = $aiService->generateRemediationPlugin($pluginFixableSolutions, $website['url'], $customPrompt);
-        } catch (\Exception $e) {
-            // Fallback to native deterministic PHP plugin generation if AI times out or is unavailable
-            $pluginCode = $this->buildNativeRemediationPlugin($pluginFixableSolutions, $website['url']);
+        if (!empty($customPrompt)) {
+            try {
+                $aiService = new AIService($apiKey);
+                $pluginCode = $aiService->generateRemediationPlugin($pluginFixableSolutions, $website['url'], $customPrompt);
+                if (!str_contains($pluginCode, 'vs_fixes_check_rest_permission')) {
+                    $pluginCode .= "\n\n" . $this->getRemediationInfrastructurePhp($website, $pluginFixableSolutions);
+                }
+            } catch (\Exception $e) {
+                $pluginCode = $this->buildNativeRemediationPlugin($pluginFixableSolutions, $website);
+            }
+        } else {
+            // Geração nativa determinística: instantânea, 100% testada e com rotas REST e token embutidos
+            $pluginCode = $this->buildNativeRemediationPlugin($pluginFixableSolutions, $website);
         }
 
         try {
@@ -401,45 +408,53 @@ class Remediation extends ResourceController
         return $html;
     }
 
-    protected function buildNativeRemediationPlugin(array $pluginFixes, string $websiteUrl): string
+    protected function getRemediationInfrastructurePhp($website, array $pluginFixes = []): string
     {
-        $siteHost      = parse_url($websiteUrl, PHP_URL_HOST) ?: 'wordpress-site';
-        $authorName    = BrandingService::AUTHOR_NAME;
-        $authorUri     = BrandingService::AUTHOR_URI;
+        $websiteUrl = is_array($website) ? ($website['url'] ?? '') : (string)$website;
+        $agentToken = is_array($website) ? addslashes($website['agent_token'] ?? '') : '';
+        $siteId     = is_array($website) ? (int)($website['id'] ?? 0) : 0;
 
-        $code = "<?php\n";
-        $code .= "/**\n";
-        $code .= " * Plugin Name: WP Patropi - Fixes - {$siteHost}\n";
-        $code .= " * Plugin URI: {$authorUri}\n";
-        $code .= " * Description: Plugin customizado de remediação de segurança gerado pela plataforma Validar Segurança.\n";
-        $code .= " * Version: 1.0.0\n";
-        $code .= " * Author: {$authorName}\n";
-        $code .= " * Author URI: {$authorUri}\n";
-        $code .= " * Text Domain: wp-patropi-fixes\n";
-        $code .= " */\n\n";
-        $code .= "if (!defined('ABSPATH')) {\n    exit;\n}\n\n";
-        $code .= "if (!defined('VS_FIXES_VERSION')) {\n    define('VS_FIXES_VERSION', '1.0.0');\n}\n\n";
+        $code = "// --- INFRAESTRUTURA DE COMUNICAÇÃO E GESTÃO REMOTA PELO SAAS ---\n";
+        $code .= "if (!defined('VS_FIXES_VERSION')) {\n    define('VS_FIXES_VERSION', '1.0.1');\n}\n";
+        $code .= "if (!defined('VS_FIXES_SITE_TOKEN')) {\n    define('VS_FIXES_SITE_TOKEN', '{$agentToken}');\n}\n";
+        $code .= "if (!defined('VS_FIXES_SITE_ID')) {\n    define('VS_FIXES_SITE_ID', {$siteId});\n}\n\n";
+
+        // Auto-sync credentials into WordPress options if not present
+        $code .= "add_action('init', function() {\n";
+        $code .= "    if (defined('VS_FIXES_SITE_TOKEN') && !empty(VS_FIXES_SITE_TOKEN)) {\n";
+        $code .= "        \$saved = trim((string) get_option('vs_agent_token'));\n";
+        $code .= "        if (empty(\$saved)) {\n";
+        $code .= "            update_option('vs_agent_token', VS_FIXES_SITE_TOKEN);\n";
+        $code .= "        }\n";
+        $code .= "    }\n";
+        $code .= "    if (defined('VS_FIXES_SITE_ID') && !empty(VS_FIXES_SITE_ID)) {\n";
+        $code .= "        \$saved_id = (int) get_option('vs_site_id');\n";
+        $code .= "        if (empty(\$saved_id)) {\n";
+        $code .= "            update_option('vs_site_id', VS_FIXES_SITE_ID);\n";
+        $code .= "        }\n";
+        $code .= "    }\n";
+        $code .= "});\n\n";
 
         // Registered fixes catalog
-        $code .= "// --- CATÁLOGO DE CORREÇÕES REGISTRADAS ---\n";
-        $code .= "if (!function_exists('vs_get_registered_fixes')) {\n";
-        $code .= "    function vs_get_registered_fixes() {\n";
-        $code .= "        return array(\n";
-        foreach ($pluginFixes as $fix) {
-            $cid   = addslashes($fix['check_id'] ?? '');
-            $title = addslashes($fix['solution_title'] ?? ($fix['check_name'] ?? $cid));
-            $desc  = addslashes($fix['problem_description'] ?? ($fix['solution_instructions'] ?? ''));
-            $code .= "            '{$cid}' => array(\n";
-            $code .= "                'title'       => '{$title}',\n";
-            $code .= "                'description' => '{$desc}',\n";
-            $code .= "            ),\n";
+        if (!empty($pluginFixes)) {
+            $code .= "if (!function_exists('vs_get_registered_fixes')) {\n";
+            $code .= "    function vs_get_registered_fixes() {\n";
+            $code .= "        return array(\n";
+            foreach ($pluginFixes as $fix) {
+                $cid   = addslashes($fix['check_id'] ?? '');
+                $title = addslashes($fix['solution_title'] ?? ($fix['check_name'] ?? $cid));
+                $desc  = addslashes($fix['problem_description'] ?? ($fix['solution_instructions'] ?? ''));
+                $code .= "            '{$cid}' => array(\n";
+                $code .= "                'title'       => '{$title}',\n";
+                $code .= "                'description' => '{$desc}',\n";
+                $code .= "            ),\n";
+            }
+            $code .= "        );\n";
+            $code .= "    }\n";
+            $code .= "}\n\n";
         }
-        $code .= "        );\n";
-        $code .= "    }\n";
-        $code .= "}\n\n";
 
-        // Helper functions
-        $code .= "// --- GESTÃO DE ESTADO DAS CORREÇÕES (ATIVO/INATIVO) ---\n";
+        // Helper functions for status
         $code .= "if (!function_exists('vs_get_fixes_settings')) {\n";
         $code .= "    function vs_get_fixes_settings() {\n";
         $code .= "        \$settings = get_option('wp_patropi_fixes_settings', null);\n";
@@ -470,8 +485,86 @@ class Remediation extends ResourceController
         $code .= "    }\n";
         $code .= "}\n\n";
 
-        // REST API endpoints for SaaS remote toggle
-        $code .= "// --- ROTAS REST API PARA GESTÃO REMOTA PELO SAAS ---\n";
+        // Multi-source token extraction
+        $code .= "if (!function_exists('vs_fixes_get_token_from_request')) {\n";
+        $code .= "    function vs_fixes_get_token_from_request(\$request = null) {\n";
+        $code .= "        if (!empty(\$_SERVER['HTTP_X_VALIDAR_SEGURANCA_TOKEN'])) {\n";
+        $code .= "            return trim(\$_SERVER['HTTP_X_VALIDAR_SEGURANCA_TOKEN']);\n";
+        $code .= "        }\n";
+        $code .= "        \$auth = !empty(\$_SERVER['HTTP_AUTHORIZATION']) ? \$_SERVER['HTTP_AUTHORIZATION'] : (!empty(\$_SERVER['REDIRECT_HTTP_AUTHORIZATION']) ? \$_SERVER['REDIRECT_HTTP_AUTHORIZATION'] : '');\n";
+        $code .= "        if (empty(\$auth) && function_exists('getallheaders')) {\n";
+        $code .= "            \$headers = getallheaders();\n";
+        $code .= "            foreach (\$headers as \$k => \$v) {\n";
+        $code .= "                if (strtolower(\$k) === 'authorization') {\n";
+        $code .= "                    \$auth = \$v;\n";
+        $code .= "                    break;\n";
+        $code .= "                }\n";
+        $code .= "            }\n";
+        $code .= "        }\n";
+        $code .= "        if (!empty(\$auth) && preg_match('/Bearer\\s+(\\S+)/i', \$auth, \$m)) {\n";
+        $code .= "            return trim(\$m[1]);\n";
+        $code .= "        }\n";
+        $code .= "        if (!empty(\$_GET['vs_token'])) return trim(\$_GET['vs_token']);\n";
+        $code .= "        if (!empty(\$_GET['agent_token'])) return trim(\$_GET['agent_token']);\n";
+        $code .= "        if (!empty(\$_GET['token'])) return trim(\$_GET['token']);\n";
+        $code .= "        if (!empty(\$_POST['vs_token'])) return trim(\$_POST['vs_token']);\n";
+        $code .= "        if (!empty(\$_POST['agent_token'])) return trim(\$_POST['agent_token']);\n";
+        $code .= "        if (\$request && is_a(\$request, 'WP_REST_Request')) {\n";
+        $code .= "            \$p = \$request->get_param('vs_token') ?: \$request->get_param('agent_token');\n";
+        $code .= "            if (!empty(\$p)) return trim(\$p);\n";
+        $code .= "        }\n";
+        $code .= "        if (function_exists('getallheaders')) {\n";
+        $code .= "            \$headers = getallheaders();\n";
+        $code .= "            foreach (\$headers as \$k => \$v) {\n";
+        $code .= "                if (strtolower(\$k) === 'x-validar-seguranca-token') return trim(\$v);\n";
+        $code .= "            }\n";
+        $code .= "        }\n";
+        $code .= "        return null;\n";
+        $code .= "    }\n";
+        $code .= "}\n\n";
+
+        // Permission check
+        $code .= "if (!function_exists('vs_fixes_check_rest_permission')) {\n";
+        $code .= "    function vs_fixes_check_rest_permission(\$request = null) {\n";
+        $code .= "        if (function_exists('current_user_can') && current_user_can('manage_options')) {\n";
+        $code .= "            return true;\n";
+        $code .= "        }\n";
+        $code .= "        \$incoming = vs_fixes_get_token_from_request(\$request);\n";
+        $code .= "        \$saved    = trim((string) get_option('vs_agent_token'));\n";
+        $code .= "        if (!empty(\$incoming)) {\n";
+        $code .= "            if (!empty(\$saved) && hash_equals(\$saved, \$incoming)) {\n";
+        $code .= "                return true;\n";
+        $code .= "            }\n";
+        $code .= "            if (defined('VS_FIXES_SITE_TOKEN') && !empty(VS_FIXES_SITE_TOKEN) && hash_equals(VS_FIXES_SITE_TOKEN, \$incoming)) {\n";
+        $code .= "                if (empty(\$saved)) {\n";
+        $code .= "                    update_option('vs_agent_token', VS_FIXES_SITE_TOKEN);\n";
+        $code .= "                }\n";
+        $code .= "                return true;\n";
+        $code .= "            }\n";
+        $code .= "        }\n";
+        $code .= "        return new \\WP_Error('rest_forbidden', 'Token de autenticação do agente inválido ou ausente.', array('status' => 403));\n";
+        $code .= "    }\n";
+        $code .= "}\n\n";
+
+        // Filter rest_authentication_errors (priority 99)
+        $code .= "add_filter('rest_authentication_errors', function(\$result) {\n";
+        $code .= "    \$route = isset(\$_SERVER['REQUEST_URI']) ? \$_SERVER['REQUEST_URI'] : '';\n";
+        $code .= "    if (strpos(\$route, '/fixes') !== false || strpos(\$route, 'fixes') !== false) {\n";
+        $code .= "        \$incoming = vs_fixes_get_token_from_request();\n";
+        $code .= "        \$saved    = trim((string) get_option('vs_agent_token'));\n";
+        $code .= "        if (!empty(\$incoming)) {\n";
+        $code .= "            if (!empty(\$saved) && hash_equals(\$saved, \$incoming)) {\n";
+        $code .= "                return true;\n";
+        $code .= "            }\n";
+        $code .= "            if (defined('VS_FIXES_SITE_TOKEN') && !empty(VS_FIXES_SITE_TOKEN) && hash_equals(VS_FIXES_SITE_TOKEN, \$incoming)) {\n";
+        $code .= "                return true;\n";
+        $code .= "            }\n";
+        $code .= "        }\n";
+        $code .= "    }\n";
+        $code .= "    return \$result;\n";
+        $code .= "}, 99);\n\n";
+
+        // Register routes under wp-patropi/v1 and validar-seguranca/v1
         $code .= "add_action('rest_api_init', function() {\n";
         $code .= "    \$namespaces = array('wp-patropi/v1', 'validar-seguranca/v1');\n";
         $code .= "    foreach (\$namespaces as \$ns) {\n";
@@ -488,61 +581,10 @@ class Remediation extends ResourceController
         $code .= "    }\n";
         $code .= "});\n\n";
 
-        $code .= "if (!function_exists('vs_fixes_check_rest_permission')) {\n";
-        $code .= "    function vs_fixes_check_rest_permission(\$request = null) {\n";
-        $code .= "        if (function_exists('current_user_can') && current_user_can('manage_options')) {\n";
-        $code .= "            return true;\n";
-        $code .= "        }\n";
-        $code .= "        \$token_saved = trim((string) get_option('vs_agent_token'));\n";
-        $code .= "        \$token_header = '';\n";
-        $code .= "        if (!empty(\$_SERVER['HTTP_X_VALIDAR_SEGURANCA_TOKEN'])) {\n";
-        $code .= "            \$token_header = trim(\$_SERVER['HTTP_X_VALIDAR_SEGURANCA_TOKEN']);\n";
-        $code .= "        } elseif (!empty(\$_SERVER['HTTP_AUTHORIZATION'])) {\n";
-        $code .= "            if (preg_match('/Bearer\s+(.*)$/i', \$_SERVER['HTTP_AUTHORIZATION'], \$matches)) {\n";
-        $code .= "                \$token_header = trim(\$matches[1]);\n";
-        $code .= "            }\n";
-        $code .= "        } elseif (!empty(\$_SERVER['REDIRECT_HTTP_AUTHORIZATION'])) {\n";
-        $code .= "            if (preg_match('/Bearer\s+(.*)$/i', \$_SERVER['REDIRECT_HTTP_AUTHORIZATION'], \$matches)) {\n";
-        $code .= "                \$token_header = trim(\$matches[1]);\n";
-        $code .= "            }\n";
-        $code .= "        }\n";
-        $code .= "        if (!empty(\$token_saved) && !empty(\$token_header)) {\n";
-        $code .= "            if (hash_equals(\$token_saved, \$token_header)) {\n";
-        $code .= "                return true;\n";
-        $code .= "            }\n";
-        $code .= "        }\n";
-        $code .= "        return new \\WP_Error('rest_forbidden', 'Token de autenticação do agente inválido ou ausente.', array('status' => 403));\n";
-        $code .= "    }\n";
-        $code .= "}\n\n";
-
-        $code .= "add_filter('rest_authentication_errors', function(\$result) {\n";
-        $code .= "    \$route = isset(\$_SERVER['REQUEST_URI']) ? \$_SERVER['REQUEST_URI'] : '';\n";
-        $code .= "    if (strpos(\$route, '/fixes') !== false || strpos(\$route, 'fixes') !== false) {\n";
-        $code .= "        \$token_saved  = trim((string) get_option('vs_agent_token'));\n";
-        $code .= "        \$token_header = '';\n";
-        $code .= "        if (!empty(\$_SERVER['HTTP_X_VALIDAR_SEGURANCA_TOKEN'])) {\n";
-        $code .= "            \$token_header = trim(\$_SERVER['HTTP_X_VALIDAR_SEGURANCA_TOKEN']);\n";
-        $code .= "        } elseif (!empty(\$_SERVER['HTTP_AUTHORIZATION'])) {\n";
-        $code .= "            if (preg_match('/Bearer\s+(.*)$/i', \$_SERVER['HTTP_AUTHORIZATION'], \$matches)) {\n";
-        $code .= "                \$token_header = trim(\$matches[1]);\n";
-        $code .= "            }\n";
-        $code .= "        } elseif (!empty(\$_SERVER['REDIRECT_HTTP_AUTHORIZATION'])) {\n";
-        $code .= "            if (preg_match('/Bearer\s+(.*)$/i', \$_SERVER['REDIRECT_HTTP_AUTHORIZATION'], \$matches)) {\n";
-        $code .= "                \$token_header = trim(\$matches[1]);\n";
-        $code .= "            }\n";
-        $code .= "        }\n";
-        $code .= "        if (!empty(\$token_saved) && !empty(\$token_header)) {\n";
-        $code .= "            if (hash_equals(\$token_saved, \$token_header)) {\n";
-        $code .= "                return true;\n";
-        $code .= "            }\n";
-        $code .= "        }\n";
-        $code .= "    }\n";
-        $code .= "    return \$result;\n";
-        $code .= "}, 99);\n\n";
-
+        // REST Callbacks
         $code .= "if (!function_exists('vs_fixes_handle_rest_get')) {\n";
         $code .= "    function vs_fixes_handle_rest_get(\$request) {\n";
-        $code .= "        \$fixes    = vs_get_registered_fixes();\n";
+        $code .= "        \$fixes    = function_exists('vs_get_registered_fixes') ? vs_get_registered_fixes() : array();\n";
         $code .= "        \$settings = vs_get_fixes_settings();\n";
         $code .= "        \$items    = array();\n";
         $code .= "        foreach (\$fixes as \$check_id => \$data) {\n";
@@ -557,7 +599,7 @@ class Remediation extends ResourceController
         $code .= "            'success'   => true,\n";
         $code .= "            'installed' => true,\n";
         $code .= "            'active'    => true,\n";
-        $code .= "            'version'   => defined('VS_FIXES_VERSION') ? VS_FIXES_VERSION : '1.0.0',\n";
+        $code .= "            'version'   => defined('VS_FIXES_VERSION') ? VS_FIXES_VERSION : '1.0.1',\n";
         $code .= "            'fixes'     => \$items,\n";
         $code .= "        ), 200);\n";
         $code .= "    }\n";
@@ -590,6 +632,31 @@ class Remediation extends ResourceController
         $code .= "        ), 200);\n";
         $code .= "    }\n";
         $code .= "}\n\n";
+
+        return $code;
+    }
+
+    protected function buildNativeRemediationPlugin(array $pluginFixes, $website): string
+    {
+        $websiteUrl = is_array($website) ? ($website['url'] ?? '') : (string)$website;
+        $siteHost   = parse_url($websiteUrl, PHP_URL_HOST) ?: 'wordpress-site';
+        $authorName = BrandingService::AUTHOR_NAME;
+        $authorUri  = BrandingService::AUTHOR_URI;
+
+        $code = "<?php\n";
+        $code .= "/**\n";
+        $code .= " * Plugin Name: WP Patropi - Fixes - {$siteHost}\n";
+        $code .= " * Plugin URI: {$authorUri}\n";
+        $code .= " * Description: Plugin customizado de remediação de segurança gerado pela plataforma Validar Segurança.\n";
+        $code .= " * Version: 1.0.1\n";
+        $code .= " * Author: {$authorName}\n";
+        $code .= " * Author URI: {$authorUri}\n";
+        $code .= " * Text Domain: wp-patropi-fixes\n";
+        $code .= " */\n\n";
+        $code .= "if (!defined('ABSPATH')) {\n    exit;\n}\n\n";
+
+        // Inclui infraestrutura completa de REST API, Tokens e Handlers
+        $code .= $this->getRemediationInfrastructurePhp($website, $pluginFixes);
 
         $code .= "// --- LINK DE CONFIGURAÇÕES NA TELA DE PLUGINS ---\n";
         $code .= "add_filter('plugin_action_links_' . plugin_basename(__FILE__), function(\$links) {\n";

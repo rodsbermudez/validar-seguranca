@@ -954,6 +954,14 @@ class Websites extends ResourceController
         $res = $this->makeAgentRequestWithFallback($website['url'], '/fixes', 'GET', $website['agent_token']);
 
         if (empty($res['body']) || $res['status'] !== 200) {
+            $agentStatus = (int) ($res['status'] ?? 500);
+            $msg = $res['message'] ?? ($res['body']['message'] ?? '');
+            if ($agentStatus === 401 || strpos($msg, 'Token de acesso incorreto') !== false || strpos($msg, 'vs_unauthorized') !== false) {
+                return $this->fail('Token de autenticação incorreto no WordPress. Baixe novamente o plugin WP Patropi Fixes gerado no painel para este site (o token já vem embutido), ou cole o Token em WP Patropi > Diagnóstico no seu WordPress.', 502);
+            }
+            if ($agentStatus === 404 || strpos($msg, 'rest_no_route') !== false) {
+                return $this->fail('Plugin WP Patropi Fixes não detectado ou rotas REST não registradas. Baixe o plugin de correções customizado pelo botão acima e ative-o no WordPress.', 502);
+            }
             return $this->failAgentResponse($res, 'Falha ao buscar configurações de correções do agente');
         }
 
@@ -999,6 +1007,11 @@ class Websites extends ResourceController
         ]);
 
         if (empty($res['body']) || $res['status'] !== 200) {
+            $agentStatus = (int) ($res['status'] ?? 500);
+            $msg = $res['message'] ?? ($res['body']['message'] ?? '');
+            if ($agentStatus === 401 || strpos($msg, 'Token de acesso incorreto') !== false || strpos($msg, 'vs_unauthorized') !== false) {
+                return $this->fail('Token de autenticação incorreto no WordPress. Baixe novamente o plugin WP Patropi Fixes gerado no painel para este site, ou configure o Token em WP Patropi > Diagnóstico no painel.', 502);
+            }
             return $this->failAgentResponse($res, 'Falha ao alterar status da correção no agente');
         }
 
