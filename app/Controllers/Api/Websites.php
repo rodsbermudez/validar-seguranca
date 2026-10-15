@@ -1419,6 +1419,128 @@ class Websites extends ResourceController
             return $this->failForbidden('Você não tem permissão para visualizar as atividades deste website.');
         }
 
+        $allActivities = $this->fetchWebsiteActivities((int)$id);
+
+        return $this->respond([
+            'status' => 200,
+            'data'   => $allActivities,
+        ]);
+    }
+
+    /**
+     * Retorna o token público para o cliente visualizar os logs de atividades (gera se não existir).
+     */
+    public function getPublicLogToken($id = null)
+    {
+        if (!$id) {
+            return $this->fail('ID do website não informado.', 400);
+        }
+
+        $effectiveUserId = (int) ($this->request->effectiveUserId ?? ($this->request->userData->id ?? 0));
+        $userData        = $this->request->userData ?? null;
+        $isImpersonating = $this->request->isImpersonating ?? false;
+        $isAdmin         = (($userData->role ?? 'user') === 'admin') && !$isImpersonating;
+
+        $websiteModel = new WebsiteModel();
+        $website = $websiteModel->find($id);
+
+        if (!$website) {
+            return $this->failNotFound('Website não encontrado.');
+        }
+
+        if (!$websiteModel->canUserAccess((int)$id, $effectiveUserId, $isAdmin)) {
+            return $this->failForbidden('Você não tem permissão para acessar este website.');
+        }
+
+        $token = $website['public_log_token'] ?? null;
+        if (empty($token)) {
+            $token = bin2hex(random_bytes(24));
+            $websiteModel->update($id, ['public_log_token' => $token]);
+        }
+
+        return $this->respond([
+            'status' => 200,
+            'data'   => [
+                'token'     => $token,
+                'share_url' => base_url('/?share_log=' . $token),
+            ],
+        ]);
+    }
+
+    /**
+     * Regenera o token público de compartilhamento de logs, invalidando o link anterior.
+     */
+    public function regeneratePublicLogToken($id = null)
+    {
+        if (!$id) {
+            return $this->fail('ID do website não informado.', 400);
+        }
+
+        $effectiveUserId = (int) ($this->request->effectiveUserId ?? ($this->request->userData->id ?? 0));
+        $userData        = $this->request->userData ?? null;
+        $isImpersonating = $this->request->isImpersonating ?? false;
+        $isAdmin         = (($userData->role ?? 'user') === 'admin') && !$isImpersonating;
+
+        $websiteModel = new WebsiteModel();
+        $website = $websiteModel->find($id);
+
+        if (!$website) {
+            return $this->failNotFound('Website não encontrado.');
+        }
+
+        if (!$websiteModel->canUserAccess((int)$id, $effectiveUserId, $isAdmin)) {
+            return $this->failForbidden('Você não tem permissão para alterar este website.');
+        }
+
+        $newToken = bin2hex(random_bytes(24));
+        $websiteModel->update($id, ['public_log_token' => $newToken]);
+
+        return $this->respond([
+            'status'  => 200,
+            'message' => 'Novo link de visualização gerado com sucesso.',
+            'data'    => [
+                'token'     => $newToken,
+                'share_url' => base_url('/?share_log=' . $newToken),
+            ],
+        ]);
+    }
+
+    /**
+     * Endpoint público para o cliente consultar os logs de atividades através do token de compartilhamento.
+     */
+    public function publicActivityLogs($token = null)
+    {
+        if (empty($token)) {
+            return $this->fail('Token de visualização não informado.', 400);
+        }
+
+        $websiteModel = new WebsiteModel();
+        $website = $websiteModel->where('public_log_token', $token)->first();
+
+        if (!$website) {
+            return $this->failNotFound('Link de visualização não encontrado ou expirado.');
+        }
+
+        $activities = $this->fetchWebsiteActivities((int)$website['id']);
+
+        return $this->respond([
+            'status' => 200,
+            'data'   => [
+                'website' => [
+                    'name'        => $website['name'],
+                    'url'         => $website['url'],
+                    'environment' => $website['environment'] ?: 'production',
+                ],
+                'activities' => $activities,
+            ],
+        ]);
+    }
+
+    /**
+     * Helper privado para obter e unificar todas as atividades de um website.
+     */
+    private function fetchWebsiteActivities(int $websiteId): array
+    {
         $monthsPt = [
             '01' => 'Janeiro', '02' => 'Fevereiro', '03' => 'Março', '04' => 'Abril',
             '05' => 'Maio', '06' => 'Junho', '07' => 'Julho', '08' => 'Agosto',
@@ -1427,7 +1549,7 @@ class Websites extends ResourceController
 
         // 1. Manutenções registradas
         $maintenanceModel = new \App\Models\WebsiteMaintenanceModel();
-        $maintenances = $maintenanceModel->getHistory((int)$id, 100);
+        $maintenances = $maintenanceModel->getHistory($websiteId, 100);
         $maintenanceItems = [];
 
         foreach ($maintenances as $m) {
@@ -1455,7 +1577,7 @@ class Websites extends ResourceController
 
         // 2. Notas técnicas / observações avulsas
         $noteModel = new \App\Models\WebsiteNoteModel();
-        $notes = $noteModel->getNotesForWebsite((int)$id);
+        $notes = $noteModel->getNotesForWebsite($websiteId);
         $noteItems = [];
 
         foreach ($notes as $n) {
@@ -1479,10 +1601,7 @@ class Websites extends ResourceController
             return strcmp($b['action_date'] ?? '', $a['action_date'] ?? '');
         });
 
-        return $this->respond([
-            'status' => 200,
-            'data'   => $allActivities,
-        ]);
+        return $allActivities;
     }
 
     /**

@@ -581,5 +581,39 @@ export const deleteWebsiteNote = async (
   return response.data;
 };
 
+export const getPublicLogToken = async (
+  websiteId: number | string
+): Promise<{ status: number; data: { token: string; share_url: string } }> => {
+  const response = await api.get(`/websites/${websiteId}/public-log-token`);
+  return response.data;
+};
+
+export const regeneratePublicLogToken = async (
+  websiteId: number | string
+): Promise<{ status: number; message: string; data: { token: string; share_url: string } }> => {
+  const response = await api.post(`/websites/${websiteId}/public-log-token/regenerate`);
+  return response.data;
+};
+
+export interface PublicActivityLogsResponse {
+  status: number;
+  data: {
+    website: {
+      name: string;
+      url: string;
+      environment: string;
+    };
+    activities: ActivityLogItem[];
+  };
+}
+
+export const getPublicActivityLogs = async (
+  token: string
+): Promise<PublicActivityLogsResponse> => {
+  const response = await api.get(`/public/activity-logs/${token}`);
+  return response.data;
+};
+
+
 
 

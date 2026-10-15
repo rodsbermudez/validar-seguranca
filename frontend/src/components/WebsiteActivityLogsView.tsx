@@ -41,6 +41,10 @@ import {
   IconPalette,
   IconSparkles,
   IconInfoCircle,
+  IconShare,
+  IconCopy,
+  IconCheck,
+  IconExternalLink,
 } from '@tabler/icons-react';
 import {
   Website,
@@ -49,6 +53,8 @@ import {
   createWebsiteNote,
   updateWebsiteNote,
   deleteWebsiteNote,
+  getPublicLogToken,
+  regeneratePublicLogToken,
 } from '../api';
 import { RichNoteContent } from './RichNoteContent';
 
@@ -65,6 +71,13 @@ export const WebsiteActivityLogsView: React.FC<WebsiteActivityLogsViewProps> = (
   const [typeFilter, setTypeFilter] = useState<'all' | 'maintenance' | 'note'>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Modal de Compartilhamento com o Cliente
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [shareToken, setShareToken] = useState<string>('');
+  const [shareLoading, setShareLoading] = useState(false);
+  const [copiedShareLink, setCopiedShareLink] = useState(false);
+  const [regeneratingToken, setRegeneratingToken] = useState(false);
 
   // Modal de Criação / Edição
   const [modalOpen, setModalOpen] = useState(false);
@@ -95,6 +108,52 @@ export const WebsiteActivityLogsView: React.FC<WebsiteActivityLogsViewProps> = (
   useEffect(() => {
     fetchActivities();
   }, [fetchActivities]);
+
+  const handleOpenShareModal = async () => {
+    setShareModalOpen(true);
+    setShareLoading(true);
+    try {
+      const res = await getPublicLogToken(website.id);
+      if (res && res.data) {
+        setShareToken(res.data.token);
+      }
+    } catch (e) {
+      console.error('Erro ao buscar token de compartilhamento:', e);
+    } finally {
+      setShareLoading(false);
+    }
+  };
+
+  const handleRegenerateToken = async () => {
+    if (!confirm('Deseja realmente gerar um novo link? O link anterior deixará de funcionar imediatamente.')) {
+      return;
+    }
+    setRegeneratingToken(true);
+    try {
+      const res = await regeneratePublicLogToken(website.id);
+      if (res && res.data) {
+        setShareToken(res.data.token);
+      }
+    } catch (e) {
+      alert('Erro ao regenerar link.');
+    } finally {
+      setRegeneratingToken(false);
+    }
+  };
+
+  const getFullShareUrl = () => {
+    if (!shareToken) return '';
+    return `${window.location.origin}/?share_log=${shareToken}`;
+  };
+
+  const handleCopyShareLink = () => {
+    const url = getFullShareUrl();
+    if (url) {
+      navigator.clipboard.writeText(url);
+      setCopiedShareLink(true);
+      setTimeout(() => setCopiedShareLink(false), 2500);
+    }
+  };
 
   // Abrir Modal de Criação
   const handleOpenCreateModal = () => {
@@ -284,6 +343,15 @@ export const WebsiteActivityLogsView: React.FC<WebsiteActivityLogsViewProps> = (
               onClick={fetchActivities}
             >
               Atualizar
+            </Button>
+            <Button
+              variant="light"
+              color="teal"
+              size="sm"
+              leftSection={<IconShare size={16} />}
+              onClick={handleOpenShareModal}
+            >
+              Link para Cliente
             </Button>
             <Button
               variant="filled"
@@ -652,6 +720,88 @@ export const WebsiteActivityLogsView: React.FC<WebsiteActivityLogsViewProps> = (
             </Group>
           </Stack>
         </form>
+      </Modal>
+
+      {/* Modal de Compartilhamento com o Cliente */}
+      <Modal
+        opened={shareModalOpen}
+        onClose={() => setShareModalOpen(false)}
+        title={
+          <Group gap="xs">
+            <IconShare size={20} color="#20c997" />
+            <Text fw={600} size="md">
+              Link de Visualização para o Cliente
+            </Text>
+          </Group>
+        }
+        size="md"
+        centered
+      >
+        <Stack gap="md">
+          <Text size="sm" c="dimmed">
+            Envie este link para seu cliente acompanhar o diário de atividades e as manutenções deste site. O cliente verá apenas o logo da Patropi no topo e poderá pesquisar e filtrar os registros, sem permissão para editar ou cadastrar novas entradas.
+          </Text>
+
+          {shareLoading ? (
+            <Center py="md">
+              <Loader size="sm" color="teal" />
+            </Center>
+          ) : (
+            <>
+              <TextInput
+                label="Link de Acesso do Cliente"
+                readOnly
+                value={getFullShareUrl()}
+                rightSection={
+                  <Tooltip label={copiedShareLink ? 'Copiado!' : 'Copiar Link'}>
+                    <ActionIcon
+                      variant="subtle"
+                      color={copiedShareLink ? 'teal' : 'gray'}
+                      onClick={handleCopyShareLink}
+                    >
+                      {copiedShareLink ? <IconCheck size={16} /> : <IconCopy size={16} />}
+                    </ActionIcon>
+                  </Tooltip>
+                }
+              />
+
+              <Group justify="space-between" align="center" mt="xs">
+                <Button
+                  size="xs"
+                  variant="subtle"
+                  color="red"
+                  loading={regeneratingToken}
+                  onClick={handleRegenerateToken}
+                >
+                  Revogar e Gerar Novo Link
+                </Button>
+
+                <Group gap="xs">
+                  <Button
+                    size="xs"
+                    variant="light"
+                    color="gray"
+                    leftSection={<IconExternalLink size={14} />}
+                    component="a"
+                    href={getFullShareUrl()}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Testar Visualização
+                  </Button>
+                  <Button
+                    size="xs"
+                    color="teal"
+                    leftSection={copiedShareLink ? <IconCheck size={14} /> : <IconCopy size={14} />}
+                    onClick={handleCopyShareLink}
+                  >
+                    {copiedShareLink ? 'Link Copiado!' : 'Copiar Link'}
+                  </Button>
+                </Group>
+              </Group>
+            </>
+          )}
+        </Stack>
       </Modal>
     </Stack>
   );

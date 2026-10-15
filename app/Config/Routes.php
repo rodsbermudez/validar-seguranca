@@ -4,6 +4,7 @@ use CodeIgniter\Router\RouteCollection;
 
 /** @var RouteCollection $routes */
 $routes->get('/', 'Home::index');
+$routes->get('shared-activity-log/(:segment)', 'Home::index');
 $routes->get('docs', 'Docs::index');
 $routes->get('docs/(:segment)', 'Docs::index/$1');
 
@@ -19,6 +20,9 @@ $routes->group('api', function ($routes) {
 
     // Public Agent Connect Handshake route
     $routes->post('websites/connect', 'Api\Websites::connect');
+
+    // Public Activity Logs route for clients (no auth required)
+    $routes->get('public/activity-logs/(:segment)', 'Api\Websites::publicActivityLogs/$1');
 
     // Protected routes (JWT Auth required)
     $routes->group('', ['filter' => 'jwtAuth'], function ($routes) {
@@ -50,6 +54,8 @@ $routes->group('api', function ($routes) {
 
         // Website Activity Logs & Technical Notes routes
         $routes->get('websites/(:num)/activity-logs', 'Api\Websites::activityLogs/$1');
+        $routes->get('websites/(:num)/public-log-token', 'Api\Websites::getPublicLogToken/$1');
+        $routes->post('websites/(:num)/public-log-token/regenerate', 'Api\Websites::regeneratePublicLogToken/$1');
         $routes->post('websites/(:num)/notes', 'Api\Websites::createNote/$1');
         $routes->put('websites/(:num)/notes/(:num)', 'Api\Websites::updateNote/$1/$2');
         $routes->delete('websites/(:num)/notes/(:num)', 'Api\Websites::deleteNote/$1/$2');

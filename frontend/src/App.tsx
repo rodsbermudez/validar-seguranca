@@ -30,6 +30,7 @@ import { UsersList } from './components/UsersList';
 import { SolutionCatalogView } from './components/SolutionCatalogView';
 import { SettingsView } from './components/SettingsView';
 import { WebsiteDashboardView } from './components/WebsiteDashboardView';
+import { PublicActivityLogsView } from './components/PublicActivityLogsView';
 import { getDocsUrl } from './api';
 
 export default function App() {
@@ -38,6 +39,23 @@ export default function App() {
   const [selectedWebsite, setSelectedWebsite] = useState<any | null>(null);
   const [dashboardTab, setDashboardTab] = useState<string>('overview');
   const [viewMode, setViewMode] = useState<'overview' | 'list' | 'dashboard' | 'report' | 'users' | 'solutions' | 'logs' | 'settings'>('overview');
+
+  // Detecta se a página foi acessada via link de compartilhamento de logs para o cliente
+  const [shareToken, setShareToken] = useState<string | null>(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const queryToken = urlParams.get('share_log') || urlParams.get('shared_log');
+    if (queryToken) return queryToken;
+
+    const pathname = window.location.pathname;
+    const match = pathname.match(/\/shared-activity-log\/([a-zA-Z0-9]+)/);
+    if (match) return match[1];
+
+    const hash = window.location.hash;
+    const hashMatch = hash.match(/shared-activity-log\/([a-zA-Z0-9]+)/);
+    if (hashMatch) return hashMatch[1];
+
+    return null;
+  });
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
@@ -102,6 +120,22 @@ export default function App() {
     setSelectedWebsite(null);
     setViewMode('users');
   };
+
+  if (shareToken) {
+    return (
+      <PublicActivityLogsView
+        shareToken={shareToken}
+        isLoggedIn={!!user}
+        onExit={() => {
+          setShareToken(null);
+          const url = new URL(window.location.href);
+          url.searchParams.delete('share_log');
+          url.searchParams.delete('shared_log');
+          window.history.replaceState({}, '', url.pathname + (url.search ? url.search : ''));
+        }}
+      />
+    );
+  }
 
   if (!user) {
     return <LoginView onLoginSuccess={handleLoginSuccess} />;

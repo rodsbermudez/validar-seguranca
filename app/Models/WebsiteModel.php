@@ -27,6 +27,7 @@ class WebsiteModel extends Model
         'integrity_modified',
         'integrity_suspicious',
         'integrity_summary_json',
+        'public_log_token',
         'agent_token',
         'is_connected',
         'connected_at',
