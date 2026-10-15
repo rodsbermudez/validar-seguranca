@@ -114,6 +114,12 @@ class VS_Agent_Integrity {
             $local_hash = @md5_file($full_path);
 
             if ($local_hash !== $expected_hash) {
+                // Tratamento inteligente para wp-includes/version.php (variação legítima de idiomas pt_BR vs en_US ou quebras de linha)
+                if ($file === 'wp-includes/version.php' && $this->is_authentic_version_file($full_path, $expected_hash, $wp_version)) {
+                    $passed++;
+                    continue;
+                }
+
                 $size = @filesize($full_path);
                 $mtime = @filemtime($full_path);
 
@@ -728,6 +734,28 @@ class VS_Agent_Integrity {
                     $official_content = $body;
                     break;
                 }
+
+                // Tratamento especial para wp-includes/version.php com pacote de idioma (ex: pt_BR)
+                if ($clean_rel === 'wp-includes/version.php') {
+                    $locale = get_locale();
+                    if (!empty($locale) && $locale !== 'en_US') {
+                        $localized_body = rtrim($body) . "\n\n\$wp_local_package = '" . addslashes($locale) . "';\n";
+                        if (md5($localized_body) === $expected_hash) {
+                            $official_content = $localized_body;
+                            break;
+                        }
+                    }
+
+                    // Se a estrutura do arquivo baixado é autêntica do WordPress core
+                    if ($this->validate_version_file_structure($body, $wp_version)) {
+                        if (!empty($locale) && $locale !== 'en_US') {
+                            $official_content = rtrim($body) . "\n\n\$wp_local_package = '" . addslashes($locale) . "';\n";
+                        } else {
+                            $official_content = $body;
+                        }
+                        break;
+                    }
+                }
             }
         }
 
@@ -847,5 +875,143 @@ class VS_Agent_Integrity {
             'message' => 'Arquivo "' . $clean_rel . '" restaurado com sucesso para a versão oficial autêntica do WordPress!',
             'data'    => $result_data,
         );
+    }
+
+    /**
+     * Check if wp-includes/version.php is authentic, accounting for locales (e.g. pt_BR) and line endings
+     */
+    private function is_authentic_version_file($full_path, $expected_hash, $wp_version) {
+        if (!file_exists($full_path)) {
+            return false;
+        }
+
+        $content = @file_get_contents($full_path);
+        if ($content === false || strlen($content) > 10240) {
+            return false;
+        }
+
+        // 1. Direct hash match
+        if (@md5_file($full_path) === $expected_hash) {
+            return true;
+        }
+
+        // 2. Check CRLF (\r\n) vs LF (\n) variation
+        $normalized_lf = str_replace("\r\n", "\n", $content);
+        if (md5($normalized_lf) === $expected_hash) {
+            return true;
+        }
+        $with_crlf = str_replace("\n", "\r\n", $normalized_lf);
+        if (md5($with_crlf) === $expected_hash) {
+            return true;
+        }
+
+        // 3. Check localized variation (adding or removing $wp_local_package)
+        $without_locale = preg_replace('/\$wp_local_package\s*=\s*[\'"][^\'"]*[\'"];?\s*/', '', $normalized_lf);
+        $without_locale_trimmed = rtrim($without_locale) . "\n";
+        if (md5($without_locale_trimmed) === $expected_hash) {
+            return true;
+        }
+
+        $locale = get_locale();
+        if (!empty($locale) && $locale !== 'en_US') {
+            $with_locale = rtrim($without_locale) . "\n\n\$wp_local_package = '" . addslashes($locale) . "';\n";
+            if (md5($with_locale) === $expected_hash) {
+                return true;
+            }
+        }
+
+        // 4. Structural validation (Wordfence/Sucuri heuristic):
+        // Ensure the file contains ONLY official version variables and zero malicious tokens
+        return $this->validate_version_file_structure($content, $wp_version);
+    }
+
+    /**
+     * Deep structural security validation of wp-includes/version.php
+     * Ensures that only allowed core variables and values exist, with no dangerous tokens or function calls
+     */
+    private function validate_version_file_structure($content, $wp_version) {
+        if (empty($content) || strlen($content) > 10240) {
+            return false;
+        }
+
+        // Verify version defined inside file matches target version
+        if (preg_match('/\$wp_version\s*=\s*[\'"]([^\'"]+)[\'"]\s*;/', $content, $m)) {
+            if ($m[1] !== $wp_version) {
+                return false;
+            }
+        } else {
+            return false;
+        }
+
+        if (!function_exists('token_get_all')) {
+            // Strict regex fallback if tokenizer is unavailable
+            return (bool)preg_match('/^\s*<\?php(?:\s*\/\*\*.*?\*\/|\s*\/\/.*?|\s*\$wp_version\s*=\s*[\'"][^\'"]+[\'"];|\s*\$wp_db_version\s*=\s*\d+;|\s*\$tinymce_version\s*=\s*[\'"][^\'"]+[\'"];|\s*\$required_php_version\s*=\s*[\'"][^\'"]+[\'"];|\s*\$required_php_extensions\s*=\s*array\([^)]*\);|\s*\$required_mysql_version\s*=\s*[\'"][^\'"]+[\'"];|\s*\$wp_local_package\s*=\s*[\'"][^\'"]*[\'"];|\s*)+$/s', $content);
+        }
+
+        $tokens = @token_get_all($content);
+        if (empty($tokens) || !is_array($tokens)) {
+            return false;
+        }
+
+        $allowed_vars = array(
+            '$wp_version',
+            '$wp_db_version',
+            '$tinymce_version',
+            '$required_php_version',
+            '$required_php_extensions',
+            '$required_mysql_version',
+            '$wp_local_package',
+        );
+
+        $found_wp_version = false;
+
+        foreach ($tokens as $token) {
+            if (is_array($token)) {
+                $id   = $token[0];
+                $text = $token[1];
+
+                // Forbid all execution and inclusion constructs
+                if (in_array($id, array(
+                    T_EVAL,
+                    T_INCLUDE,
+                    T_INCLUDE_ONCE,
+                    T_REQUIRE,
+                    T_REQUIRE_ONCE,
+                    T_EXIT,
+                    T_PRINT,
+                    T_ECHO,
+                    T_NEW,
+                    T_FUNCTION,
+                    T_FN,
+                    T_CLASS,
+                    T_INTERFACE,
+                    T_TRAIT,
+                    T_GLOBAL,
+                ), true)) {
+                    return false;
+                }
+
+                if ($id === T_VARIABLE) {
+                    if (!in_array($text, $allowed_vars, true)) {
+                        return false;
+                    }
+                    if ($text === '$wp_version') {
+                        $found_wp_version = true;
+                    }
+                }
+
+                if ($id === T_STRING) {
+                    if (!in_array(strtolower($text), array('true', 'false', 'null'), true)) {
+                        return false;
+                    }
+                }
+            } else {
+                if ($token === '`') {
+                    return false;
+                }
+            }
+        }
+
+        return $found_wp_version;
     }
 }
