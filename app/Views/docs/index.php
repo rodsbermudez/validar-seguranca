@@ -513,6 +513,36 @@
             border-color: var(--primary);
         }
 
+        /* Botão de Copiar Lista para WhatsApp/Word */
+        .btn-copy-list {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: #236baa;
+            color: #ffffff;
+            border: 1px solid #1b5385;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+        }
+        .btn-copy-list:hover {
+            background: #1b5385;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 10px rgba(35, 107, 170, 0.35);
+        }
+        .btn-copy-list:active {
+            transform: translateY(0);
+        }
+        .btn-copy-list.copied {
+            background: #10b981 !important;
+            border-color: #059669 !important;
+            color: #ffffff !important;
+        }
+
         /* Code snippets */
         .code-block {
             position: relative;
@@ -754,8 +784,14 @@
                 </div>
 
                 <!-- Tabela Resumo Rápida -->
-                <h2 id="testes-resumo">📊 Relação Completa dos Testes de Segurança</h2>
-                <p>Visão geral de todos os testes executados pela plataforma durante uma auditoria completa:</p>
+                <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin: 32px 0 10px 0; border-bottom: 1px solid var(--border-subtle); padding-bottom: 10px;">
+                    <h2 id="testes-resumo" style="margin: 0; border-bottom: none; padding-bottom: 0;">📊 Relação Completa dos Testes de Segurança</h2>
+                    <button type="button" class="btn-copy-list" id="btnCopyTestsList" onclick="copyTestsListWhatsApp(this)" title="Copiar checklist formatado em lista para colar no WhatsApp, Word ou Relatórios">
+                        <span class="btn-copy-icon">📋</span>
+                        <span class="btn-copy-text">Copiar Lista para WhatsApp / Word</span>
+                    </button>
+                </div>
+                <p>Visão geral de todos os testes executados pela plataforma durante uma auditoria completa. Você pode consultar os detalhes abaixo ou copiar o checklist em formato de lista pelo botão acima:</p>
 
                 <table class="doc-table">
                     <thead>
@@ -2116,6 +2152,97 @@ location ~* /(wp-config\.php|readme\.html|license\.txt) {
                     btn.style.color = 'var(--text-muted)';
                 }, 2000);
             });
+        }
+
+        // Copiar Lista Completa dos Testes de Segurança (Formato WhatsApp / Word)
+        function copyTestsListWhatsApp(btn) {
+            const checklistText = `🛡️ *VALIDAR SEGURANÇA — CHECKLIST COMPLETO DE AUDITORIA WORDPRESS*
+Relação oficial de testes e checagens de vulnerabilidades executadas pela plataforma (Total: 31 testes):
+
+🌐 *1. INFRAESTRUTURA & CABEÇALHOS HTTP*
+• *Uso de HTTPS / SSL* [Média] — Verifica se o tráfego é criptografado obrigatoriamente via HTTPS.
+• *Strict-Transport-Security (HSTS)* [Média] — Previne ataques de rebaixamento de conexão (SSL Striping).
+• *X-Frame-Options* [Média] — Proteção anti-clickjacking para impedir que o site seja aberto em iframes maliciosos.
+• *X-Content-Type-Options* [Baixa] — Bloqueia MIME Sniffing, impedindo execução indevida de arquivos estáticos.
+• *Content-Security-Policy (CSP)* [Alta] — Restringe fontes confiáveis de scripts contra injeções de código (XSS).
+
+📁 *2. EXPOSIÇÃO DE ARQUIVOS & DIRETÓRIOS*
+• *Listagem de Diretórios em Uploads* [Alta] — Impede navegação aberta e download de mídias/documentos em /wp-content/uploads/.
+• *Listagem de Diretórios no Core* [Alta] — Protege a estrutura interna de bibliotecas do /wp-includes/.
+• *Backup wp-config.php.bak* [Crítica] — Detecta backups que revelam usuário e senha do Banco MySQL e chaves de segurança.
+• *Cópia wp-config.txt* [Crítica] — Detecta cópias em formato texto que expõem credenciais de banco de dados.
+• *Arquivo de Ambiente /.env* [Crítica] — Protege tokens de API, segredos de gateways de pagamento e senhas SMTP.
+• *Log de Depuração debug.log* [Alta] — Impede leitura pública de stacktraces, caminhos de servidor e dados de requisições.
+• *Log de Erros error_log* [Alta] — Bloqueia arquivos de log com vazamento de falhas internas da hospedagem.
+• *Documentação readme.html* [Baixa] — Remove arquivo padrão que estampa a versão inicial instalada do WordPress.
+• *Arquivo de Licença license.txt* [Baixa] — Higiene digital e redução de footprint de instalação padrão.
+
+👤 *3. ENUMERAÇÃO DE USUÁRIOS & LOGIN*
+• *Enumeração via REST API* [Alta] — Bloqueia rota /wp-json/wp/v2/users que vaza logins de autores e administradores.
+• *Enumeração via Query Author* [Média] — Redireciona consultas /?author=N para a página inicial com status 301.
+• *Enumeração via Sitemap XML* [Alta] — Desativa sitemaps de autores nos plugins Yoast, Rank Math e nativo do WordPress.
+• *Interface Remota XML-RPC* [Alta] — Desativa xmlrpc.php contra ataques em lote de força bruta e DDoS Pingback.
+• *Página de Login Padrão* [Baixa] — Avalia exposição do formulário /wp-login.php contra botnets automatizadas.
+
+🔍 *4. FINGERPRINTING & DETECÇÃO DE COMPONENTES*
+• *Versão do WordPress em Meta Tag* [Média] — Oculta a tag generator no HTML que facilita exploração de CVEs conhecidas.
+• *Enumeração e Versões de Plugins* [Baixa] — Remove parâmetros ?ver= em scripts/estilos e bloqueia arquivos readme.txt.
+
+🔌 *5. AUDITORIA INTERNA DO AGENTE WORDPRESS*
+• *Atualizações Pendentes* [Alta] — Monitora patches de segurança críticos do Core, Plugins e Temas.
+• *Plugins Inativos Abandonados* [Baixa] — Identifica arquivos PHP inativos que continuam ocupando disco e gerando riscos.
+• *Conta de Administrador Padrão ("admin")* [Crítica] — Erradica o login padrão visado em todos os ataques de força bruta.
+• *Quantidade de Administradores* [Baixa] — Aplica o Princípio do Menor Privilégio na gestão da equipe.
+• *Modo de Depuração (WP_DEBUG)* [Alta] — Garante que erros de código e queries SQL não vazem na tela de visitantes.
+• *Editor de Arquivos no WP-Admin* [Média] — Desativa editor de código PHP no painel contra injeção de Web Shells.
+• *Prefixo das Tabelas MySQL* [Baixa] — Verifica uso de prefixo customizado para dificultar SQL Injection às cegas.
+• *Cadastro Aberto de Usuários* [Média] — Bloqueia registro não autorizado de novos membros por robôs de spam.
+• *Moderação Obrigatória de Comentários* [Alta] — Exige moderação prévia para evitar links maliciosos e penalizações no Google.
+
+💎 *6. INTEGRIDADE CRIPTOGRÁFICA DO CORE*
+• *Checksums Oficiais WordPress.org* [Crítica] — Compara hashes criptográficos MD5 de todos os arquivos do core com o repositório oficial, detectando códigos adulterados, backdoors e malwares injetados.
+
+_Checklist oficial gerado pela plataforma Validar Segurança._`;
+
+            const iconSpan = btn.querySelector('.btn-copy-icon');
+            const textSpan = btn.querySelector('.btn-copy-text');
+            const originalIcon = iconSpan ? iconSpan.innerText : '📋';
+            const originalText = textSpan ? textSpan.innerText : 'Copiar Lista para WhatsApp / Word';
+
+            function setSuccess() {
+                btn.classList.add('copied');
+                if (iconSpan) iconSpan.innerText = '✅';
+                if (textSpan) textSpan.innerText = 'Copiado para a Área de Transferência!';
+                setTimeout(() => {
+                    btn.classList.remove('copied');
+                    if (iconSpan) iconSpan.innerText = originalIcon;
+                    if (textSpan) textSpan.innerText = originalText;
+                }, 2500);
+            }
+
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(checklistText).then(setSuccess).catch(() => fallbackCopy(checklistText));
+            } else {
+                fallbackCopy(checklistText);
+            }
+
+            function fallbackCopy(text) {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                ta.style.position = 'fixed';
+                ta.style.left = '-999999px';
+                ta.style.top = '-999999px';
+                document.body.appendChild(ta);
+                ta.focus();
+                ta.select();
+                try {
+                    document.execCommand('copy');
+                    setSuccess();
+                } catch (err) {
+                    alert('Não foi possível copiar automaticamente. Selecione o texto manualmente.');
+                }
+                document.body.removeChild(ta);
+            }
         }
 
         // Active Navigation Highlight on Scroll
