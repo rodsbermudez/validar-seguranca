@@ -711,23 +711,23 @@ export function UserAiManagementView({
                       </Text>
                     </Table.Td>
 
-                    <Table.Td>
+                    <Table.Td style={{ whiteSpace: 'nowrap' }}>
                       {isSuccess ? (
                         <Badge
                           color="teal"
-                          variant="dot"
-                          size="xs"
-                          leftSection={<IconCheck size={10} />}
+                          variant="light"
+                          size="sm"
+                          leftSection={<IconCheck size={12} stroke={2.5} />}
                         >
                           Sucesso
                         </Badge>
                       ) : (
-                        <Tooltip label={log.error_message || 'Erro desconhecido'}>
+                        <Tooltip label={log.error_message || 'Erro desconhecido'} withArrow>
                           <Badge
                             color="red"
-                            variant="filled"
-                            size="xs"
-                            leftSection={<IconX size={10} />}
+                            variant="light"
+                            size="sm"
+                            leftSection={<IconX size={12} stroke={2.5} />}
                             style={{ cursor: 'pointer' }}
                           >
                             Falha
