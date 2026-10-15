@@ -16,6 +16,7 @@ import {
   Radio,
   ActionIcon,
   Tooltip,
+  NumberInput,
 } from '@mantine/core';
 import {
   IconCpu,
@@ -27,6 +28,7 @@ import {
   IconRefresh,
   IconDeviceFloppy,
   IconAdjustments,
+  IconCoins,
 } from '@tabler/icons-react';
 import { getSettings, updateSettings, AIModelOption } from '../api';
 
@@ -39,6 +41,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onBack, currentUserR
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
   const [activeModel, setActiveModel] = useState<string>('kimi-k2.7-code');
+  const [tokenPrice, setTokenPrice] = useState<number | string>(0);
   const [hasApiKey, setHasApiKey] = useState<boolean>(true);
   const [availableModels, setAvailableModels] = useState<AIModelOption[]>([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -51,6 +54,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onBack, currentUserR
       const res = await getSettings();
       if (res.success) {
         setActiveModel(res.active_ai_model || 'kimi-k2.7-code');
+        setTokenPrice(res.token_price_per_1k ?? 0);
         setHasApiKey(res.has_api_key);
         setAvailableModels(res.available_models || []);
       } else {
@@ -72,9 +76,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onBack, currentUserR
     setErrorMsg(null);
     setSuccessMsg(null);
     try {
-      const res = await updateSettings(activeModel);
+      const res = await updateSettings(activeModel, Number(tokenPrice) || 0);
       if (res.success) {
-        setSuccessMsg(res.message || 'Modelo de IA atualizado com sucesso para toda a plataforma!');
+        setSuccessMsg(res.message || 'Configurações de IA e precificação atualizadas com sucesso para toda a plataforma!');
       } else {
         setErrorMsg(res.message || 'Erro ao salvar alterações.');
       }
@@ -250,8 +254,87 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onBack, currentUserR
                 );
               })}
             </SimpleGrid>
+          </Paper>
 
-            <Group justify="flex-end" mt="xl">
+          {/* AI Token Pricing Section */}
+          <Paper p="lg" radius="md" withBorder>
+            <Group justify="space-between" mb="md">
+              <div>
+                <Group gap="xs">
+                  <IconCoins size={20} color="var(--mantine-color-teal-4)" />
+                  <Text fw={700} size="lg">
+                    Precificação e Custo por Tokens (Cobrança)
+                  </Text>
+                </Group>
+                <Text size="xs" c="dimmed" mt={2}>
+                  Defina o valor cobrado por mil (1.000) tokens de IA consumidos. O sistema calcula automaticamente o consumo mensal de cada usuário e exibe as estimativas financeiras em R$.
+                </Text>
+              </div>
+              <Badge color="teal" variant="light" size="lg">
+                Faturamento & Repasse
+              </Badge>
+            </Group>
+
+            <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
+              <Stack gap="xs">
+                <NumberInput
+                  label="Valor por 1.000 Tokens (R$)"
+                  description="Ex: 0,05 significa R$ 0,05 a cada 1k tokens (ou R$ 5,00 por 100k tokens)."
+                  placeholder="0.05"
+                  min={0}
+                  step={0.01}
+                  decimalScale={4}
+                  fixedDecimalScale
+                  prefix="R$ "
+                  thousandSeparator="."
+                  decimalSeparator=","
+                  value={tokenPrice}
+                  onChange={(val) => setTokenPrice(val)}
+                  style={{ maxWidth: 320 }}
+                />
+
+                <Text size="xs" c="dimmed">
+                  <b>Nota sobre histórico:</b> O consumo de tokens é particionado mês a mês (jan/fev/mar...) e mantido permanentemente no banco de dados para consulta retroativa e auditoria de faturamento.
+                </Text>
+              </Stack>
+
+              <Paper p="md" radius="md" bg="dark.8" withBorder style={{ borderColor: '#374151' }}>
+                <Text size="xs" fw={700} c="dimmed" mb="xs" tt="uppercase">
+                  Simulação de Cobrança (Mês)
+                </Text>
+                <SimpleGrid cols={2} spacing="xs">
+                  <Paper p="xs" radius="sm" bg="dark.7">
+                    <Text size="11px" c="dimmed">10.000 tokens:</Text>
+                    <Text size="sm" fw={700} c="teal.4">
+                      {((10000 / 1000) * (Number(tokenPrice) || 0)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    </Text>
+                  </Paper>
+                  <Paper p="xs" radius="sm" bg="dark.7">
+                    <Text size="11px" c="dimmed">50.000 tokens:</Text>
+                    <Text size="sm" fw={700} c="teal.4">
+                      {((50000 / 1000) * (Number(tokenPrice) || 0)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    </Text>
+                  </Paper>
+                  <Paper p="xs" radius="sm" bg="dark.7">
+                    <Text size="11px" c="dimmed">100.000 tokens:</Text>
+                    <Text size="sm" fw={700} c="teal.4">
+                      {((100000 / 1000) * (Number(tokenPrice) || 0)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    </Text>
+                  </Paper>
+                  <Paper p="xs" radius="sm" bg="dark.7">
+                    <Text size="11px" c="dimmed">500.000 tokens:</Text>
+                    <Text size="sm" fw={700} c="teal.4">
+                      {((500000 / 1000) * (Number(tokenPrice) || 0)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    </Text>
+                  </Paper>
+                </SimpleGrid>
+              </Paper>
+            </SimpleGrid>
+          </Paper>
+
+          {/* Action Bar */}
+          <Paper p="md" radius="md" withBorder>
+            <Group justify="flex-end">
               <Button variant="subtle" color="gray" onClick={onBack}>
                 Cancelar
               </Button>

@@ -65,15 +65,17 @@ class Settings extends ResourceController
         }
 
         $activeModel = SettingsModel::getSetting('ai_model', env('OPENCODE_MODEL') ?: 'kimi-k2.7-code');
+        $tokenPrice = (float) SettingsModel::getSetting('ai_token_price_per_1k', '0.00');
         $apiKey = env('OPENCODE_API_KEY');
         $hasKey = !empty($apiKey);
 
         return $this->respond([
-            'status'           => 200,
-            'success'          => true,
-            'active_ai_model'  => $activeModel,
-            'has_api_key'      => $hasKey,
-            'available_models' => self::getAvailableModels(),
+            'status'             => 200,
+            'success'            => true,
+            'active_ai_model'    => $activeModel,
+            'token_price_per_1k' => $tokenPrice,
+            'has_api_key'        => $hasKey,
+            'available_models'   => self::getAvailableModels(),
         ]);
     }
 
@@ -90,29 +92,38 @@ class Settings extends ResourceController
             ], 403);
         }
 
-        $json = $this->request->getJSON(true);
+        $json = $this->request->getJSON(true) ?: [];
         $aiModel = trim($json['ai_model'] ?? $this->request->getPost('ai_model') ?? '');
+        $tokenPriceInput = $json['token_price_per_1k'] ?? $this->request->getPost('token_price_per_1k') ?? null;
 
-        if (empty($aiModel)) {
-            return $this->fail('O campo ai_model é obrigatório.', 400);
+        if (empty($aiModel) && $tokenPriceInput === null) {
+            return $this->fail('Nenhum dado informado para atualização.', 400);
         }
 
-        $availableIds = array_column(self::getAvailableModels(), 'id');
-        if (!in_array($aiModel, $availableIds, true)) {
-            return $this->fail('Modelo de IA selecionado inválido.', 400);
+        if (!empty($aiModel)) {
+            $availableIds = array_column(self::getAvailableModels(), 'id');
+            if (!in_array($aiModel, $availableIds, true)) {
+                return $this->fail('Modelo de IA selecionado inválido.', 400);
+            }
+            SettingsModel::setSetting('ai_model', $aiModel);
         }
 
-        $saved = SettingsModel::setSetting('ai_model', $aiModel);
-
-        if (!$saved) {
-            return $this->fail('Falha ao salvar configuração no banco de dados.', 500);
+        if ($tokenPriceInput !== null && $tokenPriceInput !== '') {
+            if (!is_numeric($tokenPriceInput) || (float) $tokenPriceInput < 0) {
+                return $this->fail('O valor por 1.000 tokens deve ser um número igual ou maior que zero.', 400);
+            }
+            SettingsModel::setSetting('ai_token_price_per_1k', number_format((float) $tokenPriceInput, 4, '.', ''));
         }
+
+        $activeModel = SettingsModel::getSetting('ai_model', env('OPENCODE_MODEL') ?: 'kimi-k2.7-code');
+        $savedPrice = (float) SettingsModel::getSetting('ai_token_price_per_1k', '0.00');
 
         return $this->respond([
-            'status'          => 200,
-            'success'         => true,
-            'message'         => 'Modelo de IA atualizado com sucesso para todas as consultas da plataforma.',
-            'active_ai_model' => $aiModel,
+            'status'             => 200,
+            'success'            => true,
+            'message'            => 'Configurações gerais atualizadas com sucesso.',
+            'active_ai_model'    => $activeModel,
+            'token_price_per_1k' => $savedPrice,
         ]);
     }
 }

@@ -99,4 +99,33 @@ class AiUsageLogModel extends Model
             ->orderBy('ai_usage_logs.created_at', 'DESC')
             ->findAll($limit, $offset);
     }
+
+    /**
+     * Get aggregate monthly consumption history for a user (grouped by YYYY-MM)
+     */
+    public function getUserMonthlyHistory(int $userId): array
+    {
+        $records = $this->select("
+                DATE_FORMAT(created_at, '%Y-%m') as `year_month`,
+                COUNT(*) as total_requests,
+                SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) as successful_requests,
+                SUM(total_tokens) as total_tokens,
+                SUM(prompt_tokens) as prompt_tokens,
+                SUM(completion_tokens) as completion_tokens
+            ", false)
+            ->where('user_id', $userId)
+            ->groupBy('`year_month`')
+            ->orderBy('`year_month`', 'DESC')
+            ->findAll();
+
+        foreach ($records as &$rec) {
+            $rec['total_requests'] = (int) ($rec['total_requests'] ?? 0);
+            $rec['successful_requests'] = (int) ($rec['successful_requests'] ?? 0);
+            $rec['total_tokens'] = (int) ($rec['total_tokens'] ?? 0);
+            $rec['prompt_tokens'] = (int) ($rec['prompt_tokens'] ?? 0);
+            $rec['completion_tokens'] = (int) ($rec['completion_tokens'] ?? 0);
+        }
+
+        return $records;
+    }
 }

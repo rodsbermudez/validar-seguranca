@@ -35,6 +35,7 @@ import {
   IconFileCode,
   IconServer,
   IconListCheck,
+  IconCalendarEvent,
 } from '@tabler/icons-react';
 import {
   getUserAiMetrics,
@@ -43,8 +44,9 @@ import {
   UserAiMetrics,
   UserAiSettings,
   AiUsageLogItem,
+  MonthlyAiHistoryItem,
 } from '../api';
-import { formatDateTime } from '../utils/date';
+import { formatDateTime, formatMonthYear } from '../utils/date';
 
 interface UserAiManagementViewProps {
   user: {
@@ -76,6 +78,11 @@ export function UserAiManagementView({
   });
 
   const [metrics, setMetrics] = useState<UserAiMetrics | null>(null);
+  const [tokenPrice, setTokenPrice] = useState<number>(0);
+  const [currentMonthCost, setCurrentMonthCost] = useState<number>(0);
+  const [totalCost, setTotalCost] = useState<number>(0);
+  const [monthlyHistory, setMonthlyHistory] = useState<MonthlyAiHistoryItem[]>([]);
+
   const [logs, setLogs] = useState<AiUsageLogItem[]>([]);
   const [totalLogs, setTotalLogs] = useState(0);
   const [page, setPage] = useState(1);
@@ -100,6 +107,10 @@ export function UserAiManagementView({
       const res = await getUserAiMetrics(user.id);
       setUser(res.user);
       setMetrics(res.metrics);
+      setTokenPrice(res.token_price_per_1k || 0);
+      setCurrentMonthCost(res.current_month_cost || 0);
+      setTotalCost(res.total_cost || 0);
+      setMonthlyHistory(res.monthly_history || []);
       setAiEnabled(Number(res.user.ai_enabled) === 1);
       setTokenLimit(res.user.ai_monthly_token_limit ?? '');
     } catch (err: any) {
@@ -269,6 +280,11 @@ export function UserAiManagementView({
                 {isUnlimited ? 'tokens (Ilimitado)' : `/ ${formatTokens(monthlyLimit)}`}
               </Text>
             </Text>
+            {tokenPrice > 0 && (
+              <Text size="xs" c="teal.4" fw={600} mt={2}>
+                ~ {currentMonthCost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+              </Text>
+            )}
             {!isUnlimited ? (
               <Stack gap={4} mt="xs">
                 <Progress value={percentUsed} color={quotaColor} size="sm" radius="xl" />
@@ -328,6 +344,11 @@ export function UserAiManagementView({
             <Text fw={700} size="xl">
               {metrics ? formatTokens(metrics.total_tokens) : '0'}
             </Text>
+            {tokenPrice > 0 && (
+              <Text size="xs" c="teal.4" fw={600} mt={2}>
+                Total: {totalCost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+              </Text>
+            )}
             <Text size="xs" c="dimmed" mt="xs">
               Prompt: {metrics ? formatTokens(metrics.total_prompt_tokens) : 0} | Saída:{' '}
               {metrics ? formatTokens(metrics.total_completion_tokens) : 0}
@@ -497,6 +518,94 @@ export function UserAiManagementView({
           </Group>
         </Paper>
       )}
+
+      {/* Monthly Consumption History Table */}
+      <Paper p="xl" radius="md" bg="dark.8" withBorder style={{ borderColor: '#374151' }}>
+        <Group justify="space-between" mb="md">
+          <div>
+            <Group gap="xs">
+              <ThemeIcon color="indigo" variant="light" size="md">
+                <IconCalendarEvent size={18} />
+              </ThemeIcon>
+              <Title order={4}>Histórico Mensal de Consumo</Title>
+            </Group>
+            <Text c="dimmed" size="xs" mt={2}>
+              Consolidação mês a mês (janeiro, fevereiro, março...) mantida permanentemente para faturamento e auditoria.
+            </Text>
+          </div>
+          {tokenPrice > 0 ? (
+            <Badge color="teal" variant="light" size="sm">
+              Tarifa: {tokenPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} / 1.000 tokens
+            </Badge>
+          ) : (
+            <Badge color="gray" variant="light" size="sm">
+              Sem tarifa cadastrada
+            </Badge>
+          )}
+        </Group>
+
+        <Table highlightOnHover verticalSpacing="xs">
+          <Table.Thead>
+            <Table.Tr>
+              <Table.Th>Mês de Referência</Table.Th>
+              <Table.Th>Requisições</Table.Th>
+              <Table.Th>Tokens Prompt</Table.Th>
+              <Table.Th>Tokens Saída</Table.Th>
+              <Table.Th>Total Tokens</Table.Th>
+              <Table.Th style={{ textAlign: 'right' }}>Custo Estimado (R$)</Table.Th>
+            </Table.Tr>
+          </Table.Thead>
+          <Table.Tbody>
+            {monthlyHistory.length === 0 ? (
+              <Table.Tr>
+                <Table.Td colSpan={6} align="center" py="md">
+                  <Text c="dimmed" size="sm">
+                    Nenhum registro mensal de consumo até o momento.
+                  </Text>
+                </Table.Td>
+              </Table.Tr>
+            ) : (
+              monthlyHistory.map((item) => (
+                <Table.Tr key={item.year_month}>
+                  <Table.Td>
+                    <Badge variant="outline" color="indigo" size="sm">
+                      {formatMonthYear(item.year_month, 'long')}
+                    </Badge>
+                  </Table.Td>
+                  <Table.Td>
+                    <Text size="xs" fw={500}>
+                      {item.total_requests} chamada(s){' '}
+                      <Text component="span" size="xs" c="dimmed">
+                        ({item.successful_requests} ok)
+                      </Text>
+                    </Text>
+                  </Table.Td>
+                  <Table.Td>
+                    <Text size="xs" c="dimmed">
+                      {formatTokens(item.prompt_tokens)}
+                    </Text>
+                  </Table.Td>
+                  <Table.Td>
+                    <Text size="xs" c="dimmed">
+                      {formatTokens(item.completion_tokens)}
+                    </Text>
+                  </Table.Td>
+                  <Table.Td>
+                    <Text size="xs" fw={700}>
+                      {formatTokens(item.total_tokens)}
+                    </Text>
+                  </Table.Td>
+                  <Table.Td style={{ textAlign: 'right' }}>
+                    <Text size="sm" fw={700} c={item.estimated_cost > 0 ? 'teal.4' : 'dimmed'}>
+                      {item.estimated_cost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    </Text>
+                  </Table.Td>
+                </Table.Tr>
+              ))
+            )}
+          </Table.Tbody>
+        </Table>
+      </Paper>
 
       {/* Telemetry Logs Table */}
       <Paper p="xl" radius="md" bg="dark.8" withBorder style={{ borderColor: '#374151' }}>

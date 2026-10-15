@@ -115,6 +115,7 @@ export interface PlatformSettingsResponse {
   status: number;
   success: boolean;
   active_ai_model: string;
+  token_price_per_1k?: number;
   has_api_key: boolean;
   available_models: AIModelOption[];
   message?: string;
@@ -125,8 +126,14 @@ export const getSettings = async (): Promise<PlatformSettingsResponse> => {
   return response.data;
 };
 
-export const updateSettings = async (aiModel: string): Promise<PlatformSettingsResponse> => {
-  const response = await api.post<PlatformSettingsResponse>('/settings', { ai_model: aiModel });
+export const updateSettings = async (
+  aiModel?: string,
+  tokenPricePer1k?: number
+): Promise<PlatformSettingsResponse> => {
+  const payload: Record<string, any> = {};
+  if (aiModel !== undefined) payload.ai_model = aiModel;
+  if (tokenPricePer1k !== undefined) payload.token_price_per_1k = tokenPricePer1k;
+  const response = await api.post<PlatformSettingsResponse>('/settings', payload);
   return response.data;
 };
 
@@ -699,10 +706,24 @@ export interface AiUsageLogItem {
   created_at: string;
 }
 
+export interface MonthlyAiHistoryItem {
+  year_month: string;
+  total_requests: number;
+  successful_requests: number;
+  total_tokens: number;
+  prompt_tokens: number;
+  completion_tokens: number;
+  estimated_cost: number;
+}
+
 export interface UserAiMetricsResponse {
   status: number;
   user: UserAiSettings;
   metrics: UserAiMetrics;
+  token_price_per_1k: number;
+  current_month_cost: number;
+  total_cost: number;
+  monthly_history: MonthlyAiHistoryItem[];
 }
 
 export interface UserAiLogsResponse {

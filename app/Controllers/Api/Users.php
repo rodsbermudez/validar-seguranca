@@ -23,6 +23,7 @@ class Users extends ResourceController
             ->orderBy('created_at', 'DESC')
             ->findAll();
 
+        $tokenPrice = (float) \App\Models\SettingsModel::getSetting('ai_token_price_per_1k', '0.00');
         $aiLogModel = new \App\Models\AiUsageLogModel();
         foreach ($users as &$user) {
             $user['id'] = (int) $user['id'];
@@ -30,11 +31,13 @@ class Users extends ResourceController
             $user['ai_enabled'] = isset($user['ai_enabled']) ? (int) $user['ai_enabled'] : 1;
             $user['ai_monthly_token_limit'] = $user['ai_monthly_token_limit'] !== null ? (int) $user['ai_monthly_token_limit'] : null;
             $user['current_month_tokens'] = $aiLogModel->getUserMonthlyTokens($user['id']);
+            $user['current_month_cost'] = round(($user['current_month_tokens'] / 1000) * $tokenPrice, 2);
         }
 
         return $this->respond([
-            'status' => 200,
-            'data'   => $users,
+            'status'             => 200,
+            'token_price_per_1k' => $tokenPrice,
+            'data'               => $users,
         ]);
     }
 
@@ -256,13 +259,29 @@ class Users extends ResourceController
         $user['ai_enabled'] = isset($user['ai_enabled']) ? (int) $user['ai_enabled'] : 1;
         $user['ai_monthly_token_limit'] = $user['ai_monthly_token_limit'] !== null ? (int) $user['ai_monthly_token_limit'] : null;
 
+        $pricePer1k = (float) \App\Models\SettingsModel::getSetting('ai_token_price_per_1k', '0.00');
         $logModel = new \App\Models\AiUsageLogModel();
         $stats = $logModel->getUserStats((int) $id);
+        $monthlyHistory = $logModel->getUserMonthlyHistory((int) $id);
+
+        $currentMonthTokens = $stats['current_month_tokens'] ?? 0;
+        $totalTokens = $stats['total_tokens'] ?? 0;
+        $currentMonthCost = round(($currentMonthTokens / 1000) * $pricePer1k, 2);
+        $totalCost = round(($totalTokens / 1000) * $pricePer1k, 2);
+
+        foreach ($monthlyHistory as &$historyItem) {
+            $hTokens = $historyItem['total_tokens'] ?? 0;
+            $historyItem['estimated_cost'] = round(($hTokens / 1000) * $pricePer1k, 2);
+        }
 
         return $this->respond([
-            'status'  => 200,
-            'user'    => $user,
-            'metrics' => $stats,
+            'status'             => 200,
+            'user'               => $user,
+            'metrics'            => $stats,
+            'token_price_per_1k' => $pricePer1k,
+            'current_month_cost' => $currentMonthCost,
+            'total_cost'         => $totalCost,
+            'monthly_history'    => $monthlyHistory,
         ]);
     }
 

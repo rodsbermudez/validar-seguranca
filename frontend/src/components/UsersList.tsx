@@ -28,6 +28,7 @@ export interface User {
   ai_enabled?: number;
   ai_monthly_token_limit?: number | null;
   current_month_tokens?: number;
+  current_month_cost?: number;
   created_at: string;
 }
 
@@ -238,15 +239,22 @@ export function UsersList({ onImpersonate, onManageAi, currentUserId }: UsersLis
                         Desativada
                       </Badge>
                     ) : (
-                      <Group gap={4}>
-                        <IconBrain size={13} color="#a78bfa" />
-                        <Text size="xs" fw={600}>
-                          {user.current_month_tokens ? Number(user.current_month_tokens).toLocaleString('pt-BR') : '0'}
-                        </Text>
-                        <Text size="xs" c="dimmed">
-                          {user.ai_monthly_token_limit ? `/ ${Number(user.ai_monthly_token_limit).toLocaleString('pt-BR')}` : '(Ilim.)'}
-                        </Text>
-                      </Group>
+                      <Stack gap={2}>
+                        <Group gap={4}>
+                          <IconBrain size={13} color="#a78bfa" />
+                          <Text size="xs" fw={600}>
+                            {user.current_month_tokens ? Number(user.current_month_tokens).toLocaleString('pt-BR') : '0'}
+                          </Text>
+                          <Text size="xs" c="dimmed">
+                            {user.ai_monthly_token_limit ? `/ ${Number(user.ai_monthly_token_limit).toLocaleString('pt-BR')}` : '(Ilim.)'}
+                          </Text>
+                        </Group>
+                        {user.current_month_cost !== undefined && user.current_month_cost > 0 && (
+                          <Text size="11px" c="teal.4" fw={600}>
+                            ~ {user.current_month_cost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                          </Text>
+                        )}
+                      </Stack>
                     )}
                   </Table.Td>
                   <Table.Td>{formatDateOnly(user.created_at)}</Table.Td>
