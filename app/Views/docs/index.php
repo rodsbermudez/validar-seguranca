@@ -374,6 +374,145 @@
             border-bottom: none;
         }
 
+        /* Badges de Severidade dos Testes */
+        .badge-sev {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .badge-sev-critical {
+            background: rgba(239, 68, 68, 0.18);
+            color: #f87171;
+            border: 1px solid rgba(239, 68, 68, 0.4);
+        }
+        .badge-sev-high {
+            background: rgba(249, 115, 22, 0.18);
+            color: #fb923c;
+            border: 1px solid rgba(249, 115, 22, 0.4);
+        }
+        .badge-sev-medium {
+            background: rgba(250, 204, 21, 0.18);
+            color: #facc15;
+            border: 1px solid rgba(250, 204, 21, 0.4);
+        }
+        .badge-sev-low {
+            background: rgba(56, 189, 248, 0.18);
+            color: #38bdf8;
+            border: 1px solid rgba(56, 189, 248, 0.4);
+        }
+
+        /* Cards de Teste */
+        .test-card {
+            background: #181818;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 16px 20px;
+            margin-bottom: 16px;
+            transition: all 0.2s ease;
+        }
+        .test-card:hover {
+            border-color: #555555;
+            background: #202020;
+        }
+        .test-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+        }
+        .test-card-title {
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .test-card-code {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            background: #090d16;
+            color: #79c1a8;
+            padding: 2px 6px;
+            border-radius: 4px;
+            border: 1px solid rgba(121, 193, 168, 0.25);
+        }
+        .test-card-desc {
+            color: #cbd5e1;
+            font-size: 0.92rem;
+            margin-bottom: 12px;
+            line-height: 1.55;
+        }
+        .test-card-meta {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            padding-top: 10px;
+            border-top: 1px dashed var(--border-color);
+            font-size: 0.85rem;
+        }
+        @media (max-width: 768px) {
+            .test-card-meta {
+                grid-template-columns: 1fr;
+            }
+        }
+        .test-meta-box {
+            background: rgba(0, 0, 0, 0.25);
+            padding: 10px 14px;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .test-meta-title {
+            font-weight: 700;
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .test-meta-risk { color: #f87171; }
+        .test-meta-fix { color: #34d399; }
+
+        .jump-nav {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: 20px 0 28px 0;
+            padding: 12px 16px;
+            background: #111111;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+        }
+        .jump-nav-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            padding: 6px 12px;
+            border-radius: 6px;
+            background: #222222;
+            color: var(--text-main);
+            text-decoration: none;
+            border: 1px solid var(--border-color);
+            transition: all 0.15s ease;
+        }
+        .jump-nav-btn:hover {
+            background: var(--primary);
+            color: #fff;
+            border-color: var(--primary);
+        }
+
         /* Code snippets */
         .code-block {
             position: relative;
@@ -458,6 +597,7 @@
                 <div class="nav-title">Funcionalidades Principais</div>
                 <ul class="nav-list">
                     <li class="nav-item"><a href="#auditoria-de-seguranca"><span class="nav-icon">🛡️</span> Auditoria & Varreduras</a></li>
+                    <li class="nav-item" style="margin-left: 10px;"><a href="#testes-resumo" style="font-size: 0.82rem; opacity: 0.85;"><span class="nav-icon">📋</span> Catálogo de Testes</a></li>
                     <li class="nav-item"><a href="#plugin-agente"><span class="nav-icon">🔌</span> Plugin Agente WordPress</a></li>
                     <li class="nav-item"><a href="#integridade-do-core"><span class="nav-icon">🔍</span> Integridade do Core & Auto-Fix</a></li>
                     <li class="nav-item"><a href="#logs-de-atividades"><span class="nav-icon">📝</span> Logs de Atividades & Diário Técnico</a></li>
@@ -593,29 +733,1003 @@
             </section>
 
             <!-- 3. Auditoria de Segurança -->
-            <!-- 3. Auditoria de Segurança -->
             <section id="auditoria-de-seguranca" class="doc-section">
                 <h1>🛡️ Auditoria & Varreduras de Segurança</h1>
-                <p>O módulo de auditoria executa varreduras automatizadas cobrindo 5 categorias principais de testes:</p>
+                <p>O módulo de auditoria executa varreduras automatizadas e profundas combinando <strong>análise perimetral externa não-invasiva</strong> com <strong>auditoria interna conectada</strong> (via plugin WP Patropi Agent). São mais de <strong>30 checagens automatizadas</strong> cobrindo todo o espectro de segurança do ecossistema WordPress.</p>
                 
-                <ol>
-                    <li><strong>Infraestrutura & Cabeçalhos HTTP:</strong> Verifica HTTPS/SSL, HSTS, X-Content-Type-Options, X-Frame-Options e políticas de proteção.</li>
-                    <li><strong>Exposição de Arquivos & Diretórios:</strong> Testa navegabilidade nos diretórios <code>/wp-content/uploads/</code>, <code>/wp-includes/</code>, arquivos de log e documentos públicos de plugins (ex: <code>readme.txt</code>, <code>license.txt</code>).</li>
-                    <li><strong>Enumeração de Usuários & Login:</strong> Avalia se atacantes podem listar login de autores via query <code>/?author=1</code>, REST API (<code>/wp-json/wp/v2/users</code>) ou através de sitemaps XML de usuários.
-                        <div class="callout callout-info" style="margin-top:10px;">
-                            <div class="callout-title">🔍 Detecção em Sitemaps XML (Yoast / Nativo / Rank Math)</div>
-                            <p>O scanner analisa não apenas a URL nativa do WordPress (<code>/wp-sitemap-users-1.xml</code>), mas também sitemaps gerados por plugins de SEO populares, como Yoast SEO (<code>/author-sitemap.xml</code>) e Rank Math. Caso a rota redirecione para outra página de sitemap (HTTP 301/302), o scanner segue o redirecionamento automaticamente para verificar a exposição real de usernames.</p>
+                <div class="callout callout-info">
+                    <div class="callout-title">📋 Por que ter esta lista em mãos?</div>
+                    <p>Esta documentação detalha cada um dos testes realizados, o objetivo da checagem, o risco prático caso o site falhe e a forma de remediação recomendada. Utilize este catálogo para responder com autoridade técnica às dúvidas de clientes e prospects.</p>
+                </div>
+
+                <!-- Barra de Navegação Rápida entre Categorias -->
+                <div class="jump-nav">
+                    <a href="#testes-resumo" class="jump-nav-btn">📊 Tabela Resumo</a>
+                    <a href="#testes-infra" class="jump-nav-btn">🌐 1. Infraestrutura & Headers (5)</a>
+                    <a href="#testes-arquivos" class="jump-nav-btn">📁 2. Arquivos & Diretórios (9)</a>
+                    <a href="#testes-enumeracao" class="jump-nav-btn">👤 3. Enumeração & Login (5)</a>
+                    <a href="#testes-fingerprint" class="jump-nav-btn">🔍 4. Fingerprinting (2)</a>
+                    <a href="#testes-agente" class="jump-nav-btn">🔌 5. Agente Interno (9)</a>
+                    <a href="#testes-integridade" class="jump-nav-btn">💎 6. Integridade do Core (1)</a>
+                </div>
+
+                <!-- Tabela Resumo Rápida -->
+                <h2 id="testes-resumo">📊 Relação Completa dos Testes de Segurança</h2>
+                <p>Visão geral de todos os testes executados pela plataforma durante uma auditoria completa:</p>
+
+                <table class="doc-table">
+                    <thead>
+                        <tr>
+                            <th>Teste</th>
+                            <th>Identificador</th>
+                            <th>Categoria</th>
+                            <th>Severidade</th>
+                            <th>Alvo Principal</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Uso de HTTPS / SSL</strong></td>
+                            <td><code>https_enforced</code></td>
+                            <td>Infraestrutura</td>
+                            <td><span class="badge-sev badge-sev-medium">Média</span></td>
+                            <td>Tráfego criptografado</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Strict-Transport-Security (HSTS)</strong></td>
+                            <td><code>header_strict_transport_security</code></td>
+                            <td>Infraestrutura</td>
+                            <td><span class="badge-sev badge-sev-medium">Média</span></td>
+                            <td>Anti SSL-Striping</td>
+                        </tr>
+                        <tr>
+                            <td><strong>X-Frame-Options (Anti-Clickjacking)</strong></td>
+                            <td><code>header_x_frame_options</code></td>
+                            <td>Infraestrutura</td>
+                            <td><span class="badge-sev badge-sev-medium">Média</span></td>
+                            <td>Bloqueio de iframes maliciosos</td>
+                        </tr>
+                        <tr>
+                            <td><strong>X-Content-Type-Options (MIME Sniffing)</strong></td>
+                            <td><code>header_x_content_type_options</code></td>
+                            <td>Infraestrutura</td>
+                            <td><span class="badge-sev badge-sev-low">Baixa</span></td>
+                            <td>Execução de arquivos estáticos</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Content-Security-Policy (CSP)</strong></td>
+                            <td><code>header_content_security_policy</code></td>
+                            <td>Infraestrutura</td>
+                            <td><span class="badge-sev badge-sev-high">Alta</span></td>
+                            <td>Mitigação de XSS e injeção de scripts</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Listagem de Diretórios em Uploads</strong></td>
+                            <td><code>dir_listing_uploads</code></td>
+                            <td>Arquivos & Diretórios</td>
+                            <td><span class="badge-sev badge-sev-high">Alta</span></td>
+                            <td><code>/wp-content/uploads/</code></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Listagem de Diretórios no Core</strong></td>
+                            <td><code>dir_listing_includes</code></td>
+                            <td>Arquivos & Diretórios</td>
+                            <td><span class="badge-sev badge-sev-high">Alta</span></td>
+                            <td><code>/wp-includes/</code></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Backup de Configuração wp-config.php.bak</strong></td>
+                            <td><code>file_wp_config_php_bak</code></td>
+                            <td>Arquivos & Diretórios</td>
+                            <td><span class="badge-sev badge-sev-critical">Crítica</span></td>
+                            <td>Senha do Banco MySQL / Salts</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Cópia de Configuração wp-config.txt</strong></td>
+                            <td><code>file_wp_config_txt</code></td>
+                            <td>Arquivos & Diretórios</td>
+                            <td><span class="badge-sev badge-sev-critical">Crítica</span></td>
+                            <td>Senha do Banco MySQL / Salts</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Arquivo de Ambiente .env</strong></td>
+                            <td><code>file_env</code></td>
+                            <td>Arquivos & Diretórios</td>
+                            <td><span class="badge-sev badge-sev-critical">Crítica</span></td>
+                            <td>Tokens de API, senhas e SMTP</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Log de Depuração debug.log</strong></td>
+                            <td><code>file_wp_content_debug_log</code></td>
+                            <td>Arquivos & Diretórios</td>
+                            <td><span class="badge-sev badge-sev-high">Alta</span></td>
+                            <td><code>/wp-content/debug.log</code></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Log de Erros error_log</strong></td>
+                            <td><code>file_wp_content_error_log</code></td>
+                            <td>Arquivos & Diretórios</td>
+                            <td><span class="badge-sev badge-sev-high">Alta</span></td>
+                            <td><code>/wp-content/error_log</code></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Documentação Padrão readme.html</strong></td>
+                            <td><code>info_readme_html</code></td>
+                            <td>Arquivos & Diretórios</td>
+                            <td><span class="badge-sev badge-sev-low">Baixa</span></td>
+                            <td>Vazamento de versão instalada</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Arquivo de Licença license.txt</strong></td>
+                            <td><code>info_license_txt</code></td>
+                            <td>Arquivos & Diretórios</td>
+                            <td><span class="badge-sev badge-sev-low">Baixa</span></td>
+                            <td>Identificação de instalação padrão</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Enumeração de Usuários na REST API</strong></td>
+                            <td><code>enum_wp_json_users</code></td>
+                            <td>Enumeração & Login</td>
+                            <td><span class="badge-sev badge-sev-high">Alta</span></td>
+                            <td><code>/wp-json/wp/v2/users</code></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Enumeração via Query Author</strong></td>
+                            <td><code>enum_author_query</code></td>
+                            <td>Enumeração & Login</td>
+                            <td><span class="badge-sev badge-sev-medium">Média</span></td>
+                            <td><code>/?author=1</code> (Redirecionamento)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Enumeração via Sitemap XML de Autores</strong></td>
+                            <td><code>enum_sitemap_users</code></td>
+                            <td>Enumeração & Login</td>
+                            <td><span class="badge-sev badge-sev-high">Alta</span></td>
+                            <td>Yoast, Rank Math e Nativo</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Interface Remota XML-RPC</strong></td>
+                            <td><code>xmlrpc_enabled</code></td>
+                            <td>Enumeração & Login</td>
+                            <td><span class="badge-sev badge-sev-high">Alta</span></td>
+                            <td><code>/xmlrpc.php</code> (Brute Force / DDoS)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Página de Login Padrão Exposta</strong></td>
+                            <td><code>wp_login_exposed</code></td>
+                            <td>Enumeração & Login</td>
+                            <td><span class="badge-sev badge-sev-low">Baixa</span></td>
+                            <td><code>/wp-login.php</code></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Versão do WordPress em Meta Tag Generator</strong></td>
+                            <td><code>fingerprint_wp_version_meta</code></td>
+                            <td>Fingerprinting</td>
+                            <td><span class="badge-sev badge-sev-medium">Média</span></td>
+                            <td>Tag HTML <code>meta name="generator"</code></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Enumeração e Versões de Plugins</strong></td>
+                            <td><code>fingerprint_plugins_detected</code></td>
+                            <td>Fingerprinting</td>
+                            <td><span class="badge-sev badge-sev-low">Baixa</span></td>
+                            <td>Parâmetros <code>?ver=</code> e <code>readme.txt</code></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Atualizações Pendentes (Core/Plugins/Temas)</strong></td>
+                            <td><code>agent_pending_updates</code></td>
+                            <td>Agente Interno</td>
+                            <td><span class="badge-sev badge-sev-high">Alta</span></td>
+                            <td>Patches e CVEs conhecidas</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Plugins Inativos Abandonados</strong></td>
+                            <td><code>agent_inactive_plugins</code></td>
+                            <td>Agente Interno</td>
+                            <td><span class="badge-sev badge-sev-low">Baixa</span></td>
+                            <td>Código inativo no disco do servidor</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Conta de Administrador Padrão ("admin")</strong></td>
+                            <td><code>agent_default_admin</code></td>
+                            <td>Agente Interno</td>
+                            <td><span class="badge-sev badge-sev-critical">Crítica</span></td>
+                            <td>Alvo primário de ataques de força bruta</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Quantidade Excessiva de Administradores</strong></td>
+                            <td><code>agent_total_admins</code></td>
+                            <td>Agente Interno</td>
+                            <td><span class="badge-sev badge-sev-low">Baixa</span></td>
+                            <td>Princípio do Menor Privilégio</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Modo de Depuração em Produção (WP_DEBUG)</strong></td>
+                            <td><code>agent_wp_debug</code></td>
+                            <td>Agente Interno</td>
+                            <td><span class="badge-sev badge-sev-high">Alta</span></td>
+                            <td>Vazamento de queries e stacktraces</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Editor de Arquivos no WP-Admin</strong></td>
+                            <td><code>agent_disallow_file_edit</code></td>
+                            <td>Agente Interno</td>
+                            <td><span class="badge-sev badge-sev-medium">Média</span></td>
+                            <td>Injeção de Web Shell via painel</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Prefixo Padrão das Tabelas MySQL (wp_)</strong></td>
+                            <td><code>agent_db_prefix</code></td>
+                            <td>Agente Interno</td>
+                            <td><span class="badge-sev badge-sev-low">Baixa</span></td>
+                            <td>Ataques cegos de SQL Injection</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Cadastro de Usuários Aberto ao Público</strong></td>
+                            <td><code>agent_user_registration</code></td>
+                            <td>Agente Interno</td>
+                            <td><span class="badge-sev badge-sev-medium">Média</span></td>
+                            <td>Criação de contas não autorizadas</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Moderação Obrigatória de Comentários</strong></td>
+                            <td><code>agent_comments_moderation</code></td>
+                            <td>Agente Interno</td>
+                            <td><span class="badge-sev badge-sev-high">Alta</span></td>
+                            <td>Spam automatizado e links maliciosos</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Integridade Criptográfica do Core WordPress</strong></td>
+                            <td><code>core_checksums</code></td>
+                            <td>Integridade</td>
+                            <td><span class="badge-sev badge-sev-critical">Crítica</span></td>
+                            <td>Hashes MD5 oficiais WordPress.org</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <!-- 1. Infraestrutura & Cabeçalhos HTTP -->
+                <h2 id="testes-infra">🌐 1. Infraestrutura & Cabeçalhos HTTP</h2>
+                <p>Verificações executadas na camada de transporte HTTP/HTTPS e cabeçalhos de segurança enviados pelo servidor web (Apache, Nginx, LiteSpeed, Cloudflare).</p>
+
+                <div class="test-card">
+                    <div class="test-card-header">
+                        <div class="test-card-title">
+                            <span>🔒</span> Uso de HTTPS / SSL
+                            <span class="test-card-code">https_enforced</span>
                         </div>
-                    </li>
-                    <li><strong>Fingerprinting & Detecção de Versão:</strong> Checa vazamento de versões do PHP, servidor web, WordPress e remoção de parâmetros <code>?ver=</code> em arquivos CSS/JS.</li>
-                    <li><strong>Auditoria Interna do Agente Patropi:</strong> Avalia plugins abandonados/inativos, atualizações pendentes e contas privilegiadas.</li>
-                </ol>
+                        <span class="badge-sev badge-sev-medium">Severidade Média</span>
+                    </div>
+                    <div class="test-card-desc">
+                        <strong>O que é verificado:</strong> Avalia se a aplicação web utiliza estritamente o protocolo criptografado HTTPS e se as conexões em HTTP puro são redirecionadas com segurança para HTTPS.
+                    </div>
+                    <div class="test-card-meta">
+                        <div class="test-meta-box">
+                            <div class="test-meta-title test-meta-risk">⚠️ Risco para o Cliente</div>
+                            Conexões HTTP sem criptografia trafegam dados em texto plano. Qualquer atacante na mesma rede (Wi-Fi pública, provedores intermediários) pode interceptar senhas, cookies de sessão e dados de formulários (Man-in-the-Middle). Além disso, o Google marca o site como "Não Seguro" e penaliza no ranking.
+                        </div>
+                        <div class="test-meta-box">
+                            <div class="test-meta-title test-meta-fix">🛠️ Como Corrigir</div>
+                            Instalar um certificado SSL válido (Let's Encrypt gratuito ou comercial) e configurar o redirecionamento 301 de todo o tráfego HTTP para HTTPS nas configurações gerais do WordPress ou no <code>.htaccess</code> / Nginx.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="test-card">
+                    <div class="test-card-header">
+                        <div class="test-card-title">
+                            <span>🛡️</span> Strict-Transport-Security (HSTS)
+                            <span class="test-card-code">header_strict_transport_security</span>
+                        </div>
+                        <span class="badge-sev badge-sev-medium">Severidade Média</span>
+                    </div>
+                    <div class="test-card-desc">
+                        <strong>O que é verificado:</strong> Checa se o servidor envia o cabeçalho <code>Strict-Transport-Security</code> com parâmetros de tempo e subdomínios (ex: <code>max-age=31536000; includeSubDomains; preload</code>).
+                    </div>
+                    <div class="test-card-meta">
+                        <div class="test-meta-box">
+                            <div class="test-meta-title test-meta-risk">⚠️ Risco para o Cliente</div>
+                            Sem o HSTS, na primeira requisição do visitante para o domínio ainda pode ocorrer um ataque de <em>SSL Striping</em> (onde o atacante intercepta a conexão antes do redirecionamento e rebaixa silenciosamente a comunicação para HTTP desprotegido).
+                        </div>
+                        <div class="test-meta-box">
+                            <div class="test-meta-title test-meta-fix">🛠️ Como Corrigir</div>
+                            Pode ser ativado com <strong>1 clique pelo Plugin WP Patropi Fixes</strong> (toggle "Strict-Transport-Security") ou adicionando a diretiva de cabeçalho no <code>.htaccess</code> conforme indicado no Guia do Servidor.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="test-card">
+                    <div class="test-card-header">
+                        <div class="test-card-title">
+                            <span>🖼️</span> X-Frame-Options (Anti-Clickjacking)
+                            <span class="test-card-code">header_x_frame_options</span>
+                        </div>
+                        <span class="badge-sev badge-sev-medium">Severidade Média</span>
+                    </div>
+                    <div class="test-card-desc">
+                        <strong>O que é verificado:</strong> Verifica se as respostas HTTP contêm a diretiva <code>X-Frame-Options: SAMEORIGIN</code> ou <code>DENY</code>.
+                    </div>
+                    <div class="test-card-meta">
+                        <div class="test-meta-box">
+                            <div class="test-meta-title test-meta-risk">⚠️ Risco para o Cliente</div>
+                            Vulnerabilidade a ataques de <em>Clickjacking</em>: invasores criam uma página maliciosa e carregam o site da sua empresa dentro de um <code>&lt;iframe&gt;</code> invisível ou transparente sobreposto a botões chamativos. O usuário acredita estar clicando em um jogo ou vídeo, mas está efetuando compras, alterando permissões ou clicando em links restritos do seu painel.
+                        </div>
+                        <div class="test-meta-box">
+                            <div class="test-meta-title test-meta-fix">🛠️ Como Corrigir</div>
+                            Inserir <code>Header always append X-Frame-Options SAMEORIGIN</code> no arquivo <code>.htaccess</code> ou <code>add_header X-Frame-Options "SAMEORIGIN";</code> na configuração do Nginx.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="test-card">
+                    <div class="test-card-header">
+                        <div class="test-card-title">
+                            <span>📄</span> X-Content-Type-Options (Anti MIME Sniffing)
+                            <span class="test-card-code">header_x_content_type_options</span>
+                        </div>
+                        <span class="badge-sev badge-sev-low">Severidade Baixa</span>
+                    </div>
+                    <div class="test-card-desc">
+                        <strong>O que é verificado:</strong> Confirma se o cabeçalho <code>X-Content-Type-Options: nosniff</code> é enviado para impedir que navegadores ignorem o tipo MIME declarado nos arquivos.
+                    </div>
+                    <div class="test-card-meta">
+                        <div class="test-meta-box">
+                            <div class="test-meta-title test-meta-risk">⚠️ Risco para o Cliente</div>
+                            Sem este cabeçalho, alguns navegadores tentam adivinhar o formato do conteúdo. Isso abre brecha para ataques onde um invasor faz upload de uma imagem ou arquivo de texto com código JavaScript malicioso embutido, e o navegador o executa como script (Cross-Site Scripting).
+                        </div>
+                        <div class="test-meta-box">
+                            <div class="test-meta-title test-meta-fix">🛠️ Como Corrigir</div>
+                            Adicionar a linha <code>Header set X-Content-Type-Options "nosniff"</code> no arquivo <code>.htaccess</code> do Apache ou equivalente no Nginx.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="test-card">
+                    <div class="test-card-header">
+                        <div class="test-card-title">
+                            <span>📜</span> Content-Security-Policy (CSP)
+                            <span class="test-card-code">header_content_security_policy</span>
+                        </div>
+                        <span class="badge-sev badge-sev-high">Severidade Alta</span>
+                    </div>
+                    <div class="test-card-desc">
+                        <strong>O que é verificado:</strong> Avalia a existência e a parametrização do cabeçalho <code>Content-Security-Policy</code> que restringe quais domínios podem carregar scripts, fontes, mídias e conexões no site.
+                    </div>
+                    <div class="test-card-meta">
+                        <div class="test-meta-box">
+                            <div class="test-meta-title test-meta-risk">⚠️ Risco para o Cliente</div>
+                            É a principal barreira contra ataques de XSS (Cross-Site Scripting). Sem uma política CSP definida, qualquer script injetado indevidamente por um plugin vulnerável ou anúncio de terceiros pode ler senhas digitadas, capturar dados de cartão de crédito e roubar cookies de sessão.
+                        </div>
+                        <div class="test-meta-box">
+                            <div class="test-meta-title test-meta-fix">🛠️ Como Corrigir</div>
+                            Declarar diretivas CSP no servidor ou via plugin de segurança especificando as fontes legítimas de assets (ex: Google Fonts, Analytics, YouTube).
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. Exposição de Arquivos & Diretórios -->
+                <h2 id="testes-arquivos">📁 2. Exposição de Arquivos & Diretórios Sensíveis</h2>
+                <p>O scanner realiza requisições HTTP a caminhos críticos de arquivos de configuração, logs e diretórios para checar se informações confidenciais estão acessíveis sem autenticação.</p>
+
+                <div class="test-card">
+                    <div class="test-card-header">
+                        <div class="test-card-title">
+                            <span>📂</span> Listagem de Diretório em Uploads
+                            <span class="test-card-code">dir_listing_uploads</span>
+                        </div>
+                        <span class="badge-sev badge-sev-high">Severidade Alta</span>
+                    </div>
+                    <div class="test-card-desc">
+                        <strong>O que é verificado:</strong> Testa se ao acessar <code>/wp-content/uploads/</code> o servidor web lista publicamente todos os arquivos em tela (Index of /wp-content/uploads).
+                    </div>
+                    <div class="test-card-meta">
+                        <div class="test-meta-box">
+                            <div class="test-meta-title test-meta-risk">⚠️ Risco para o Cliente</div>
+                            Invasores e robôs conseguem navegar em todas as pastas de ano e mês, baixando listas completas de mídias, faturas em PDF, notas fiscais, contratos enviados por clientes através de formulários e documentos privados esquecidos.
+                        </div>
+                        <div class="test-meta-box">
+                            <div class="test-meta-title test-meta-fix">🛠️ Como Corrigir</div>
+                            Desativar a listagem adicionando a diretiva <code>Options -Indexes</code> no arquivo <code>.htaccess</code> na raiz do site, ou <code>autoindex off;</code> no Nginx.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="test-card">
+                    <div class="test-card-header">
+                        <div class="test-card-title">
+                            <span>📂</span> Listagem de Diretório no Core (/wp-includes/)
+                            <span class="test-card-code">dir_listing_includes</span>
+                        </div>
+                        <span class="badge-sev badge-sev-high">Severidade Alta</span>
+                    </div>
+                    <div class="test-card-desc">
+                        <strong>O que é verificado:</strong> Testa se o diretório interno <code>/wp-includes/</code> permite a navegação direta de seus arquivos e bibliotecas pelo navegador.
+                    </div>
+                    <div class="test-card-meta">
+                        <div class="test-meta-box">
+                            <div class="test-meta-title test-meta-risk">⚠️ Risco para o Cliente</div>
+                            Facilita a raspagem automatizada para identificar versões exatas de scripts de terceiros integrados ao core, arquivos obsoletos e estruturas internas de código.
+                        </div>
+                        <div class="test-meta-box">
+                            <div class="test-meta-title test-meta-fix">🛠️ Como Corrigir</div>
+                            Garantir que <code>Options -Indexes</code> esteja ativo globalmente e criar um arquivo <code>index.php</code> vazio ou regra de bloqueio em <code>/wp-includes/</code>.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="test-card">
+                    <div class="test-card-header">
+                        <div class="test-card-title">
+                            <span>🚨</span> Backup de Configuração: wp-config.php.bak
+                            <span class="test-card-code">file_wp_config_php_bak</span>
+                        </div>
+                        <span class="badge-sev badge-sev-critical">Severidade Crítica</span>
+                    </div>
+                    <div class="test-card-desc">
+                        <strong>O que é verificado:</strong> Checa se cópias de backup como <code>wp-config.php.bak</code>, <code>wp-config.php.old</code> ou similares foram deixadas na raiz pública do servidor.
+                    </div>
+                    <div class="test-card-meta">
+                        <div class="test-meta-box">
+                            <div class="test-meta-title test-meta-risk">⚠️ Risco para o Cliente</div>
+                            O servidor web só executa arquivos com extensão <code>.php</code>. Arquivos com extensão <code>.bak</code> são servidos como download direto de texto puro! Qualquer visitante pode baixar o arquivo e ler o usuário, senha e endereço do Banco de Dados MySQL, além das chaves de criptografia (salts). O comprometimento do site é instantâneo.
+                        </div>
+                        <div class="test-meta-box">
+                            <div class="test-meta-title test-meta-fix">🛠️ Como Corrigir</div>
+                            Excluir imediatamente o arquivo do servidor via FTP/Gerenciador de Arquivos e adicionar regras no <code>.htaccess</code> bloqueando extensões <code>.bak</code>, <code>.old</code> e <code>.save</code>.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="test-card">
+                    <div class="test-card-header">
+                        <div class="test-card-title">
+                            <span>🚨</span> Cópia de Configuração em Texto: wp-config.txt
+                            <span class="test-card-code">file_wp_config_txt</span>
+                        </div>
+                        <span class="badge-sev badge-sev-critical">Severidade Crítica</span>
+                    </div>
+                    <div class="test-card-desc">
+                        <strong>O que é verificado:</strong> Verifica se arquivos de configuração foram renomeados para <code>wp-config.txt</code> durante testes ou migrações.
+                    </div>
+                    <div class="test-card-meta">
+                        <div class="test-meta-box">
+                            <div class="test-meta-title test-meta-risk">⚠️ Risco para o Cliente</div>
+                            O arquivo abre diretamente na tela do navegador, entregando as credenciais de conexão do MySQL para qualquer curioso ou bot de varredura.
+                        </div>
+                        <div class="test-meta-box">
+                            <div class="test-meta-title test-meta-fix">🛠️ Como Corrigir</div>
+                            Remover o arquivo da pasta pública e nunca manter arquivos de texto contendo credenciais na pasta web.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="test-card">
+                    <div class="test-card-header">
+                        <div class="test-card-title">
+                            <span>🚨</span> Arquivo de Variáveis de Ambiente: /.env
+                            <span class="test-card-code">file_env</span>
+                        </div>
+                        <span class="badge-sev badge-sev-critical">Severidade Crítica</span>
+                    </div>
+                    <div class="test-card-desc">
+                        <strong>O que é verificado:</strong> Tenta requisitar o arquivo <code>/.env</code> na raiz do domínio.
+                    </div>
+                    <div class="test-card-meta">
+                        <div class="test-meta-box">
+                            <div class="test-meta-title test-meta-risk">⚠️ Risco para o Cliente</div>
+                            O arquivo <code>.env</code> armazena segredos de alto impacto: chaves privadas de APIs de pagamento (Stripe, Pagar.me, Mercado Pago), credenciais de e-mail SMTP, tokens de autenticação AWS/Google Cloud e senhas de banco de dados.
+                        </div>
+                        <div class="test-meta-box">
+                            <div class="test-meta-title test-meta-fix">🛠️ Como Corrigir</div>
+                            Bloquear acesso a qualquer arquivo oculto (que inicie por ponto <code>.*</code>) no servidor web e manter o arquivo <code>.env</code> um nível acima da raiz pública (fora de <code>public_html</code>).
+                        </div>
+                    </div>
+                </div>
+
+                <div class="test-card">
+                    <div class="test-card-header">
+                        <div class="test-card-title">
+                            <span>⚠️</span> Log de Depuração Aberto: /wp-content/debug.log
+                            <span class="test-card-code">file_wp_content_debug_log</span>
+                        </div>
+                        <span class="badge-sev badge-sev-high">Severidade Alta</span>
+                    </div>
+                    <div class="test-card-desc">
+                        <strong>O que é verificado:</strong> Avalia se o arquivo <code>debug.log</code> nativo de desenvolvimento do WordPress está acessível diretamente via navegador.
+                    </div>
+                    <div class="test-card-meta">
+                        <div class="test-meta-box">
+                            <div class="test-meta-title test-meta-risk">⚠️ Risco para o Cliente</div>
+                            O log de erros contém caminhos físicos absolutos no servidor (ex: <code>/home/usuario/public_html/...</code>), queries com erro, stacktraces de funções, parâmetros recebidos em requisições de formulários e até mesmo tokens vazados.
+                        </div>
+                        <div class="test-meta-box">
+                            <div class="test-meta-title test-meta-fix">🛠️ Como Corrigir</div>
+                            Adicionar regra de negação para <code>*.log</code> no <code>.htaccess</code> ou mover o arquivo de log para um diretório seguro com permissões restritas.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="test-card">
+                    <div class="test-card-header">
+                        <div class="test-card-title">
+                            <span>⚠️</span> Log de Erros do Servidor: /wp-content/error_log
+                            <span class="test-card-code">file_wp_content_error_log</span>
+                        </div>
+                        <span class="badge-sev badge-sev-high">Severidade Alta</span>
+                    </div>
+                    <div class="test-card-desc">
+                        <strong>O que é verificado:</strong> Verifica a presença de arquivos <code>error_log</code> gerados automaticamente pelo cPanel ou Apache dentro de subpastas do WordPress.
+                    </div>
+                    <div class="test-card-meta">
+                        <div class="test-meta-box">
+                            <div class="test-meta-title test-meta-risk">⚠️ Risco para o Cliente</div>
+                            Vazamento de detalhes de infraestrutura, versão de módulos do Apache e falhas de compatibilidade do PHP que auxiliam cibercriminosos a planejar ataques direcionados.
+                        </div>
+                        <div class="test-meta-box">
+                            <div class="test-meta-title test-meta-fix">🛠️ Como Corrigir</div>
+                            Limpar os arquivos de log antigos e incluir regra bloqueando o acesso a arquivos chamados <code>error_log</code> no arquivo <code>.htaccess</code>.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="test-card">
+                    <div class="test-card-header">
+                        <div class="test-card-title">
+                            <span>ℹ️</span> Documentação Padrão: /readme.html
+                            <span class="test-card-code">info_readme_html</span>
+                        </div>
+                        <span class="badge-sev badge-sev-low">Severidade Baixa</span>
+                    </div>
+                    <div class="test-card-desc">
+                        <strong>O que é verificado:</strong> Confirma se o arquivo <code>readme.html</code> que vem no pacote padrão do WordPress permanece publicado na raiz.
+                    </div>
+                    <div class="test-card-meta">
+                        <div class="test-meta-box">
+                            <div class="test-meta-title test-meta-risk">⚠️ Risco para o Cliente</div>
+                            O arquivo exibe com clareza o número da versão do WordPress em que o site foi criado, auxiliando robôs de varredura a catalogar o site como desatualizado.
+                        </div>
+                        <div class="test-meta-box">
+                            <div class="test-meta-title test-meta-fix">🛠️ Como Corrigir</div>
+                            Excluir o arquivo <code>readme.html</code> da pasta raiz da instalação.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="test-card">
+                    <div class="test-card-header">
+                        <div class="test-card-title">
+                            <span>ℹ️</span> Arquivo de Licença: /license.txt
+                            <span class="test-card-code">info_license_txt</span>
+                        </div>
+                        <span class="badge-sev badge-sev-low">Severidade Baixa</span>
+                    </div>
+                    <div class="test-card-desc">
+                        <strong>O que é verificado:</strong> Checa a presença do arquivo <code>license.txt</code> na raiz pública.
+                    </div>
+                    <div class="test-card-meta">
+                        <div class="test-meta-box">
+                            <div class="test-meta-title test-meta-risk">⚠️ Risco para o Cliente</div>
+                            Facilita a identificação de instalações padrão do WordPress por ferramentas de reconhecimento automatizado.
+                        </div>
+                        <div class="test-meta-box">
+                            <div class="test-meta-title test-meta-fix">🛠️ Como Corrigir</div>
+                            Excluir ou bloquear o acesso público ao arquivo <code>license.txt</code>.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. Enumeração & Login -->
+                <h2 id="testes-enumeracao">👤 3. Enumeração de Usuários & Interfaces de Ataque</h2>
+                <p>Testes que analisam portas de entrada para ataques de força bruta, tentativas de adivinhação de senhas e vazamento de contas de administradores.</p>
+
+                <div class="test-card">
+                    <div class="test-card-header">
+                        <div class="test-card-title">
+                            <span>👥</span> Enumeração de Usuários via WP REST API
+                            <span class="test-card-code">enum_wp_json_users</span>
+                        </div>
+                        <span class="badge-sev badge-sev-high">Severidade Alta</span>
+                    </div>
+                    <div class="test-card-desc">
+                        <strong>O que é verificado:</strong> Requisita o endpoint <code>/wp-json/wp/v2/users</code> para analisar se o WordPress entrega um JSON público contendo a lista com os usernames (slugs) de todos os autores e administradores do site.
+                    </div>
+                    <div class="test-card-meta">
+                        <div class="test-meta-box">
+                            <div class="test-meta-title test-meta-risk">⚠️ Risco para o Cliente</div>
+                            Em qualquer ataque de força bruta, o invasor precisa descobrir dois dados: usuário e senha. Se o endpoint REST vaza a lista de logins exatos, a barreira defensiva é cortada pela metade, bastando ao atacante focar em quebrar a senha das contas encontradas.
+                        </div>
+                        <div class="test-meta-box">
+                            <div class="test-meta-title test-meta-fix">🛠️ Como Corrigir</div>
+                            Ativar a proteção com <strong>1 clique no Plugin WP Patropi Fixes</strong> (toggle "Enumeração de Usuários via REST API"), que restringe a listagem de usuários apenas para chamadas autenticadas retornando HTTP 401.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="test-card">
+                    <div class="test-card-header">
+                        <div class="test-card-title">
+                            <span>🔗</span> Enumeração via Query Author (/?author=1)
+                            <span class="test-card-code">enum_author_query</span>
+                        </div>
+                        <span class="badge-sev badge-sev-medium">Severidade Média</span>
+                    </div>
+                    <div class="test-card-desc">
+                        <strong>O que é verificado:</strong> Envia uma requisição para <code>/?author=1</code> (e IDs subsequentes). O teste verifica se o WordPress redireciona o visitante para a URL amigável de arquivo do autor (ex: <code>/author/joaosilva/</code>), revelando o login da conta de ID 1 (quase sempre o administrador principal), ou se redireciona com segurança para a Home (<code>/</code>).
+                    </div>
+                    <div class="test-card-meta">
+                        <div class="test-meta-box">
+                            <div class="test-meta-title test-meta-risk">⚠️ Risco para o Cliente</div>
+                            É o vetor clássico utilizado por ferramentas de escaneamento ofensivo (como WPScan) para catalogar os nomes de usuário administradores de qualquer site WordPress em segundos.
+                        </div>
+                        <div class="test-meta-box">
+                            <div class="test-meta-title test-meta-fix">🛠️ Como Corrigir</div>
+                            Habilitar o Fix de 1 clique no <strong>Plugin WP Patropi Fixes</strong> (toggle "Redirecionamento de Consultas de Autor"), que intercepta qualquer requisição por <code>?author=N</code> e a redireciona com HTTP 301 para a página inicial (<code>/</code>).
+                        </div>
+                    </div>
+                </div>
+
+                <div class="test-card">
+                    <div class="test-card-header">
+                        <div class="test-card-title">
+                            <span>🗺️</span> Enumeração via Sitemap XML (Yoast / Rank Math / Nativo)
+                            <span class="test-card-code">enum_sitemap_users</span>
+                        </div>
+                        <span class="badge-sev badge-sev-high">Severidade Alta</span>
+                    </div>
+                    <div class="test-card-desc">
+                        <strong>O que é verificado:</strong> Analisa URLs de mapas de site como <code>/wp-sitemap-users-1.xml</code> (nativo), <code>/author-sitemap.xml</code> (Yoast SEO) e <code>/user-sitemap.xml</code> (Rank Math). Caso a URL redirecione (301/302), o scanner segue o redirecionamento para checar se uma lista de URLs de autores contendo seus logins é gerada para o Google.
+                    </div>
+                    <div class="test-card-meta">
+                        <div class="test-meta-box">
+                            <div class="test-meta-title test-meta-risk">⚠️ Risco para o Cliente</div>
+                            Faz com que os logins de administradores sejam indexados nos motores de busca e expostos em uma listagem XML pública e estruturada, servindo de alvo fácil para bots de força bruta.
+                        </div>
+                        <div class="test-meta-box">
+                            <div class="test-meta-title test-meta-fix">🛠️ Como Corrigir</div>
+                            Ativar o toggle correspondente no <strong>Plugin WP Patropi Fixes</strong>, que desativa os provedores de autores nos plugins Yoast SEO, Rank Math e no core do WordPress, bloqueando essas rotas com status HTTP 404.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="test-card">
+                    <div class="test-card-header">
+                        <div class="test-card-title">
+                            <span>⚡</span> Interface Remota XML-RPC (xmlrpc.php)
+                            <span class="test-card-code">xmlrpc_enabled</span>
+                        </div>
+                        <span class="badge-sev badge-sev-high">Severidade Alta</span>
+                    </div>
+                    <div class="test-card-desc">
+                        <strong>O que é verificado:</strong> Envia uma requisição HTTP POST contendo uma chamada XML (<code>system.listMethods</code>) para o arquivo <code>/xmlrpc.php</code> para checar se a interface legado está ativa e processando métodos.
+                    </div>
+                    <div class="test-card-meta">
+                        <div class="test-meta-box">
+                            <div class="test-meta-title test-meta-risk">⚠️ Risco para o Cliente</div>
+                            O XML-RPC suporta a chamada <code>system.multicall</code>, permitindo que atacantes testem <strong>centenas de senhas em uma única requisição HTTP</strong>, contornando a maioria dos plugins de limite de tentativas de login. Além disso, a função de pingback do XML-RPC é usada para amplificação em ataques de negação de serviço (DDoS).
+                        </div>
+                        <div class="test-meta-box">
+                            <div class="test-meta-title test-meta-fix">🛠️ Como Corrigir</div>
+                            Desativar com 1 clique no <strong>Plugin WP Patropi Fixes</strong> (toggle "Desativação Completa do XML-RPC") ou bloquear requisições para <code>xmlrpc.php</code> retornando HTTP 403 Forbidden no <code>.htaccess</code> / Nginx.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="test-card">
+                    <div class="test-card-header">
+                        <div class="test-card-title">
+                            <span>🚪</span> Página de Login Padrão Exposta (/wp-login.php)
+                            <span class="test-card-code">wp_login_exposed</span>
+                        </div>
+                        <span class="badge-sev badge-sev-low">Severidade Baixa</span>
+                    </div>
+                    <div class="test-card-desc">
+                        <strong>O que é verificado:</strong> Verifica se o formulário de login clássico do WordPress está acessível diretamente no endereço padrão <code>/wp-login.php</code>.
+                    </div>
+                    <div class="test-card-meta">
+                        <div class="test-meta-box">
+                            <div class="test-meta-title test-meta-risk">⚠️ Risco para o Cliente</div>
+                            É a URL visada 24 horas por dia por redes de bots na internet que executam ataques de força bruta com listas de credenciais vazadas (Credential Stuffing).
+                        </div>
+                        <div class="test-meta-box">
+                            <div class="test-meta-title test-meta-fix">🛠️ Como Corrigir</div>
+                            Alterar a URL de login (ex: <code>/painel-seguro/</code>) através de plugins especializados (como WPS Hide Login) e ativar autenticação em dois fatores (2FA) ou Cloudflare Turnstile.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. Fingerprinting -->
+                <h2 id="testes-fingerprint">🔍 4. Fingerprinting & Detecção de Componentes</h2>
+                <p>Mapeia o nível de exposição de versões de tecnologias e plugins que permitem que atacantes encontrem falhas conhecidas (CVEs).</p>
+
+                <div class="test-card">
+                    <div class="test-card-header">
+                        <div class="test-card-title">
+                            <span>🏷️</span> Versão do WordPress em Meta Tag Generator
+                            <span class="test-card-code">fingerprint_wp_version_meta</span>
+                        </div>
+                        <span class="badge-sev badge-sev-medium">Severidade Média</span>
+                    </div>
+                    <div class="test-card-desc">
+                        <strong>O que é verificado:</strong> Inspeciona o código HTML da página inicial em busca da tag <code>&lt;meta name="generator" content="WordPress X.Y.Z"&gt;</code>.
+                    </div>
+                    <div class="test-card-meta">
+                        <div class="test-meta-box">
+                            <div class="test-meta-title test-meta-risk">⚠️ Risco para o Cliente</div>
+                            Vaza a versão exata do CMS. Se o WordPress estiver uma versão atrás, atacantes consultam bancos de vulnerabilidades públicos e disparam exploits direcionados especificamente para aquela versão.
+                        </div>
+                        <div class="test-meta-box">
+                            <div class="test-meta-title test-meta-fix">🛠️ Como Corrigir</div>
+                            Habilitar a proteção no <strong>Plugin WP Patropi Fixes</strong> (toggle "Ocultar Versões e Proteger Readme") para remover a ação <code>wp_generator</code> do cabeçalho HTML.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="test-card">
+                    <div class="test-card-header">
+                        <div class="test-card-title">
+                            <span>🧩</span> Enumeração e Versões de Plugins (Assets & Readme)
+                            <span class="test-card-code">fingerprint_plugins_detected</span>
+                        </div>
+                        <span class="badge-sev badge-sev-low">Severidade Baixa</span>
+                    </div>
+                    <div class="test-card-desc">
+                        <strong>O que é verificado:</strong> Analisa tags <code>&lt;script&gt;</code> e <code>&lt;link&gt;</code> em busca do parâmetro <code>?ver=X.Y.Z</code> e tenta consultar arquivos de documentação pública <code>/wp-content/plugins/{slug}/readme.txt</code>.
+                    </div>
+                    <div class="test-card-meta">
+                        <div class="test-meta-box">
+                            <div class="test-meta-title test-meta-risk">⚠️ Risco para o Cliente</div>
+                            Expõe para qualquer pessoa a lista dos plugins em funcionamento no site e suas versões exatas, facilitando a identificação de extensões desatualizadas com falhas de segurança conhecidas.
+                        </div>
+                        <div class="test-meta-box">
+                            <div class="test-meta-title test-meta-fix">🛠️ Como Corrigir</div>
+                            Ativar no <strong>Plugin WP Patropi Fixes</strong> o toggle correspondente, que remove os argumentos <code>?ver=</code> de scripts/estilos e bloqueia o acesso a arquivos <code>readme.txt</code> e <code>license.txt</code> dos plugins.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 5. Agente Interno -->
+                <h2 id="testes-agente">🔌 5. Auditoria Interna do Agente WordPress</h2>
+                <p>Testes de alta precisão executados a partir do banco de dados e arquivos internos do WordPress através da ponte criptografada com o plugin <strong>WP Patropi Agent</strong>.</p>
+
+                <div class="test-card">
+                    <div class="test-card-header">
+                        <div class="test-card-title">
+                            <span>🔄</span> Atualizações Pendentes de Core, Plugins e Temas
+                            <span class="test-card-code">agent_pending_updates</span>
+                        </div>
+                        <span class="badge-sev badge-sev-high">Severidade Alta</span>
+                    </div>
+                    <div class="test-card-desc">
+                        <strong>O que é verificado:</strong> Consulta a API de atualizações do WordPress para quantificar quantas pendências de atualização existem no core, plugins e temas.
+                    </div>
+                    <div class="test-card-meta">
+                        <div class="test-meta-box">
+                            <div class="test-meta-title test-meta-risk">⚠️ Risco para o Cliente</div>
+                            Mais de 80% das invasões a sites WordPress ocorrem devido a plugins ou temas desatualizados que contêm vulnerabilidades já conhecidas publicamente com correções disponíveis.
+                        </div>
+                        <div class="test-meta-box">
+                            <div class="test-meta-title test-meta-fix">🛠️ Como Corrigir</div>
+                            Executar as atualizações pendentes diretamente pelo painel do SaaS (seção <strong>Atualizações Remotas</strong>) com backup prévio ou via painel do WordPress.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="test-card">
+                    <div class="test-card-header">
+                        <div class="test-card-title">
+                            <span>🗑️</span> Plugins Inativos Abandonados no Servidor
+                            <span class="test-card-code">agent_inactive_plugins</span>
+                        </div>
+                        <span class="badge-sev badge-sev-low">Severidade Baixa</span>
+                    </div>
+                    <div class="test-card-desc">
+                        <strong>O que é verificado:</strong> Identifica a quantidade de plugins desativados que permanecem instalados no disco do servidor.
+                    </div>
+                    <div class="test-card-meta">
+                        <div class="test-meta-box">
+                            <div class="test-meta-title test-meta-risk">⚠️ Risco para o Cliente</div>
+                            Plugins inativos não agregam nenhum benefício, mas seus arquivos PHP continuam no disco. Em caso de vulnerabilidades com execução direta de arquivos, eles podem ser explorados por atacantes mesmo com o plugin desativado.
+                        </div>
+                        <div class="test-meta-box">
+                            <div class="test-meta-title test-meta-fix">🛠️ Como Corrigir</div>
+                            Excluir definitivamente os plugins inativos através da listagem de plugins do WordPress ou pelo painel do SaaS.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="test-card">
+                    <div class="test-card-header">
+                        <div class="test-card-title">
+                            <span>🚨</span> Conta de Administrador Padrão ("admin")
+                            <span class="test-card-code">agent_default_admin</span>
+                        </div>
+                        <span class="badge-sev badge-sev-critical">Severidade Crítica</span>
+                    </div>
+                    <div class="test-card-desc">
+                        <strong>O que é verificado:</strong> Checa se existe alguma conta de usuário ativa registrada exatamente com o login <code>admin</code>.
+                    </div>
+                    <div class="test-card-meta">
+                        <div class="test-meta-box">
+                            <div class="test-meta-title test-meta-risk">⚠️ Risco para o Cliente</div>
+                            O login <code>admin</code> é a primeira opção testada em ataques automatizados de força bruta e dicionário. Manter essa conta ativa multiplica exponencialmente as chances de sucesso de invasores.
+                        </div>
+                        <div class="test-meta-box">
+                            <div class="test-meta-title test-meta-fix">🛠️ Como Corrigir</div>
+                            Criar um novo usuário administrador com um nome personalizado e senha forte, reatribuir todos os posts e páginas existentes para essa nova conta e em seguida excluir a conta <code>admin</code>.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="test-card">
+                    <div class="test-card-header">
+                        <div class="test-card-title">
+                            <span>👑</span> Quantidade Excessiva de Administradores
+                            <span class="test-card-code">agent_total_admins</span>
+                        </div>
+                        <span class="badge-sev badge-sev-low">Severidade Baixa</span>
+                    </div>
+                    <div class="test-card-desc">
+                        <strong>O que é verificado:</strong> Analisa quantas contas ativas possuem o perfil de Administrador (gera alerta caso existam mais de 3).
+                    </div>
+                    <div class="test-card-meta">
+                        <div class="test-meta-box">
+                            <div class="test-meta-title test-meta-risk">⚠️ Risco para o Cliente</div>
+                            Princípio do Menor Privilégio: cada conta de administrador é uma chave mestra para o site inteiro. Se o e-mail ou computador de qualquer um desses administradores for infectado, toda a aplicação está em risco.
+                        </div>
+                        <div class="test-meta-box">
+                            <div class="test-meta-title test-meta-fix">🛠️ Como Corrigir</div>
+                            Rebaixar contas que apenas criam artigos para o perfil de <strong>Editor</strong> ou <strong>Autor</strong>, mantendo o privilégio de Administrador apenas para quem gerencia a infraestrutura.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="test-card">
+                    <div class="test-card-header">
+                        <div class="test-card-title">
+                            <span>🐞</span> Modo de Depuração em Produção (WP_DEBUG)
+                            <span class="test-card-code">agent_wp_debug</span>
+                        </div>
+                        <span class="badge-sev badge-sev-high">Severidade Alta (Display) / Baixa</span>
+                    </div>
+                    <div class="test-card-desc">
+                        <strong>O que é verificado:</strong> Verifica as constantes <code>WP_DEBUG</code> e <code>WP_DEBUG_DISPLAY</code> no arquivo <code>wp-config.php</code>.
+                    </div>
+                    <div class="test-card-meta">
+                        <div class="test-meta-box">
+                            <div class="test-meta-title test-meta-risk">⚠️ Risco para o Cliente</div>
+                            Quando o <code>WP_DEBUG_DISPLAY</code> está ativo, qualquer erro de PHP imprime consultas ao banco de dados, nomes de tabelas, nomes de variáveis e caminhos absolutos do servidor na tela para qualquer visitante.
+                        </div>
+                        <div class="test-meta-box">
+                            <div class="test-meta-title test-meta-fix">🛠️ Como Corrigir</div>
+                            Garantir que <code>define('WP_DEBUG', false);</code> e <code>define('WP_DEBUG_DISPLAY', false);</code> estejam definidos no <code>wp-config.php</code> em ambientes de produção.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="test-card">
+                    <div class="test-card-header">
+                        <div class="test-card-title">
+                            <span>✏️</span> Editor de Arquivos no WP-Admin (DISALLOW_FILE_EDIT)
+                            <span class="test-card-code">agent_disallow_file_edit</span>
+                        </div>
+                        <span class="badge-sev badge-sev-medium">Severidade Média</span>
+                    </div>
+                    <div class="test-card-desc">
+                        <strong>O que é verificado:</strong> Avalia se o editor de código PHP embutido no painel administrativo do WordPress está ativado ou desativado.
+                    </div>
+                    <div class="test-card-meta">
+                        <div class="test-meta-box">
+                            <div class="test-meta-title test-meta-risk">⚠️ Risco para o Cliente</div>
+                            Se um administrador tiver a senha roubada, o editor de arquivos permite ao invasor editar arquivos como <code>functions.php</code> ou plugins diretamente no navegador, injetando uma Web Shell (código malicioso) para tomar controle definitivo do servidor.
+                        </div>
+                        <div class="test-meta-box">
+                            <div class="test-meta-title test-meta-fix">🛠️ Como Corrigir</div>
+                            Adicionar a linha <code>define('DISALLOW_FILE_EDIT', true);</code> no arquivo <code>wp-config.php</code>.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="test-card">
+                    <div class="test-card-header">
+                        <div class="test-card-title">
+                            <span>🗄️</span> Prefixo Padrão das Tabelas MySQL (wp_)
+                            <span class="test-card-code">agent_db_prefix</span>
+                        </div>
+                        <span class="badge-sev badge-sev-low">Severidade Baixa</span>
+                    </div>
+                    <div class="test-card-desc">
+                        <strong>O que é verificado:</strong> Confirma se o banco de dados do WordPress utiliza o prefixo de tabela padrão <code>wp_</code>.
+                    </div>
+                    <div class="test-card-meta">
+                        <div class="test-meta-box">
+                            <div class="test-meta-title test-meta-risk">⚠️ Risco para o Cliente</div>
+                            Muitos ataques automatizados de SQL Injection tentam adivinhar nomes de tabelas como <code>wp_users</code> e <code>wp_posts</code>. Um prefixo customizado adiciona uma camada adicional de dificuldade para ataques automatizados.
+                        </div>
+                        <div class="test-meta-box">
+                            <div class="test-meta-title test-meta-fix">🛠️ Como Corrigir</div>
+                            Em novas instalações, definir um prefixo único (ex: <code>patr9_</code>). Em sites existentes, alterar via plugin de segurança homologado com backup completo prévio do banco.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="test-card">
+                    <div class="test-card-header">
+                        <div class="test-card-title">
+                            <span>📝</span> Cadastro de Usuários Aberto ao Público
+                            <span class="test-card-code">agent_user_registration</span>
+                        </div>
+                        <span class="badge-sev badge-sev-medium">Severidade Média</span>
+                    </div>
+                    <div class="test-card-desc">
+                        <strong>O que é verificado:</strong> Checa a opção <code>users_can_register</code> nas configurações do WordPress.
+                    </div>
+                    <div class="test-card-meta">
+                        <div class="test-meta-box">
+                            <div class="test-meta-title test-meta-risk">⚠️ Risco para o Cliente</div>
+                            Em sites institucionais ou blogs que não possuem área de membros, manter o cadastro público aberto atrai a criação em massa de contas fantasmas por robôs de spam e expõe o site a falhas de escalonamento de privilégio.
+                        </div>
+                        <div class="test-meta-box">
+                            <div class="test-meta-title test-meta-fix">🛠️ Como Corrigir</div>
+                            Acessar <code>Configurações > Geral</code> no painel do WordPress e desmarcar a opção "Qualquer pessoa pode se registrar".
+                        </div>
+                    </div>
+                </div>
+
+                <div class="test-card">
+                    <div class="test-card-header">
+                        <div class="test-card-title">
+                            <span>💬</span> Moderação Obrigatória de Comentários
+                            <span class="test-card-code">agent_comments_moderation</span>
+                        </div>
+                        <span class="badge-sev badge-sev-high">Severidade Alta</span>
+                    </div>
+                    <div class="test-card-desc">
+                        <strong>O que é verificado:</strong> Avalia se os comentários do site são publicados de forma automática sem a aprovação manual de um administrador/moderador.
+                    </div>
+                    <div class="test-card-meta">
+                        <div class="test-meta-box">
+                            <div class="test-meta-title test-meta-risk">⚠️ Risco para o Cliente</div>
+                            Comentários livres são usados por redes de spam automatizado para disseminar links de cassinos, produtos ilegais e páginas de phishing, danificando gravemente a autoridade do site no Google e expondo os visitantes a vírus.
+                        </div>
+                        <div class="test-meta-box">
+                            <div class="test-meta-title test-meta-fix">🛠️ Como Corrigir</div>
+                            Acessar <code>Configurações > Discussão</code> no painel do WordPress e marcar a opção "O comentário deve ser aprovado manualmente".
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 6. Integridade do Core -->
+                <h2 id="testes-integridade">💎 6. Integridade Criptográfica dos Arquivos do Core</h2>
+                <p>Auditoria profunda de arquivos do sistema que detecta malwares injetados, backdoors e adulterações no código original do WordPress.</p>
+
+                <div class="test-card">
+                    <div class="test-card-header">
+                        <div class="test-card-title">
+                            <span>🔍</span> Verificação Criptográfica de Checksums Oficiais
+                            <span class="test-card-code">core_checksums</span>
+                        </div>
+                        <span class="badge-sev badge-sev-critical">Severidade Crítica</span>
+                    </div>
+                    <div class="test-card-desc">
+                        <strong>O que é verificado:</strong> A plataforma calcula o hash criptográfico (MD5) de cada arquivo nos diretórios <code>/wp-admin/</code>, <code>/wp-includes/</code> e na raiz do WordPress, comparando-o com os hashes oficiais assinados pela equipe do WordPress.org para a versão exata do core instalada.
+                    </div>
+                    <div class="test-card-meta">
+                        <div class="test-meta-box">
+                            <div class="test-meta-title test-meta-risk">⚠️ Risco para o Cliente</div>
+                            Se um hash diferir do original, o arquivo foi <strong>adulterado por invasores</strong> (injeção de código malicioso, criação de backdoors para roubo de senhas, desvio de tráfego para sites maliciosos) ou corrompido durante atualizações. Arquivos desconhecidos na raiz ou em pastas do core frequentemente indicam Web Shells ativas.
+                        </div>
+                        <div class="test-meta-box">
+                            <div class="test-meta-title test-meta-fix">🛠️ Como Corrigir</div>
+                            A plataforma possui a funcionalidade <strong>Auto-Fix com 1 clique</strong> na tela de Integridade do Core: ela faz o download do arquivo original limpo diretamente do repositório oficial do WordPress.org e substitui o arquivo comprometido com backup de segurança automático.
+                        </div>
+                    </div>
+                </div>
 
                 <h2>Como Adicionar um Site e Executar a Varredura</h2>
                 <ol>
                     <li>No painel da plataforma, clique em <strong>"Websites Alvo"</strong> e depois em <strong>"+ Adicionar Website"</strong>.</li>
                     <li>Informe o nome e a URL completa da aplicação WordPress (ex: <code>http://seusite.com.br</code>).</li>
-                    <li>Clique em <strong>"Executar Nova Varredura"</strong>. A análise leva poucos segundos e o relatório será exibido na tela.</li>
+                    <li>Clique em <strong>"Executar Nova Varredura"</strong>. A análise leva poucos segundos e o relatório detalhado será exibido na tela.</li>
                 </ol>
             </section>
 
