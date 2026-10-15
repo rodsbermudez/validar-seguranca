@@ -48,6 +48,12 @@ $routes->group('api', function ($routes) {
         $routes->delete('websites/(:num)/maintenance/complete', 'Api\Websites::uncompleteMaintenance/$1');
         $routes->get('websites/(:num)/maintenance/history', 'Api\Websites::maintenanceHistory/$1');
 
+        // Website Activity Logs & Technical Notes routes
+        $routes->get('websites/(:num)/activity-logs', 'Api\Websites::activityLogs/$1');
+        $routes->post('websites/(:num)/notes', 'Api\Websites::createNote/$1');
+        $routes->put('websites/(:num)/notes/(:num)', 'Api\Websites::updateNote/$1/$2');
+        $routes->delete('websites/(:num)/notes/(:num)', 'Api\Websites::deleteNote/$1/$2');
+
         // Dashboard Overview route
         $routes->get('dashboard/overview', 'Api\Dashboard::overview');
 

@@ -527,4 +527,59 @@ export const syncAllIntegrityWebsites = async (): Promise<{
   return response.data;
 };
 
+export interface ActivityLogItem {
+  id: string; // 'maint_12' | 'note_5'
+  item_type: 'maintenance' | 'note';
+  title: string;
+  category: string; // 'manutencao' | 'geral' | 'seguranca' | 'otimizacao' | 'servidor' | 'bugfix' | 'layout'
+  content: string;
+  action_date: string;
+  user_id: number;
+  user_name: string;
+  user_email: string;
+  year_month?: string;
+  maintenance_id?: number;
+  note_id?: number;
+}
+
+export interface CreateWebsiteNotePayload {
+  title?: string;
+  category?: string;
+  content: string;
+  action_date?: string;
+}
+
+export const getWebsiteActivityLogs = async (
+  websiteId: number | string
+): Promise<{ status: number; data: ActivityLogItem[] }> => {
+  const response = await api.get(`/websites/${websiteId}/activity-logs`);
+  return response.data;
+};
+
+export const createWebsiteNote = async (
+  websiteId: number | string,
+  payload: CreateWebsiteNotePayload
+): Promise<{ status: number; message: string; data: any }> => {
+  const response = await api.post(`/websites/${websiteId}/notes`, payload);
+  return response.data;
+};
+
+export const updateWebsiteNote = async (
+  websiteId: number | string,
+  noteId: number,
+  payload: Partial<CreateWebsiteNotePayload>
+): Promise<{ status: number; message: string; data: any }> => {
+  const response = await api.put(`/websites/${websiteId}/notes/${noteId}`, payload);
+  return response.data;
+};
+
+export const deleteWebsiteNote = async (
+  websiteId: number | string,
+  noteId: number
+): Promise<{ status: number; message: string }> => {
+  const response = await api.delete(`/websites/${websiteId}/notes/${noteId}`);
+  return response.data;
+};
+
+
 

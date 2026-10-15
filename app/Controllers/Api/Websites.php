@@ -1393,4 +1393,262 @@ class Websites extends ResourceController
             'data'   => $history,
         ]);
     }
+
+    /**
+     * Retorna a lista unificada de logs de atividades (manutenções + notas técnicas).
+     */
+    public function activityLogs($id = null)
+    {
+        if (!$id) {
+            return $this->fail('ID do website não informado.', 400);
+        }
+
+        $effectiveUserId = (int) ($this->request->effectiveUserId ?? ($this->request->userData->id ?? 0));
+        $userData        = $this->request->userData ?? null;
+        $isImpersonating = $this->request->isImpersonating ?? false;
+        $isAdmin         = (($userData->role ?? 'user') === 'admin') && !$isImpersonating;
+
+        $websiteModel = new WebsiteModel();
+        $website = $websiteModel->find($id);
+
+        if (!$website) {
+            return $this->failNotFound('Website não encontrado.');
+        }
+
+        if (!$websiteModel->canUserAccess((int)$id, $effectiveUserId, $isAdmin)) {
+            return $this->failForbidden('Você não tem permissão para visualizar as atividades deste website.');
+        }
+
+        $monthsPt = [
+            '01' => 'Janeiro', '02' => 'Fevereiro', '03' => 'Março', '04' => 'Abril',
+            '05' => 'Maio', '06' => 'Junho', '07' => 'Julho', '08' => 'Agosto',
+            '09' => 'Setembro', '10' => 'Outubro', '11' => 'Novembro', '12' => 'Dezembro'
+        ];
+
+        // 1. Manutenções registradas
+        $maintenanceModel = new \App\Models\WebsiteMaintenanceModel();
+        $maintenances = $maintenanceModel->getHistory((int)$id, 100);
+        $maintenanceItems = [];
+
+        foreach ($maintenances as $m) {
+            $yearMonth = $m['year_month'] ?? '';
+            $parts = explode('-', $yearMonth);
+            $monthFormatted = $yearMonth;
+            if (count($parts) === 2 && isset($monthsPt[$parts[1]])) {
+                $monthFormatted = $monthsPt[$parts[1]] . '/' . $parts[0];
+            }
+
+            $maintenanceItems[] = [
+                'id'             => 'maint_' . $m['id'],
+                'item_type'      => 'maintenance',
+                'title'          => 'Manutenção Mensal - ' . $monthFormatted,
+                'category'       => 'manutencao',
+                'content'        => !empty($m['notes']) ? $m['notes'] : 'Manutenção do ciclo mensal registrada como concluída.',
+                'action_date'    => !empty($m['completed_at']) ? $m['completed_at'] : $m['created_at'],
+                'user_id'        => (int) ($m['user_id'] ?? 0),
+                'user_name'      => $m['user_name'] ?? 'Usuário',
+                'user_email'     => $m['user_email'] ?? '',
+                'year_month'     => $yearMonth,
+                'maintenance_id' => (int) $m['id'],
+            ];
+        }
+
+        // 2. Notas técnicas / observações avulsas
+        $noteModel = new \App\Models\WebsiteNoteModel();
+        $notes = $noteModel->getNotesForWebsite((int)$id);
+        $noteItems = [];
+
+        foreach ($notes as $n) {
+            $noteItems[] = [
+                'id'          => 'note_' . $n['id'],
+                'item_type'   => 'note',
+                'title'       => !empty($n['title']) ? $n['title'] : 'Observação Técnica',
+                'category'    => !empty($n['category']) ? $n['category'] : 'geral',
+                'content'     => $n['content'],
+                'action_date' => !empty($n['action_date']) ? $n['action_date'] : $n['created_at'],
+                'user_id'     => (int) ($n['user_id'] ?? 0),
+                'user_name'   => $n['user_name'] ?? 'Usuário',
+                'user_email'  => $n['user_email'] ?? '',
+                'note_id'     => (int) $n['id'],
+            ];
+        }
+
+        // 3. Mesclar e ordenar cronologicamente por action_date (DESC)
+        $allActivities = array_merge($maintenanceItems, $noteItems);
+        usort($allActivities, function ($a, $b) {
+            return strcmp($b['action_date'] ?? '', $a['action_date'] ?? '');
+        });
+
+        return $this->respond([
+            'status' => 200,
+            'data'   => $allActivities,
+        ]);
+    }
+
+    /**
+     * Cadastra uma nova anotação técnica para o website.
+     */
+    public function createNote($id = null)
+    {
+        if (!$id) {
+            return $this->fail('ID do website não informado.', 400);
+        }
+
+        $effectiveUserId = (int) ($this->request->effectiveUserId ?? ($this->request->userData->id ?? 0));
+        $userData        = $this->request->userData ?? null;
+        $isImpersonating = $this->request->isImpersonating ?? false;
+        $isAdmin         = (($userData->role ?? 'user') === 'admin') && !$isImpersonating;
+
+        $websiteModel = new WebsiteModel();
+        $website = $websiteModel->find($id);
+
+        if (!$website) {
+            return $this->failNotFound('Website não encontrado.');
+        }
+
+        if (!$websiteModel->canUserAccess((int)$id, $effectiveUserId, $isAdmin)) {
+            return $this->failForbidden('Você não tem permissão para cadastrar anotações neste website.');
+        }
+
+        $json = $this->request->getJSON(true) ?? $this->request->getPost();
+        $content = isset($json['content']) ? trim($json['content']) : '';
+
+        if (empty($content)) {
+            return $this->fail('O conteúdo da anotação é obrigatório.', 400);
+        }
+
+        $title = !empty($json['title']) ? trim($json['title']) : null;
+        $category = !empty($json['category']) ? trim($json['category']) : 'geral';
+        $actionDate = !empty($json['action_date']) ? trim($json['action_date']) : date('Y-m-d H:i:s');
+
+        $noteModel = new \App\Models\WebsiteNoteModel();
+        $noteId = $noteModel->insert([
+            'website_id'  => (int)$id,
+            'user_id'     => $effectiveUserId,
+            'title'       => $title,
+            'category'    => $category,
+            'content'     => $content,
+            'action_date' => $actionDate,
+        ]);
+
+        $createdNote = $noteModel->select('website_notes.*, users.name as user_name, users.email as user_email')
+                                ->join('users', 'users.id = website_notes.user_id', 'left')
+                                ->find($noteId);
+
+        return $this->respond([
+            'status'  => 201,
+            'message' => 'Anotação técnica cadastrada com sucesso!',
+            'data'    => $createdNote,
+        ]);
+    }
+
+    /**
+     * Atualiza uma anotação técnica existente.
+     */
+    public function updateNote($id = null, $noteId = null)
+    {
+        if (!$id || !$noteId) {
+            return $this->fail('IDs informados inválidos.', 400);
+        }
+
+        $effectiveUserId = (int) ($this->request->effectiveUserId ?? ($this->request->userData->id ?? 0));
+        $userData        = $this->request->userData ?? null;
+        $isImpersonating = $this->request->isImpersonating ?? false;
+        $isAdmin         = (($userData->role ?? 'user') === 'admin') && !$isImpersonating;
+
+        $websiteModel = new WebsiteModel();
+        $website = $websiteModel->find($id);
+
+        if (!$website) {
+            return $this->failNotFound('Website não encontrado.');
+        }
+
+        if (!$websiteModel->canUserAccess((int)$id, $effectiveUserId, $isAdmin)) {
+            return $this->failForbidden('Você não tem permissão para alterar anotações neste website.');
+        }
+
+        $noteModel = new \App\Models\WebsiteNoteModel();
+        $existing = $noteModel->where('id', $noteId)->where('website_id', $id)->first();
+
+        if (!$existing) {
+            return $this->failNotFound('Anotação não encontrada.');
+        }
+
+        $json = $this->request->getJSON(true) ?? $this->request->getPost();
+        $updateData = [];
+
+        if (isset($json['content'])) {
+            $content = trim($json['content']);
+            if (empty($content)) {
+                return $this->fail('O conteúdo da anotação não pode ficar vazio.', 400);
+            }
+            $updateData['content'] = $content;
+        }
+
+        if (array_key_exists('title', $json)) {
+            $updateData['title'] = !empty($json['title']) ? trim($json['title']) : null;
+        }
+
+        if (isset($json['category'])) {
+            $updateData['category'] = trim($json['category']);
+        }
+
+        if (isset($json['action_date'])) {
+            $updateData['action_date'] = trim($json['action_date']);
+        }
+
+        if (!empty($updateData)) {
+            $noteModel->update($noteId, $updateData);
+        }
+
+        $updated = $noteModel->select('website_notes.*, users.name as user_name, users.email as user_email')
+                             ->join('users', 'users.id = website_notes.user_id', 'left')
+                             ->find($noteId);
+
+        return $this->respond([
+            'status'  => 200,
+            'message' => 'Anotação técnica atualizada com sucesso!',
+            'data'    => $updated,
+        ]);
+    }
+
+    /**
+     * Remove uma anotação técnica.
+     */
+    public function deleteNote($id = null, $noteId = null)
+    {
+        if (!$id || !$noteId) {
+            return $this->fail('IDs informados inválidos.', 400);
+        }
+
+        $effectiveUserId = (int) ($this->request->effectiveUserId ?? ($this->request->userData->id ?? 0));
+        $userData        = $this->request->userData ?? null;
+        $isImpersonating = $this->request->isImpersonating ?? false;
+        $isAdmin         = (($userData->role ?? 'user') === 'admin') && !$isImpersonating;
+
+        $websiteModel = new WebsiteModel();
+        $website = $websiteModel->find($id);
+
+        if (!$website) {
+            return $this->failNotFound('Website não encontrado.');
+        }
+
+        if (!$websiteModel->canUserAccess((int)$id, $effectiveUserId, $isAdmin)) {
+            return $this->failForbidden('Você não tem permissão para remover anotações deste website.');
+        }
+
+        $noteModel = new \App\Models\WebsiteNoteModel();
+        $existing = $noteModel->where('id', $noteId)->where('website_id', $id)->first();
+
+        if (!$existing) {
+            return $this->failNotFound('Anotação não encontrada.');
+        }
+
+        $noteModel->delete($noteId);
+
+        return $this->respond([
+            'status'  => 200,
+            'message' => 'Anotação técnica removida com sucesso.',
+        ]);
+    }
 }

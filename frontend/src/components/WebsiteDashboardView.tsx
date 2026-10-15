@@ -25,6 +25,7 @@ import {
   Tooltip,
   NumberInput,
   Textarea,
+  Menu,
 } from '@mantine/core';
 import {
   IconArrowLeft,
@@ -52,6 +53,9 @@ import {
   IconCalendarCheck,
   IconHistory,
   IconRotateClockwise,
+  IconTools,
+  IconChevronDown,
+  IconNotes,
 } from '@tabler/icons-react';
 import {
   api,
@@ -72,6 +76,7 @@ import { WebsiteLogsView } from './WebsiteLogsView';
 import { WebsiteUpdatesView } from './WebsiteUpdatesView';
 import { WebsiteIntegrityView } from './WebsiteIntegrityView';
 import { WebsiteDiagnosticReportView } from './WebsiteDiagnosticReportView';
+import { WebsiteActivityLogsView } from './WebsiteActivityLogsView';
 
 interface WebsiteDashboardViewProps {
   website: Website;
@@ -460,83 +465,134 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
               </Badge>
             )}
 
-            <Button
-              variant="filled"
-              color="indigo"
-              size="xs"
-              leftSection={<IconFileText size={15} />}
-              onClick={() => setViewingDiagnostic(true)}
-            >
-              Relatório
-            </Button>
+            {/* Menu Dropdown Ferramentas */}
+            <Menu shadow="md" width={240} position="bottom-end">
+              <Menu.Target>
+                <Button
+                  variant="filled"
+                  color="indigo"
+                  size="sm"
+                  leftSection={<IconTools size={16} />}
+                  rightSection={<IconChevronDown size={14} />}
+                >
+                  Ferramentas
+                </Button>
+              </Menu.Target>
 
-            <Button
-              variant="light"
-              color="teal"
-              size="xs"
-              loading={downloading}
-              leftSection={<IconDownload size={14} />}
-              onClick={handleDownloadPlugin}
-            >
-              Baixar Plugin WP
-            </Button>
+              <Menu.Dropdown bg="dark.8">
+                <Menu.Label c="dimmed">Navegação</Menu.Label>
+                <Menu.Item
+                  leftSection={<IconLayoutDashboard size={16} />}
+                  onClick={() => setActiveTab('overview')}
+                  bg={activeTab === 'overview' ? 'dark.6' : undefined}
+                >
+                  Visão Geral
+                </Menu.Item>
+                <Menu.Item
+                  leftSection={<IconRadar size={16} />}
+                  onClick={() => setActiveTab('audit')}
+                  bg={activeTab === 'audit' ? 'dark.6' : undefined}
+                >
+                  Auditoria & Segurança
+                </Menu.Item>
+                <Menu.Item
+                  leftSection={<IconFileCheck size={16} />}
+                  onClick={() => setActiveTab('integrity')}
+                  bg={activeTab === 'integrity' ? 'dark.6' : undefined}
+                >
+                  Integridade do Core
+                </Menu.Item>
+                <Menu.Item
+                  leftSection={<IconNotes size={16} />}
+                  onClick={() => setActiveTab('activity_logs')}
+                  bg={activeTab === 'activity_logs' ? 'dark.6' : undefined}
+                >
+                  Logs de Atividades
+                </Menu.Item>
+                <Menu.Item
+                  leftSection={<IconTerminal size={16} />}
+                  onClick={() => setActiveTab('logs')}
+                  bg={activeTab === 'logs' ? 'dark.6' : undefined}
+                >
+                  Logs em Tempo Real
+                </Menu.Item>
+                <Menu.Item
+                  leftSection={<IconRefresh size={16} />}
+                  onClick={() => setActiveTab('updates')}
+                  bg={activeTab === 'updates' ? 'dark.6' : undefined}
+                >
+                  Atualizações
+                </Menu.Item>
+                <Menu.Item
+                  leftSection={<IconPlugConnected size={16} />}
+                  onClick={() => setActiveTab('agent')}
+                  bg={activeTab === 'agent' ? 'dark.6' : undefined}
+                >
+                  Agente WordPress
+                </Menu.Item>
+                <Menu.Item
+                  leftSection={<IconSettings size={16} />}
+                  onClick={() => setActiveTab('settings')}
+                  bg={activeTab === 'settings' ? 'dark.6' : undefined}
+                >
+                  Configurações
+                </Menu.Item>
+
+                <Menu.Divider />
+
+                <Menu.Label c="dimmed">Ações & Relatórios</Menu.Label>
+                <Menu.Item
+                  leftSection={<IconFileText size={16} color="#4c6ef5" />}
+                  onClick={() => setViewingDiagnostic(true)}
+                >
+                  Relatório Diagnóstico
+                </Menu.Item>
+                <Menu.Item
+                  leftSection={<IconDownload size={16} color="#20c997" />}
+                  onClick={handleDownloadPlugin}
+                  disabled={downloading}
+                >
+                  Baixar Plugin WP
+                </Menu.Item>
+              </Menu.Dropdown>
+            </Menu>
           </Group>
         </Group>
       </Paper>
 
-      {/* Main Tabs Navigation */}
-      <Tabs value={activeTab} onChange={setActiveTab} variant="outline" radius="md" keepMounted={false}>
-        <Tabs.List bg="dark.8" p="xs" style={{ borderRadius: 8 }}>
-          <Tabs.Tab
-            value="overview"
-            leftSection={<IconLayoutDashboard size={16} />}
-            fw={600}
-          >
-            Visão Geral
-          </Tabs.Tab>
-          <Tabs.Tab
-            value="audit"
-            leftSection={<IconRadar size={16} />}
-            fw={600}
-          >
-            Auditoria & Segurança
-          </Tabs.Tab>
-          <Tabs.Tab
-            value="integrity"
-            leftSection={<IconFileCheck size={16} />}
-            fw={600}
-          >
-            Integridade do Core
-          </Tabs.Tab>
-          <Tabs.Tab
-            value="logs"
-            leftSection={<IconTerminal size={16} />}
-            fw={600}
-          >
-            Logs em Tempo Real
-          </Tabs.Tab>
-          <Tabs.Tab
-            value="updates"
-            leftSection={<IconRefresh size={16} />}
-            fw={600}
-          >
-            Atualizações
-          </Tabs.Tab>
-          <Tabs.Tab
-            value="agent"
-            leftSection={<IconPlugConnected size={16} />}
-            fw={600}
-          >
-            Agente WordPress
-          </Tabs.Tab>
-          <Tabs.Tab
-            value="settings"
-            leftSection={<IconSettings size={16} />}
-            fw={600}
-          >
-            Configurações
-          </Tabs.Tab>
-        </Tabs.List>
+      {/* Sub-header Indicador da Seção Ativa (quando fora de overview) */}
+      {activeTab !== 'overview' && (
+        <Paper p="xs" px="md" radius="md" bg="dark.8" withBorder>
+          <Group justify="space-between" align="center">
+            <Group gap="xs">
+              <Text size="xs" c="dimmed">
+                Visualizando tela:
+              </Text>
+              <Badge variant="dot" color="indigo" size="sm">
+                {activeTab === 'audit' && 'Auditoria & Segurança'}
+                {activeTab === 'integrity' && 'Integridade do Core'}
+                {activeTab === 'activity_logs' && 'Logs de Atividades & Diário Técnico'}
+                {activeTab === 'logs' && 'Logs em Tempo Real'}
+                {activeTab === 'updates' && 'Atualizações'}
+                {activeTab === 'agent' && 'Agente WordPress'}
+                {activeTab === 'settings' && 'Configurações'}
+              </Badge>
+            </Group>
+            <Button
+              size="compact-xs"
+              variant="subtle"
+              color="gray"
+              leftSection={<IconLayoutDashboard size={14} />}
+              onClick={() => setActiveTab('overview')}
+            >
+              Voltar para Visão Geral
+            </Button>
+          </Group>
+        </Paper>
+      )}
+
+      {/* Main Tabs Navigation (sem Tabs.List para manter layout limpo) */}
+      <Tabs value={activeTab} onChange={setActiveTab} keepMounted={false}>
 
         {/* Tab 1: Overview */}
         <Tabs.Panel value="overview" pt="md">
@@ -667,6 +723,16 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
                     loading={historyLoading}
                   >
                     Histórico Anterior
+                  </Button>
+
+                  <Button
+                    variant="light"
+                    color="indigo"
+                    size="xs"
+                    leftSection={<IconNotes size={14} />}
+                    onClick={() => setActiveTab('activity_logs')}
+                  >
+                    Diário & Anotações
                   </Button>
 
                   {maintenanceStatus?.status === 'completed' ? (
@@ -1006,6 +1072,11 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
         {/* Tab 3: Core Integrity */}
         <Tabs.Panel value="integrity" pt="md">
           <WebsiteIntegrityView website={website} />
+        </Tabs.Panel>
+
+        {/* Tab: Activity Logs & Technical Notes */}
+        <Tabs.Panel value="activity_logs" pt="md">
+          <WebsiteActivityLogsView website={website} />
         </Tabs.Panel>
 
         {/* Tab 4: Realtime Logs */}
