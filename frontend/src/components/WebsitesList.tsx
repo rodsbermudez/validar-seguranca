@@ -112,7 +112,12 @@ export const WebsitesList: React.FC<WebsitesListProps> = ({ onSelectWebsite }) =
       setEditingWebsite(null);
       fetchWebsites();
     } catch (err: any) {
-      setError(err.response?.data?.messages?.error || err.response?.data?.error || 'Erro ao salvar website.');
+      setError(
+        err.response?.data?.messages?.error ||
+        err.response?.data?.message ||
+        err.response?.data?.error ||
+        'Erro ao salvar website.'
+      );
     } finally {
       setFormLoading(false);
     }

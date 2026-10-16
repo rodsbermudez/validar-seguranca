@@ -56,22 +56,24 @@ class AIService
             return;
         }
 
-        $userModel = new \App\Models\UserModel();
-        $user = $userModel->find($userId);
-        if (!$user) {
+        if (!$userId) {
             return;
         }
 
-        if (isset($user['ai_enabled']) && !(bool)$user['ai_enabled']) {
-            throw new \RuntimeException("O uso de inteligência artificial está desabilitado para este usuário. Entre em contato com o suporte ou administrador.");
+        $userPlan = \App\Services\UserPlanService::getUserPlanDetails($userId);
+
+        if (empty($userPlan['ai_enabled'])) {
+            throw new \RuntimeException("O uso de inteligência artificial está desabilitado para o seu plano. Entre em contato com o suporte ou administrador.");
         }
 
-        $monthlyLimit = isset($user['ai_monthly_token_limit']) && $user['ai_monthly_token_limit'] !== null ? (int)$user['ai_monthly_token_limit'] : null;
+        $monthlyLimit = $userPlan['effective_ai_token_limit'];
         if ($monthlyLimit !== null && $monthlyLimit > 0) {
             $logModel = new \App\Models\AiUsageLogModel();
             $usedTokens = $logModel->getUserMonthlyTokens($userId);
             if ($usedTokens >= $monthlyLimit) {
-                throw new \RuntimeException("Limite mensal de tokens de IA atingido ({$usedTokens} de {$monthlyLimit} tokens). Solicite um aumento de limite ao administrador.");
+                $usedFmt = number_format($usedTokens, 0, ',', '.');
+                $limitFmt = number_format($monthlyLimit, 0, ',', '.');
+                throw new \RuntimeException("Limite mensal de IA do seu plano atingido ({$usedFmt} de {$limitFmt} tokens). Contrate uma cota extra de IA com o administrador.");
             }
         }
     }

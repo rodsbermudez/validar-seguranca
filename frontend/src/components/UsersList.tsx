@@ -14,9 +14,19 @@ import {
   Switch,
   Stack,
   Tooltip,
+  Select,
 } from '@mantine/core';
-import { IconUserPlus, IconTrash, IconEye, IconPencil, IconPower, IconBrain } from '@tabler/icons-react';
-import { api } from '../api';
+import {
+  IconUserPlus,
+  IconTrash,
+  IconEye,
+  IconPencil,
+  IconPower,
+  IconBrain,
+  IconPackage,
+  IconWorld,
+} from '@tabler/icons-react';
+import { api, getPlans, Plan } from '../api';
 import { formatDateOnly } from '../utils/date';
 
 export interface User {
@@ -25,6 +35,12 @@ export interface User {
   email: string;
   role: 'admin' | 'user';
   is_active: number;
+  plan_id?: number | null;
+  plan_name?: string;
+  effective_max_websites?: number | null;
+  is_websites_unlimited?: boolean;
+  websites_count?: number;
+  total_monthly_price?: number;
   ai_enabled?: number;
   ai_monthly_token_limit?: number | null;
   current_month_tokens?: number;
@@ -52,6 +68,8 @@ export function UsersList({ onImpersonate, onManageAi, currentUserId }: UsersLis
   const [password, setPassword] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
   const [isActive, setIsActive] = useState(true);
+  const [availablePlans, setAvailablePlans] = useState<Plan[]>([]);
+  const [selectedPlanId, setSelectedPlanId] = useState<string>('');
 
   const fetchUsers = async () => {
     try {
@@ -69,7 +87,7 @@ export function UsersList({ onImpersonate, onManageAi, currentUserId }: UsersLis
     fetchUsers();
   }, []);
 
-  const handleOpenCreateModal = () => {
+  const handleOpenCreateModal = async () => {
     setEditingUser(null);
     setName('');
     setEmail('');
@@ -77,6 +95,15 @@ export function UsersList({ onImpersonate, onManageAi, currentUserId }: UsersLis
     setIsAdmin(false);
     setIsActive(true);
     setErrorMsg('');
+    try {
+      const pRes = await getPlans();
+      const pList = pRes.data || [];
+      setAvailablePlans(pList);
+      const def = pList.find((p) => Number(p.is_default) === 1);
+      setSelectedPlanId(def ? String(def.id) : (pList[0] ? String(pList[0].id) : ''));
+    } catch {
+      // ignore
+    }
     setOpenedModal(true);
   };
 
@@ -122,6 +149,7 @@ export function UsersList({ onImpersonate, onManageAi, currentUserId }: UsersLis
           email,
           password,
           is_admin: isAdmin,
+          plan_id: !isAdmin && selectedPlanId ? Number(selectedPlanId) : undefined,
         });
       }
 
@@ -195,7 +223,7 @@ export function UsersList({ onImpersonate, onManageAi, currentUserId }: UsersLis
             <Table.Th>E-mail</Table.Th>
             <Table.Th>Perfil</Table.Th>
             <Table.Th>Status</Table.Th>
-            <Table.Th>Uso de IA (Mês)</Table.Th>
+            <Table.Th>Plano & Recursos</Table.Th>
             <Table.Th>Data de Cadastro</Table.Th>
             <Table.Th style={{ textAlign: 'right' }}>Ações</Table.Th>
           </Table.Tr>
@@ -234,41 +262,75 @@ export function UsersList({ onImpersonate, onManageAi, currentUserId }: UsersLis
                     </Badge>
                   </Table.Td>
                   <Table.Td>
-                    {isAiDisabled ? (
-                      <Badge color="gray" variant="light" size="xs">
-                        Desativada
-                      </Badge>
-                    ) : (
-                      <Stack gap={2}>
-                        <Group gap={4}>
-                          <IconBrain size={13} color="#a78bfa" />
-                          <Text size="xs" fw={600}>
-                            {user.current_month_tokens ? Number(user.current_month_tokens).toLocaleString('pt-BR') : '0'}
+                    <Stack gap={3}>
+                      <Group gap={6}>
+                        <Badge
+                          color={
+                            user.role === 'admin'
+                              ? 'indigo'
+                              : user.plan_name === 'Full'
+                              ? 'violet'
+                              : user.plan_name === 'Profissional'
+                              ? 'blue'
+                              : 'teal'
+                          }
+                          variant="filled"
+                          size="xs"
+                        >
+                          {user.role === 'admin' ? 'ADMIN' : user.plan_name || 'Iniciante'}
+                        </Badge>
+                        {user.total_monthly_price !== undefined && user.total_monthly_price > 0 && (
+                          <Badge color="gray" variant="light" size="xs">
+                            {user.total_monthly_price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}/mês
+                          </Badge>
+                        )}
+                      </Group>
+
+                      <Group gap={8} mt={1}>
+                        <Group gap={3}>
+                          <IconWorld size={12} color="#60a5fa" />
+                          <Text size="11px" fw={600}>
+                            {user.websites_count ?? 0}
                           </Text>
-                          <Text size="xs" c="dimmed">
-                            {user.ai_monthly_token_limit ? `/ ${Number(user.ai_monthly_token_limit).toLocaleString('pt-BR')}` : '(Ilim.)'}
+                          <Text size="11px" c="dimmed">
+                            / {user.is_websites_unlimited ? 'Ilim.' : `${user.effective_max_websites ?? '4'} sites`}
                           </Text>
                         </Group>
-                        {user.current_month_cost !== undefined && user.current_month_cost > 0 && (
-                          <Text size="11px" c="teal.4" fw={600}>
-                            ~ {user.current_month_cost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+
+                        <Text size="11px" c="dimmed">
+                          •
+                        </Text>
+
+                        {isAiDisabled ? (
+                          <Text size="11px" c="dimmed">
+                            IA Desativada
                           </Text>
+                        ) : (
+                          <Group gap={3}>
+                            <IconBrain size={12} color="#a78bfa" />
+                            <Text size="11px" fw={600}>
+                              {user.current_month_tokens ? Number(user.current_month_tokens).toLocaleString('pt-BR') : '0'}
+                            </Text>
+                            <Text size="11px" c="dimmed">
+                              / {user.ai_monthly_token_limit ? Number(user.ai_monthly_token_limit).toLocaleString('pt-BR') : '250k'}
+                            </Text>
+                          </Group>
                         )}
-                      </Stack>
-                    )}
+                      </Group>
+                    </Stack>
                   </Table.Td>
                   <Table.Td>{formatDateOnly(user.created_at)}</Table.Td>
                   <Table.Td style={{ textAlign: 'right' }}>
                     <Group gap="xs" justify="flex-end">
-                      <Tooltip label={`Monitorar consumo de IA e gerenciar limites de ${user.name}`}>
+                      <Tooltip label={`Gerenciar plano, limites de sites, cotas de IA e add-ons de ${user.name}`}>
                         <Button
                           size="xs"
                           variant="light"
-                          color="violet"
-                          leftSection={<IconBrain size={14} />}
+                          color="indigo"
+                          leftSection={<IconPackage size={14} />}
                           onClick={() => onManageAi(user)}
                         >
-                          Gestão de IA
+                          Gestão do Plano
                         </Button>
                       </Tooltip>
 
@@ -361,12 +423,24 @@ export function UsersList({ onImpersonate, onManageAi, currentUserId }: UsersLis
             />
             <Switch
               label="Definir como Administrador"
-              description="Administradores podem gerenciar usuários e visualizar o painel de qualquer conta."
+              description="Administradores têm acesso irrestrito e não consomem cotas de planos."
               checked={isAdmin}
               onChange={(e) => setIsAdmin(e.currentTarget.checked)}
               color="indigo"
               mt="xs"
             />
+            {!editingUser && !isAdmin && availablePlans.length > 0 && (
+              <Select
+                label="Plano Inicial Contratado"
+                description="Define a cota base de sites e tokens de IA."
+                data={availablePlans.map((p) => ({
+                  value: String(p.id),
+                  label: `${p.name} (${p.max_websites ? `${p.max_websites} sites` : 'Sites Ilim.'} • ${(Number(p.ai_monthly_tokens) / 1000).toLocaleString('pt-BR')}k IA • ${Number(p.price_monthly).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}/mês)`,
+                }))}
+                value={selectedPlanId}
+                onChange={(val) => setSelectedPlanId(val || '')}
+              />
+            )}
             {editingUser && editingUser.id !== currentUserId && (
               <Switch
                 label="Conta Ativa"

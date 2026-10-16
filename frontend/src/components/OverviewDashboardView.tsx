@@ -22,6 +22,7 @@ import {
   ThemeIcon,
   Box,
   Select,
+  SimpleGrid,
 } from '@mantine/core';
 import {
   IconWorld,
@@ -39,6 +40,7 @@ import {
   IconRotateClockwise,
   IconPlus,
   IconBrain,
+  IconPackage,
 } from '@tabler/icons-react';
 import {
   getDashboardOverview,
@@ -225,8 +227,9 @@ export const OverviewDashboardView: React.FC<OverviewDashboardViewProps> = ({
   const integrityRadar = data?.integrity_radar || [];
 
   const aiUsage = data?.ai_usage;
+  const planDetails = data?.plan_details;
   const isAiDisabled = Number(aiUsage?.ai_enabled ?? 1) === 0;
-  const isUnlimited = aiUsage?.is_unlimited ?? true;
+  const isUnlimited = aiUsage?.is_unlimited ?? false;
   const aiPercent = aiUsage?.percent_used || 0;
   const aiProgressColor = isAiDisabled
     ? 'gray'
@@ -237,6 +240,14 @@ export const OverviewDashboardView: React.FC<OverviewDashboardViewProps> = ({
     : aiPercent > 70
     ? 'yellow'
     : 'teal';
+
+  const isWebsitesUnlimited = planDetails?.is_websites_unlimited ?? false;
+  const websitesLimit = planDetails?.effective_max_websites;
+  const websitesCount = planDetails?.websites_count ?? metrics.total_websites;
+  const websitesPercent = !isWebsitesUnlimited && websitesLimit && websitesLimit > 0
+    ? Math.min(100, Math.round((websitesCount / websitesLimit) * 100))
+    : 0;
+  const websitesQuotaColor = websitesPercent >= 100 ? 'red' : websitesPercent >= 80 ? 'yellow' : 'blue';
 
   // Filter maintenance list according to active tab
   const filteredMaintenances = maintenances.filter((item) => {
@@ -470,8 +481,8 @@ export const OverviewDashboardView: React.FC<OverviewDashboardViewProps> = ({
         </Grid.Col>
       </Grid>
 
-      {/* AI Contracted Usage Progress Bar Card */}
-      {aiUsage && (
+      {/* Plan & Resources Usage Progress Bar Card */}
+      {(planDetails || aiUsage) && (
         <Paper
           p="md"
           radius="md"
@@ -479,53 +490,49 @@ export const OverviewDashboardView: React.FC<OverviewDashboardViewProps> = ({
           bg="dark.7"
           style={{
             borderLeft: `4px solid ${
-              isAiDisabled
-                ? '#6b7280'
-                : isUnlimited
-                ? '#8b5cf6'
-                : aiPercent > 90
+              aiPercent > 90 || websitesPercent >= 100
                 ? '#ef4444'
-                : aiPercent > 70
+                : aiPercent > 70 || websitesPercent >= 80
                 ? '#eab308'
-                : '#10b981'
+                : '#6366f1'
             }`,
           }}
         >
-          <Group justify="space-between" align="center" mb="xs" wrap="wrap" gap="sm">
+          <Group justify="space-between" align="center" mb="sm" wrap="wrap" gap="sm">
             <Group gap="xs">
-              <ThemeIcon color={aiProgressColor} variant="light" size="md" radius="md">
-                <IconBrain size={18} />
+              <ThemeIcon color="indigo" variant="light" size="md" radius="md">
+                <IconPackage size={18} />
               </ThemeIcon>
               <div>
                 <Group gap="xs" align="center">
                   <Text fw={700} size="sm">
-                    Consumo de Inteligência Artificial Contratada
+                    Meu Plano:{' '}
+                    <span style={{ color: '#818cf8' }}>
+                      {planDetails?.plan_name || 'Iniciante'}
+                    </span>
                   </Text>
-                  {isAiDisabled ? (
+                  {planDetails?.total_monthly_price !== undefined && planDetails.total_monthly_price > 0 && (
                     <Badge color="gray" variant="light" size="xs">
-                      IA Desativada
+                      {planDetails.total_monthly_price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}/mês
                     </Badge>
-                  ) : isUnlimited ? (
-                    <Badge color="violet" variant="light" size="xs">
-                      Cota Ilimitada
-                    </Badge>
-                  ) : (
-                    <Badge color={aiProgressColor} variant="light" size="xs">
-                      {aiPercent}% Consumido
+                  )}
+                  {planDetails?.is_websites_limit_reached && (
+                    <Badge color="red" variant="filled" size="xs">
+                      Limite de Sites Atingido
                     </Badge>
                   )}
                 </Group>
                 <Text size="xs" c="dimmed">
-                  Cota mensal em diagnósticos, correções automáticas e análises inteligentes de segurança.
+                  Visão consolidada de websites e inteligência artificial contratada.
                 </Text>
               </div>
             </Group>
 
             <Group gap="md">
-              {aiUsage.estimated_cost !== undefined && aiUsage.estimated_cost > 0 && (
+              {aiUsage && aiUsage.estimated_cost !== undefined && aiUsage.estimated_cost > 0 && (
                 <div>
                   <Text size="11px" c="dimmed" ta="right">
-                    Custo Estimado ({data?.year_month_label?.split(' ')[0] || 'Mês'})
+                    Custo IA ({data?.year_month_label?.split(' ')[0] || 'Mês'})
                   </Text>
                   <Text size="xs" fw={700} c="teal.4" ta="right">
                     {aiUsage.estimated_cost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
@@ -535,45 +542,93 @@ export const OverviewDashboardView: React.FC<OverviewDashboardViewProps> = ({
               {onNavigateToAiUsage && (
                 <Button
                   variant="subtle"
-                  color="violet"
+                  color="indigo"
                   size="xs"
                   rightSection={<IconArrowRight size={14} />}
                   onClick={onNavigateToAiUsage}
                 >
-                  Ver Detalhes & Histórico
+                  Ver Detalhes do Plano
                 </Button>
               )}
             </Group>
           </Group>
 
-          {/* Progress Bar */}
-          <Progress
-            value={isUnlimited ? 100 : aiPercent}
-            color={aiProgressColor}
-            size="md"
-            radius="xl"
-            striped={!isUnlimited && aiPercent > 70}
-            animated={!isUnlimited && aiPercent > 85}
-          />
-
-          <Group justify="space-between" mt={6}>
-            <Text size="xs" fw={600}>
-              {Number(aiUsage.current_month_tokens || 0).toLocaleString('pt-BR')} tokens consumidos
-              {isUnlimited ? (
-                <Text component="span" c="dimmed" fw={400}> (Cota Ilimitada)</Text>
+          <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
+            {/* Barra 1: Websites */}
+            <Paper p="xs" radius="sm" bg="dark.8">
+              <Group justify="space-between" mb={4}>
+                <Group gap={4}>
+                  <IconWorld size={14} color="#60a5fa" />
+                  <Text size="xs" fw={700}>
+                    Websites Cadastrados
+                  </Text>
+                </Group>
+                <Text size="xs" c={websitesQuotaColor} fw={700}>
+                  {websitesCount} {isWebsitesUnlimited ? 'sites (Ilimitado)' : `/ ${websitesLimit} sites`}
+                </Text>
+              </Group>
+              {!isWebsitesUnlimited ? (
+                <>
+                  <Progress
+                    value={websitesPercent}
+                    color={websitesQuotaColor}
+                    size="sm"
+                    radius="xl"
+                  />
+                  <Group justify="space-between" mt={4}>
+                    <Text size="11px" c="dimmed">
+                      {websitesPercent}% da cota utilizada
+                    </Text>
+                    <Text size="11px" c={websitesQuotaColor} fw={600}>
+                      {planDetails?.websites_remaining !== undefined ? `${planDetails.websites_remaining} vaga(s) disponível(is)` : ''}
+                    </Text>
+                  </Group>
+                </>
               ) : (
-                <Text component="span" c="dimmed" fw={400}>
-                  {' '}de {Number(aiUsage.monthly_token_limit || 0).toLocaleString('pt-BR')} tokens contratados
+                <Text size="11px" c="teal" mt={4}>
+                  Sites ilimitados neste plano.
                 </Text>
               )}
-            </Text>
+            </Paper>
 
-            {!isUnlimited && (
-              <Text size="xs" c={aiProgressColor} fw={600}>
-                {Number(aiUsage.tokens_remaining || 0).toLocaleString('pt-BR')} tokens disponíveis este mês
-              </Text>
-            )}
-          </Group>
+            {/* Barra 2: IA Contratada */}
+            <Paper p="xs" radius="sm" bg="dark.8">
+              <Group justify="space-between" mb={4}>
+                <Group gap={4}>
+                  <IconBrain size={14} color="#a78bfa" />
+                  <Text size="xs" fw={700}>
+                    Inteligência Artificial Mensal
+                  </Text>
+                </Group>
+                <Text size="xs" c={aiProgressColor} fw={700}>
+                  {Number(aiUsage?.current_month_tokens || 0).toLocaleString('pt-BR')} / {Number(aiUsage?.monthly_token_limit || 250000).toLocaleString('pt-BR')} tokens
+                </Text>
+              </Group>
+              {isAiDisabled ? (
+                <Text size="11px" c="red" mt={4}>
+                  IA desabilitada para esta conta.
+                </Text>
+              ) : (
+                <>
+                  <Progress
+                    value={aiPercent}
+                    color={aiProgressColor}
+                    size="sm"
+                    radius="xl"
+                    striped={aiPercent > 70}
+                  />
+                  <Group justify="space-between" mt={4}>
+                    <Text size="11px" c="dimmed">
+                      {aiPercent}% consumido este mês
+                    </Text>
+                    <Text size="11px" c={aiProgressColor} fw={600}>
+                      {Number(aiUsage?.tokens_remaining || 0).toLocaleString('pt-BR')} tokens disponíveis
+                    </Text>
+                  </Group>
+                </>
+              )}
+            </Paper>
+          </SimpleGrid>
         </Paper>
       )}
 

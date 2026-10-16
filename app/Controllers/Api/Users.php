@@ -19,7 +19,7 @@ class Users extends ResourceController
 
         $userModel = new UserModel();
         $users = $userModel
-            ->select('id, name, email, role, is_active, ai_enabled, ai_monthly_token_limit, created_at')
+            ->select('id, name, email, role, plan_id, is_active, ai_enabled, ai_monthly_token_limit, created_at')
             ->orderBy('created_at', 'DESC')
             ->findAll();
 
@@ -28,10 +28,17 @@ class Users extends ResourceController
         foreach ($users as &$user) {
             $user['id'] = (int) $user['id'];
             $user['is_active'] = (int) $user['is_active'];
-            $user['ai_enabled'] = isset($user['ai_enabled']) ? (int) $user['ai_enabled'] : 1;
-            $user['ai_monthly_token_limit'] = $user['ai_monthly_token_limit'] !== null ? (int) $user['ai_monthly_token_limit'] : null;
-            $user['current_month_tokens'] = $aiLogModel->getUserMonthlyTokens($user['id']);
-            $user['current_month_cost'] = round(($user['current_month_tokens'] / 1000) * $tokenPrice, 2);
+            $planDetails = \App\Services\UserPlanService::getUserPlanDetails($user['id']);
+            $user['plan_id']                = $planDetails['plan_id'];
+            $user['plan_name']              = $planDetails['plan_name'];
+            $user['effective_max_websites'] = $planDetails['effective_max_websites'];
+            $user['is_websites_unlimited']  = $planDetails['is_websites_unlimited'];
+            $user['websites_count']         = $planDetails['websites_count'];
+            $user['total_monthly_price']    = $planDetails['total_monthly_price'];
+            $user['ai_enabled']             = $planDetails['ai_enabled'];
+            $user['ai_monthly_token_limit'] = $planDetails['effective_ai_token_limit'];
+            $user['current_month_tokens']   = $aiLogModel->getUserMonthlyTokens($user['id']);
+            $user['current_month_cost']     = round(($user['current_month_tokens'] / 1000) * $tokenPrice, 2);
         }
 
         return $this->respond([
@@ -71,12 +78,18 @@ class Users extends ResourceController
         }
 
         $role = $isAdmin ? 'admin' : 'user';
+        $planId = isset($json['plan_id']) && $json['plan_id'] !== '' ? (int)$json['plan_id'] : null;
+        if (!$planId && !$isAdmin) {
+            $defaultPlan = (new \App\Models\PlanModel())->getDefaultPlan();
+            $planId = $defaultPlan ? (int)$defaultPlan['id'] : null;
+        }
 
         $newId = $userModel->insert([
             'name'          => $name,
             'email'         => $email,
             'password_hash' => password_hash($password, PASSWORD_BCRYPT),
             'role'          => $role,
+            'plan_id'       => $planId,
             'is_active'     => 1,
         ]);
 
@@ -380,6 +393,171 @@ class Users extends ResourceController
                 'limit'  => $limit,
                 'offset' => $offset,
             ],
+        ]);
+    }
+
+    /**
+     * GET /api/users/(:num)/plan
+     * Retorna detalhes completos do plano, add-ons, sites e histórico de IA
+     */
+    public function planDetails($id = null)
+    {
+        $userData = $this->request->userData ?? null;
+        $effectiveUserId = $this->request->effectiveUserId ?? ($userData->id ?? null);
+        $isAdmin = (($userData->role ?? 'user') === 'admin');
+
+        if (!$id) {
+            return $this->fail('ID do usuário não informado.', 400);
+        }
+
+        if (!$isAdmin && (int)$id !== (int)$effectiveUserId) {
+            return $this->failForbidden('Acesso não autorizado aos dados de plano de outro usuário.');
+        }
+
+        $userModel = new UserModel();
+        $user = $userModel->find($id);
+
+        if (!$user) {
+            return $this->failNotFound('Usuário não encontrado.');
+        }
+
+        $planDetails = \App\Services\UserPlanService::getUserPlanDetails((int)$id);
+
+        $basePrice       = (float) \App\Models\SettingsModel::getSetting('ai_token_price_per_1k', '0.00');
+        $promptPrice     = (float) \App\Models\SettingsModel::getSetting('ai_prompt_token_price_per_1k', $basePrice > 0 ? (string)$basePrice : '0.00');
+        $completionPrice = (float) \App\Models\SettingsModel::getSetting('ai_completion_token_price_per_1k', $basePrice > 0 ? (string)$basePrice : '0.00');
+
+        $logModel       = new \App\Models\AiUsageLogModel();
+        $stats          = $logModel->getUserStats((int) $id);
+        $monthStats     = $logModel->getUserMonthlyTokenStats((int) $id);
+        $monthlyHistory = $logModel->getUserMonthlyHistory((int) $id);
+
+        $currentMonthCost = round((($monthStats['prompt_tokens'] / 1000) * $promptPrice) + (($monthStats['completion_tokens'] / 1000) * $completionPrice), 2);
+        $totalCost        = round((($stats['total_prompt_tokens'] / 1000) * $promptPrice) + (($stats['total_completion_tokens'] / 1000) * $completionPrice), 2);
+
+        foreach ($monthlyHistory as &$historyItem) {
+            $pTokens = (int) ($historyItem['prompt_tokens'] ?? 0);
+            $cTokens = (int) ($historyItem['completion_tokens'] ?? 0);
+            $historyItem['estimated_cost'] = round((($pTokens / 1000) * $promptPrice) + (($cTokens / 1000) * $completionPrice), 2);
+        }
+
+        // Websites do usuário
+        $websiteModel = new \App\Models\WebsiteModel();
+        $userWebsites = $websiteModel
+            ->select('id, name, url, environment, is_connected, created_at')
+            ->where('user_id', (int)$id)
+            ->orderBy('name', 'ASC')
+            ->findAll();
+
+        foreach ($userWebsites as &$w) {
+            $w['id'] = (int)$w['id'];
+            $w['is_connected'] = (int)$w['is_connected'];
+        }
+
+        // Catálogo de planos disponíveis para o admin selecionar
+        $planModel = new \App\Models\PlanModel();
+        $availablePlans = $planModel->where('is_active', 1)->orderBy('sort_order', 'ASC')->findAll();
+        foreach ($availablePlans as &$p) {
+            $p['id'] = (int)$p['id'];
+            $p['max_websites'] = $p['max_websites'] !== null ? (int)$p['max_websites'] : null;
+            $p['ai_monthly_tokens'] = (int)$p['ai_monthly_tokens'];
+            $p['price_monthly'] = (float)$p['price_monthly'];
+        }
+
+        return $this->respond([
+            'status'                        => 200,
+            'plan_details'                  => $planDetails,
+            'available_plans'               => $availablePlans,
+            'websites'                      => $userWebsites,
+            'metrics'                       => $stats,
+            'month_stats'                   => $monthStats,
+            'token_price_per_1k'            => $basePrice,
+            'prompt_token_price_per_1k'     => $promptPrice,
+            'completion_token_price_per_1k' => $completionPrice,
+            'current_month_cost'            => $currentMonthCost,
+            'total_cost'                    => $totalCost,
+            'monthly_history'               => $monthlyHistory,
+        ]);
+    }
+
+    /**
+     * PUT /api/users/(:num)/plan
+     * Atualiza o plano, add-ons (sites + IA com valores extras) e limites do usuário
+     */
+    public function updatePlan($id = null)
+    {
+        $userData = $this->request->userData ?? null;
+        if (($userData->role ?? 'user') !== 'admin') {
+            return $this->failForbidden('Acesso restrito a administradores.');
+        }
+
+        if (!$id) {
+            return $this->fail('ID do usuário não informado.', 400);
+        }
+
+        $userModel = new UserModel();
+        $user = $userModel->find($id);
+
+        if (!$user) {
+            return $this->failNotFound('Usuário não encontrado.');
+        }
+
+        $json = $this->request->getJSON(true) ?? $this->request->getRawInput();
+
+        $dataToUpdate = [];
+
+        // 1. Plano Base
+        if (array_key_exists('plan_id', $json)) {
+            $dataToUpdate['plan_id'] = (!empty($json['plan_id']) && $json['plan_id'] !== 'custom') ? (int)$json['plan_id'] : null;
+        }
+
+        // 2. Add-ons de Websites
+        if (array_key_exists('extra_websites', $json)) {
+            $dataToUpdate['extra_websites'] = max(0, (int)$json['extra_websites']);
+        }
+        if (array_key_exists('extra_websites_price', $json)) {
+            $dataToUpdate['extra_websites_price'] = max(0, (float)$json['extra_websites_price']);
+        }
+
+        // 3. Add-ons de IA
+        if (array_key_exists('extra_ai_tokens', $json)) {
+            $dataToUpdate['extra_ai_tokens'] = max(0, (int)$json['extra_ai_tokens']);
+        }
+        if (array_key_exists('extra_ai_tokens_price', $json)) {
+            $dataToUpdate['extra_ai_tokens_price'] = max(0, (float)$json['extra_ai_tokens_price']);
+        }
+
+        // 4. Overrides / Modo Personalizado
+        if (array_key_exists('custom_price_monthly', $json)) {
+            $val = $json['custom_price_monthly'];
+            $dataToUpdate['custom_price_monthly'] = ($val !== null && $val !== '') ? max(0, (float)$val) : null;
+        }
+        if (array_key_exists('custom_max_websites', $json)) {
+            $val = $json['custom_max_websites'];
+            $dataToUpdate['custom_max_websites'] = ($val !== null && $val !== '' && $val !== 'unlimited') ? max(1, (int)$val) : null;
+        }
+        if (array_key_exists('custom_ai_token_limit', $json)) {
+            $val = $json['custom_ai_token_limit'];
+            $dataToUpdate['custom_ai_token_limit'] = ($val !== null && $val !== '') ? max(0, (int)$val) : null;
+            // Sincronizar com ai_monthly_token_limit legado
+            $dataToUpdate['ai_monthly_token_limit'] = $dataToUpdate['custom_ai_token_limit'];
+        }
+
+        // 5. IA Enabled Toggle
+        if (isset($json['ai_enabled'])) {
+            $dataToUpdate['ai_enabled'] = !empty($json['ai_enabled']) ? 1 : 0;
+        }
+
+        if (!empty($dataToUpdate)) {
+            $userModel->update($id, $dataToUpdate);
+        }
+
+        $details = \App\Services\UserPlanService::getUserPlanDetails((int)$id);
+
+        return $this->respond([
+            'status'  => 200,
+            'message' => 'Plano e limites do usuário atualizados com sucesso.',
+            'data'    => $details,
         ]);
     }
 }

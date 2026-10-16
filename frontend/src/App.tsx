@@ -32,7 +32,7 @@ import { SolutionCatalogView } from './components/SolutionCatalogView';
 import { SettingsView } from './components/SettingsView';
 import { WebsiteDashboardView } from './components/WebsiteDashboardView';
 import { PublicActivityLogsView } from './components/PublicActivityLogsView';
-import { UserAiManagementView } from './components/UserAiManagementView';
+import { UserPlanManagementView } from './components/UserPlanManagementView';
 import { GlobalAiMonitoringView } from './components/GlobalAiMonitoringView';
 import { getDocsUrl } from './api';
 
@@ -360,7 +360,7 @@ export default function App() {
               }}
             />
           ) : viewMode === 'user-ai-view' ? (
-            <UserAiManagementView
+            <UserPlanManagementView
               user={impersonatedUser || user}
               onBack={() => {
                 setSelectedAiUser(null);
@@ -369,7 +369,7 @@ export default function App() {
               readOnly={true}
             />
           ) : viewMode === 'user-ai' && selectedAiUser && isAdmin && !impersonatedUser ? (
-            <UserAiManagementView
+            <UserPlanManagementView
               user={selectedAiUser}
               onBack={() => {
                 setSelectedAiUser(null);

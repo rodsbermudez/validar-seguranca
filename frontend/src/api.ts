@@ -521,6 +521,7 @@ export interface DashboardOverviewResponse {
     year_month: string;
     year_month_label: string;
     metrics: DashboardMetrics;
+    plan_details?: UserPlanDetails;
     ai_usage?: DashboardAiUsage;
     maintenances: DashboardMaintenanceTask[];
     security_radar: DashboardSecurityRadarItem[];
@@ -903,3 +904,126 @@ export const getGlobalAiLogs = async (params?: {
   const response = await api.get<GlobalAiLogsResponse>('/ai-monitoring/logs', { params });
   return response.data;
 };
+
+// ==========================================
+// Plans & Packages Catalog & User Quotas API
+// ==========================================
+
+export interface Plan {
+  id: number;
+  name: string;
+  slug: string;
+  description?: string;
+  max_websites: number | null; // null = Sites Ilimitados
+  ai_monthly_tokens: number; // Teto estrito de tokens (sem ilimitado)
+  price_monthly: number; // Valor da assinatura em R$
+  is_active: number;
+  is_default: number;
+  sort_order: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface UserPlanDetails {
+  user_id: number;
+  user_name: string;
+  user_email: string;
+  is_admin: boolean;
+  plan_id: number | null;
+  plan?: Plan | null;
+  plan_name: string;
+  ai_enabled: number;
+  base_max_websites: number | null;
+  extra_websites: number;
+  extra_websites_price: number;
+  custom_max_websites: number | null;
+  effective_max_websites: number | null;
+  is_websites_unlimited: boolean;
+  websites_count: number;
+  websites_remaining: number | null;
+  is_websites_limit_reached: boolean;
+  base_ai_tokens: number;
+  extra_ai_tokens: number;
+  extra_ai_tokens_price: number;
+  custom_ai_token_limit: number | null;
+  effective_ai_token_limit: number;
+  base_price: number;
+  custom_price_monthly: number | null;
+  total_monthly_price: number;
+}
+
+export interface UserPlanResponse {
+  status: number;
+  plan_details: UserPlanDetails;
+  available_plans: Plan[];
+  websites: Array<{
+    id: number;
+    name: string;
+    url: string;
+    environment: string;
+    is_connected: number;
+    created_at?: string;
+  }>;
+  metrics: UserAiMetrics;
+  month_stats: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+    total_requests: number;
+  };
+  token_price_per_1k: number;
+  prompt_token_price_per_1k: number;
+  completion_token_price_per_1k: number;
+  current_month_cost: number;
+  total_cost: number;
+  monthly_history: MonthlyAiHistoryItem[];
+}
+
+export interface UpdateUserPlanPayload {
+  plan_id?: number | null | string;
+  extra_websites?: number;
+  extra_websites_price?: number;
+  extra_ai_tokens?: number;
+  extra_ai_tokens_price?: number;
+  custom_price_monthly?: number | null | string;
+  custom_max_websites?: number | null | string;
+  custom_ai_token_limit?: number | null | string;
+  ai_enabled?: boolean | number;
+}
+
+export const getPlans = async (): Promise<{ status: number; data: Plan[] }> => {
+  const response = await api.get('/plans');
+  return response.data;
+};
+
+export const createPlan = async (payload: Partial<Plan>): Promise<{ status: number; message: string; data: Plan }> => {
+  const response = await api.post('/plans', payload);
+  return response.data;
+};
+
+export const updatePlan = async (
+  id: number,
+  payload: Partial<Plan>
+): Promise<{ status: number; message: string; data: Plan }> => {
+  const response = await api.put(`/plans/${id}`, payload);
+  return response.data;
+};
+
+export const deletePlan = async (id: number): Promise<{ status: number; message: string }> => {
+  const response = await api.delete(`/plans/${id}`);
+  return response.data;
+};
+
+export const getUserPlanDetails = async (userId: number): Promise<UserPlanResponse> => {
+  const response = await api.get<UserPlanResponse>(`/users/${userId}/plan`);
+  return response.data;
+};
+
+export const updateUserPlan = async (
+  userId: number,
+  payload: UpdateUserPlanPayload
+): Promise<{ status: number; message: string; data: UserPlanDetails }> => {
+  const response = await api.put(`/users/${userId}/plan`, payload);
+  return response.data;
+};
+

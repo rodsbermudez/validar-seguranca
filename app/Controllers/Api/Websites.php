@@ -60,7 +60,14 @@ class Websites extends ResourceController
             }
         }
 
-        $effectiveUserId = $this->request->effectiveUserId ?? ($this->request->userData->id ?? null);
+        $effectiveUserId = (int)($this->request->effectiveUserId ?? ($this->request->userData->id ?? 0));
+
+        // Validar limite de websites do plano
+        $canAdd = \App\Services\UserPlanService::canUserAddWebsite($effectiveUserId);
+        if (!$canAdd['allowed']) {
+            return $this->failForbidden($canAdd['reason']);
+        }
+
         $agentToken      = bin2hex(random_bytes(16));
 
         $maintenanceDay = isset($json['maintenance_day']) && $json['maintenance_day'] !== '' ? (int)$json['maintenance_day'] : null;

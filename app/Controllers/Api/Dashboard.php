@@ -222,9 +222,8 @@ class Dashboard extends ResourceController
         $averageScore = count($scores) > 0 ? (int)round(array_sum($scores) / count($scores)) : null;
         $progressPercent = $totalScheduled > 0 ? (int)round(($completedCount / $totalScheduled) * 100) : 0;
 
-        // Consumo e Cota de IA Contratada do Usuário
-        $userModel = new \App\Models\UserModel();
-        $userRecord = $effectiveUserId ? $userModel->select('id, name, email, role, ai_enabled, ai_monthly_token_limit')->find($effectiveUserId) : null;
+        // Consumo, Cota de IA e Detalhes do Plano do Usuário
+        $planDetails = $effectiveUserId ? \App\Services\UserPlanService::getUserPlanDetails($effectiveUserId) : null;
 
         $aiLogModel      = new \App\Models\AiUsageLogModel();
         $basePrice       = (float) \App\Models\SettingsModel::getSetting('ai_token_price_per_1k', '0.00');
@@ -238,14 +237,12 @@ class Dashboard extends ResourceController
             'total_requests'    => 0,
         ];
 
-        $aiEnabled = isset($userRecord['ai_enabled']) ? (int) $userRecord['ai_enabled'] : 1;
-        $aiMonthlyTokenLimit = isset($userRecord['ai_monthly_token_limit']) && $userRecord['ai_monthly_token_limit'] !== null
-            ? (int) $userRecord['ai_monthly_token_limit']
-            : null;
-        $isUnlimited = ($aiMonthlyTokenLimit === null || $aiMonthlyTokenLimit <= 0);
+        $aiEnabled = $planDetails ? (int)$planDetails['ai_enabled'] : 1;
+        $aiMonthlyTokenLimit = $planDetails ? (int)$planDetails['effective_ai_token_limit'] : 250000;
+        $isUnlimited = false; // Regra de segurança: IA nunca é ilimitada
         $usedTokens = (int) $monthStats['total_tokens'];
-        $percentUsed = $isUnlimited ? 0 : min(100, (int) round(($usedTokens / $aiMonthlyTokenLimit) * 100));
-        $tokensRemaining = $isUnlimited ? null : max(0, $aiMonthlyTokenLimit - $usedTokens);
+        $percentUsed = $aiMonthlyTokenLimit > 0 ? min(100, (int) round(($usedTokens / $aiMonthlyTokenLimit) * 100)) : 100;
+        $tokensRemaining = max(0, $aiMonthlyTokenLimit - $usedTokens);
         $estimatedCost = round((($monthStats['prompt_tokens'] / 1000) * $promptPrice) + (($monthStats['completion_tokens'] / 1000) * $completionPrice), 2);
 
         $aiUsage = [
@@ -278,6 +275,7 @@ class Dashboard extends ResourceController
                     'progress_percent'    => $progressPercent,
                     'urgent_tasks_count'  => $overdueCount + $todayCount,
                 ],
+                'plan_details'     => $planDetails,
                 'ai_usage'         => $aiUsage,
                 'maintenances'     => $maintenanceTasks,
                 'security_radar'   => $securityRadar,

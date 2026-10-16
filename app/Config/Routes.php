@@ -69,6 +69,12 @@ $routes->group('api', function ($routes) {
         $routes->post('scan/trigger/(:num)', 'Api\Scan::trigger/$1');
         $routes->get('scan/history/(:num)', 'Api\Scan::history/$1');
 
+        // Plans Catalog routes
+        $routes->get('plans', 'Api\Plans::index');
+        $routes->post('plans', 'Api\Plans::create');
+        $routes->put('plans/(:num)', 'Api\Plans::update/$1');
+        $routes->delete('plans/(:num)', 'Api\Plans::delete/$1');
+
         // User management routes (Admin)
         $routes->get('users', 'Api\Users::index');
         $routes->post('users', 'Api\Users::create');
@@ -77,6 +83,8 @@ $routes->group('api', function ($routes) {
         $routes->delete('users/(:num)', 'Api\Users::delete/$1');
         $routes->get('users/(:num)/ai-metrics', 'Api\Users::aiMetrics/$1');
         $routes->put('users/(:num)/ai-limits', 'Api\Users::updateAiLimits/$1');
+        $routes->get('users/(:num)/plan', 'Api\Users::planDetails/$1');
+        $routes->put('users/(:num)/plan', 'Api\Users::updatePlan/$1');
         $routes->get('users/(:num)/ai-logs', 'Api\Users::aiLogs/$1');
 
         // Solution Catalog routes (Admin)
