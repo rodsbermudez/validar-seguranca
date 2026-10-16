@@ -23,6 +23,7 @@ import {
   IconLayoutDashboard,
   IconChevronDown,
   IconBrain,
+  IconPackage,
 } from '@tabler/icons-react';
 import { LoginView } from './components/LoginView';
 import { OverviewDashboardView } from './components/OverviewDashboardView';
@@ -281,15 +282,15 @@ export default function App() {
 
               <Button
                 variant={viewMode === 'user-ai-view' ? 'light' : 'subtle'}
-                color="violet"
-                leftSection={<IconBrain size={16} />}
+                color="indigo"
+                leftSection={<IconPackage size={16} />}
                 onClick={() => {
                   setSelectedWebsite(null);
                   setSelectedAiUser(impersonatedUser || user);
                   setViewMode('user-ai-view');
                 }}
               >
-                Consumo de IA
+                Gestão do Plano
               </Button>
 
               <Button

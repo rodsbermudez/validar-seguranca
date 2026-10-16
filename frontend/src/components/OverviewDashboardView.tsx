@@ -529,16 +529,6 @@ export const OverviewDashboardView: React.FC<OverviewDashboardViewProps> = ({
             </Group>
 
             <Group gap="md">
-              {aiUsage && aiUsage.estimated_cost !== undefined && aiUsage.estimated_cost > 0 && (
-                <div>
-                  <Text size="11px" c="dimmed" ta="right">
-                    Custo IA ({data?.year_month_label?.split(' ')[0] || 'Mês'})
-                  </Text>
-                  <Text size="xs" fw={700} c="teal.4" ta="right">
-                    {aiUsage.estimated_cost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                  </Text>
-                </div>
-              )}
               {onNavigateToAiUsage && (
                 <Button
                   variant="subtle"

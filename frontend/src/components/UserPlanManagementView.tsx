@@ -274,7 +274,13 @@ export function UserPlanManagementView({
             <div>
               <Group gap="xs" align="center">
                 <Title order={3}>
-                  Gestão do Plano: <span style={{ color: '#818cf8' }}>{initialUser.name}</span>
+                  {readOnly ? (
+                    'Gestão do Plano'
+                  ) : (
+                    <>
+                      Gestão do Plano: <span style={{ color: '#818cf8' }}>{initialUser.name}</span>
+                    </>
+                  )}
                 </Title>
                 <Badge
                   color={
@@ -297,9 +303,15 @@ export function UserPlanManagementView({
                   </Badge>
                 )}
               </Group>
-              <Text c="dimmed" size="xs" mt={2}>
-                {initialUser.email} • Controle unificado de sites contratados, cotas de IA, add-ons e faturamento.
-              </Text>
+              {readOnly ? (
+                <Text c="dimmed" size="xs" mt={2}>
+                  Acompanhamento de websites, cotas de inteligência artificial e recursos do seu plano.
+                </Text>
+              ) : (
+                <Text c="dimmed" size="xs" mt={2}>
+                  {initialUser.email} • Controle unificado de sites contratados, cotas de IA, add-ons e faturamento.
+                </Text>
+              )}
             </div>
           </Group>
 
@@ -374,23 +386,27 @@ export function UserPlanManagementView({
                   </Text>
                 </Group>
               )}
-              <Divider my={4} color="dark.6" />
-              <Group justify="space-between">
-                <Text size="xs" c="dimmed">
-                  Custo IA no Mês:
-                </Text>
-                <Text size="xs" fw={600} c="orange.4">
-                  ~ {formatMoney(currentAiCost)}
-                </Text>
-              </Group>
-              <Group justify="space-between">
-                <Text size="xs" c="teal.4" fw={700}>
-                  Margem Líquida Est.:
-                </Text>
-                <Text size="xs" fw={700} c="teal.4">
-                  {formatMoney(grossProfit)} ({profitMarginPercent}%)
-                </Text>
-              </Group>
+              {!readOnly && (
+                <>
+                  <Divider my={4} color="dark.6" />
+                  <Group justify="space-between">
+                    <Text size="xs" c="dimmed">
+                      Custo IA no Mês:
+                    </Text>
+                    <Text size="xs" fw={600} c="orange.4">
+                      ~ {formatMoney(currentAiCost)}
+                    </Text>
+                  </Group>
+                  <Group justify="space-between">
+                    <Text size="xs" c="teal.4" fw={700}>
+                      Margem Líquida Est.:
+                    </Text>
+                    <Text size="xs" fw={700} c="teal.4">
+                      {formatMoney(grossProfit)} ({profitMarginPercent}%)
+                    </Text>
+                  </Group>
+                </>
+              )}
             </Stack>
           </Card>
         </Grid.Col>
@@ -815,7 +831,7 @@ export function UserPlanManagementView({
               <Title order={4}>Histórico Mensal de Consumo de IA</Title>
             </Group>
             <Text c="dimmed" size="xs" mt={2}>
-              Consolidação mês a mês (janeiro, fevereiro, março...) mantida permanentemente para auditoria e controle de margem.
+              Consolidação mês a mês (janeiro, fevereiro, março...) do consumo de tokens de inteligência artificial.
             </Text>
           </div>
         </Group>
@@ -828,7 +844,6 @@ export function UserPlanManagementView({
               <Table.Th>Tokens de Entrada (Prompt)</Table.Th>
               <Table.Th>Tokens de Saída (Completion)</Table.Th>
               <Table.Th>Total de Tokens</Table.Th>
-              <Table.Th>Custo Estimado da IA</Table.Th>
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
@@ -844,16 +859,11 @@ export function UserPlanManagementView({
                   <Table.Td>{formatTokens(row.prompt_tokens)}</Table.Td>
                   <Table.Td>{formatTokens(row.completion_tokens)}</Table.Td>
                   <Table.Td fw={700}>{formatTokens(row.total_tokens)}</Table.Td>
-                  <Table.Td>
-                    <Text fw={600} size="sm" c="teal.4">
-                      {formatMoney(row.estimated_cost)}
-                    </Text>
-                  </Table.Td>
                 </Table.Tr>
               ))
             ) : (
               <Table.Tr>
-                <Table.Td colSpan={6} align="center">
+                <Table.Td colSpan={5} align="center">
                   Nenhum registro de uso de IA encontrado para este usuário.
                 </Table.Td>
               </Table.Tr>
