@@ -51,6 +51,34 @@ class AiUsageLogModel extends Model
     }
 
     /**
+     * Get detailed prompt and completion token stats for user in a month.
+     */
+    public function getUserMonthlyTokenStats(int $userId, ?string $monthStart = null, ?string $monthEnd = null): array
+    {
+        $start = $monthStart ?? date('Y-m-01 00:00:00');
+        $end   = $monthEnd ?? date('Y-m-t 23:59:59');
+
+        $result = $this->select('
+                SUM(prompt_tokens) as prompt_tokens,
+                SUM(completion_tokens) as completion_tokens,
+                SUM(total_tokens) as total_tokens,
+                COUNT(*) as total_requests
+            ')
+            ->where('user_id', $userId)
+            ->where('status', 'success')
+            ->where('created_at >=', $start)
+            ->where('created_at <=', $end)
+            ->first();
+
+        return [
+            'prompt_tokens'     => (int) ($result['prompt_tokens'] ?? 0),
+            'completion_tokens' => (int) ($result['completion_tokens'] ?? 0),
+            'total_tokens'      => (int) ($result['total_tokens'] ?? 0),
+            'total_requests'    => (int) ($result['total_requests'] ?? 0),
+        ];
+    }
+
+    /**
      * Get aggregate statistics for a user.
      */
     public function getUserStats(int $userId): array

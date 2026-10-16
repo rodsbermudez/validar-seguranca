@@ -116,6 +116,8 @@ export interface PlatformSettingsResponse {
   success: boolean;
   active_ai_model: string;
   token_price_per_1k?: number;
+  prompt_token_price_per_1k?: number;
+  completion_token_price_per_1k?: number;
   has_api_key: boolean;
   available_models: AIModelOption[];
   message?: string;
@@ -128,11 +130,15 @@ export const getSettings = async (): Promise<PlatformSettingsResponse> => {
 
 export const updateSettings = async (
   aiModel?: string,
-  tokenPricePer1k?: number
+  tokenPricePer1k?: number,
+  promptTokenPricePer1k?: number,
+  completionTokenPricePer1k?: number
 ): Promise<PlatformSettingsResponse> => {
   const payload: Record<string, any> = {};
   if (aiModel !== undefined) payload.ai_model = aiModel;
   if (tokenPricePer1k !== undefined) payload.token_price_per_1k = tokenPricePer1k;
+  if (promptTokenPricePer1k !== undefined) payload.prompt_token_price_per_1k = promptTokenPricePer1k;
+  if (completionTokenPricePer1k !== undefined) payload.completion_token_price_per_1k = completionTokenPricePer1k;
   const response = await api.post<PlatformSettingsResponse>('/settings', payload);
   return response.data;
 };
@@ -726,6 +732,8 @@ export interface MonthlyAiHistoryItem {
   total_tokens: number;
   prompt_tokens: number;
   completion_tokens: number;
+  prompt_cost?: number;
+  completion_cost?: number;
   estimated_cost: number;
 }
 
@@ -774,6 +782,8 @@ export interface GlobalAiMetricsResponse {
   status: number;
   selected_month: string;
   token_price_per_1k: number;
+  prompt_token_price_per_1k: number;
+  completion_token_price_per_1k: number;
   month_metrics: {
     total_requests: number;
     successful_requests: number;
@@ -782,6 +792,8 @@ export interface GlobalAiMetricsResponse {
     total_completion_tokens: number;
     total_tokens: number;
     avg_duration_ms: number;
+    prompt_cost?: number;
+    completion_cost?: number;
     estimated_cost: number;
   };
   all_time_metrics: {
@@ -792,6 +804,8 @@ export interface GlobalAiMetricsResponse {
     total_completion_tokens: number;
     total_tokens: number;
     avg_duration_ms: number;
+    prompt_cost?: number;
+    completion_cost?: number;
     estimated_cost: number;
   };
   monthly_history: MonthlyAiHistoryItem[];
@@ -799,12 +813,20 @@ export interface GlobalAiMetricsResponse {
     action_type: string;
     count: number;
     tokens: number;
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    prompt_cost?: number;
+    completion_cost?: number;
     estimated_cost: number;
   }>;
   by_action_all_time: Array<{
     action_type: string;
     count: number;
     tokens: number;
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    prompt_cost?: number;
+    completion_cost?: number;
     estimated_cost: number;
   }>;
   users_summary: Array<{
@@ -816,6 +838,10 @@ export interface GlobalAiMetricsResponse {
     ai_enabled: number;
     ai_monthly_token_limit: number | null;
     month_tokens: number;
+    prompt_tokens_month?: number;
+    completion_tokens_month?: number;
+    prompt_cost_month?: number;
+    completion_cost_month?: number;
     all_time_tokens: number;
     total_requests: number;
     usage_percent: number | null;
@@ -840,6 +866,8 @@ export interface GlobalAiMetricsResponse {
 export interface GlobalAiLogItem extends AiUsageLogItem {
   user_name?: string;
   user_email?: string;
+  prompt_cost?: number;
+  completion_cost?: number;
   estimated_cost: number;
 }
 
@@ -850,6 +878,8 @@ export interface GlobalAiLogsResponse {
   total: number;
   total_pages: number;
   token_price_per_1k: number;
+  prompt_token_price_per_1k?: number;
+  completion_token_price_per_1k?: number;
   data: GlobalAiLogItem[];
 }
 

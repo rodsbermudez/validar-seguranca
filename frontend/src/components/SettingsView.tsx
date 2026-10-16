@@ -42,6 +42,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onBack, currentUserR
   const [saving, setSaving] = useState<boolean>(false);
   const [activeModel, setActiveModel] = useState<string>('kimi-k2.7-code');
   const [tokenPrice, setTokenPrice] = useState<number | string>(0);
+  const [promptTokenPrice, setPromptTokenPrice] = useState<number | string>(0);
+  const [completionTokenPrice, setCompletionTokenPrice] = useState<number | string>(0);
   const [hasApiKey, setHasApiKey] = useState<boolean>(true);
   const [availableModels, setAvailableModels] = useState<AIModelOption[]>([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -54,7 +56,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onBack, currentUserR
       const res = await getSettings();
       if (res.success) {
         setActiveModel(res.active_ai_model || 'kimi-k2.7-code');
-        setTokenPrice(res.token_price_per_1k ?? 0);
+        const base = res.token_price_per_1k ?? 0;
+        const pPrice = res.prompt_token_price_per_1k !== undefined ? res.prompt_token_price_per_1k : base;
+        const cPrice = res.completion_token_price_per_1k !== undefined ? res.completion_token_price_per_1k : base;
+        setTokenPrice(base);
+        setPromptTokenPrice(pPrice);
+        setCompletionTokenPrice(cPrice);
         setHasApiKey(res.has_api_key);
         setAvailableModels(res.available_models || []);
       } else {
@@ -76,7 +83,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onBack, currentUserR
     setErrorMsg(null);
     setSuccessMsg(null);
     try {
-      const res = await updateSettings(activeModel, Number(tokenPrice) || 0);
+      const pPrice = Number(promptTokenPrice) || 0;
+      const cPrice = Number(completionTokenPrice) || 0;
+      const avg = Number(tokenPrice) || ((pPrice + cPrice) / 2);
+      const res = await updateSettings(activeModel, avg, pPrice, cPrice);
       if (res.success) {
         setSuccessMsg(res.message || 'Configurações de IA e precificação atualizadas com sucesso para toda a plataforma!');
       } else {
@@ -258,75 +268,125 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onBack, currentUserR
 
           {/* AI Token Pricing Section */}
           <Paper p="lg" radius="md" withBorder>
-            <Group justify="space-between" mb="md">
+            <Group justify="space-between" mb="md" wrap="wrap">
               <div>
                 <Group gap="xs">
                   <IconCoins size={20} color="var(--mantine-color-teal-4)" />
                   <Text fw={700} size="lg">
-                    Precificação e Custo por Tokens (Cobrança)
+                    Precificação Discriminada de Tokens (Entrada vs. Saída)
                   </Text>
                 </Group>
                 <Text size="xs" c="dimmed" mt={2}>
-                  Defina o valor cobrado por mil (1.000) tokens de IA consumidos. O sistema calcula automaticamente o consumo mensal de cada usuário e exibe as estimativas financeiras em R$.
+                  Defina os custos por mil (1.000) tokens para entrada (prompt) e saída (respostas). O sistema calcula os custos administrativos exatos com base nos volumes reais gerados por cada usuário e website.
                 </Text>
               </div>
-              <Badge color="teal" variant="light" size="lg">
-                Faturamento & Repasse
-              </Badge>
+              <Group gap="xs">
+                <Badge color="blue" variant="light" size="sm">
+                  Entrada (Prompt)
+                </Badge>
+                <Badge color="violet" variant="light" size="sm">
+                  Saída (Completion)
+                </Badge>
+              </Group>
             </Group>
 
             <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
-              <Stack gap="xs">
-                <NumberInput
-                  label="Valor por 1.000 Tokens (R$)"
-                  description="Ex: 0,05 significa R$ 0,05 a cada 1k tokens (ou R$ 5,00 por 100k tokens)."
-                  placeholder="0.05"
-                  min={0}
-                  step={0.01}
-                  decimalScale={4}
-                  fixedDecimalScale
-                  prefix="R$ "
-                  thousandSeparator="."
-                  decimalSeparator=","
-                  value={tokenPrice}
-                  onChange={(val) => setTokenPrice(val)}
-                  style={{ maxWidth: 320 }}
-                />
+              <Stack gap="md">
+                <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
+                  <NumberInput
+                    label="Tokens de Entrada (Prompt)"
+                    description="Custo a cada 1k tokens de instruções/contexto."
+                    placeholder="0.015"
+                    min={0}
+                    step={0.005}
+                    decimalScale={4}
+                    fixedDecimalScale
+                    prefix="R$ "
+                    thousandSeparator="."
+                    decimalSeparator=","
+                    value={promptTokenPrice}
+                    onChange={(val) => {
+                      setPromptTokenPrice(val);
+                      const p = Number(val) || 0;
+                      const c = Number(completionTokenPrice) || 0;
+                      setTokenPrice(Number(((p + c) / 2).toFixed(4)));
+                    }}
+                  />
+
+                  <NumberInput
+                    label="Tokens de Saída (Respostas)"
+                    description="Custo a cada 1k tokens gerados pela IA."
+                    placeholder="0.060"
+                    min={0}
+                    step={0.005}
+                    decimalScale={4}
+                    fixedDecimalScale
+                    prefix="R$ "
+                    thousandSeparator="."
+                    decimalSeparator=","
+                    value={completionTokenPrice}
+                    onChange={(val) => {
+                      setCompletionTokenPrice(val);
+                      const p = Number(promptTokenPrice) || 0;
+                      const c = Number(val) || 0;
+                      setTokenPrice(Number(((p + c) / 2).toFixed(4)));
+                    }}
+                  />
+                </SimpleGrid>
+
+                <Paper p="xs" radius="sm" bg="dark.8" withBorder style={{ borderColor: '#374151' }}>
+                  <Group justify="space-between" align="center">
+                    <div>
+                      <Text size="xs" fw={600} c="gray.3">
+                        Valor Médio de Referência (Clientes)
+                      </Text>
+                      <Text size="11px" c="dimmed">
+                        Preço médio exibido de forma simplificada na interface do usuário.
+                      </Text>
+                    </div>
+                    <Badge color="teal" size="md" variant="filled">
+                      {Number(tokenPrice || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} / 1k
+                    </Badge>
+                  </Group>
+                </Paper>
 
                 <Text size="xs" c="dimmed">
-                  <b>Nota sobre histórico:</b> O consumo de tokens é particionado mês a mês (jan/fev/mar...) e mantido permanentemente no banco de dados para consulta retroativa e auditoria de faturamento.
+                  <b>Nota técnica:</b> Provedores de LLM costumam cobrar um valor superior para tokens de saída devido ao alto custo computacional na geração de código e respostas. Nos relatórios administrativos, a discriminação é mantida 100% auditável.
                 </Text>
               </Stack>
 
               <Paper p="md" radius="md" bg="dark.8" withBorder style={{ borderColor: '#374151' }}>
-                <Text size="xs" fw={700} c="dimmed" mb="xs" tt="uppercase">
-                  Simulação de Cobrança (Mês)
-                </Text>
+                <Group justify="space-between" mb="xs">
+                  <Text size="xs" fw={700} c="dimmed" tt="uppercase">
+                    Simulação de Custo Real Ponderado
+                  </Text>
+                  <Badge size="xs" color="gray" variant="outline">
+                    Padrão: ~75% Prompt / 25% Saída
+                  </Badge>
+                </Group>
                 <SimpleGrid cols={2} spacing="xs">
-                  <Paper p="xs" radius="sm" bg="dark.7">
-                    <Text size="11px" c="dimmed">250.000 tokens (Básico):</Text>
-                    <Text size="sm" fw={700} c="teal.4">
-                      {((250000 / 1000) * (Number(tokenPrice) || 0)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                    </Text>
-                  </Paper>
-                  <Paper p="xs" radius="sm" bg="dark.7">
-                    <Text size="11px" c="dimmed">500.000 tokens (Médio):</Text>
-                    <Text size="sm" fw={700} c="teal.4">
-                      {((500000 / 1000) * (Number(tokenPrice) || 0)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                    </Text>
-                  </Paper>
-                  <Paper p="xs" radius="sm" bg="dark.7">
-                    <Text size="11px" c="dimmed">1.000.000 tokens (1M):</Text>
-                    <Text size="sm" fw={700} c="teal.4">
-                      {((1000000 / 1000) * (Number(tokenPrice) || 0)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                    </Text>
-                  </Paper>
-                  <Paper p="xs" radius="sm" bg="dark.7">
-                    <Text size="11px" c="dimmed">2.000.000 tokens (2M):</Text>
-                    <Text size="sm" fw={700} c="teal.4">
-                      {((2000000 / 1000) * (Number(tokenPrice) || 0)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                    </Text>
-                  </Paper>
+                  {[250000, 500000, 1000000, 2000000].map((tier) => {
+                    const pToks = tier * 0.75;
+                    const cToks = tier * 0.25;
+                    const pC = (pToks / 1000) * (Number(promptTokenPrice) || 0);
+                    const cC = (cToks / 1000) * (Number(completionTokenPrice) || 0);
+                    const totalCost = pC + cC;
+                    const label = tier >= 1000000 ? `${tier / 1000000}M` : `${tier / 1000}k`;
+
+                    return (
+                      <Paper key={tier} p="xs" radius="sm" bg="dark.7">
+                        <Text size="11px" c="dimmed" fw={600}>
+                          {label} tokens ({tier.toLocaleString('pt-BR')}):
+                        </Text>
+                        <Text size="sm" fw={700} c="teal.4">
+                          {totalCost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                        </Text>
+                        <Text size="10px" c="dimmed">
+                          Entrada: {pC.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} | Saída: {cC.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                        </Text>
+                      </Paper>
+                    );
+                  })}
                 </SimpleGrid>
               </Paper>
             </SimpleGrid>

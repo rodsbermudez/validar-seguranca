@@ -259,29 +259,34 @@ class Users extends ResourceController
         $user['ai_enabled'] = isset($user['ai_enabled']) ? (int) $user['ai_enabled'] : 1;
         $user['ai_monthly_token_limit'] = $user['ai_monthly_token_limit'] !== null ? (int) $user['ai_monthly_token_limit'] : null;
 
-        $pricePer1k = (float) \App\Models\SettingsModel::getSetting('ai_token_price_per_1k', '0.00');
-        $logModel = new \App\Models\AiUsageLogModel();
-        $stats = $logModel->getUserStats((int) $id);
+        $basePrice       = (float) \App\Models\SettingsModel::getSetting('ai_token_price_per_1k', '0.00');
+        $promptPrice     = (float) \App\Models\SettingsModel::getSetting('ai_prompt_token_price_per_1k', $basePrice > 0 ? (string)$basePrice : '0.00');
+        $completionPrice = (float) \App\Models\SettingsModel::getSetting('ai_completion_token_price_per_1k', $basePrice > 0 ? (string)$basePrice : '0.00');
+
+        $logModel       = new \App\Models\AiUsageLogModel();
+        $stats          = $logModel->getUserStats((int) $id);
+        $monthStats     = $logModel->getUserMonthlyTokenStats((int) $id);
         $monthlyHistory = $logModel->getUserMonthlyHistory((int) $id);
 
-        $currentMonthTokens = $stats['current_month_tokens'] ?? 0;
-        $totalTokens = $stats['total_tokens'] ?? 0;
-        $currentMonthCost = round(($currentMonthTokens / 1000) * $pricePer1k, 2);
-        $totalCost = round(($totalTokens / 1000) * $pricePer1k, 2);
+        $currentMonthCost = round((($monthStats['prompt_tokens'] / 1000) * $promptPrice) + (($monthStats['completion_tokens'] / 1000) * $completionPrice), 2);
+        $totalCost        = round((($stats['total_prompt_tokens'] / 1000) * $promptPrice) + (($stats['total_completion_tokens'] / 1000) * $completionPrice), 2);
 
         foreach ($monthlyHistory as &$historyItem) {
-            $hTokens = $historyItem['total_tokens'] ?? 0;
-            $historyItem['estimated_cost'] = round(($hTokens / 1000) * $pricePer1k, 2);
+            $pTokens = (int) ($historyItem['prompt_tokens'] ?? 0);
+            $cTokens = (int) ($historyItem['completion_tokens'] ?? 0);
+            $historyItem['estimated_cost'] = round((($pTokens / 1000) * $promptPrice) + (($cTokens / 1000) * $completionPrice), 2);
         }
 
         return $this->respond([
-            'status'             => 200,
-            'user'               => $user,
-            'metrics'            => $stats,
-            'token_price_per_1k' => $pricePer1k,
-            'current_month_cost' => $currentMonthCost,
-            'total_cost'         => $totalCost,
-            'monthly_history'    => $monthlyHistory,
+            'status'                        => 200,
+            'user'                          => $user,
+            'metrics'                       => $stats,
+            'token_price_per_1k'            => $basePrice,
+            'prompt_token_price_per_1k'     => $promptPrice,
+            'completion_token_price_per_1k' => $completionPrice,
+            'current_month_cost'            => $currentMonthCost,
+            'total_cost'                    => $totalCost,
+            'monthly_history'               => $monthlyHistory,
         ]);
     }
 

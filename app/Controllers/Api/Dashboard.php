@@ -226,19 +226,27 @@ class Dashboard extends ResourceController
         $userModel = new \App\Models\UserModel();
         $userRecord = $effectiveUserId ? $userModel->select('id, name, email, role, ai_enabled, ai_monthly_token_limit')->find($effectiveUserId) : null;
 
-        $aiLogModel = new \App\Models\AiUsageLogModel();
-        $currentMonthTokens = $effectiveUserId ? $aiLogModel->getUserMonthlyTokens($effectiveUserId) : 0;
-        $tokenPrice = (float) \App\Models\SettingsModel::getSetting('ai_token_price_per_1k', '0.00');
+        $aiLogModel      = new \App\Models\AiUsageLogModel();
+        $basePrice       = (float) \App\Models\SettingsModel::getSetting('ai_token_price_per_1k', '0.00');
+        $promptPrice     = (float) \App\Models\SettingsModel::getSetting('ai_prompt_token_price_per_1k', $basePrice > 0 ? (string)$basePrice : '0.00');
+        $completionPrice = (float) \App\Models\SettingsModel::getSetting('ai_completion_token_price_per_1k', $basePrice > 0 ? (string)$basePrice : '0.00');
+
+        $monthStats = $effectiveUserId ? $aiLogModel->getUserMonthlyTokenStats($effectiveUserId) : [
+            'prompt_tokens'     => 0,
+            'completion_tokens' => 0,
+            'total_tokens'      => 0,
+            'total_requests'    => 0,
+        ];
 
         $aiEnabled = isset($userRecord['ai_enabled']) ? (int) $userRecord['ai_enabled'] : 1;
         $aiMonthlyTokenLimit = isset($userRecord['ai_monthly_token_limit']) && $userRecord['ai_monthly_token_limit'] !== null
             ? (int) $userRecord['ai_monthly_token_limit']
             : null;
         $isUnlimited = ($aiMonthlyTokenLimit === null || $aiMonthlyTokenLimit <= 0);
-        $usedTokens = (int) $currentMonthTokens;
+        $usedTokens = (int) $monthStats['total_tokens'];
         $percentUsed = $isUnlimited ? 0 : min(100, (int) round(($usedTokens / $aiMonthlyTokenLimit) * 100));
         $tokensRemaining = $isUnlimited ? null : max(0, $aiMonthlyTokenLimit - $usedTokens);
-        $estimatedCost = round(($usedTokens / 1000) * $tokenPrice, 2);
+        $estimatedCost = round((($monthStats['prompt_tokens'] / 1000) * $promptPrice) + (($monthStats['completion_tokens'] / 1000) * $completionPrice), 2);
 
         $aiUsage = [
             'ai_enabled'            => $aiEnabled,
@@ -248,7 +256,7 @@ class Dashboard extends ResourceController
             'percent_used'          => $percentUsed,
             'tokens_remaining'      => $tokensRemaining,
             'estimated_cost'        => $estimatedCost,
-            'token_price_per_1k'    => $tokenPrice,
+            'token_price_per_1k'    => $basePrice,
         ];
 
         return $this->respond([

@@ -172,6 +172,8 @@ export function GlobalAiMonitoringView({
   const monthMetrics = data?.month_metrics;
   const allTimeMetrics = data?.all_time_metrics;
   const tokenPrice = data?.token_price_per_1k || 0;
+  const promptPrice = data?.prompt_token_price_per_1k !== undefined ? data.prompt_token_price_per_1k : tokenPrice;
+  const completionPrice = data?.completion_token_price_per_1k !== undefined ? data.completion_token_price_per_1k : tokenPrice;
 
   // Filtered users
   const filteredUsers = (data?.users_summary || []).filter((u) => {
@@ -251,16 +253,15 @@ export function GlobalAiMonitoringView({
               placeholder="Selecione o mês"
             />
 
-            <Tooltip label="Preço base configurado em Configurações Gerais para cálculo de custos">
-              <Badge
-                size="lg"
-                variant="outline"
-                color={tokenPrice > 0 ? 'teal' : 'gray'}
-                style={{ textTransform: 'none', cursor: 'pointer' }}
-                onClick={onNavigateSettings}
-              >
-                Preço: {tokenPrice > 0 ? `${formatCurrency(tokenPrice)} / 1k` : 'Não definido'}
-              </Badge>
+            <Tooltip label="Custos unitários por 1.000 tokens configurados em Configurações Gerais">
+              <Group gap={6} style={{ cursor: 'pointer' }} onClick={onNavigateSettings}>
+                <Badge size="md" variant="outline" color="blue" style={{ textTransform: 'none' }}>
+                  Entrada: {formatCurrency(promptPrice)} / 1k
+                </Badge>
+                <Badge size="md" variant="outline" color="violet" style={{ textTransform: 'none' }}>
+                  Saída: {formatCurrency(completionPrice)} / 1k
+                </Badge>
+              </Group>
             </Tooltip>
 
             {onNavigateSettings && (
@@ -271,7 +272,7 @@ export function GlobalAiMonitoringView({
                 leftSection={<IconSettings size={14} />}
                 onClick={onNavigateSettings}
               >
-                Ajustar Preço
+                Ajustar Preços
               </Button>
             )}
 
@@ -315,6 +316,14 @@ export function GlobalAiMonitoringView({
               {formatCurrency(monthMetrics?.estimated_cost || 0)}
             </Text>
             <Group justify="space-between" mt="xs">
+              <Text size="11px" c="blue.3">
+                Prompt: {formatCurrency(monthMetrics?.prompt_cost || 0)}
+              </Text>
+              <Text size="11px" c="violet.3">
+                Saída: {formatCurrency(monthMetrics?.completion_cost || 0)}
+              </Text>
+            </Group>
+            <Group justify="space-between" mt={4}>
               <Text size="xs" c="dimmed">
                 Histórico acumulado:
               </Text>
@@ -567,9 +576,19 @@ export function GlobalAiMonitoringView({
                             </Table.Td>
 
                             <Table.Td>
-                              <Text size="sm" fw={600} c={u.month_cost > 0 ? 'teal.4' : 'dimmed'}>
-                                {formatCurrency(u.month_cost)}
-                              </Text>
+                              <Tooltip
+                                label={`Entrada: ${formatCurrency(u.prompt_cost_month || 0)} (${formatTokens(u.prompt_tokens_month || 0)} tok.) | Saída: ${formatCurrency(u.completion_cost_month || 0)} (${formatTokens(u.completion_tokens_month || 0)} tok.)`}
+                                withArrow
+                              >
+                                <div>
+                                  <Text size="sm" fw={600} c={u.month_cost > 0 ? 'teal.4' : 'dimmed'}>
+                                    {formatCurrency(u.month_cost)}
+                                  </Text>
+                                  <Text size="10px" c="dimmed">
+                                    in: {formatCurrency(u.prompt_cost_month || 0)} • out: {formatCurrency(u.completion_cost_month || 0)}
+                                  </Text>
+                                </div>
+                              </Tooltip>
                             </Table.Td>
 
                             <Table.Td>
@@ -783,6 +802,9 @@ export function GlobalAiMonitoringView({
                                   <Text size="sm" fw={600} c="teal.4">
                                     {formatCurrency(h.estimated_cost)}
                                   </Text>
+                                  <Text size="10px" c="dimmed">
+                                    in: {formatCurrency(h.prompt_cost || 0)} • out: {formatCurrency(h.completion_cost || 0)}
+                                  </Text>
                                 </Table.Td>
                               </Table.Tr>
                             );
@@ -815,7 +837,7 @@ export function GlobalAiMonitoringView({
                           <Table.Th>Tipo de Ação</Table.Th>
                           <Table.Th>Reqs</Table.Th>
                           <Table.Th>Tokens</Table.Th>
-                          <Table.Th>Custo</Table.Th>
+                          <Table.Th>Custo Est.</Table.Th>
                         </Table.Tr>
                       </Table.Thead>
                       <Table.Tbody>
@@ -840,10 +862,16 @@ export function GlobalAiMonitoringView({
                                 <Text size="sm" fw={600}>
                                   {formatTokens(act.tokens)}
                                 </Text>
+                                <Text size="10px" c="dimmed">
+                                  {formatTokens(act.prompt_tokens || 0)} in / {formatTokens(act.completion_tokens || 0)} out
+                                </Text>
                               </Table.Td>
                               <Table.Td>
                                 <Text size="sm" fw={600} c="teal.4">
                                   {formatCurrency(act.estimated_cost)}
+                                </Text>
+                                <Text size="10px" c="dimmed">
+                                  in: {formatCurrency(act.prompt_cost || 0)} • out: {formatCurrency(act.completion_cost || 0)}
                                 </Text>
                               </Table.Td>
                             </Table.Tr>
@@ -1061,9 +1089,19 @@ export function GlobalAiMonitoringView({
                               </Table.Td>
 
                               <Table.Td>
-                                <Text size="xs" fw={600} c={log.estimated_cost > 0 ? 'teal.4' : 'dimmed'}>
-                                  {formatCurrency(log.estimated_cost)}
-                                </Text>
+                                <Tooltip
+                                  label={`Prompt: ${formatCurrency(log.prompt_cost || 0)} | Saída: ${formatCurrency(log.completion_cost || 0)}`}
+                                  withArrow
+                                >
+                                  <div>
+                                    <Text size="xs" fw={600} c={log.estimated_cost > 0 ? 'teal.4' : 'dimmed'}>
+                                      {formatCurrency(log.estimated_cost)}
+                                    </Text>
+                                    <Text size="9px" c="dimmed">
+                                      {formatCurrency(log.prompt_cost || 0)} + {formatCurrency(log.completion_cost || 0)}
+                                    </Text>
+                                  </div>
+                                </Tooltip>
                               </Table.Td>
 
                               <Table.Td>

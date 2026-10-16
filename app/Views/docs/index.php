@@ -2140,8 +2140,8 @@ location ~* /(wp-config\.php|readme\.html|license\.txt) {
 
                 <h2>Principais Métricas Globais Acompanhadas</h2>
                 <ul>
-                    <li><strong>Gasto Total Estimado (R$):</strong> Calculado dinamicamente com base no valor por 1.000 tokens definido nas <em>Configurações Gerais</em> e no volume total de tokens consumidos (Prompt + Resposta).</li>
-                    <li><strong>Total de Tokens Consumidos:</strong> Métricas detalhadas divididas entre tokens de entrada (instruções/prompts) e tokens de conclusão (respostas da IA Kimi K2.7 Code).</li>
+                    <li><strong>Gasto Total Estimado (R$):</strong> Calculado dinamicamente com base nos custos discriminados de <strong>tokens de entrada (prompt)</strong> e <strong>tokens de saída (respostas)</strong> configurados em <em>Configurações Gerais</em>. Para o cliente final, exibe-se a cota e o custo médio consolidado, enquanto para a administração o custo é rigorosamente ponderado e auditável por requisição.</li>
+                    <li><strong>Total de Tokens Consumidos:</strong> Métricas detalhadas divididas entre tokens de entrada (instruções/prompts) e tokens de conclusão (respostas de código da IA).</li>
                     <li><strong>Taxa de Sucesso e Requisições:</strong> Quantidade total de chamadas disparadas pela plataforma, taxa percentual de sucesso e tempo médio de processamento por requisição.</li>
                     <li><strong>Filtro por Competência / Mês:</strong> Permite isolar os custos e o consumo do mês atual (ex: Outubro/2026), visualizar o histórico consolidado de meses anteriores ou o consumo vitalício da plataforma.</li>
                 </ul>
