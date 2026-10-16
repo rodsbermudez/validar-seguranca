@@ -667,6 +667,7 @@
                     <li class="nav-item"><a href="#logs-em-tempo-real"><span class="nav-icon">📜</span> Logs de Execução em Tempo Real</a></li>
                     <li class="nav-item"><a href="#atualizacoes-remotas"><span class="nav-icon">🔄</span> Atualizações Remotas (Plugins/Temas/Core)</a></li>
                     <li class="nav-item"><a href="#remediacao-e-ia"><span class="nav-icon">🤖</span> Remediação & Fixes WP</a></li>
+                    <li class="nav-item"><a href="#gestao-plano-cliente"><span class="nav-icon">📦</span> Gestão do Plano & Consumo de IA</a></li>
                 </ul>
             </div>
 
@@ -674,7 +675,8 @@
                 <div class="nav-title">Administração (Restrito)</div>
                 <ul class="nav-list">
                     <li class="nav-item admin-only"><a href="#catalogo-de-solucoes"><span class="nav-icon">📚</span> Catálogo de Soluções</a></li>
-                    <li class="nav-item admin-only"><a href="#gestao-de-usuarios"><span class="nav-icon">👥</span> Gestão de Usuários & Cotas</a></li>
+                    <li class="nav-item admin-only"><a href="#gestao-de-usuarios"><span class="nav-icon">👥</span> Gestão de Usuários, Planos & Add-ons</a></li>
+                    <li class="nav-item admin-only"><a href="#configuracao-planos-ia"><span class="nav-icon">⚙️</span> Catálogo de Planos & Motores de IA</a></li>
                     <li class="nav-item admin-only"><a href="#monitoramento-ia-global"><span class="nav-icon">💰</span> Monitoramento Geral de IA & Custos</a></li>
                 </ul>
             </div>
@@ -2050,6 +2052,73 @@ location ~* /(wp-config\.php|readme\.html|license\.txt) {
                 </div>
             </section>
 
+            <!-- 5. Gestão do Plano & Consumo de IA (Visão do Cliente) -->
+            <section id="gestao-plano-cliente" class="doc-section">
+                <h1>📦 Gestão do Plano & Consumo de Inteligência Artificial</h1>
+                <p>No <strong>Validar Segurança</strong>, o acesso aos recursos da plataforma é estruturado através de <strong>Planos & Pacotes</strong> desenhados para oferecer previsibilidade total de custos aos clientes. Cada conta possui um plano mensal ativo que contempla uma quantidade definida de websites monitorados e uma cota de tokens de Inteligência Artificial.</p>
+
+                <h2>1. Como Funciona o Plano do Cliente</h2>
+                <p>Ao contratar ou ativar sua conta, o cliente tem acesso aos recursos de forma consolidada:</p>
+                <ul>
+                    <li><strong>Websites Contratados:</strong> Quantidade máxima de sites WordPress que podem ser cadastrados e monitorados simultaneamente (ex: 4 sites, 10 sites ou Ilimitado).</li>
+                    <li><strong>Cota Mensal de Inteligência Artificial:</strong> Volume de tokens disponíveis a cada ciclo mensal para análises aprofundadas, geração de soluções sob medida e diagnósticos inteligentes (ex: 250.000, 500.000 ou 2.000.000 de tokens).</li>
+                    <li><strong>Mensalidade Fixa e Previsível:</strong> O uso de IA dentro da cota contratada está 100% incluso na mensalidade. Não existem cobranças variáveis por requisição ou surpresas na fatura no final do mês.</li>
+                </ul>
+
+                <h2>2. Entendendo os Tokens de IA: Entrada (Prompt) vs Saída (Completion)</h2>
+                <p>Os modelos de inteligência artificial processam dados em unidades chamadas <strong>tokens</strong> (1 token equivale a aproximadamente 4 caracteres ou cerca de 0,75 palavra em português). Cada interação com a IA divide-se em duas etapas bem definidas:</p>
+
+                <div class="grade-grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); margin: 20px 0;">
+                    <div class="grade-card" style="text-align: left; padding: 20px; background: rgba(99, 102, 241, 0.08); border-color: rgba(99, 102, 241, 0.25);">
+                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+                            <span style="font-size: 1.5rem;">📥</span>
+                            <strong style="color: #818cf8; font-size: 1.05rem;">Tokens de Entrada (Prompt)</strong>
+                        </div>
+                        <p style="font-size: 0.88rem; color: #cbd5e1; margin: 0;">
+                            São os dados enviados pela plataforma para a IA analisar: o relatório da vulnerabilidade detectada, o contexto do WordPress auditado, cabeçalhos HTTP e os parâmetros técnicos do teste.
+                        </p>
+                    </div>
+
+                    <div class="grade-card" style="text-align: left; padding: 20px; background: rgba(16, 185, 129, 0.08); border-color: rgba(16, 185, 129, 0.25);">
+                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+                            <span style="font-size: 1.5rem;">📤</span>
+                            <strong style="color: #34d399; font-size: 1.05rem;">Tokens de Saída (Completion)</strong>
+                        </div>
+                        <p style="font-size: 0.88rem; color: #cbd5e1; margin: 0;">
+                            É a resposta técnica construída pela IA: o código PHP do patch de segurança para o WordPress, as regras para <code>.htaccess</code> ou <code>nginx.conf</code> e o passo a passo da mitigação manual.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="callout callout-info">
+                    <div class="callout-title">💡 Como é Feita a Contabilização no seu Plano?</div>
+                    <p>Tanto os tokens de entrada (instruções enviadas) quanto os de saída (respostas geradas) são somados e debitados da sua <strong>Cota Mensal de IA</strong>. No menu superior <strong>Gestão do Plano</strong>, você visualiza em tempo real a barra de progresso (ex: <code>45.000 / 250.000 tokens</code>) com a porcentagem utilizada no ciclo vigente.</p>
+                </div>
+
+                <h2>3. Sistema de Add-ons (Upgrades Sob Demanda)</h2>
+                <p>Se a sua carteira de sites crescer ou se você precisar de um volume maior de processamento de IA antes da virada do ciclo mensal, você não precisa ficar travado nem trocar de plano forçadamente. Você pode solicitar à administração a ativação de <strong>Add-ons</strong>:</p>
+
+                <ul>
+                    <li><strong>Sites Extras (+Websites):</strong> Adiciona capacidade para novos domínios ao seu plano base com acréscimo de um valor fixo mensal (ex: +2 sites por R$ 50,00/mês).</li>
+                    <li><strong>Cota Extra de IA (+Tokens):</strong> Adiciona um pacote extra de tokens ao seu limite mensal com acréscimo de um valor fixo mensal (ex: +250k tokens por R$ 40,00/mês).</li>
+                </ul>
+
+                <p>O faturamento é sempre discriminado e transparente na tela <strong>Gestão do Plano</strong>:</p>
+                <div class="code-block">
+                    <pre style="color: #38bdf8;">Mensalidade Total = Plano Base (R$) + Sites Extras (R$) + IA Extra (R$)</pre>
+                </div>
+
+                <h2>4. Histórico Mensal & Auditoria de Consumo</h2>
+                <p>Na tela <strong>Gestão do Plano</strong>, você tem acesso ao <strong>Histórico Mensal de Consumo de IA</strong> organizado por competência (Janeiro, Fevereiro, Março...). A tabela apresenta com transparência:</p>
+                <ul>
+                    <li><strong>Mês de Referência:</strong> Competência do ciclo de faturamento.</li>
+                    <li><strong>Requisições:</strong> Quantidade de chamadas executadas com sucesso.</li>
+                    <li><strong>Tokens de Entrada (Prompt) e de Saída (Completion):</strong> Detalhamento do volume de tráfego de dados com o motor de inteligência artificial.</li>
+                    <li><strong>Total de Tokens:</strong> Soma total consumida no período.</li>
+                </ul>
+                <p>Abaixo do histórico, uma tabela detalhada com paginação permite auditar cada requisição individual com data, horário, funcionalidade e website de origem.</p>
+            </section>
+
             <!-- 6. Catálogo de Soluções -->
             <section id="catalogo-de-solucoes" class="doc-section admin-only">
                 <h1>📚 Catálogo de Soluções (Área Restrita Admin)</h1>
@@ -2123,35 +2192,112 @@ location ~* /(wp-config\.php|readme\.html|license\.txt) {
                     </tbody>
                 </table>
 
-                <h2>Planos de Cota Mensal de IA</h2>
-                <p>O administrador pode associar cada cliente aos seguintes planos pré-definidos de consumo mensal de tokens:</p>
+                <h2>Gestão em Abas & Menu de Ações Rápido</h2>
+                <p>A tela de Usuários organiza as contas em duas abas dedicadas:</p>
                 <ul>
-                    <li><strong>250.000 tokens (Plano Básico):</strong> Suficiente para rotinas de auditoria, geração de soluções pontuais e emissão de guias mensais de sites individuais.</li>
-                    <li><strong>500.000 tokens (Plano Médio):</strong> Indicado para clientes com múltiplos sites ou operações de hardening frequentes.</li>
-                    <li><strong>1.000.000 tokens (Plano Avançado):</strong> Para agências e clientes de alto volume com dezenas de sites sob monitoramento.</li>
-                    <li><strong>Ilimitado:</strong> Sem teto mensal para contas corporativas ou administradores.</li>
+                    <li><strong>Aba Clientes:</strong> Exibe exclusivamente os usuários comuns/clientes, com contador em tempo real no badge da aba.</li>
+                    <li><strong>Aba Administradores:</strong> Exibe apenas os operadores e superusuários com privilégios administrativos.</li>
+                </ul>
+                <p>Cada linha conta com o menu dropdown <strong>"Ações"</strong>, centralizando em um clique as funções de <em>Gestão do Plano</em>, <em>Ver como (Impersonação)</em>, <em>Editar Usuário / Senha</em>, <em>Ativar / Desativar</em> e <em>Excluir</em>.</p>
+
+                <h2>Painel "Gestão do Plano" por Cliente</h2>
+                <p>Ao clicar em <strong>"Gestão do Plano"</strong> no menu de qualquer usuário, o administrador acessa o cockpit financeiro e operacional daquela conta:</p>
+                <ul>
+                    <li><strong>Atribuição de Plano Base:</strong> Seleção entre os pacotes vigentes no catálogo (Iniciante, Profissional ou Full).</li>
+                    <li><strong>Configuração de Add-ons & Adicionais:</strong>
+                        <ul>
+                            <li><strong>Sites Extras:</strong> Quantidade de sites adicionais liberados e valor extra cobrado (R$/mês).</li>
+                            <li><strong>Tokens de IA Extras:</strong> Cota adicional de tokens de IA e valor extra cobrado (R$/mês).</li>
+                        </ul>
+                    </li>
+                    <li><strong>Painel DRE & Margem de Contribuição (Exclusivo Admin):</strong> O sistema calcula em tempo real o <strong>Faturamento Mensal Contratado (R$)</strong> contra o <strong>Custo Real da API de IA Consumida no Mês (R$)</strong>, exibindo a Margem Líquida em R$ e em percentual (%).</li>
+                    <li><strong>Travas Automáticas de Backend:</strong> Se o cliente tentar cadastrar sites além do limite (base + extras), a criação é interrompida via API (`403 Forbidden`). Caso a cota mensal de IA seja atingida, novas chamadas de inteligência artificial são pausadas até o próximo ciclo ou até a contratação de add-ons.</li>
                 </ul>
             </section>
 
-            <!-- 8. Monitoramento Geral de IA & Custos -->
-            <section id="monitoramento-ia-global" class="doc-section admin-only">
-                <h1>💰 Monitoramento Geral de IA & Gestão de Custos</h1>
-                <p>Disponível exclusivamente para Administradores no menu <em>Configurações &gt; Uso Geral da IA</em>, esta área atua como o centro de comando financeiro e de consumo de inteligência artificial de toda a plataforma.</p>
+            <!-- 8. Catálogo de Planos & Motores de IA (Área Restrita Admin) -->
+            <section id="configuracao-planos-ia" class="doc-section admin-only">
+                <h1>⚙️ Catálogo de Planos & Motores de IA (Área Restrita Admin)</h1>
+                <p>Disponível em <em>Configurações &gt; Planos & Pacotes</em> e <em>Configurações &gt; Motor de IA & Precificação</em>, este módulo permite controlar toda a esteira comercial e de inteligência artificial do sistema.</p>
 
-                <h2>Principais Métricas Globais Acompanhadas</h2>
+                <h2>1. Catálogo de Planos & Pacotes</h2>
+                <p>O administrador pode gerenciar, criar e editar os planos base disponíveis no sistema:</p>
+
+                <table class="doc-table">
+                    <thead>
+                        <tr>
+                            <th>Plano</th>
+                            <th>Sites Incluídos</th>
+                            <th>Quota Mensal de IA</th>
+                            <th>Mensalidade Base</th>
+                            <th>Padrão</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Iniciante</strong></td>
+                            <td>4 websites</td>
+                            <td>250.000 tokens (250k)</td>
+                            <td>R$ 97,00/mês</td>
+                            <td>✅ Sim</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Profissional</strong></td>
+                            <td>10 websites</td>
+                            <td>500.000 tokens (500k)</td>
+                            <td>R$ 197,00/mês</td>
+                            <td>❌ Não</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Full</strong></td>
+                            <td>Sites Ilimitados</td>
+                            <td>2.000.000 tokens (2M)</td>
+                            <td>R$ 397,00/mês</td>
+                            <td>❌ Não</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="callout callout-warning">
+                    <div class="callout-title">⚠️ Regra de Segurança Inegociável: Sem IA Ilimitada</div>
+                    <p>Por diretriz de proteção orçamentária contra abusos e custos inesperados com provedores LLM, <strong>nenhum plano pode ter IA ilimitada</strong>. Mesmo o plano Full possui o teto estrito de <strong>2.000.000 de tokens</strong> mensais. Toda ampliação adicional de cotas deve ocorrer via Add-on com valor cobrado explicitamente.</p>
+                </div>
+
+                <h2>2. Configuração de Motores de IA & Precificação Diferenciada</h2>
+                <p>Em <em>Configurações &gt; Motor de IA & Precificação</em>, o administrador parametriza o modelo LLM em execução e os custos reais de operação:</p>
                 <ul>
-                    <li><strong>Gasto Total Estimado (R$):</strong> Calculado dinamicamente com base nos custos discriminados de <strong>tokens de entrada (prompt)</strong> e <strong>tokens de saída (respostas)</strong> configurados em <em>Configurações Gerais</em>. Para o cliente final, exibe-se a cota e o custo médio consolidado, enquanto para a administração o custo é rigorosamente ponderado e auditável por requisição.</li>
-                    <li><strong>Total de Tokens Consumidos:</strong> Métricas detalhadas divididas entre tokens de entrada (instruções/prompts) e tokens de conclusão (respostas de código da IA).</li>
-                    <li><strong>Taxa de Sucesso e Requisições:</strong> Quantidade total de chamadas disparadas pela plataforma, taxa percentual de sucesso e tempo médio de processamento por requisição.</li>
-                    <li><strong>Filtro por Competência / Mês:</strong> Permite isolar os custos e o consumo do mês atual (ex: Outubro/2026), visualizar o histórico consolidado de meses anteriores ou o consumo vitalício da plataforma.</li>
+                    <li><strong>Seleção de Modelos:</strong> Suporte nativo ao modelo <code>Kimi K2.7 Code</code> (via OpenCode Zen API), DeepSeek Chat e outros modelos especializados em engenharia reversa e código PHP.</li>
+                    <li><strong>Preço por 1.000 Tokens de Entrada (Prompt):</strong> Valor cobrado pelo provedor para ler as instruções e relatórios enviados (ex: R$ 0,005 por 1k tokens).</li>
+                    <li><strong>Preço por 1.000 Tokens de Saída (Completion):</strong> Valor cobrado pelo provedor para sintetizar o código de remediação (ex: R$ 0,020 por 1k tokens — tipicamente muito superior ao valor de entrada).</li>
+                    <li><strong>Preço Médio de Referência:</strong> Valor médio ponderado utilizado como base consolidada para estimativas preliminares.</li>
+                </ul>
+            </section>
+
+            <!-- 9. Monitoramento Geral de IA & Gestão de Custos -->
+            <section id="monitoramento-ia-global" class="doc-section admin-only">
+                <h1>💰 Monitoramento Geral de IA & Gestão de Custos (Área Restrita Admin)</h1>
+                <p>Disponível exclusivamente para Administradores no menu <em>Configurações &gt; Uso Geral da IA</em>, esta área atua como o centro de comando financeiro e de governança de inteligência artificial de toda a plataforma.</p>
+
+                <h2>Fórmula de Precificação Ponderada (Auditoria Real)</h2>
+                <p>Diferente de sistemas que utilizam médias imprecisas, o <strong>Validar Segurança</strong> calcula o custo real de cada requisição aplicando a precificação diferenciada entre leitura e escrita de dados:</p>
+                <div class="code-block">
+                    <pre style="color: #10b981;">Custo Real (R$) = (Tokens Prompt / 1.000 × Preço Entrada) + (Tokens Completion / 1.000 × Preço Saída)</pre>
+                </div>
+
+                <h2>Cockpit Financeiro Global</h2>
+                <ul>
+                    <li><strong>Faturamento Mensal da Carteira (R$):</strong> Soma de todas as mensalidades e add-ons contratados por todos os clientes ativos.</li>
+                    <li><strong>Gasto Total com Provedores de IA (R$):</strong> Custo real e ponderado de todas as chamadas de API executadas no mês selecionado.</li>
+                    <li><strong>Margem Operacional Líquida (R$ e %):</strong> Diferença líquida entre o faturamento recebido dos clientes e o custo de infraestrutura de IA consumido.</li>
+                    <li><strong>Volume de Tokens:</strong> Total discriminado de tokens de entrada (instruções) e tokens de conclusão (respostas de código).</li>
+                    <li><strong>Filtro por Competência:</strong> Alternância imediata entre o mês corrente, competências anteriores ou histórico vitalício da plataforma.</li>
                 </ul>
 
-                <h2>Detalhamento por Usuário e por Website</h2>
-                <p>O relatório consolida a utilização em dois eixos fundamentais:</p>
+                <h2>Rankings de Auditoria</h2>
                 <ol>
-                    <li><strong>Ranking por Usuário:</strong> Exibe quanto cada cliente consumiu no mês selecionado, o percentual de atingimento da sua cota contratada, custo em reais gerado para a plataforma e botão de atalho para gerenciar a cota daquele cliente.</li>
-                    <li><strong>Ranking por Website:</strong> Identifica quais sites mais demandaram processamento de IA, facilitando a identificação de clientes ou domínios com maior atividade de remediação.</li>
-                    <li><strong>Breakdown por Ação:</strong> Segmentação dos custos entre gerações de soluções no catálogo (<code>single_check</code> / <code>batch_check</code>), guias de servidor (<code>server_guide</code>) e plugins de remediação (<code>remediation_plugin</code>).</li>
+                    <li><strong>Ranking por Usuário:</strong> Identifica quais clientes mais consumiram tokens no mês, o percentual de atingimento da sua cota contratada e atalho direto para a <em>Gestão do Plano</em> daquele cliente.</li>
+                    <li><strong>Ranking por Website:</strong> Relaciona quais domínios demandaram maior número de requisições e processamento de IA.</li>
+                    <li><strong>Breakdown por Funcionalidade:</strong> Segmentação do uso entre geração de soluções no catálogo (<code>single_check</code> / <code>batch_check</code>), guias de servidor (<code>server_guide</code>) e plugins de remediação (<code>remediation_plugin</code>).</li>
                 </ol>
             </section>
 
