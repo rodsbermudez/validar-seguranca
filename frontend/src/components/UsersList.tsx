@@ -7,14 +7,13 @@ import {
   Button,
   Group,
   Badge,
-  ActionIcon,
   Modal,
   TextInput,
   PasswordInput,
   Switch,
   Stack,
-  Tooltip,
   Select,
+  Menu,
 } from '@mantine/core';
 import {
   IconUserPlus,
@@ -25,6 +24,7 @@ import {
   IconBrain,
   IconPackage,
   IconWorld,
+  IconChevronDown,
 } from '@tabler/icons-react';
 import { api, getPlans, Plan } from '../api';
 import { formatDateOnly } from '../utils/date';
@@ -321,63 +321,66 @@ export function UsersList({ onImpersonate, onManageAi, currentUserId }: UsersLis
                   </Table.Td>
                   <Table.Td>{formatDateOnly(user.created_at)}</Table.Td>
                   <Table.Td style={{ textAlign: 'right' }}>
-                    <Group gap="xs" justify="flex-end">
-                      <Tooltip label={`Gerenciar plano, limites de sites, cotas de IA e add-ons de ${user.name}`}>
+                    <Menu shadow="md" width={200} position="bottom-end" withinPortal>
+                      <Menu.Target>
                         <Button
                           size="xs"
                           variant="light"
                           color="indigo"
-                          leftSection={<IconPackage size={14} />}
+                          rightSection={<IconChevronDown size={14} />}
+                        >
+                          Ações
+                        </Button>
+                      </Menu.Target>
+
+                      <Menu.Dropdown style={{ textAlign: 'left' }}>
+                        <Menu.Label>Operações</Menu.Label>
+
+                        <Menu.Item
+                          leftSection={<IconPackage size={16} />}
                           onClick={() => onManageAi(user)}
                         >
                           Gestão do Plano
-                        </Button>
-                      </Tooltip>
+                        </Menu.Item>
 
-                      <Tooltip label={`Ver painel como ${user.name}`}>
-                        <Button
-                          size="xs"
-                          variant="light"
-                          color="cyan"
-                          leftSection={<IconEye size={14} />}
+                        <Menu.Item
+                          leftSection={<IconEye size={16} />}
                           onClick={() => onImpersonate(user)}
                           disabled={!isUserActive}
                         >
                           Ver como
-                        </Button>
-                      </Tooltip>
+                        </Menu.Item>
 
-                      <Tooltip label="Editar Usuário & Senha">
-                        <ActionIcon variant="subtle" color="blue" onClick={() => handleOpenEditModal(user)}>
-                          <IconPencil size={16} />
-                        </ActionIcon>
-                      </Tooltip>
-
-                      {user.id !== currentUserId && (
-                        <Tooltip label={isUserActive ? 'Desativar Usuário' : 'Ativar Usuário'}>
-                          <ActionIcon
-                            variant="subtle"
-                            color={isUserActive ? 'orange' : 'green'}
-                            onClick={() => handleToggleStatus(user)}
-                          >
-                            <IconPower size={16} />
-                          </ActionIcon>
-                        </Tooltip>
-                      )}
-
-                    {user.id !== currentUserId && (
-                      <Tooltip label="Excluir Permanentemente">
-                        <ActionIcon
-                          variant="subtle"
-                          color="red"
-                          onClick={() => handleDeleteUser(user.id)}
+                        <Menu.Item
+                          leftSection={<IconPencil size={16} />}
+                          onClick={() => handleOpenEditModal(user)}
                         >
-                          <IconTrash size={16} />
-                        </ActionIcon>
-                      </Tooltip>
-                    )}
-                  </Group>
-                </Table.Td>
+                          Editar Usuário
+                        </Menu.Item>
+
+                        {user.id !== currentUserId && (
+                          <>
+                            <Menu.Divider />
+                            <Menu.Item
+                              leftSection={<IconPower size={16} />}
+                              color={isUserActive ? 'orange' : 'teal'}
+                              onClick={() => handleToggleStatus(user)}
+                            >
+                              {isUserActive ? 'Desativar Usuário' : 'Ativar Usuário'}
+                            </Menu.Item>
+
+                            <Menu.Item
+                              leftSection={<IconTrash size={16} />}
+                              color="red"
+                              onClick={() => handleDeleteUser(user.id)}
+                            >
+                              Excluir Usuário
+                            </Menu.Item>
+                          </>
+                        )}
+                      </Menu.Dropdown>
+                    </Menu>
+                  </Table.Td>
               </Table.Tr>
             );
           })
