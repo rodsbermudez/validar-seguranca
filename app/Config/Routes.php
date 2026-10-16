@@ -92,6 +92,10 @@ $routes->group('api', function ($routes) {
         // Platform Settings routes (Admin)
         $routes->get('settings', 'Api\Settings::index');
         $routes->post('settings', 'Api\Settings::update');
+
+        // AI Global Monitoring & Reporting routes (Admin)
+        $routes->get('ai-monitoring/metrics', 'Api\AiMonitoring::metrics');
+        $routes->get('ai-monitoring/logs', 'Api\AiMonitoring::logs');
     });
 });
 

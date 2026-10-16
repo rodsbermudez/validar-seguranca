@@ -582,6 +582,37 @@
             color: #fff;
         }
 
+        /* Admin-only visibility */
+        .admin-only {
+            display: none !important;
+        }
+        body.is-admin .admin-only {
+            display: block !important;
+        }
+        body.is-admin .nav-group.admin-only {
+            display: block !important;
+        }
+        body.is-admin .nav-item.admin-only {
+            display: list-item !important;
+        }
+        .admin-badge-indicator {
+            display: none;
+            align-items: center;
+            gap: 6px;
+            background: rgba(99, 102, 241, 0.15);
+            color: #818cf8;
+            border: 1px solid rgba(99, 102, 241, 0.35);
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+        body.is-admin .admin-badge-indicator {
+            display: inline-flex !important;
+        }
+
         /* Responsive */
         @media (max-width: 900px) {
             .doc-wrapper { flex-direction: column; }
@@ -598,6 +629,7 @@
         <a href="<?= base_url('docs') ?>" class="brand">
             <img src="<?= base_url('images/logo-Patropi.png') ?>" alt="Logo Patropi" style="height: 38px; width: auto; max-width: 220px; object-fit: contain;">
             <span class="brand-badge">Documentação</span>
+            <span id="adminBadgeIndicator" class="admin-badge-indicator">👑 Visão Administrador</span>
         </a>
 
         <div class="header-actions">
@@ -638,11 +670,12 @@
                 </ul>
             </div>
 
-            <div class="nav-group">
-                <div class="nav-title">Administração</div>
+            <div class="nav-group admin-only">
+                <div class="nav-title">Administração (Restrito)</div>
                 <ul class="nav-list">
-                    <li class="nav-item"><a href="#catalogo-de-solucoes"><span class="nav-icon">📚</span> Catálogo de Soluções</a></li>
-                    <li class="nav-item"><a href="#gestao-de-usuarios"><span class="nav-icon">👥</span> Gestão de Usuários</a></li>
+                    <li class="nav-item admin-only"><a href="#catalogo-de-solucoes"><span class="nav-icon">📚</span> Catálogo de Soluções</a></li>
+                    <li class="nav-item admin-only"><a href="#gestao-de-usuarios"><span class="nav-icon">👥</span> Gestão de Usuários & Cotas</a></li>
+                    <li class="nav-item admin-only"><a href="#monitoramento-ia-global"><span class="nav-icon">💰</span> Monitoramento Geral de IA & Custos</a></li>
                 </ul>
             </div>
 
@@ -2018,25 +2051,25 @@ location ~* /(wp-config\.php|readme\.html|license\.txt) {
             </section>
 
             <!-- 6. Catálogo de Soluções -->
-            <section id="catalogo-de-solucoes" class="doc-section">
-                <h1>📚 Catálogo de Soluções (Área Admin)</h1>
-                <p>O <strong>Catálogo de Soluções</strong> é a base de conhecimento centralizadora da plataforma, visível para Administradores no menu superior.</p>
+            <section id="catalogo-de-solucoes" class="doc-section admin-only">
+                <h1>📚 Catálogo de Soluções (Área Restrita Admin)</h1>
+                <p>O <strong>Catálogo de Soluções</strong> é a base de conhecimento centralizadora da plataforma, visível para Administradores no menu superior (<em>Configurações &gt; Catálogo de Soluções</em>).</p>
                 
-                <p>Cada teste de auditoria (ex: <code>check_https</code>, <code>check_hsts</code>, <code>check_directory_listing</code>) possui um registro no catálogo contendo:</p>
+                <p>Cada teste de auditoria (ex: <code>wp_xmlrpc_enabled</code>, <code>header_strict_transport_security</code>, <code>dir_listing_uploads</code>) possui um registro no catálogo contendo:</p>
                 <ul>
                     <li><strong>Check ID:</strong> Identificador técnico único do teste.</li>
                     <li><strong>Tipo de Ação:</strong> <code>PLUGIN_AUTO_FIX</code> (Plugin WP), <code>SERVER_CONFIG</code> (Servidor) ou <code>MANUAL_ACTION</code> (Manual).</li>
-                    <li><strong>Código PHP / Snippet:</strong> Código exato utilizado para a correção automática.</li>
+                    <li><strong>Código PHP / Snippet:</strong> Código exato utilizado para a correção automática nos plugins de hardening.</li>
                     <li><strong>Instruções de Servidor:</strong> Guia descritivo de correção em `.htaccess` ou `nginx.conf`.</li>
                 </ul>
 
-                <p>Administradores podem utilizar o botão <strong>"🤖 Gerar Soluções Faltantes com IA"</strong> para preencher automaticamente qualquer código de solução ausente com a IA Kimi K2.7 Code.</p>
+                <p><strong>Manutenção em Lote com IA:</strong> Administradores dispõem do botão <strong>"✨ Gerar Soluções em Lote (IA)"</strong> diretamente no cabeçalho do catálogo, permitindo abastecer itens pendentes ou refinar toda a base com a IA Kimi K2.7 Code com acompanhamento em tempo real. Clientes que encontrarem falhas sem solução pré-existente possuem autonomia para gerá-las individualmente no relatório de auditoria, consumindo de suas próprias cotas mensais.</p>
             </section>
 
-            <!-- 7. Gestão de Usuários -->
-            <section id="gestao-de-usuarios" class="doc-section">
-                <h1>👥 Gestão de Usuários & Permissões (RBAC)</h1>
-                <p>A plataforma oferece controle de acesso baseado em funções (RBAC - Role-Based Access Control):</p>
+            <!-- 7. Gestão de Usuários & Cotas -->
+            <section id="gestao-de-usuarios" class="doc-section admin-only">
+                <h1>👥 Gestão de Usuários, Permissões & Cotas de IA</h1>
+                <p>A plataforma oferece controle de acesso baseado em funções (RBAC - Role-Based Access Control) e controle granular do uso de IA por cliente:</p>
 
                 <table class="doc-table">
                     <thead>
@@ -2058,14 +2091,24 @@ location ~* /(wp-config\.php|readme\.html|license\.txt) {
                             <td>✅ Sim</td>
                         </tr>
                         <tr>
-                            <td>Gerenciar Catálogo de Soluções</td>
+                            <td>Gerenciar Catálogo de Soluções em Lote</td>
                             <td>✅ Acesso Total</td>
                             <td>❌ Sem acesso</td>
                         </tr>
                         <tr>
-                            <td>Gerenciar Usuários da Plataforma</td>
-                            <td>✅ Criar/Editar/Desativar</td>
+                            <td>Gerenciar Usuários e Cotas de IA</td>
+                            <td>✅ Criar/Editar/Configurar Cotas</td>
                             <td>❌ Sem acesso</td>
+                        </tr>
+                        <tr>
+                            <td>Definir Preço do Token por Milheiro</td>
+                            <td>✅ Configurações Gerais</td>
+                            <td>❌ Sem acesso</td>
+                        </tr>
+                        <tr>
+                            <td>Painel de Monitoramento Geral de IA</td>
+                            <td>✅ Visão Global de Custos</td>
+                            <td>❌ Apenas visualiza seu próprio consumo</td>
                         </tr>
                         <tr>
                             <td>Registrar e Consultar Logs de Atividades</td>
@@ -2079,6 +2122,37 @@ location ~* /(wp-config\.php|readme\.html|license\.txt) {
                         </tr>
                     </tbody>
                 </table>
+
+                <h2>Planos de Cota Mensal de IA</h2>
+                <p>O administrador pode associar cada cliente aos seguintes planos pré-definidos de consumo mensal de tokens:</p>
+                <ul>
+                    <li><strong>250.000 tokens (Plano Básico):</strong> Suficiente para rotinas de auditoria, geração de soluções pontuais e emissão de guias mensais de sites individuais.</li>
+                    <li><strong>500.000 tokens (Plano Médio):</strong> Indicado para clientes com múltiplos sites ou operações de hardening frequentes.</li>
+                    <li><strong>1.000.000 tokens (Plano Avançado):</strong> Para agências e clientes de alto volume com dezenas de sites sob monitoramento.</li>
+                    <li><strong>Ilimitado:</strong> Sem teto mensal para contas corporativas ou administradores.</li>
+                </ul>
+            </section>
+
+            <!-- 8. Monitoramento Geral de IA & Custos -->
+            <section id="monitoramento-ia-global" class="doc-section admin-only">
+                <h1>💰 Monitoramento Geral de IA & Gestão de Custos</h1>
+                <p>Disponível exclusivamente para Administradores no menu <em>Configurações &gt; Uso Geral da IA</em>, esta área atua como o centro de comando financeiro e de consumo de inteligência artificial de toda a plataforma.</p>
+
+                <h2>Principais Métricas Globais Acompanhadas</h2>
+                <ul>
+                    <li><strong>Gasto Total Estimado (R$):</strong> Calculado dinamicamente com base no valor por 1.000 tokens definido nas <em>Configurações Gerais</em> e no volume total de tokens consumidos (Prompt + Resposta).</li>
+                    <li><strong>Total de Tokens Consumidos:</strong> Métricas detalhadas divididas entre tokens de entrada (instruções/prompts) e tokens de conclusão (respostas da IA Kimi K2.7 Code).</li>
+                    <li><strong>Taxa de Sucesso e Requisições:</strong> Quantidade total de chamadas disparadas pela plataforma, taxa percentual de sucesso e tempo médio de processamento por requisição.</li>
+                    <li><strong>Filtro por Competência / Mês:</strong> Permite isolar os custos e o consumo do mês atual (ex: Outubro/2026), visualizar o histórico consolidado de meses anteriores ou o consumo vitalício da plataforma.</li>
+                </ul>
+
+                <h2>Detalhamento por Usuário e por Website</h2>
+                <p>O relatório consolida a utilização em dois eixos fundamentais:</p>
+                <ol>
+                    <li><strong>Ranking por Usuário:</strong> Exibe quanto cada cliente consumiu no mês selecionado, o percentual de atingimento da sua cota contratada, custo em reais gerado para a plataforma e botão de atalho para gerenciar a cota daquele cliente.</li>
+                    <li><strong>Ranking por Website:</strong> Identifica quais sites mais demandaram processamento de IA, facilitando a identificação de clientes ou domínios com maior atividade de remediação.</li>
+                    <li><strong>Breakdown por Ação:</strong> Segmentação dos custos entre gerações de soluções no catálogo (<code>single_check</code> / <code>batch_check</code>), guias de servidor (<code>server_guide</code>) e plugins de remediação (<code>remediation_plugin</code>).</li>
+                </ol>
             </section>
 
             <!-- 8. FAQ -->
@@ -2122,13 +2196,36 @@ location ~* /(wp-config\.php|readme\.html|license\.txt) {
 
     <!-- Script Vanilla JS para Busca e Interatividade -->
     <script>
+        // Verificação Automática de Privilégios (Admin vs Cliente Público)
+        (function() {
+            try {
+                let isAdmin = false;
+                const storedUser = localStorage.getItem('user');
+                if (storedUser) {
+                    const u = JSON.parse(storedUser);
+                    if (u && u.role === 'admin') {
+                        isAdmin = true;
+                    }
+                }
+                if (isAdmin) {
+                    document.body.classList.add('is-admin');
+                }
+            } catch (err) {
+                console.warn('Erro ao verificar sessão na documentação:', err);
+            }
+        })();
+
         // Busca Dinâmica em Tempo Real
         document.getElementById('docSearch').addEventListener('input', function (e) {
             const query = e.target.value.toLowerCase().trim();
             const sections = document.querySelectorAll('.doc-section');
-            const navLinks = document.querySelectorAll('.nav-item a');
+            const isAdmin = document.body.classList.contains('is-admin');
 
             sections.forEach(sec => {
+                if (sec.classList.contains('admin-only') && !isAdmin) {
+                    sec.style.display = 'none';
+                    return;
+                }
                 const text = sec.innerText.toLowerCase();
                 if (text.includes(query) || query === '') {
                     sec.style.display = 'block';

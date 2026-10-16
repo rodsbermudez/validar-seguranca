@@ -722,6 +722,7 @@ export interface MonthlyAiHistoryItem {
   year_month: string;
   total_requests: number;
   successful_requests: number;
+  failed_requests?: number;
   total_tokens: number;
   prompt_tokens: number;
   completion_tokens: number;
@@ -769,7 +770,106 @@ export const getUserAiLogs = async (
   return response.data;
 };
 
+export interface GlobalAiMetricsResponse {
+  status: number;
+  selected_month: string;
+  token_price_per_1k: number;
+  month_metrics: {
+    total_requests: number;
+    successful_requests: number;
+    failed_requests: number;
+    total_prompt_tokens: number;
+    total_completion_tokens: number;
+    total_tokens: number;
+    avg_duration_ms: number;
+    estimated_cost: number;
+  };
+  all_time_metrics: {
+    total_requests: number;
+    successful_requests: number;
+    failed_requests: number;
+    total_prompt_tokens: number;
+    total_completion_tokens: number;
+    total_tokens: number;
+    avg_duration_ms: number;
+    estimated_cost: number;
+  };
+  monthly_history: MonthlyAiHistoryItem[];
+  by_action_month: Array<{
+    action_type: string;
+    count: number;
+    tokens: number;
+    estimated_cost: number;
+  }>;
+  by_action_all_time: Array<{
+    action_type: string;
+    count: number;
+    tokens: number;
+    estimated_cost: number;
+  }>;
+  users_summary: Array<{
+    id: number;
+    name: string;
+    email: string;
+    role: string;
+    is_active: number;
+    ai_enabled: number;
+    ai_monthly_token_limit: number | null;
+    month_tokens: number;
+    all_time_tokens: number;
+    total_requests: number;
+    usage_percent: number | null;
+    month_cost: number;
+    all_time_cost: number;
+  }>;
+  websites_summary: Array<{
+    id: number;
+    name: string;
+    url: string;
+    owner_name: string;
+    owner_email: string;
+    month_tokens: number;
+    month_requests: number;
+    month_cost: number;
+    all_time_tokens: number;
+    all_time_requests: number;
+    all_time_cost: number;
+  }>;
+}
 
+export interface GlobalAiLogItem extends AiUsageLogItem {
+  user_name?: string;
+  user_email?: string;
+  estimated_cost: number;
+}
 
+export interface GlobalAiLogsResponse {
+  status: number;
+  page: number;
+  limit: number;
+  total: number;
+  total_pages: number;
+  token_price_per_1k: number;
+  data: GlobalAiLogItem[];
+}
 
+export const getGlobalAiMetrics = async (month?: string): Promise<GlobalAiMetricsResponse> => {
+  const response = await api.get<GlobalAiMetricsResponse>('/ai-monitoring/metrics', {
+    params: month ? { month } : undefined,
+  });
+  return response.data;
+};
 
+export const getGlobalAiLogs = async (params?: {
+  page?: number;
+  limit?: number;
+  user_id?: number;
+  website_id?: number;
+  status?: string;
+  action_type?: string;
+  month?: string;
+  search?: string;
+}): Promise<GlobalAiLogsResponse> => {
+  const response = await api.get<GlobalAiLogsResponse>('/ai-monitoring/logs', { params });
+  return response.data;
+};

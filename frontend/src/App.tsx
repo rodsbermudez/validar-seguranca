@@ -33,6 +33,7 @@ import { SettingsView } from './components/SettingsView';
 import { WebsiteDashboardView } from './components/WebsiteDashboardView';
 import { PublicActivityLogsView } from './components/PublicActivityLogsView';
 import { UserAiManagementView } from './components/UserAiManagementView';
+import { GlobalAiMonitoringView } from './components/GlobalAiMonitoringView';
 import { getDocsUrl } from './api';
 
 export default function App() {
@@ -41,7 +42,7 @@ export default function App() {
   const [selectedWebsite, setSelectedWebsite] = useState<any | null>(null);
   const [selectedAiUser, setSelectedAiUser] = useState<any | null>(null);
   const [dashboardTab, setDashboardTab] = useState<string>('overview');
-  const [viewMode, setViewMode] = useState<'overview' | 'list' | 'dashboard' | 'report' | 'users' | 'solutions' | 'logs' | 'settings' | 'user-ai' | 'user-ai-view'>('overview');
+  const [viewMode, setViewMode] = useState<'overview' | 'list' | 'dashboard' | 'report' | 'users' | 'solutions' | 'logs' | 'settings' | 'user-ai' | 'user-ai-view' | 'ai-monitoring'>('overview');
 
   // Detecta se a página foi acessada via link de compartilhamento de logs para o cliente
   const [shareToken, setShareToken] = useState<string | null>(() => {
@@ -225,7 +226,7 @@ export default function App() {
                   <Menu.Target>
                     <Button
                       variant={
-                        viewMode === 'settings' || viewMode === 'users' || viewMode === 'solutions'
+                        viewMode === 'settings' || viewMode === 'users' || viewMode === 'solutions' || viewMode === 'ai-monitoring'
                           ? 'light'
                           : 'subtle'
                       }
@@ -264,6 +265,15 @@ export default function App() {
                       }}
                     >
                       Catálogo de Soluções
+                    </Menu.Item>
+                    <Menu.Item
+                      leftSection={<IconBrain size={16} color="var(--mantine-color-violet-6)" />}
+                      onClick={() => {
+                        setSelectedWebsite(null);
+                        setViewMode('ai-monitoring');
+                      }}
+                    >
+                      Uso Geral da IA
                     </Menu.Item>
                   </Menu.Dropdown>
                 </Menu>
@@ -338,6 +348,17 @@ export default function App() {
             <SettingsView onBack={() => setViewMode('list')} currentUserRole={user.role} />
           ) : viewMode === 'solutions' && isAdmin && !impersonatedUser ? (
             <SolutionCatalogView />
+          ) : viewMode === 'ai-monitoring' && isAdmin && !impersonatedUser ? (
+            <GlobalAiMonitoringView
+              onManageUser={(targetUser) => {
+                setSelectedAiUser(targetUser);
+                setViewMode('user-ai');
+              }}
+              onNavigateSettings={() => {
+                setSelectedWebsite(null);
+                setViewMode('settings');
+              }}
+            />
           ) : viewMode === 'user-ai-view' ? (
             <UserAiManagementView
               user={impersonatedUser || user}
