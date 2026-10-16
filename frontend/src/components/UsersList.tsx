@@ -14,6 +14,7 @@ import {
   Stack,
   Select,
   Menu,
+  Tabs,
 } from '@mantine/core';
 import {
   IconUserPlus,
@@ -25,6 +26,8 @@ import {
   IconPackage,
   IconWorld,
   IconChevronDown,
+  IconUsers,
+  IconShield,
 } from '@tabler/icons-react';
 import { api, getPlans, Plan } from '../api';
 import { formatDateOnly } from '../utils/date';
@@ -70,6 +73,7 @@ export function UsersList({ onImpersonate, onManageAi, currentUserId }: UsersLis
   const [isActive, setIsActive] = useState(true);
   const [availablePlans, setAvailablePlans] = useState<Plan[]>([]);
   const [selectedPlanId, setSelectedPlanId] = useState<string>('');
+  const [activeTab, setActiveTab] = useState<string | null>('clients');
 
   const fetchUsers = async () => {
     try {
@@ -92,7 +96,7 @@ export function UsersList({ onImpersonate, onManageAi, currentUserId }: UsersLis
     setName('');
     setEmail('');
     setPassword('');
-    setIsAdmin(false);
+    setIsAdmin(activeTab === 'admins');
     setIsActive(true);
     setErrorMsg('');
     try {
@@ -195,6 +199,186 @@ export function UsersList({ onImpersonate, onManageAi, currentUserId }: UsersLis
     }
   };
 
+  const clients = users.filter((u) => u.role !== 'admin');
+  const admins = users.filter((u) => u.role === 'admin');
+
+  const renderUsersTable = (userList: User[], emptyText: string) => (
+    <Table highlightOnHover verticalSpacing="sm">
+      <Table.Thead>
+        <Table.Tr>
+          <Table.Th>ID</Table.Th>
+          <Table.Th>Nome</Table.Th>
+          <Table.Th>E-mail</Table.Th>
+          <Table.Th>Perfil</Table.Th>
+          <Table.Th>Status</Table.Th>
+          <Table.Th>Plano & Recursos</Table.Th>
+          <Table.Th>Data de Cadastro</Table.Th>
+          <Table.Th style={{ textAlign: 'right' }}>Ações</Table.Th>
+        </Table.Tr>
+      </Table.Thead>
+      <Table.Tbody>
+        {loading ? (
+          <Table.Tr>
+            <Table.Td colSpan={8} align="center">
+              Carregando usuários...
+            </Table.Td>
+          </Table.Tr>
+        ) : userList.length === 0 ? (
+          <Table.Tr>
+            <Table.Td colSpan={8} align="center">
+              <Text c="dimmed" py="md">
+                {emptyText}
+              </Text>
+            </Table.Td>
+          </Table.Tr>
+        ) : (
+          userList.map((user) => {
+            const isUserActive = Number(user.is_active) === 1;
+            const isAiDisabled = Number(user.ai_enabled ?? 1) === 0;
+
+            return (
+              <Table.Tr key={user.id} style={{ opacity: !isUserActive ? 0.6 : 1 }}>
+                <Table.Td>{user.id}</Table.Td>
+                <Table.Td style={{ fontWeight: 600 }}>{user.name}</Table.Td>
+                <Table.Td>{user.email}</Table.Td>
+                <Table.Td>
+                  <Badge color={user.role === 'admin' ? 'indigo' : 'gray'} variant="light">
+                    {user.role === 'admin' ? 'ADMINISTRADOR' : 'USUÁRIO'}
+                  </Badge>
+                </Table.Td>
+                <Table.Td>
+                  <Badge color={isUserActive ? 'teal' : 'red'} variant="dot">
+                    {isUserActive ? 'ATIVO' : 'INATIVO'}
+                  </Badge>
+                </Table.Td>
+                <Table.Td>
+                  <Stack gap={3}>
+                    <Group gap={6}>
+                      <Badge
+                        color={
+                          user.role === 'admin'
+                            ? 'indigo'
+                            : user.plan_name === 'Full'
+                            ? 'violet'
+                            : user.plan_name === 'Profissional'
+                            ? 'blue'
+                            : 'teal'
+                        }
+                        variant="filled"
+                        size="xs"
+                      >
+                        {user.role === 'admin' ? 'ADMIN' : user.plan_name || 'Iniciante'}
+                      </Badge>
+                      {user.total_monthly_price !== undefined && user.total_monthly_price > 0 && (
+                        <Badge color="gray" variant="light" size="xs">
+                          {user.total_monthly_price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}/mês
+                        </Badge>
+                      )}
+                    </Group>
+
+                    <Group gap={8} mt={1}>
+                      <Group gap={3}>
+                        <IconWorld size={12} color="#60a5fa" />
+                        <Text size="11px" fw={600}>
+                          {user.websites_count ?? 0}
+                        </Text>
+                        <Text size="11px" c="dimmed">
+                          / {user.is_websites_unlimited ? 'Ilim.' : `${user.effective_max_websites ?? '4'} sites`}
+                        </Text>
+                      </Group>
+
+                      <Text size="11px" c="dimmed">
+                        •
+                      </Text>
+
+                      {isAiDisabled ? (
+                        <Text size="11px" c="dimmed">
+                          IA Desativada
+                        </Text>
+                      ) : (
+                        <Group gap={3}>
+                          <IconBrain size={12} color="#a78bfa" />
+                          <Text size="11px" fw={600}>
+                            {user.current_month_tokens ? Number(user.current_month_tokens).toLocaleString('pt-BR') : '0'}
+                          </Text>
+                          <Text size="11px" c="dimmed">
+                            / {user.ai_monthly_token_limit ? Number(user.ai_monthly_token_limit).toLocaleString('pt-BR') : '250k'}
+                          </Text>
+                        </Group>
+                      )}
+                    </Group>
+                  </Stack>
+                </Table.Td>
+                <Table.Td>{formatDateOnly(user.created_at)}</Table.Td>
+                <Table.Td style={{ textAlign: 'right' }}>
+                  <Menu shadow="md" width={200} position="bottom-end" withinPortal>
+                    <Menu.Target>
+                      <Button
+                        size="xs"
+                        variant="light"
+                        color="indigo"
+                        rightSection={<IconChevronDown size={14} />}
+                      >
+                        Ações
+                      </Button>
+                    </Menu.Target>
+
+                    <Menu.Dropdown style={{ textAlign: 'left' }}>
+                      <Menu.Label>Operações</Menu.Label>
+
+                      <Menu.Item
+                        leftSection={<IconPackage size={16} />}
+                        onClick={() => onManageAi(user)}
+                      >
+                        Gestão do Plano
+                      </Menu.Item>
+
+                      <Menu.Item
+                        leftSection={<IconEye size={16} />}
+                        onClick={() => onImpersonate(user)}
+                        disabled={!isUserActive}
+                      >
+                        Ver como
+                      </Menu.Item>
+
+                      <Menu.Item
+                        leftSection={<IconPencil size={16} />}
+                        onClick={() => handleOpenEditModal(user)}
+                      >
+                        Editar Usuário
+                      </Menu.Item>
+
+                      {user.id !== currentUserId && (
+                        <>
+                          <Menu.Divider />
+                          <Menu.Item
+                            leftSection={<IconPower size={16} />}
+                            color={isUserActive ? 'orange' : 'teal'}
+                            onClick={() => handleToggleStatus(user)}
+                          >
+                            {isUserActive ? 'Desativar Usuário' : 'Ativar Usuário'}
+                          </Menu.Item>
+
+                          <Menu.Item
+                            leftSection={<IconTrash size={16} />}
+                            color="red"
+                            onClick={() => handleDeleteUser(user.id)}
+                          >
+                            Excluir Usuário
+                          </Menu.Item>
+                        </>
+                      )}
+                    </Menu.Dropdown>
+                  </Menu>
+                </Table.Td>
+              </Table.Tr>
+            );
+          })
+        )}
+      </Table.Tbody>
+    </Table>
+  );
+
   return (
     <Paper p="xl" radius="md" bg="dark.8">
       <Group justify="space-between" mb="lg">
@@ -215,178 +399,40 @@ export function UsersList({ onImpersonate, onManageAi, currentUserId }: UsersLis
         </Button>
       </Group>
 
-      <Table highlightOnHover verticalSpacing="sm">
-        <Table.Thead>
-          <Table.Tr>
-            <Table.Th>ID</Table.Th>
-            <Table.Th>Nome</Table.Th>
-            <Table.Th>E-mail</Table.Th>
-            <Table.Th>Perfil</Table.Th>
-            <Table.Th>Status</Table.Th>
-            <Table.Th>Plano & Recursos</Table.Th>
-            <Table.Th>Data de Cadastro</Table.Th>
-            <Table.Th style={{ textAlign: 'right' }}>Ações</Table.Th>
-          </Table.Tr>
-        </Table.Thead>
-        <Table.Tbody>
-          {loading ? (
-            <Table.Tr>
-              <Table.Td colSpan={8} align="center">
-                Carregando usuários...
-              </Table.Td>
-            </Table.Tr>
-          ) : users.length === 0 ? (
-            <Table.Tr>
-              <Table.Td colSpan={8} align="center">
-                Nenhum usuário cadastrado.
-              </Table.Td>
-            </Table.Tr>
-          ) : (
-            users.map((user) => {
-              const isUserActive = Number(user.is_active) === 1;
-              const isAiDisabled = Number(user.ai_enabled ?? 1) === 0;
+      <Tabs value={activeTab} onChange={setActiveTab} color="indigo" variant="pills" mb="md">
+        <Tabs.List mb="md">
+          <Tabs.Tab
+            value="clients"
+            leftSection={<IconUsers size={16} />}
+            rightSection={
+              <Badge size="xs" variant="light" color={activeTab === 'clients' ? 'indigo' : 'gray'}>
+                {clients.length}
+              </Badge>
+            }
+          >
+            Clientes
+          </Tabs.Tab>
+          <Tabs.Tab
+            value="admins"
+            leftSection={<IconShield size={16} />}
+            rightSection={
+              <Badge size="xs" variant="light" color={activeTab === 'admins' ? 'indigo' : 'gray'}>
+                {admins.length}
+              </Badge>
+            }
+          >
+            Administradores
+          </Tabs.Tab>
+        </Tabs.List>
 
-              return (
-                <Table.Tr key={user.id} style={{ opacity: !isUserActive ? 0.6 : 1 }}>
-                  <Table.Td>{user.id}</Table.Td>
-                  <Table.Td style={{ fontWeight: 600 }}>{user.name}</Table.Td>
-                  <Table.Td>{user.email}</Table.Td>
-                  <Table.Td>
-                    <Badge color={user.role === 'admin' ? 'indigo' : 'gray'} variant="light">
-                      {user.role === 'admin' ? 'ADMINISTRADOR' : 'USUÁRIO'}
-                    </Badge>
-                  </Table.Td>
-                  <Table.Td>
-                    <Badge color={isUserActive ? 'teal' : 'red'} variant="dot">
-                      {isUserActive ? 'ATIVO' : 'INATIVO'}
-                    </Badge>
-                  </Table.Td>
-                  <Table.Td>
-                    <Stack gap={3}>
-                      <Group gap={6}>
-                        <Badge
-                          color={
-                            user.role === 'admin'
-                              ? 'indigo'
-                              : user.plan_name === 'Full'
-                              ? 'violet'
-                              : user.plan_name === 'Profissional'
-                              ? 'blue'
-                              : 'teal'
-                          }
-                          variant="filled"
-                          size="xs"
-                        >
-                          {user.role === 'admin' ? 'ADMIN' : user.plan_name || 'Iniciante'}
-                        </Badge>
-                        {user.total_monthly_price !== undefined && user.total_monthly_price > 0 && (
-                          <Badge color="gray" variant="light" size="xs">
-                            {user.total_monthly_price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}/mês
-                          </Badge>
-                        )}
-                      </Group>
+        <Tabs.Panel value="clients">
+          {renderUsersTable(clients, 'Nenhum cliente cadastrado.')}
+        </Tabs.Panel>
 
-                      <Group gap={8} mt={1}>
-                        <Group gap={3}>
-                          <IconWorld size={12} color="#60a5fa" />
-                          <Text size="11px" fw={600}>
-                            {user.websites_count ?? 0}
-                          </Text>
-                          <Text size="11px" c="dimmed">
-                            / {user.is_websites_unlimited ? 'Ilim.' : `${user.effective_max_websites ?? '4'} sites`}
-                          </Text>
-                        </Group>
-
-                        <Text size="11px" c="dimmed">
-                          •
-                        </Text>
-
-                        {isAiDisabled ? (
-                          <Text size="11px" c="dimmed">
-                            IA Desativada
-                          </Text>
-                        ) : (
-                          <Group gap={3}>
-                            <IconBrain size={12} color="#a78bfa" />
-                            <Text size="11px" fw={600}>
-                              {user.current_month_tokens ? Number(user.current_month_tokens).toLocaleString('pt-BR') : '0'}
-                            </Text>
-                            <Text size="11px" c="dimmed">
-                              / {user.ai_monthly_token_limit ? Number(user.ai_monthly_token_limit).toLocaleString('pt-BR') : '250k'}
-                            </Text>
-                          </Group>
-                        )}
-                      </Group>
-                    </Stack>
-                  </Table.Td>
-                  <Table.Td>{formatDateOnly(user.created_at)}</Table.Td>
-                  <Table.Td style={{ textAlign: 'right' }}>
-                    <Menu shadow="md" width={200} position="bottom-end" withinPortal>
-                      <Menu.Target>
-                        <Button
-                          size="xs"
-                          variant="light"
-                          color="indigo"
-                          rightSection={<IconChevronDown size={14} />}
-                        >
-                          Ações
-                        </Button>
-                      </Menu.Target>
-
-                      <Menu.Dropdown style={{ textAlign: 'left' }}>
-                        <Menu.Label>Operações</Menu.Label>
-
-                        <Menu.Item
-                          leftSection={<IconPackage size={16} />}
-                          onClick={() => onManageAi(user)}
-                        >
-                          Gestão do Plano
-                        </Menu.Item>
-
-                        <Menu.Item
-                          leftSection={<IconEye size={16} />}
-                          onClick={() => onImpersonate(user)}
-                          disabled={!isUserActive}
-                        >
-                          Ver como
-                        </Menu.Item>
-
-                        <Menu.Item
-                          leftSection={<IconPencil size={16} />}
-                          onClick={() => handleOpenEditModal(user)}
-                        >
-                          Editar Usuário
-                        </Menu.Item>
-
-                        {user.id !== currentUserId && (
-                          <>
-                            <Menu.Divider />
-                            <Menu.Item
-                              leftSection={<IconPower size={16} />}
-                              color={isUserActive ? 'orange' : 'teal'}
-                              onClick={() => handleToggleStatus(user)}
-                            >
-                              {isUserActive ? 'Desativar Usuário' : 'Ativar Usuário'}
-                            </Menu.Item>
-
-                            <Menu.Item
-                              leftSection={<IconTrash size={16} />}
-                              color="red"
-                              onClick={() => handleDeleteUser(user.id)}
-                            >
-                              Excluir Usuário
-                            </Menu.Item>
-                          </>
-                        )}
-                      </Menu.Dropdown>
-                    </Menu>
-                  </Table.Td>
-              </Table.Tr>
-            );
-          })
-        )}
-        </Table.Tbody>
-      </Table>
+        <Tabs.Panel value="admins">
+          {renderUsersTable(admins, 'Nenhum administrador encontrado.')}
+        </Tabs.Panel>
+      </Tabs>
 
       <Modal
         opened={openedModal}
