@@ -87,14 +87,21 @@ class SolutionCatalog extends ResourceController
 
     /**
      * POST /api/solutions/generate-single
-     * Generate AI solution for a single check (Admin only)
+     * Generate AI solution for a single check.
+     * Admin: can generate or refine any solution.
+     * Client: can generate ONLY if no solution exists in catalog, consuming from their monthly AI quota.
      */
     public function generateSingle()
     {
         @set_time_limit(120);
-        if (!$this->checkAdminPermission()) {
-            return $this->failForbidden('Apenas administradores podem solicitar geração de soluções com IA.');
+
+        $userData = $this->request->userData ?? null;
+        if (!$userData) {
+            return $this->failUnauthorized('Usuário não autenticado.');
         }
+
+        $isAdmin = (($userData->role ?? 'user') === 'admin');
+        $currentUserId = $userData->id ?? null;
 
         $json = $this->request->getJSON(true) ?: [];
         $checkId   = $json['check_id'] ?? null;
@@ -102,23 +109,32 @@ class SolutionCatalog extends ResourceController
         $details   = $json['details'] ?? '';
         $severity  = $json['severity'] ?? 'medium';
         $apiKey    = $json['api_key'] ?? null;
+        $websiteId = !empty($json['website_id']) ? (int)$json['website_id'] : null;
 
         if (empty($checkId)) {
             return $this->fail('check_id é obrigatório.', 400);
         }
 
+        $catalogModel = new SolutionCatalogModel();
+        $existing = $catalogModel->getByCheckId($checkId);
+
+        // Protection: If not admin and solution already exists, return existing immediately without charging user quota
+        if (!$isAdmin && $existing && !empty($existing['solution_title'])) {
+            return $this->respond([
+                'status'  => 200,
+                'message' => 'Esta solução já está disponível no catálogo.',
+                'data'    => $existing,
+            ]);
+        }
+
         try {
-            $currentUserId = $this->request->userData->id ?? null;
             $aiService = new AIService($apiKey);
             $generated = $aiService->generateSolutionForCheck([
                 'check_id'   => $checkId,
                 'check_name' => $checkName,
                 'details'    => $details,
                 'severity'   => $severity,
-            ], $currentUserId, null, 'single_check');
-
-            $catalogModel = new SolutionCatalogModel();
-            $existing = $catalogModel->getByCheckId($checkId);
+            ], $currentUserId, $websiteId, 'single_check');
 
             if ($existing) {
                 $catalogModel->update($existing['id'], $generated);
@@ -157,7 +173,8 @@ class SolutionCatalog extends ResourceController
 
     /**
      * POST /api/solutions/generate-batch
-     * Generate AI solutions for all failed checks in a scan (Admin only)
+     * Generate AI solutions in batch (Admin only).
+     * Supports generation from catalog directly or from a specific scan.
      */
     public function generateBatch()
     {
@@ -166,66 +183,95 @@ class SolutionCatalog extends ResourceController
             return $this->failForbidden('Apenas administradores podem solicitar geração em lote de soluções.');
         }
 
-        $json   = $this->request->getJSON(true) ?: [];
-        $scanId = $json['scan_id'] ?? null;
-        $apiKey = $json['api_key'] ?? null;
-        $force  = !empty($json['force']); // If true, regenerate even if existing in catalog
-
-        if (!$scanId) {
-            return $this->fail('scan_id é obrigatório.', 400);
-        }
-
-        $scanModel = new ScanHistoryModel();
-        $scan = $scanModel->find($scanId);
-        if (!$scan || empty($scan['scan_results_json'])) {
-            return $this->failNotFound('Relatório de varredura não encontrado ou sem resultados.');
-        }
-
-        $scanResults = json_decode($scan['scan_results_json'], true);
-        if (!is_array($scanResults)) {
-            return $this->fail('Estrutura de resultados do scan é inválida.', 400);
-        }
-
-        $allChecks = $this->extractAllChecks($scanResults);
-        if (empty($allChecks)) {
-            return $this->fail('Nenhum teste de segurança encontrado neste relatório.', 400);
-        }
-
-        // Collect all failed / alert checks
-        $failedChecks = [];
-        foreach ($allChecks as $check) {
-            $status = strtoupper($check['status'] ?? '');
-            if (in_array($status, ['FAIL', 'WARNING', 'WARN', 'ALERTA', 'FALHA'])) {
-                $failedChecks[] = $check;
-            }
-        }
-
-        if (empty($failedChecks)) {
-            return $this->respond([
-                'status'  => 200,
-                'message' => 'Nenhuma falha encontrada nesta varredura para gerar soluções.',
-                'processed' => 0,
-                'items'   => [],
-            ]);
-        }
+        $json     = $this->request->getJSON(true) ?: [];
+        $scanId   = $json['scan_id'] ?? null;
+        $apiKey   = $json['api_key'] ?? null;
+        $force    = !empty($json['force']); // If true, regenerate even if existing in catalog
+        $checkIds = $json['check_ids'] ?? null;
 
         $catalogModel = new SolutionCatalogModel();
         $aiService    = new AIService($apiKey);
+        $currentUserId = $this->request->userData->id ?? null;
 
+        $itemsToProcess = [];
         $processedItems = [];
         $errors = [];
 
-        foreach ($failedChecks as $check) {
-            $checkId   = $check['id'] ?? ($check['check_id'] ?? null);
-            $checkName = $check['name'] ?? ($check['check_name'] ?? 'Teste de Segurança');
-            $details   = $check['details'] ?? ($check['message'] ?? '');
-            $severity  = $check['severity'] ?? 'medium';
+        if (!empty($scanId)) {
+            $scanModel = new ScanHistoryModel();
+            $scan = $scanModel->find($scanId);
+            if (!$scan || empty($scan['scan_results_json'])) {
+                return $this->failNotFound('Relatório de varredura não encontrado ou sem resultados.');
+            }
+
+            $scanResults = json_decode($scan['scan_results_json'], true);
+            if (!is_array($scanResults)) {
+                return $this->fail('Estrutura de resultados do scan é inválida.', 400);
+            }
+
+            $allChecks = $this->extractAllChecks($scanResults);
+            if (empty($allChecks)) {
+                return $this->fail('Nenhum teste de segurança encontrado neste relatório.', 400);
+            }
+
+            foreach ($allChecks as $check) {
+                $status = strtoupper($check['status'] ?? '');
+                if (in_array($status, ['FAIL', 'WARNING', 'WARN', 'ALERTA', 'FALHA'])) {
+                    $itemsToProcess[] = [
+                        'id'         => $check['id'] ?? ($check['check_id'] ?? null),
+                        'name'       => $check['name'] ?? ($check['check_name'] ?? 'Teste de Segurança'),
+                        'details'    => $check['details'] ?? ($check['message'] ?? ''),
+                        'severity'   => $check['severity'] ?? 'medium',
+                        'website_id' => (int)($scan['website_id'] ?? 0) ?: null,
+                    ];
+                }
+            }
+        } else {
+            // Direct catalog batch
+            $catalogEntries = $catalogModel->orderBy('id', 'ASC')->findAll();
+            foreach ($catalogEntries as $entry) {
+                if (is_array($checkIds) && !empty($checkIds) && !in_array($entry['check_id'], $checkIds)) {
+                    continue;
+                }
+                $isPending = empty($entry['solution_title']) || empty($entry['solution_instructions']);
+                if ($force || $isPending) {
+                    $itemsToProcess[] = [
+                        'id'         => $entry['check_id'],
+                        'name'       => $entry['check_name'] ?: $entry['check_id'],
+                        'details'    => $entry['problem_description'] ?: '',
+                        'severity'   => 'medium',
+                        'website_id' => null,
+                    ];
+                } else {
+                    $processedItems[] = [
+                        'check_id' => $entry['check_id'],
+                        'status'   => 'skipped_existing',
+                        'title'    => $entry['solution_title'],
+                    ];
+                }
+            }
+        }
+
+        if (empty($itemsToProcess) && empty($processedItems)) {
+            return $this->respond([
+                'status'    => 200,
+                'message'   => 'Nenhum item pendente para processamento.',
+                'processed' => 0,
+                'items'     => [],
+            ]);
+        }
+
+        foreach ($itemsToProcess as $item) {
+            $checkId   = $item['id'];
+            $checkName = $item['name'];
+            $details   = $item['details'];
+            $severity  = $item['severity'];
+            $websiteId = $item['website_id'] ?? null;
 
             if (!$checkId) continue;
 
             $existing = $catalogModel->getByCheckId($checkId);
-            if ($existing && !$force) {
-                // Already in catalog and force is false
+            if ($existing && !$force && !empty($existing['solution_title'])) {
                 $processedItems[] = [
                     'check_id' => $checkId,
                     'status'   => 'skipped_existing',
@@ -235,9 +281,6 @@ class SolutionCatalog extends ResourceController
             }
 
             try {
-                $currentUserId = $this->request->userData->id ?? null;
-                $websiteId = (int) ($scan['website_id'] ?? 0) ?: null;
-                // 1 cURL request per check for isolated AI analysis
                 $generated = $aiService->generateSolutionForCheck([
                     'check_id'   => $checkId,
                     'check_name' => $checkName,
