@@ -425,9 +425,9 @@ export function UserAiManagementView({
               <NumberInput
                 label="Limite Mensal de Tokens"
                 description="Defina 0 ou deixe em branco para cota ilimitada."
-                placeholder="Ex: 50000"
+                placeholder="Ex: 250000"
                 min={0}
-                step={10000}
+                step={50000}
                 thousandSeparator="."
                 decimalSeparator=","
                 value={tokenLimit}
@@ -455,17 +455,14 @@ export function UserAiManagementView({
               <Text size="xs" c="dimmed">
                 Atalhos de Cota:
               </Text>
-              <Button size="compact-xs" variant="subtle" color="gray" onClick={() => setTokenLimit(25000)}>
-                25k
-              </Button>
-              <Button size="compact-xs" variant="subtle" color="gray" onClick={() => setTokenLimit(50000)}>
-                50k
-              </Button>
-              <Button size="compact-xs" variant="subtle" color="gray" onClick={() => setTokenLimit(100000)}>
-                100k
-              </Button>
               <Button size="compact-xs" variant="subtle" color="gray" onClick={() => setTokenLimit(250000)}>
                 250k
+              </Button>
+              <Button size="compact-xs" variant="subtle" color="gray" onClick={() => setTokenLimit(500000)}>
+                500k
+              </Button>
+              <Button size="compact-xs" variant="subtle" color="gray" onClick={() => setTokenLimit(1000000)}>
+                1M
               </Button>
               <Button size="compact-xs" variant="subtle" color="indigo" onClick={() => setTokenLimit('')}>
                 Ilimitado

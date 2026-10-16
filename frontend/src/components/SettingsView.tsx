@@ -304,27 +304,27 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onBack, currentUserR
                 </Text>
                 <SimpleGrid cols={2} spacing="xs">
                   <Paper p="xs" radius="sm" bg="dark.7">
-                    <Text size="11px" c="dimmed">10.000 tokens:</Text>
+                    <Text size="11px" c="dimmed">250.000 tokens (Básico):</Text>
                     <Text size="sm" fw={700} c="teal.4">
-                      {((10000 / 1000) * (Number(tokenPrice) || 0)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                      {((250000 / 1000) * (Number(tokenPrice) || 0)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                     </Text>
                   </Paper>
                   <Paper p="xs" radius="sm" bg="dark.7">
-                    <Text size="11px" c="dimmed">50.000 tokens:</Text>
-                    <Text size="sm" fw={700} c="teal.4">
-                      {((50000 / 1000) * (Number(tokenPrice) || 0)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                    </Text>
-                  </Paper>
-                  <Paper p="xs" radius="sm" bg="dark.7">
-                    <Text size="11px" c="dimmed">100.000 tokens:</Text>
-                    <Text size="sm" fw={700} c="teal.4">
-                      {((100000 / 1000) * (Number(tokenPrice) || 0)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                    </Text>
-                  </Paper>
-                  <Paper p="xs" radius="sm" bg="dark.7">
-                    <Text size="11px" c="dimmed">500.000 tokens:</Text>
+                    <Text size="11px" c="dimmed">500.000 tokens (Médio):</Text>
                     <Text size="sm" fw={700} c="teal.4">
                       {((500000 / 1000) * (Number(tokenPrice) || 0)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    </Text>
+                  </Paper>
+                  <Paper p="xs" radius="sm" bg="dark.7">
+                    <Text size="11px" c="dimmed">1.000.000 tokens (1M):</Text>
+                    <Text size="sm" fw={700} c="teal.4">
+                      {((1000000 / 1000) * (Number(tokenPrice) || 0)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    </Text>
+                  </Paper>
+                  <Paper p="xs" radius="sm" bg="dark.7">
+                    <Text size="11px" c="dimmed">2.000.000 tokens (2M):</Text>
+                    <Text size="sm" fw={700} c="teal.4">
+                      {((2000000 / 1000) * (Number(tokenPrice) || 0)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                     </Text>
                   </Paper>
                 </SimpleGrid>
