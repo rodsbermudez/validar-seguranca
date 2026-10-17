@@ -354,7 +354,6 @@ export function UserPlanManagementView({
   const nextCycleDueDateFmt = cycleEnd ? formatDateOnly(cycleEnd) : formatDateOnly(new Date(Date.now() + 30 * 86400000).toISOString());
   const proratedRatioCalc = Math.min(1.0, Math.max(0.033, daysRemainingInCycle / 30.0));
   const addonsProratedDueNow = addonsDiffMonthly > 0 ? Math.round(addonsDiffMonthly * proratedRatioCalc * 100) / 100 : 0;
-  const cyclePercentRemaining = Math.round(proratedRatioCalc * 100);
 
   const getDayOfMonth = (val: string | number | Date | null | undefined): number => {
     if (!val) return 1;
@@ -822,43 +821,6 @@ export function UserPlanManagementView({
               </Paper>
             </Group>
 
-            {/* Bloco de Transparência do Cálculo de Dias e % Pró-rata */}
-            <Paper
-              p="xs"
-              radius="sm"
-              bg="rgba(16, 185, 129, 0.05)"
-              withBorder
-              style={{ borderColor: 'rgba(16, 185, 129, 0.25)' }}
-              mt="xs"
-            >
-              <Group justify="space-between" align="center" mb={4}>
-                <Group gap={5}>
-                  <IconClock size={13} color="#10b981" />
-                  <Text size="11px" fw={700} c="teal.3">
-                    Ciclo Vigente & Pró-rata ({cyclePercentRemaining}%)
-                  </Text>
-                </Group>
-                <Badge size="xs" color="teal" variant="filled">
-                  {daysRemainingInCycle} de 30 dias restantes
-                </Badge>
-              </Group>
-
-              <Progress
-                value={cyclePercentRemaining}
-                color="teal"
-                size="xs"
-                radius="xl"
-                mb={6}
-              />
-
-              <Text size="11px" c="dimmed" style={{ lineHeight: 1.4 }}>
-                Plano ativo desde <Text component="span" fw={600} c="white">{planStartDateFmt}</Text> (dia {renewalDayNumber}).
-                Renovação mensal recorrente <Text component="span" fw={600} c="white">todo dia {renewalDayNumber}</Text>.
-              </Text>
-              <Text size="10px" c="dimmed" mt={4} style={{ lineHeight: 1.35 }}>
-                💡 <b>Transparência no cálculo:</b> Se você adicionar sites ou trocar de plano hoje, você paga apenas <Text component="span" fw={600} c="teal.3">{cyclePercentRemaining}% do valor adicional</Text> ({daysRemainingInCycle}/30 dias proporcionais até {nextPaymentDateFmt}). A cobrança integral só ocorre a partir da próxima renovação.
-              </Text>
-            </Paper>
 
             <Stack gap={3} mt="sm">
               <Group justify="space-between">
