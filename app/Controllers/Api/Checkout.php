@@ -1,0 +1,350 @@
+<?php
+
+namespace App\Controllers\Api;
+
+use CodeIgniter\RESTful\ResourceController;
+use App\Models\UserModel;
+use App\Models\PlanModel;
+use App\Models\SubscriptionModel;
+use App\Models\PaymentTransactionModel;
+use App\Services\Payment\AsaasService;
+use App\Services\UserPlanService;
+use App\Libraries\JWTAuth;
+
+class Checkout extends ResourceController
+{
+    protected $format = 'json';
+
+    /**
+     * POST /api/public/checkout/initiate
+     * Cria conta (se novo), inicia assinatura e gera o Pix no Asaas
+     */
+    public function initiate()
+    {
+        $json = $this->request->getJSON(true) ?? $this->request->getPost();
+
+        $planId = (int)($json['plan_id'] ?? 0);
+        if (!$planId) {
+            return $this->fail('O identificador do plano é obrigatório.', 400);
+        }
+
+        $planModel = new PlanModel();
+        $plan = $planModel->find($planId);
+        if (!$plan || (int)$plan['is_active'] !== 1) {
+            return $this->fail('Plano selecionado não encontrado ou indisponível.', 404);
+        }
+
+        $name     = trim($json['name'] ?? '');
+        $email    = strtolower(trim($json['email'] ?? ''));
+        $cpfCnpj  = preg_replace('/\D/', '', $json['cpf_cnpj'] ?? '');
+        $phone    = preg_replace('/\D/', '', $json['phone'] ?? '');
+        $password = $json['password'] ?? '';
+
+        if (empty($name)) {
+            return $this->fail('O nome completo é obrigatório.', 400);
+        }
+        if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return $this->fail('Um endereço de e-mail válido é obrigatório.', 400);
+        }
+        if (empty($cpfCnpj) || (strlen($cpfCnpj) !== 11 && strlen($cpfCnpj) !== 14)) {
+            return $this->fail('CPF ou CNPJ válido é obrigatório.', 400);
+        }
+
+        // Add-ons opcionais
+        $extraWebsites      = max(0, (int)($json['extra_websites'] ?? 0));
+        $extraWebsitesPrice = max(0, (float)($json['extra_websites_price'] ?? 0.00));
+        $extraAiTokens      = max(0, (int)($json['extra_ai_tokens'] ?? 0));
+        $extraAiTokensPrice = max(0, (float)($json['extra_ai_tokens_price'] ?? 0.00));
+
+        $basePrice   = (float)$plan['price_monthly'];
+        $totalAmount = $basePrice + $extraWebsitesPrice + $extraAiTokensPrice;
+
+        $userModel = new UserModel();
+        $existingUser = $userModel->where('email', $email)->first();
+
+        // Usuário autenticado via JWT (se houver)
+        $authUser = $this->request->userData ?? null;
+
+        if ($existingUser) {
+            // Se o e-mail já existe no banco:
+            if (!$authUser || (int)$authUser->id !== (int)$existingUser['id']) {
+                // Se não está autenticado como ele mesmo, valida a senha informada
+                if (empty($password) || !password_verify($password, $existingUser['password_hash'])) {
+                    return $this->respond([
+                        'status'      => 409,
+                        'user_exists' => true,
+                        'message'     => 'Este e-mail já possui cadastro. Por favor, confirme sua senha para prosseguir com a contratação.',
+                    ], 409);
+                }
+            }
+            $userId = (int)$existingUser['id'];
+            $user = $existingUser;
+
+            // Atualiza telefone/cpf se faltava
+            $updateUser = [];
+            if (empty($user['cpf_cnpj']) && !empty($cpfCnpj)) $updateUser['cpf_cnpj'] = $cpfCnpj;
+            if (empty($user['phone']) && !empty($phone)) $updateUser['phone'] = $phone;
+            if (!empty($updateUser)) {
+                $userModel->update($userId, $updateUser);
+                $user = array_merge($user, $updateUser);
+            }
+        } else {
+            // Novo Usuário: validação de senha
+            if (empty($password) || strlen($password) < 6) {
+                return $this->fail('Defina uma senha de acesso com no mínimo 6 caracteres.', 400);
+            }
+
+            $userId = $userModel->insert([
+                'name'          => $name,
+                'email'         => $email,
+                'password_hash' => password_hash($password, PASSWORD_DEFAULT),
+                'role'          => 'user',
+                'is_active'     => 1,
+                'plan_id'       => $planId,
+                'cpf_cnpj'      => $cpfCnpj,
+                'phone'         => $phone,
+            ]);
+
+            $user = $userModel->find($userId);
+        }
+
+        // Integração Asaas
+        $asaasService = new AsaasService();
+
+        // Obter ou criar cliente no Asaas
+        $customerRes = $asaasService->getOrCreateCustomer([
+            'name'     => $name,
+            'email'    => $email,
+            'cpf_cnpj' => $cpfCnpj,
+            'phone'    => $phone,
+        ]);
+
+        $asaasCustomerId = $customerRes['customer_id'] ?? null;
+        if ($asaasCustomerId && empty($user['asaas_customer_id'])) {
+            $userModel->update($userId, ['asaas_customer_id' => $asaasCustomerId]);
+        }
+
+        // Criar registro de assinatura pendente
+        $subscriptionModel = new SubscriptionModel();
+        $subId = $subscriptionModel->insert([
+            'user_id'                 => $userId,
+            'plan_id'                 => $planId,
+            'status'                  => 'pending',
+            'gateway'                 => 'asaas',
+            'gateway_customer_id'     => $asaasCustomerId,
+            'billing_cycle'           => 'monthly',
+            'price'                   => $totalAmount,
+            'extra_websites'          => $extraWebsites,
+            'extra_websites_price'    => $extraWebsitesPrice,
+            'extra_ai_tokens'         => $extraAiTokens,
+            'extra_ai_tokens_price'   => $extraAiTokensPrice,
+        ]);
+
+        // Criar cobrança Pix no Asaas
+        $description = "Assinatura {$plan['name']} - Validar Seguranca";
+        $extRef = "sub_{$subId}_usr_{$userId}";
+
+        $paymentRes = $asaasService->createPaymentPix(
+            $asaasCustomerId ?: 'cus_sim',
+            $totalAmount,
+            $description,
+            $extRef
+        );
+
+        if (!$paymentRes['success']) {
+            return $this->fail('Falha ao gerar cobrança no Asaas: ' . ($paymentRes['message'] ?? 'Erro desconhecido'), 500);
+        }
+
+        $paymentId = $paymentRes['payment_id'];
+
+        // Buscar QR Code e chave Pix Copia e Cola
+        $qrRes = $asaasService->getPixQrCode($paymentId);
+        $pixQrCode    = $qrRes['encoded_image'] ?? null;
+        $pixCopyPaste = $qrRes['payload'] ?? null;
+        $pixExp       = $qrRes['expiration_date'] ?? date('Y-m-d H:i:s', strtotime('+24 hours'));
+
+        // Salvar transação
+        $transactionModel = new PaymentTransactionModel();
+        $transId = $transactionModel->insert([
+            'user_id'                => $userId,
+            'subscription_id'        => $subId,
+            'plan_id'                => $planId,
+            'gateway'                => 'asaas',
+            'gateway_transaction_id' => $paymentId,
+            'amount'                 => $totalAmount,
+            'payment_method'         => 'pix',
+            'status'                 => 'pending',
+            'pix_qr_code'            => $pixQrCode,
+            'pix_copy_paste'         => $pixCopyPaste,
+            'pix_expiration'         => $pixExp,
+            'invoice_url'            => $paymentRes['invoice_url'] ?? null,
+            'metadata'               => json_encode([
+                'plan_name'             => $plan['name'],
+                'extra_websites'        => $extraWebsites,
+                'extra_websites_price'  => $extraWebsitesPrice,
+                'extra_ai_tokens'       => $extraAiTokens,
+                'extra_ai_tokens_price' => $extraAiTokensPrice,
+                'simulated'             => !empty($paymentRes['simulated']),
+            ]),
+        ]);
+
+        // Gerar token de sessão JWT para o usuário
+        $token = JWTAuth::generateToken($user);
+
+        return $this->respond([
+            'status'                 => 200,
+            'success'                => true,
+            'transaction_id'         => $transId,
+            'subscription_id'        => $subId,
+            'gateway_transaction_id' => $paymentId,
+            'amount'                 => $totalAmount,
+            'plan_name'              => $plan['name'],
+            'pix_qr_code'            => $pixQrCode,
+            'pix_copy_paste'         => $pixCopyPaste,
+            'pix_expiration'         => $pixExp,
+            'invoice_url'            => $paymentRes['invoice_url'] ?? null,
+            'is_simulated'           => !empty($paymentRes['simulated']),
+            'token'                  => $token,
+            'user'                   => [
+                'id'    => $user['id'],
+                'name'  => $user['name'],
+                'email' => $user['email'],
+                'role'  => $user['role'] ?? 'user',
+            ],
+        ]);
+    }
+
+    /**
+     * GET /api/public/checkout/status/(:segment)
+     * Verifica o status do pagamento pelo ID da transação ou gateway_transaction_id
+     */
+    public function status($identifier = null)
+    {
+        if (!$identifier) {
+            return $this->fail('Identificador da transação não fornecido.', 400);
+        }
+
+        $transactionModel = new PaymentTransactionModel();
+        $trans = $transactionModel->where('gateway_transaction_id', $identifier)
+            ->orWhere('id', is_numeric($identifier) ? (int)$identifier : 0)
+            ->first();
+
+        if (!$trans) {
+            return $this->failNotFound('Transação não encontrada.');
+        }
+
+        // Se já está pago, confirma
+        if ($trans['status'] === 'paid') {
+            return $this->respond([
+                'status'         => 'paid',
+                'activated'      => true,
+                'transaction_id' => $trans['id'],
+                'paid_at'        => $trans['paid_at'],
+            ]);
+        }
+
+        // Se está pendente e não é simulado, consulta o gateway Asaas
+        $asaasService = new AsaasService();
+        $statusRes = $asaasService->getPaymentStatus($trans['gateway_transaction_id']);
+
+        $asaasStatus = strtoupper($statusRes['status'] ?? 'PENDING');
+        if (in_array($asaasStatus, ['RECEIVED', 'CONFIRMED', 'RECEIVED_IN_CASH'], true)) {
+            // Pagamento confirmado pelo Asaas!
+            $now = date('Y-m-d H:i:s');
+            $transactionModel->update($trans['id'], [
+                'status'  => 'paid',
+                'paid_at' => $now,
+            ]);
+
+            // Ativar assinatura
+            if (!empty($trans['subscription_id'])) {
+                $subModel = new SubscriptionModel();
+                $sub = $subModel->find($trans['subscription_id']);
+                if ($sub) {
+                    $subModel->update($sub['id'], [
+                        'status'               => 'active',
+                        'current_period_start' => $now,
+                        'current_period_end'   => date('Y-m-d H:i:s', strtotime('+30 days')),
+                    ]);
+
+                    // Atribuir plano e add-ons ao usuário
+                    UserPlanService::assignPlanToUser((int)$trans['user_id'], (int)$trans['plan_id'], [
+                        'extra_websites'        => (int)($sub['extra_websites'] ?? 0),
+                        'extra_websites_price'  => (float)($sub['extra_websites_price'] ?? 0.00),
+                        'extra_ai_tokens'       => (int)($sub['extra_ai_tokens'] ?? 0),
+                        'extra_ai_tokens_price' => (float)($sub['extra_ai_tokens_price'] ?? 0.00),
+                    ]);
+                }
+            } else {
+                UserPlanService::assignPlanToUser((int)$trans['user_id'], (int)$trans['plan_id']);
+            }
+
+            return $this->respond([
+                'status'         => 'paid',
+                'activated'      => true,
+                'transaction_id' => $trans['id'],
+                'paid_at'        => $now,
+            ]);
+        }
+
+        return $this->respond([
+            'status'         => 'pending',
+            'activated'      => false,
+            'transaction_id' => $trans['id'],
+        ]);
+    }
+
+    /**
+     * POST /api/public/checkout/simulate-confirm/(:segment)
+     * Rota de conveniência em sandbox/desenvolvimento para simular pagamento de Pix instantâneo
+     */
+    public function simulateConfirm($identifier = null)
+    {
+        if (!$identifier) {
+            return $this->fail('Identificador não fornecido.', 400);
+        }
+
+        $transactionModel = new PaymentTransactionModel();
+        $trans = $transactionModel->where('gateway_transaction_id', $identifier)
+            ->orWhere('id', is_numeric($identifier) ? (int)$identifier : 0)
+            ->first();
+
+        if (!$trans) {
+            return $this->failNotFound('Transação não encontrada.');
+        }
+
+        $now = date('Y-m-d H:i:s');
+        $transactionModel->update($trans['id'], [
+            'status'  => 'paid',
+            'paid_at' => $now,
+        ]);
+
+        if (!empty($trans['subscription_id'])) {
+            $subModel = new SubscriptionModel();
+            $sub = $subModel->find($trans['subscription_id']);
+            if ($sub) {
+                $subModel->update($sub['id'], [
+                    'status'               => 'active',
+                    'current_period_start' => $now,
+                    'current_period_end'   => date('Y-m-d H:i:s', strtotime('+30 days')),
+                ]);
+
+                UserPlanService::assignPlanToUser((int)$trans['user_id'], (int)$trans['plan_id'], [
+                    'extra_websites'        => (int)($sub['extra_websites'] ?? 0),
+                    'extra_websites_price'  => (float)($sub['extra_websites_price'] ?? 0.00),
+                    'extra_ai_tokens'       => (int)($sub['extra_ai_tokens'] ?? 0),
+                    'extra_ai_tokens_price' => (float)($sub['extra_ai_tokens_price'] ?? 0.00),
+                ]);
+            }
+        } else {
+            UserPlanService::assignPlanToUser((int)$trans['user_id'], (int)$trans['plan_id']);
+        }
+
+        return $this->respond([
+            'status'         => 200,
+            'message'        => 'Pagamento Pix simulado e confirmado com sucesso!',
+            'transaction_id' => $trans['id'],
+            'activated'      => true,
+        ]);
+    }
+}

@@ -69,7 +69,9 @@ class Settings extends ResourceController
         $promptPrice     = (float) SettingsModel::getSetting('ai_prompt_token_price_per_1k', $basePrice > 0 ? (string)$basePrice : '0.00');
         $completionPrice = (float) SettingsModel::getSetting('ai_completion_token_price_per_1k', $basePrice > 0 ? (string)$basePrice : '0.00');
         $apiKey          = env('OPENCODE_API_KEY');
-        $hasKey          = !empty($apiKey);
+        $asaasKey         = SettingsModel::getSetting('asaas_api_key', env('ASAAS_API_KEY') ?: '');
+        $asaasEnv         = SettingsModel::getSetting('asaas_environment', env('ASAAS_ENVIRONMENT') ?: 'sandbox');
+        $asaasSecret      = SettingsModel::getSetting('asaas_webhook_secret', env('ASAAS_WEBHOOK_SECRET') ?: '');
 
         return $this->respond([
             'status'                        => 200,
@@ -80,6 +82,10 @@ class Settings extends ResourceController
             'completion_token_price_per_1k' => $completionPrice,
             'has_api_key'                   => $hasKey,
             'available_models'              => self::getAvailableModels(),
+            'asaas_api_key'                 => !empty($asaasKey) ? (substr($asaasKey, 0, 8) . '...' . substr($asaasKey, -4)) : '',
+            'asaas_environment'             => $asaasEnv,
+            'asaas_webhook_secret'          => $asaasSecret,
+            'asaas_configured'              => !empty($asaasKey),
         ]);
     }
 
@@ -102,7 +108,11 @@ class Settings extends ResourceController
         $promptPriceInput     = $json['prompt_token_price_per_1k'] ?? $this->request->getPost('prompt_token_price_per_1k') ?? null;
         $completionPriceInput = $json['completion_token_price_per_1k'] ?? $this->request->getPost('completion_token_price_per_1k') ?? null;
 
-        if (empty($aiModel) && $tokenPriceInput === null && $promptPriceInput === null && $completionPriceInput === null) {
+        $asaasKeyInput        = array_key_exists('asaas_api_key', $json) ? trim($json['asaas_api_key']) : ($this->request->getPost('asaas_api_key') !== null ? trim($this->request->getPost('asaas_api_key')) : null);
+        $asaasEnvInput        = array_key_exists('asaas_environment', $json) ? trim($json['asaas_environment']) : ($this->request->getPost('asaas_environment') !== null ? trim($this->request->getPost('asaas_environment')) : null);
+        $asaasSecretInput     = array_key_exists('asaas_webhook_secret', $json) ? trim($json['asaas_webhook_secret']) : ($this->request->getPost('asaas_webhook_secret') !== null ? trim($this->request->getPost('asaas_webhook_secret')) : null);
+
+        if (empty($aiModel) && $tokenPriceInput === null && $promptPriceInput === null && $completionPriceInput === null && $asaasKeyInput === null && $asaasEnvInput === null && $asaasSecretInput === null) {
             return $this->fail('Nenhum dado informado para atualização.', 400);
         }
 
@@ -135,6 +145,22 @@ class Settings extends ResourceController
             SettingsModel::setSetting('ai_completion_token_price_per_1k', number_format((float) $completionPriceInput, 4, '.', ''));
         }
 
+        // Configurações do Gateway Asaas
+        if ($asaasKeyInput !== null && !str_contains($asaasKeyInput, '...')) {
+            SettingsModel::setSetting('asaas_api_key', $asaasKeyInput);
+        }
+
+        if ($asaasEnvInput !== null) {
+            $validEnvs = ['sandbox', 'production'];
+            if (in_array($asaasEnvInput, $validEnvs, true)) {
+                SettingsModel::setSetting('asaas_environment', $asaasEnvInput);
+            }
+        }
+
+        if ($asaasSecretInput !== null) {
+            SettingsModel::setSetting('asaas_webhook_secret', $asaasSecretInput);
+        }
+
         // Keep ai_token_price_per_1k synchronised if only prompt/completion were updated
         if ($tokenPriceInput === null && ($promptPriceInput !== null || $completionPriceInput !== null)) {
             $pPrice = (float) SettingsModel::getSetting('ai_prompt_token_price_per_1k', '0.00');
@@ -143,10 +169,13 @@ class Settings extends ResourceController
             SettingsModel::setSetting('ai_token_price_per_1k', number_format($avgPrice, 4, '.', ''));
         }
 
-        $activeModel     = SettingsModel::getSetting('ai_model', env('OPENCODE_MODEL') ?: 'kimi-k2.7-code');
-        $savedBasePrice  = (float) SettingsModel::getSetting('ai_token_price_per_1k', '0.00');
+        $activeModel      = SettingsModel::getSetting('ai_model', env('OPENCODE_MODEL') ?: 'kimi-k2.7-code');
+        $savedBasePrice   = (float) SettingsModel::getSetting('ai_token_price_per_1k', '0.00');
         $savedPromptPrice = (float) SettingsModel::getSetting('ai_prompt_token_price_per_1k', $savedBasePrice > 0 ? (string)$savedBasePrice : '0.00');
-        $savedCompPrice  = (float) SettingsModel::getSetting('ai_completion_token_price_per_1k', $savedBasePrice > 0 ? (string)$savedBasePrice : '0.00');
+        $savedCompPrice   = (float) SettingsModel::getSetting('ai_completion_token_price_per_1k', $savedBasePrice > 0 ? (string)$savedBasePrice : '0.00');
+        $savedAsaasKey    = SettingsModel::getSetting('asaas_api_key', env('ASAAS_API_KEY') ?: '');
+        $savedAsaasEnv    = SettingsModel::getSetting('asaas_environment', env('ASAAS_ENVIRONMENT') ?: 'sandbox');
+        $savedAsaasSecret = SettingsModel::getSetting('asaas_webhook_secret', env('ASAAS_WEBHOOK_SECRET') ?: '');
 
         return $this->respond([
             'status'                        => 200,
@@ -156,6 +185,10 @@ class Settings extends ResourceController
             'token_price_per_1k'            => $savedBasePrice,
             'prompt_token_price_per_1k'     => $savedPromptPrice,
             'completion_token_price_per_1k' => $savedCompPrice,
+            'asaas_api_key'                 => !empty($savedAsaasKey) ? (substr($savedAsaasKey, 0, 8) . '...' . substr($savedAsaasKey, -4)) : '',
+            'asaas_environment'             => $savedAsaasEnv,
+            'asaas_webhook_secret'          => $savedAsaasSecret,
+            'asaas_configured'              => !empty($savedAsaasKey),
         ]);
     }
 }

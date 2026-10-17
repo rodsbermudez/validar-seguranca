@@ -40,6 +40,7 @@ import {
   IconLayersLinked,
 } from '@tabler/icons-react';
 import { getPublicPlans, getDocsUrl, Plan, api } from '../api';
+import { CheckoutModal } from './CheckoutModal';
 
 interface LandingPageViewProps {
   onLoginSuccess: (user: any, token: string) => void;
@@ -1155,74 +1156,17 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
         </form>
       </Modal>
 
-      {/* 10. Modal de Contratação (Etapa 1: Apresentação e Redirecionamento para Login/Cadastro) */}
-      <Modal
+      {/* 10. Modal de Contratação & Checkout Asaas via Pix */}
+      <CheckoutModal
         opened={contractModalOpen}
         onClose={() => setContractModalOpen(false)}
-        title={
-          <Group gap="xs">
-            <ThemeIcon color="teal" variant="light" size="md" radius="md">
-              <IconSparkles size={18} />
-            </ThemeIcon>
-            <Text fw={700} size="md">
-              Contratação: Plano {selectedPlan?.name}
-            </Text>
-          </Group>
-        }
-        centered
-        size="md"
-        overlayProps={{ backgroundOpacity: 0.7, blur: 6 }}
-        styles={{
-          content: {
-            backgroundColor: '#0f172a',
-            border: '1px solid rgba(16, 185, 129, 0.3)',
-          },
-          header: {
-            backgroundColor: '#0f172a',
-            borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-          },
+        selectedPlan={selectedPlan}
+        currentUser={currentUser}
+        onPaymentSuccess={(user, token) => {
+          setContractModalOpen(false);
+          onLoginSuccess(user, token || '');
         }}
-      >
-        <Stack gap="md" mt="xs">
-          <Paper p="md" radius="md" bg="#1e293b" withBorder style={{ borderColor: 'rgba(255, 255, 255, 0.08)' }}>
-            <Group justify="space-between">
-              <div>
-                <Text fw={800} fz="lg" c="#38bdf8">
-                  {selectedPlan?.name}
-                </Text>
-                <Text size="xs" c="dimmed">
-                  {selectedPlan?.max_websites
-                    ? `Até ${selectedPlan.max_websites} websites sob gestão`
-                    : 'Websites Ilimitados'}
-                </Text>
-              </div>
-              <Text fw={800} fz="xl" c="#34d399">
-                {Number(selectedPlan?.price_monthly || 0).toLocaleString('pt-BR', {
-                  style: 'currency',
-                  currency: 'BRL',
-                })}
-                <span style={{ fontSize: 12, color: '#94a3b8', fontWeight: 400 }}>/mês</span>
-              </Text>
-            </Group>
-          </Paper>
-
-          <Text size="sm" c="#cbd5e1" lh={1.6}>
-            Para ativar este plano ou vincular à sua conta existente, clique no botão abaixo para fazer login ou fale com nosso time para liberação imediata.
-          </Text>
-
-          <Button
-            variant="gradient"
-            gradient={{ from: '#236baa', to: '#4f46e5' }}
-            fullWidth
-            onClick={() => {
-              setContractModalOpen(false);
-              setLoginModalOpen(true);
-            }}
-          >
-            Já Possuo Conta (Fazer Login)
-          </Button>
-        </Stack>
-      </Modal>
+      />
     </Box>
   );
 };

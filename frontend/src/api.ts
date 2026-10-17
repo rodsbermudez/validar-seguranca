@@ -120,6 +120,10 @@ export interface PlatformSettingsResponse {
   completion_token_price_per_1k?: number;
   has_api_key: boolean;
   available_models: AIModelOption[];
+  asaas_api_key?: string;
+  asaas_environment?: 'sandbox' | 'production';
+  asaas_webhook_secret?: string;
+  asaas_configured?: boolean;
   message?: string;
 }
 
@@ -132,13 +136,19 @@ export const updateSettings = async (
   aiModel?: string,
   tokenPricePer1k?: number,
   promptTokenPricePer1k?: number,
-  completionTokenPricePer1k?: number
+  completionTokenPricePer1k?: number,
+  asaasApiKey?: string,
+  asaasEnvironment?: 'sandbox' | 'production',
+  asaasWebhookSecret?: string
 ): Promise<PlatformSettingsResponse> => {
   const payload: Record<string, any> = {};
   if (aiModel !== undefined) payload.ai_model = aiModel;
   if (tokenPricePer1k !== undefined) payload.token_price_per_1k = tokenPricePer1k;
   if (promptTokenPricePer1k !== undefined) payload.prompt_token_price_per_1k = promptTokenPricePer1k;
   if (completionTokenPricePer1k !== undefined) payload.completion_token_price_per_1k = completionTokenPricePer1k;
+  if (asaasApiKey !== undefined) payload.asaas_api_key = asaasApiKey;
+  if (asaasEnvironment !== undefined) payload.asaas_environment = asaasEnvironment;
+  if (asaasWebhookSecret !== undefined) payload.asaas_webhook_secret = asaasWebhookSecret;
   const response = await api.post<PlatformSettingsResponse>('/settings', payload);
   return response.data;
 };
@@ -1035,5 +1045,77 @@ export const getPublicPlans = async (): Promise<{ status: number; data: Plan[] }
   const response = await api.get<{ status: number; data: Plan[] }>('/public/plans');
   return response.data;
 };
+
+// ==========================================
+// Checkout & Asaas Payments API
+// ==========================================
+
+export interface CheckoutInitiatePayload {
+  plan_id: number;
+  name: string;
+  email: string;
+  cpf_cnpj: string;
+  phone: string;
+  password?: string;
+  extra_websites?: number;
+  extra_websites_price?: number;
+  extra_ai_tokens?: number;
+  extra_ai_tokens_price?: number;
+}
+
+export interface CheckoutInitiateResponse {
+  status: number;
+  success: boolean;
+  transaction_id: number;
+  subscription_id: number;
+  gateway_transaction_id: string;
+  amount: number;
+  plan_name: string;
+  pix_qr_code: string;
+  pix_copy_paste: string;
+  pix_expiration: string;
+  invoice_url: string | null;
+  is_simulated: boolean;
+  token?: string;
+  user?: {
+    id: number | string;
+    name: string;
+    email: string;
+    role: string;
+  };
+}
+
+export interface CheckoutStatusResponse {
+  status: 'pending' | 'paid' | 'failed' | 'refunded';
+  activated: boolean;
+  transaction_id: number;
+  paid_at?: string;
+}
+
+export const initiateCheckout = async (
+  payload: CheckoutInitiatePayload
+): Promise<CheckoutInitiateResponse> => {
+  const response = await api.post<CheckoutInitiateResponse>('/public/checkout/initiate', payload);
+  return response.data;
+};
+
+export const getCheckoutStatus = async (
+  transactionIdOrGatewayId: string | number
+): Promise<CheckoutStatusResponse> => {
+  const response = await api.get<CheckoutStatusResponse>(
+    `/public/checkout/status/${transactionIdOrGatewayId}`
+  );
+  return response.data;
+};
+
+export const simulateConfirmCheckout = async (
+  transactionIdOrGatewayId: string | number
+): Promise<{ status: number; message: string; activated: boolean }> => {
+  const response = await api.post(
+    `/public/checkout/simulate-confirm/${transactionIdOrGatewayId}`
+  );
+  return response.data;
+};
+
 
 

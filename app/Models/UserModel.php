@@ -28,6 +28,9 @@ class UserModel extends Model
         'custom_price_monthly',
         'custom_max_websites',
         'custom_ai_token_limit',
+        'cpf_cnpj',
+        'phone',
+        'asaas_customer_id',
     ];
 
     // Dates

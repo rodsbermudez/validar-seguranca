@@ -208,4 +208,36 @@ class UserPlanService
             'limit'   => $details['effective_max_websites'],
         ];
     }
+
+    /**
+     * Atribui ou atualiza o plano de um usuário, resetando overrides e garantindo ativação da conta
+     */
+    public static function assignPlanToUser(int $userId, int $planId, array $addons = []): bool
+    {
+        $userModel = new UserModel();
+        $user = $userModel->find($userId);
+        if (!$user) {
+            return false;
+        }
+
+        $planModel = new PlanModel();
+        $plan = $planModel->find($planId);
+        if (!$plan) {
+            return false;
+        }
+
+        $dataToUpdate = [
+            'plan_id'               => $planId,
+            'is_active'             => 1,
+            'extra_websites'        => max(0, (int)($addons['extra_websites'] ?? 0)),
+            'extra_websites_price'  => max(0, (float)($addons['extra_websites_price'] ?? 0.00)),
+            'extra_ai_tokens'       => max(0, (int)($addons['extra_ai_tokens'] ?? 0)),
+            'extra_ai_tokens_price' => max(0, (float)($addons['extra_ai_tokens_price'] ?? 0.00)),
+            'custom_price_monthly'  => null,
+            'custom_max_websites'   => null,
+            'custom_ai_token_limit' => null,
+        ];
+
+        return (bool)$userModel->update($userId, $dataToUpdate);
+    }
 }

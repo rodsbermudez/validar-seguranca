@@ -27,6 +27,14 @@ $routes->group('api', function ($routes) {
     // Public Plans Catalog route for Landing Page
     $routes->get('public/plans', 'Api\Plans::publicIndex');
 
+    // Public Checkout & Asaas Payments
+    $routes->post('public/checkout/initiate', 'Api\Checkout::initiate');
+    $routes->get('public/checkout/status/(:segment)', 'Api\Checkout::status/$1');
+    $routes->post('public/checkout/simulate-confirm/(:segment)', 'Api\Checkout::simulateConfirm/$1');
+
+    // Asaas Webhook
+    $routes->post('public/webhooks/asaas', 'Api\PaymentWebhooks::asaas');
+
     // Protected routes (JWT Auth required)
     $routes->group('', ['filter' => 'jwtAuth'], function ($routes) {
         $routes->get('websites', 'Api\Websites::index');

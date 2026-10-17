@@ -21,10 +21,13 @@ import {
   Table,
   Modal,
   TextInput,
+  PasswordInput,
   Textarea,
   Switch,
   Divider,
   Grid,
+  Box,
+  CopyButton,
 } from '@mantine/core';
 import {
   IconCpu,
@@ -43,6 +46,7 @@ import {
   IconTrash,
   IconPlus,
   IconCrown,
+  IconCreditCard,
 } from '@tabler/icons-react';
 import {
   getSettings,
@@ -72,6 +76,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onBack, currentUserR
   const [availableModels, setAvailableModels] = useState<AIModelOption[]>([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  // Asaas Gateway State
+  const [asaasApiKey, setAsaasApiKey] = useState<string>('');
+  const [asaasEnv, setAsaasEnv] = useState<'sandbox' | 'production'>('sandbox');
+  const [asaasWebhookSecret, setAsaasWebhookSecret] = useState<string>('');
+  const [asaasConfigured, setAsaasConfigured] = useState<boolean>(false);
 
   // Plans State
   const [plans, setPlans] = useState<Plan[]>([]);
@@ -108,6 +118,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onBack, currentUserR
         setCompletionTokenPrice(cPrice);
         setHasApiKey(res.has_api_key);
         setAvailableModels(res.available_models || []);
+        setAsaasApiKey(res.asaas_api_key || '');
+        setAsaasEnv(res.asaas_environment || 'sandbox');
+        setAsaasWebhookSecret(res.asaas_webhook_secret || '');
+        setAsaasConfigured(!!res.asaas_configured);
       } else {
         setErrorMsg(res.message || 'Falha ao carregar configurações.');
       }
@@ -153,6 +167,33 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onBack, currentUserR
       }
     } catch (err: any) {
       setErrorMsg(err.response?.data?.message || 'Erro ao atualizar configurações.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveAsaasSettings = async () => {
+    setSaving(true);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    try {
+      const res = await updateSettings(
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        asaasApiKey,
+        asaasEnv,
+        asaasWebhookSecret
+      );
+      if (res.success) {
+        setSuccessMsg('Configurações do Gateway Asaas atualizadas com sucesso!');
+        setAsaasConfigured(!!res.asaas_configured);
+      } else {
+        setErrorMsg(res.message || 'Erro ao salvar configurações do Asaas.');
+      }
+    } catch (err: any) {
+      setErrorMsg(err.response?.data?.message || 'Erro ao salvar configurações do Asaas.');
     } finally {
       setSaving(false);
     }
@@ -347,6 +388,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onBack, currentUserR
           </Tabs.Tab>
           <Tabs.Tab value="ai" leftSection={<IconCpu size={16} />}>
             Motor de IA & Precificação de Tokens
+          </Tabs.Tab>
+          <Tabs.Tab value="payment" leftSection={<IconCreditCard size={16} />}>
+            Gateway Asaas & Checkout
           </Tabs.Tab>
         </Tabs.List>
 
@@ -718,6 +762,125 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onBack, currentUserR
               </Paper>
             </Stack>
           )}
+        </Tabs.Panel>
+
+        {/* TAB 3: GATEWAY ASAAS & CHECKOUT */}
+        <Tabs.Panel value="payment">
+          <Stack gap="lg">
+            <Paper p="lg" radius="md" bg="dark.8" withBorder style={{ borderColor: '#374151' }}>
+              <Group justify="space-between" mb="md" wrap="wrap" gap="sm">
+                <div>
+                  <Group gap="xs">
+                    <ThemeIcon color="green" variant="light" size="md">
+                      <IconCreditCard size={18} />
+                    </ThemeIcon>
+                    <Title order={3}>Integração com Gateway Asaas</Title>
+                  </Group>
+                  <Text size="xs" c="dimmed" mt={2}>
+                    Configure suas credenciais da API do Asaas para cobrança via Pix dinâmico, QR Code, Cartão e Webhooks com provisionamento 100% automático.
+                  </Text>
+                </div>
+                <Badge
+                  size="lg"
+                  color={asaasConfigured ? 'teal' : 'orange'}
+                  variant="filled"
+                >
+                  {asaasConfigured ? 'Gateway Conectado' : 'Modo Homologação Ativo'}
+                </Badge>
+              </Group>
+
+              <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
+                <Paper p="md" radius="md" bg="dark.7" withBorder style={{ borderColor: '#4b5563' }}>
+                  <Title order={5} mb="xs" c="white">Credenciais da API</Title>
+                  <Text size="xs" c="dimmed" mb="md">
+                    Obtenha sua chave no painel do Asaas em <i>Menu do Usuário &gt; Integrações &gt; Gerar Chave de API</i>.
+                  </Text>
+
+                  <Stack gap="sm">
+                    <div>
+                      <Text size="xs" fw={600} mb={4}>Ambiente de Execução</Text>
+                      <Radio.Group
+                        value={asaasEnv}
+                        onChange={(val: any) => setAsaasEnv(val)}
+                      >
+                        <Group mt="xs">
+                          <Radio value="sandbox" label="Sandbox (Homologação / Testes)" color="indigo" />
+                          <Radio value="production" label="Produção (Cobranças Reais)" color="green" />
+                        </Group>
+                      </Radio.Group>
+                    </div>
+
+                    <PasswordInput
+                      label="Chave de API (Access Token)"
+                      placeholder="$aact_YTU5YTE0M2M6N2Nm..."
+                      value={asaasApiKey}
+                      onChange={(e) => setAsaasApiKey(e.target.value)}
+                      description="Chave de autenticação enviada nas requisições HTTP para a API v3 do Asaas."
+                    />
+
+                    <TextInput
+                      label="Token Secreto do Webhook (asaas-access-token)"
+                      placeholder="Ex: seu-token-secreto-personalizado"
+                      value={asaasWebhookSecret}
+                      onChange={(e) => setAsaasWebhookSecret(e.target.value)}
+                      description="Token validado pelo backend para confirmar que as notificações foram disparadas pelo Asaas."
+                    />
+                  </Stack>
+                </Paper>
+
+                <Paper p="md" radius="md" bg="dark.7" withBorder style={{ borderColor: '#4b5563' }}>
+                  <Title order={5} mb="xs" c="white">Configuração de Webhooks</Title>
+                  <Text size="xs" c="dimmed" mb="md">
+                    Cadastre a URL abaixo no painel do Asaas para que a plataforma receba notificações de pagamento Pix em tempo real e ative a conta do cliente instantaneamente.
+                  </Text>
+
+                  <Stack gap="sm">
+                    <Box>
+                      <Text size="xs" fw={600} mb={4}>URL do Webhook da Plataforma:</Text>
+                      <Group gap="xs">
+                        <TextInput
+                          value={`${window.location.origin}${window.location.pathname.startsWith('/validar-seguranca') ? '/validar-seguranca' : ''}/api/public/webhooks/asaas`}
+                          readOnly
+                          style={{ flex: 1 }}
+                          size="xs"
+                          styles={{ input: { fontFamily: 'monospace' } }}
+                        />
+                        <CopyButton value={`${window.location.origin}${window.location.pathname.startsWith('/validar-seguranca') ? '/validar-seguranca' : ''}/api/public/webhooks/asaas`}>
+                          {({ copied, copy }) => (
+                            <Button size="xs" color={copied ? 'teal' : 'indigo'} onClick={copy}>
+                              {copied ? 'Copiado!' : 'Copiar'}
+                            </Button>
+                          )}
+                        </CopyButton>
+                      </Group>
+                    </Box>
+
+                    <Alert color="blue" variant="light">
+                      <b>Eventos recomendados para ativar no Asaas:</b>
+                      <ul style={{ margin: '4px 0 0 16px', padding: 0 }}>
+                        <li><code>PAYMENT_RECEIVED</code> (Pagamento Pix recebido)</li>
+                        <li><code>PAYMENT_CONFIRMED</code> (Pagamento confirmado)</li>
+                        <li><code>PAYMENT_OVERDUE</code> (Cobrança vencida)</li>
+                        <li><code>PAYMENT_REFUNDED</code> (Pagamento estornado)</li>
+                      </ul>
+                    </Alert>
+                  </Stack>
+                </Paper>
+              </SimpleGrid>
+
+              <Group justify="flex-end" mt="lg">
+                <Button
+                  color="teal"
+                  size="md"
+                  leftSection={<IconDeviceFloppy size={18} />}
+                  onClick={handleSaveAsaasSettings}
+                  loading={saving}
+                >
+                  Salvar Configurações do Asaas
+                </Button>
+              </Group>
+            </Paper>
+          </Stack>
         </Tabs.Panel>
       </Tabs>
 
