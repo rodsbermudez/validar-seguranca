@@ -487,22 +487,36 @@ class Subscriptions extends ResourceController
             ]);
         }
 
-        // Sem assinatura ativa vinculada (conta cortesia/admin ou teste sem gateway)
-        UserPlanService::assignPlanToUser($targetUserId, $newPlanId, [
-            'extra_websites'        => $extraWebsites,
-            'extra_websites_price'  => $extraWebsitesPrice,
-            'extra_ai_tokens'       => $extraAiTokens,
-            'extra_ai_tokens_price' => $extraAiTokensPrice,
-        ]);
+        // Sem assinatura ativa vinculada no gateway Asaas
+        if (!$sub || empty($sub['gateway_subscription_id'])) {
+            if ($isAdmin && !empty($json['user_id']) && (int)$json['user_id'] !== $effectiveUserId) {
+                UserPlanService::assignPlanToUser($targetUserId, $newPlanId, [
+                    'extra_websites'        => $extraWebsites,
+                    'extra_websites_price'  => $extraWebsitesPrice,
+                    'extra_ai_tokens'       => $extraAiTokens,
+                    'extra_ai_tokens_price' => $extraAiTokensPrice,
+                ]);
 
-        $updatedDetails = UserPlanService::getUserPlanDetails($targetUserId);
+                $updatedDetails = UserPlanService::getUserPlanDetails($targetUserId);
 
-        return $this->respond([
-            'status'       => 200,
-            'success'      => true,
-            'message'      => "Upgrade para o Plano {$newPlan['name']} realizado com sucesso!",
-            'plan_details' => $updatedDetails,
-        ]);
+                return $this->respond([
+                    'status'       => 200,
+                    'success'      => true,
+                    'message'      => "Plano {$newPlan['name']} atribuído manualmente pelo administrador.",
+                    'plan_details' => $updatedDetails,
+                ]);
+            }
+
+            // Cliente sem assinatura ativa: requer contratação pelo Checkout
+            return $this->respond([
+                'status'           => 200,
+                'require_checkout' => true,
+                'plan_id'          => $newPlanId,
+                'extra_websites'   => $extraWebsites,
+                'extra_ai_packs'   => (int)($extraAiTokens / 250000),
+                'message'          => 'Para realizar upgrade, conclua a contratação informando seu método de pagamento (Cartão ou PIX).',
+            ]);
+        }
     }
 
     /**
@@ -746,21 +760,35 @@ class Subscriptions extends ResourceController
         }
 
         // Sem assinatura ativa no gateway (conta cortesia ou admin)
-        UserPlanService::assignPlanToUser($targetUserId, (int)$plan['id'], [
-            'extra_websites'        => $newExtraWebsites,
-            'extra_websites_price'  => $newExtraWebsitesPrice,
-            'extra_ai_tokens'       => $newExtraAiTokens,
-            'extra_ai_tokens_price' => $newExtraAiTokensPrice,
-        ]);
+        if (!$sub || empty($sub['gateway_subscription_id'])) {
+            if ($isAdmin && !empty($json['user_id']) && (int)$json['user_id'] !== $effectiveUserId) {
+                UserPlanService::assignPlanToUser($targetUserId, (int)$plan['id'], [
+                    'extra_websites'        => $newExtraWebsites,
+                    'extra_websites_price'  => $newExtraWebsitesPrice,
+                    'extra_ai_tokens'       => $newExtraAiTokens,
+                    'extra_ai_tokens_price' => $newExtraAiTokensPrice,
+                ]);
 
-        $updatedDetails = UserPlanService::getUserPlanDetails($targetUserId);
+                $updatedDetails = UserPlanService::getUserPlanDetails($targetUserId);
 
-        return $this->respond([
-            'status'       => 200,
-            'success'      => true,
-            'message'      => 'Add-ons atualizados com sucesso!',
-            'plan_details' => $updatedDetails,
-        ]);
+                return $this->respond([
+                    'status'       => 200,
+                    'success'      => true,
+                    'message'      => 'Add-ons atribuídos manualmente pelo administrador.',
+                    'plan_details' => $updatedDetails,
+                ]);
+            }
+
+            // Cliente sem assinatura ativa: requer contratação pelo Checkout
+            return $this->respond([
+                'status'           => 200,
+                'require_checkout' => true,
+                'plan_id'          => (int)$plan['id'],
+                'extra_websites'   => $newExtraWebsites,
+                'extra_ai_packs'   => isset($json['extra_ai_packs']) ? (int)$json['extra_ai_packs'] : (int)($newExtraAiTokens / 250000),
+                'message'          => 'Para adicionar recursos pagos, é necessário possuir uma assinatura ativa no Asaas. Por favor, conclua a contratação informando seu método de pagamento (Cartão ou PIX).',
+            ]);
+        }
     }
 
     /**

@@ -59,6 +59,7 @@ import {
   confirmProratedPix,
   UserPlanResponse,
   AiUsageLogItem,
+  Plan,
 } from '../api';
 import { formatDateTime, formatDateOnly, formatMonthYear } from '../utils/date';
 import { CheckoutModal } from './CheckoutModal';
@@ -104,11 +105,19 @@ export function UserPlanManagementView({
   const [savingPlan, setSavingPlan] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
-  // Subscription Cancellation & Renewal State
+  // Subscription Cancellation, Renewal & Feedback State
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [cancelingSub, setCancelingSub] = useState(false);
-  const [cancelFeedback, setCancelFeedback] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<{
+    title: string;
+    message: string;
+    color: 'teal' | 'orange' | 'blue' | 'red';
+    icon?: 'check' | 'alert' | 'info';
+  } | null>(null);
   const [renewModalOpen, setRenewModalOpen] = useState(false);
+  const [checkoutPlan, setCheckoutPlan] = useState<Plan | null>(null);
+  const [checkoutExtraWebsites, setCheckoutExtraWebsites] = useState<number>(0);
+  const [checkoutExtraAiPacks, setCheckoutExtraAiPacks] = useState<number>(0);
 
   // Upgrade Plan Modal State
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
@@ -248,7 +257,12 @@ export function UserPlanManagementView({
       setErrorMessage('');
       const res = await cancelSubscription(initialUser.id);
       setCancelModalOpen(false);
-      setCancelFeedback(res.message);
+      setFeedback({
+        title: 'Cancelamento Registrado',
+        message: res.message,
+        color: 'orange',
+        icon: 'alert',
+      });
       await loadData();
     } catch (err: any) {
       console.error(err);
@@ -349,7 +363,14 @@ export function UserPlanManagementView({
       setErrorMessage('');
       const res = await upgradePlan(targetUpgradePlanId, initialUser.id);
       
-      if (res.require_pix) {
+      if (res.require_checkout) {
+        setUpgradeModalOpen(false);
+        const planToCheckout = data?.available_plans.find((p) => p.id === targetUpgradePlanId) || currentPlan || null;
+        setCheckoutPlan(planToCheckout);
+        setCheckoutExtraWebsites(pd?.extra_websites || 0);
+        setCheckoutExtraAiPacks(Math.round((pd?.extra_ai_tokens || 0) / 1000000));
+        setRenewModalOpen(true);
+      } else if (res.require_pix) {
         setUpgradeModalOpen(false);
         setPixData({
           payment_id: res.payment_id!,
@@ -366,7 +387,12 @@ export function UserPlanManagementView({
         setPixModalOpen(true);
       } else {
         setUpgradeModalOpen(false);
-        setCancelFeedback(res.message);
+        setFeedback({
+          title: 'Plano Atualizado com Sucesso',
+          message: res.message,
+          color: 'teal',
+          icon: 'check',
+        });
         await loadData();
       }
     } catch (err: any) {
@@ -403,7 +429,13 @@ export function UserPlanManagementView({
         user_id: initialUser.id,
       });
 
-      if (res.require_pix) {
+      if (res.require_checkout) {
+        setAddonsModalOpen(false);
+        setCheckoutPlan(currentPlan || null);
+        setCheckoutExtraWebsites(modalExtraWebsites);
+        setCheckoutExtraAiPacks(modalExtraAiPacks);
+        setRenewModalOpen(true);
+      } else if (res.require_pix) {
         setAddonsModalOpen(false);
         setPixData({
           payment_id: res.payment_id!,
@@ -420,7 +452,13 @@ export function UserPlanManagementView({
         setPixModalOpen(true);
       } else {
         setAddonsModalOpen(false);
-        setCancelFeedback(res.message);
+        const isScheduled = res.message?.toLowerCase().includes('programada') || res.message?.toLowerCase().includes('redução');
+        setFeedback({
+          title: isScheduled ? 'Redução Agendada para a Próxima Fatura' : 'Add-ons Atualizados com Sucesso',
+          message: res.message,
+          color: isScheduled ? 'blue' : 'teal',
+          icon: isScheduled ? 'info' : 'check',
+        });
         await loadData();
       }
     } catch (err: any) {
@@ -450,7 +488,12 @@ export function UserPlanManagementView({
 
       if (res.paid) {
         setPixModalOpen(false);
-        setCancelFeedback(res.message);
+        setFeedback({
+          title: 'Pagamento Confirmado',
+          message: res.message,
+          color: 'teal',
+          icon: 'check',
+        });
         await loadData();
       } else {
         setErrorMessage(res.message || 'Pagamento ainda não confirmado pelo Asaas. Aguarde alguns instantes e tente novamente.');
@@ -549,17 +592,25 @@ export function UserPlanManagementView({
         </Alert>
       )}
 
-      {/* Feedback de cancelamento */}
-      {cancelFeedback && (
+      {/* Feedback de ações (cancelamento, upgrade, add-ons, pix) */}
+      {feedback && (
         <Alert
-          icon={<IconCheck size={16} />}
-          color="teal"
+          icon={
+            feedback.icon === 'alert' ? (
+              <IconAlertTriangle size={16} />
+            ) : feedback.icon === 'info' ? (
+              <IconInfoCircle size={16} />
+            ) : (
+              <IconCheck size={16} />
+            )
+          }
+          color={feedback.color}
           variant="filled"
           withCloseButton
-          onClose={() => setCancelFeedback(null)}
-          title="Cancelamento Registrado"
+          onClose={() => setFeedback(null)}
+          title={feedback.title}
         >
-          {cancelFeedback}
+          {feedback.message}
         </Alert>
       )}
 
@@ -656,7 +707,12 @@ export function UserPlanManagementView({
                   color="indigo"
                   size="xs"
                   leftSection={<IconRefresh size={14} />}
-                  onClick={() => setRenewModalOpen(true)}
+                  onClick={() => {
+                    setCheckoutPlan(currentPlan || null);
+                    setCheckoutExtraWebsites(pd?.extra_websites || 0);
+                    setCheckoutExtraAiPacks(Math.round((pd?.extra_ai_tokens || 0) / 1000000));
+                    setRenewModalOpen(true);
+                  }}
                 >
                   {sub.is_period_active ? 'Reativar / Renovar Assinatura' : 'Contratar Novo Plano'}
                 </Button>
@@ -673,7 +729,17 @@ export function UserPlanManagementView({
             <Text size="xs">
               O período contratado da sua assinatura foi concluído. Os limites de sites e as funcionalidades de IA estão congelados.
             </Text>
-            <Button size="xs" variant="white" color="red" onClick={() => setRenewModalOpen(true)}>
+            <Button
+              size="xs"
+              variant="white"
+              color="red"
+              onClick={() => {
+                setCheckoutPlan(currentPlan || null);
+                setCheckoutExtraWebsites(pd?.extra_websites || 0);
+                setCheckoutExtraAiPacks(Math.round((pd?.extra_ai_tokens || 0) / 1000000));
+                setRenewModalOpen(true);
+              }}
+            >
               Contratar Novo Plano
             </Button>
           </Group>
@@ -1992,8 +2058,10 @@ export function UserPlanManagementView({
         <CheckoutModal
           opened={renewModalOpen}
           onClose={() => setRenewModalOpen(false)}
-          selectedPlan={currentPlan || (data?.available_plans?.[0] ?? null)}
+          selectedPlan={checkoutPlan || currentPlan || (data?.available_plans?.[0] ?? null)}
           currentUser={initialUser}
+          initialExtraWebsites={checkoutExtraWebsites}
+          initialExtraAiPacks={checkoutExtraAiPacks}
           onPaymentSuccess={() => {
             setRenewModalOpen(false);
             loadData();

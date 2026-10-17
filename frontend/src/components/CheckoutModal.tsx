@@ -47,6 +47,8 @@ interface CheckoutModalProps {
   onClose: () => void;
   selectedPlan: Plan | null;
   currentUser?: any;
+  initialExtraWebsites?: number;
+  initialExtraAiPacks?: number;
   onPaymentSuccess: (user: any, token?: string) => void;
 }
 
@@ -55,6 +57,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   onClose,
   selectedPlan,
   currentUser,
+  initialExtraWebsites = 0,
+  initialExtraAiPacks = 0,
   onPaymentSuccess,
 }) => {
   const [step, setStep] = useState<'form' | 'pix' | 'success'>('form');
@@ -80,8 +84,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [addressNumber, setAddressNumber] = useState('');
 
   // Add-ons
-  const [extraWebsites, setExtraWebsites] = useState<number>(0);
-  const [extraAiPacks, setExtraAiPacks] = useState<number>(0); // cada pack = 250k tokens por R$ 60
+  const [extraWebsites, setExtraWebsites] = useState<number>(initialExtraWebsites);
+  const [extraAiPacks, setExtraAiPacks] = useState<number>(initialExtraAiPacks); // cada pack = 250k tokens por R$ 60
 
   // Payment response & verification state
   const [checkoutData, setCheckoutData] = useState<CheckoutInitiateResponse | null>(null);
@@ -96,8 +100,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       setStep('form');
       setError(null);
       setCheckoutData(null);
-      setExtraWebsites(0);
-      setExtraAiPacks(0);
+      setExtraWebsites(initialExtraWebsites);
+      setExtraAiPacks(initialExtraAiPacks);
       setPaymentMethod('credit_card');
       setCardHolder('');
       setCardNumber('');

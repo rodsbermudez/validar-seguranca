@@ -1229,6 +1229,7 @@ export const upgradePlan = async (
   message: string;
   has_active_subscription?: boolean;
   require_pix?: boolean;
+  require_checkout?: boolean;
   payment_id?: string;
   prorated_amount?: number;
   pix_qr_code?: string;
@@ -1256,6 +1257,7 @@ export const manageAddons = async (payload: {
   success: boolean;
   message: string;
   require_pix?: boolean;
+  require_checkout?: boolean;
   payment_id?: string;
   prorated_amount?: number;
   pix_qr_code?: string;
