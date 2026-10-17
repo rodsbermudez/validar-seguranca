@@ -239,23 +239,24 @@ CREATE TABLE payment_transactions (
   - `PricingSection.tsx` (Vitrine dos planos Iniciante, Profissional, Full e Add-ons).
   - `FaqSection.tsx` (Perguntas e respostas).
   - `FooterSection.tsx` (Rodapé institucional).
-  - `LoginModal.tsx` (Modal Mantine integrando o `LoginView` existente).
-- [ ] **Tarefa 1.2:** Configurar endpoint público `GET /api/public/plans` em `app/Controllers/Api/Plans.php` e liberar rota em `app/Config/Routes.php`.
-- [ ] **Tarefa 1.3:** Integrar a Landing Page no `frontend/src/App.tsx`:
-  - Renderizar `LandingPageView` quando `!user`.
-  - Abrir o modal de login suavemente a partir de qualquer CTA de acesso.
+  - `LoginModal.tsx` (Modal Mantine integrado ao fluxo de login e JWT).
+- [x] **Tarefa 1.2:** Configurar endpoint público `GET /api/public/plans` em `app/Controllers/Api/Plans.php` e liberar rota pública em `app/Config/Routes.php`. *(Concluído - Retornando Iniciante, Profissional e Full ordenados com limites e preços)*.
+- [x] **Tarefa 1.3:** Integrar a Landing Page no `frontend/src/App.tsx`:
+  - Renderizar `LandingPageView` quando `!user` na raiz (`/`).
+  - Abrir o modal de login suavemente a partir de qualquer CTA de acesso ou botão "Entrar" no menu fixo.
   - Testar login e transição instantânea para o Dashboard do cliente.
-- [ ] **Tarefa 1.4:** Rebuild do frontend (`npm run build`) e homologação visual e responsiva.
+  - Adicionado item "Ver Home Pública" no menu do avatar para que usuários logados possam navegar pela landing page e voltar ao painel com facilidade. *(Concluído)*.
+- [x] **Tarefa 1.4:** Rebuild do frontend (`npm run build`) e homologação visual, responsiva e de rotas. *(Concluído - Código compilado e versionado no Git)*.
 
 ---
 
-### FASE 2: Checkout & Pagamento Automático (Etapa 2)
+### FASE 2: Checkout & Pagamento Automático com Asaas (Próxima Etapa)
 - [ ] **Tarefa 2.1:** Criar migrações de banco de dados para `subscriptions` e `payment_transactions`.
-- [ ] **Tarefa 2.2:** Criar serviços de integração com o gateway de pagamento (`App\Services\Payment\AsaasGatewayService` ou gateway selecionado).
+- [ ] **Tarefa 2.2:** Criar serviços de integração com o gateway de pagamento (`App\Services\Payment\AsaasGatewayService`) para geração de cobranças (Pix dinâmico com QR Code e Cartão de crédito).
 - [ ] **Tarefa 2.3:** Criar controller `App\Controllers\Api\Checkout.php` para iniciar sessões de pagamento e verificar status do Pix.
-- [ ] **Tarefa 2.4:** Criar controller `App\Controllers\Api\PaymentWebhooks.php` com validação de segurança, idempotência e ativação de contas no `UserPlanService`.
+- [ ] **Tarefa 2.4:** Criar controller `App\Controllers\Api\PaymentWebhooks.php` com validação de segurança de token Asaas, idempotência e ativação de contas no `UserPlanService`.
 - [ ] **Tarefa 2.5:** Criar componente de checkout no frontend (`CheckoutModal.tsx` ou tela de contratação com Pix copia e cola e cartão).
-- [ ] **Tarefa 2.6:** Testes end-to-end em ambiente sandbox do gateway (emissão de Pix de teste, disparo de webhook simulado e verificação de liberação instantânea de acesso à plataforma).
+- [ ] **Tarefa 2.6:** Testes end-to-end em ambiente sandbox do Asaas (emissão de Pix de teste, disparo de webhook simulado e verificação de liberação instantânea de acesso à plataforma).
 
 ---
 
@@ -268,12 +269,11 @@ CREATE TABLE payment_transactions (
 3. **Reserva de E-mail / Usuário:**
    - Caso um usuário inicie o pagamento com um e-mail já existente, o sistema solicita o login para vincular a assinatura à conta existente ou oferece recuperação de senha.
 4. **Isolamento de Credenciais:**
-   - Chaves de API do gateway (`ASAAS_API_KEY`, `STRIPE_SECRET_KEY`, etc.) permanecerão isoladas no arquivo `.env` do servidor e nunca trafegarão para o frontend.
+   - Chaves de API do gateway (`ASAAS_API_KEY`, `ASAAS_WEBHOOK_SECRET`) permanecerão isoladas no arquivo `.env` do servidor e nunca trafegarão para o frontend.
 
 ---
 
-## 💬 Próximos Passos & Decisões para Validação
+## 🏁 Status Atual & Próximo Passo
 
-Antes de iniciarmos o desenvolvimento, precisamos alinhar os seguintes pontos:
-1. **Previsão de Gateway para a Etapa 2:** O **Asaas** atende bem às suas expectativas de cobrança nacional (Pix instantâneo + Cartão recorrente), ou você prefere outro parceiro como **Stripe** ou **Mercado Pago**?
-2. **Aprovação do Escopo da Etapa 1:** Podemos iniciar pela **Etapa 1 (Landing Page One-Page + Modal de Login)** para deixar a vitrine pública pronta e depois passarmos para o gateway na Etapa 2?
+- ✅ **Etapa 1 (Landing Page One-Page):** 100% implementada, testada, compilada e enviada para o repositório (`origin/main`).
+- ⏳ **Etapa 2 (Integração Asaas):** Pronta para iniciar o desenvolvimento do checkout e webhooks assim que solicitado.
