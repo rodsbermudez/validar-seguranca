@@ -7,6 +7,7 @@ use App\Models\SubscriptionModel;
 use App\Models\UserModel;
 use App\Models\PlanModel;
 use App\Models\WebsiteModel;
+use App\Models\PaymentTransactionModel;
 use App\Services\Payment\AsaasService;
 use App\Services\UserPlanService;
 
@@ -138,6 +139,142 @@ class Subscriptions extends ResourceController
      *    o sistema bloqueia e informa a quantidade que precisa ser removida.
      * 3. Se houver assinatura ativa no Asaas, atualiza o valor da recorrência diretamente no gateway.
      */
+    /**
+     * POST /api/subscriptions/preview-change
+     * Calcula em tempo real o pró-rata, dias restantes, valores proporcionais e validações de capacidade
+     */
+    public function previewChange()
+    {
+        $userData = $this->request->userData ?? null;
+        $effectiveUserId = (int)($this->request->effectiveUserId ?? ($userData->id ?? 0));
+        $isAdmin = (($userData->role ?? 'user') === 'admin');
+
+        $json = $this->request->getJSON(true) ?? $this->request->getPost();
+
+        $targetUserId = $effectiveUserId;
+        if ($isAdmin && !empty($json['user_id'])) {
+            $targetUserId = (int)$json['user_id'];
+        }
+
+        if (!$targetUserId) {
+            return $this->failUnauthorized('Usuário não identificado.');
+        }
+
+        $userModel = new UserModel();
+        $user = $userModel->find($targetUserId);
+        if (!$user) {
+            return $this->failNotFound('Usuário não encontrado.');
+        }
+
+        $subModel = new SubscriptionModel();
+        $sub = $subModel->where('user_id', $targetUserId)
+                        ->where('status', 'active')
+                        ->orderBy('id', 'DESC')
+                        ->first();
+
+        $planModel = new PlanModel();
+        $currentPlanId = $user['plan_id'] ?? ($sub['plan_id'] ?? null);
+        $currentPlan = $currentPlanId ? $planModel->find($currentPlanId) : $planModel->getDefaultPlan();
+
+        $newPlanId = !empty($json['plan_id']) ? (int)$json['plan_id'] : (int)($currentPlan['id'] ?? 1);
+        $newPlan = $planModel->find($newPlanId) ?: $currentPlan;
+
+        // Add-ons e valores atuais
+        $currentExtraWebsites      = (int)($user['extra_websites'] ?? 0);
+        $currentExtraWebsitesPrice = (float)($user['extra_websites_price'] ?? 0.00);
+        $currentExtraAiTokens      = (int)($user['extra_ai_tokens'] ?? 0);
+        $currentExtraAiTokensPrice = (float)($user['extra_ai_tokens_price'] ?? 0.00);
+        $currentBasePrice          = (float)($currentPlan['price_monthly'] ?? 0.00);
+        $currentTotalMonthly       = round($currentBasePrice + $currentExtraWebsitesPrice + $currentExtraAiTokensPrice, 2);
+
+        // Novos add-ons propostos
+        $newExtraWebsites = isset($json['extra_websites'])
+            ? max(0, (int)$json['extra_websites'])
+            : $currentExtraWebsites;
+        $newExtraWebsitesPrice = round($newExtraWebsites * 8.00, 2);
+
+        if (isset($json['extra_ai_packs'])) {
+            $newExtraAiPacks = max(0, (int)$json['extra_ai_packs']);
+            $newExtraAiTokens = $newExtraAiPacks * 250000;
+            $newExtraAiTokensPrice = round($newExtraAiPacks * 60.00, 2);
+        } elseif (isset($json['extra_ai_tokens'])) {
+            $newExtraAiTokens = max(0, (int)$json['extra_ai_tokens']);
+            $newExtraAiTokensPrice = round(($newExtraAiTokens / 250000) * 60.00, 2);
+        } else {
+            $newExtraAiTokens = $currentExtraAiTokens;
+            $newExtraAiTokensPrice = $currentExtraAiTokensPrice;
+        }
+
+        $newBasePrice = (float)$newPlan['price_monthly'];
+        $newTotalMonthly = round($newBasePrice + $newExtraWebsitesPrice + $newExtraAiTokensPrice, 2);
+        $difference = round($newTotalMonthly - $currentTotalMonthly, 2);
+        $isDowngrade = ($difference <= 0);
+
+        // Dias restantes no ciclo atual
+        $hasActiveSub = !empty($sub);
+        $currentPeriodEnd = $sub['current_period_end'] ?? null;
+        $now = time();
+
+        if ($hasActiveSub && !empty($currentPeriodEnd) && strtotime($currentPeriodEnd) > $now) {
+            $endTs = strtotime($currentPeriodEnd);
+            $daysRemaining = max(1, (int)ceil(($endTs - $now) / 86400));
+            $daysInCycle = 30;
+            $nextDueDate = date('Y-m-d', $endTs);
+        } else {
+            $daysRemaining = 30;
+            $daysInCycle = 30;
+            $nextDueDate = date('Y-m-d', strtotime('+30 days'));
+        }
+
+        $proratedRatio = min(1.0, max(0.033, $daysRemaining / 30.0));
+        $proratedAmount = $difference > 0 ? round($difference * $proratedRatio, 2) : 0.00;
+
+        // Validação de Capacidade
+        $websiteModel = new WebsiteModel();
+        $websitesCount = $websiteModel->where('user_id', $targetUserId)->countAllResults();
+        $newBaseMax = $newPlan['max_websites'] !== null ? (int)$newPlan['max_websites'] : null;
+        $newEffectiveMax = $newBaseMax !== null ? ($newBaseMax + $newExtraWebsites) : null;
+        $isCapacityBlocked = ($newEffectiveMax !== null && $websitesCount > $newEffectiveMax);
+        $excessWebsites = $isCapacityBlocked ? ($websitesCount - $newEffectiveMax) : 0;
+
+        // Dados de pagamento da assinatura
+        $transModel = new PaymentTransactionModel();
+        $lastTrans = $hasActiveSub
+            ? $transModel->where('subscription_id', $sub['id'])->orderBy('id', 'DESC')->first()
+            : null;
+        $meta = !empty($lastTrans['metadata']) ? json_decode($lastTrans['metadata'], true) : [];
+        $billingType = ($lastTrans['payment_method'] ?? '') === 'credit_card' ? 'CREDIT_CARD' : ($meta['billing_type'] ?? 'CREDIT_CARD');
+        $cardLast4 = $meta['card_last4'] ?? null;
+        $cardBrand = $meta['card_brand'] ?? 'Mastercard';
+
+        return $this->respond([
+            'status'                     => 200,
+            'current_plan_name'          => $currentPlan['name'],
+            'current_monthly'            => $currentTotalMonthly,
+            'new_plan_name'              => $newPlan['name'],
+            'new_monthly'                => $newTotalMonthly,
+            'difference'                 => $difference,
+            'is_downgrade'               => $isDowngrade,
+            'days_remaining'             => $daysRemaining,
+            'next_due_date'              => $nextDueDate,
+            'next_due_date_formatted'    => date('d/m/Y', strtotime($nextDueDate)),
+            'prorated_amount'            => $proratedAmount,
+            'websites_count'             => $websitesCount,
+            'new_effective_max_websites' => $newEffectiveMax,
+            'is_capacity_blocked'        => $isCapacityBlocked,
+            'excess_websites'            => $excessWebsites,
+            'billing_type'               => $billingType,
+            'card_last4'                 => $cardLast4,
+            'card_brand'                 => $cardBrand,
+            'has_active_subscription'    => $hasActiveSub,
+            'gateway_subscription_id'    => $sub['gateway_subscription_id'] ?? null,
+        ]);
+    }
+
+    /**
+     * POST /api/subscriptions/upgrade-plan
+     * Realiza upgrade do plano base preservando add-ons e calculando pró-rata
+     */
     public function upgradePlan()
     {
         $userData = $this->request->userData ?? null;
@@ -178,7 +315,7 @@ class Subscriptions extends ResourceController
         $extraAiTokens      = (int)($user['extra_ai_tokens'] ?? 0);
         $extraAiTokensPrice = (float)($user['extra_ai_tokens_price'] ?? 0.00);
 
-        // REGRA 2: Valida se o novo plano comporta a quantidade atual de sites cadastrados
+        // REGRA 2: Validação de capacidade
         $websiteModel = new WebsiteModel();
         $websitesCount = $websiteModel->where('user_id', $targetUserId)->countAllResults();
 
@@ -187,40 +324,170 @@ class Subscriptions extends ResourceController
             $newEffectiveLimit = $newBaseWebsites + $extraWebsites;
             if ($websitesCount > $newEffectiveLimit) {
                 $excess = $websitesCount - $newEffectiveLimit;
-                return $this->fail("Não é possível alterar para o plano {$newPlan['name']}. Você possui {$websitesCount} sites cadastrados, mas este plano suportaria no total apenas {$newEffectiveLimit} sites (com seus {$extraWebsites} sites extras). Remova pelo menos {$excess} site(s) antes de realizar este upgrade.", 400);
+                return $this->fail("Não é possível alterar para o plano {$newPlan['name']}. Você possui {$websitesCount} sites cadastrados, mas este plano suportaria no total apenas {$newEffectiveLimit} sites (com seus {$extraWebsites} sites extras). Remova pelo menos {$excess} site(s) antes de realizar esta alteração.", 400);
             }
         }
 
         $basePrice = (float)$newPlan['price_monthly'];
         $newTotalAmount = round($basePrice + $extraWebsitesPrice + $extraAiTokensPrice, 2);
 
-        // Atualizar assinatura ativa no gateway Asaas e banco de dados se houver
         $subModel = new SubscriptionModel();
         $sub = $subModel->where('user_id', $targetUserId)
                         ->where('status', 'active')
                         ->orderBy('id', 'DESC')
                         ->first();
 
-        if ($sub) {
-            if (!empty($sub['gateway_subscription_id'])) {
-                $asaasService = new AsaasService();
-                $asaasRes = $asaasService->updateSubscription($sub['gateway_subscription_id'], [
+        $currentPlanId = $user['plan_id'] ?? ($sub['plan_id'] ?? null);
+        $currentPlan = $currentPlanId ? $planModel->find($currentPlanId) : $planModel->getDefaultPlan();
+        $currentTotalMonthly = round((float)($currentPlan['price_monthly'] ?? 0) + $extraWebsitesPrice + $extraAiTokensPrice, 2);
+        $difference = round($newTotalAmount - $currentTotalMonthly, 2);
+
+        $asaasService = new AsaasService();
+
+        // 1. DOWNGRADE / MESMO VALOR: Não há cobrança
+        if ($difference <= 0) {
+            if ($sub && !empty($sub['gateway_subscription_id'])) {
+                $asaasService->updateSubscription($sub['gateway_subscription_id'], [
                     'value'                 => $newTotalAmount,
                     'description'           => "Assinatura Recorrente {$newPlan['name']} - Validar Seguranca",
                     'updatePendingPayments' => true,
                 ]);
-                if (!$asaasRes['success']) {
-                    log_message('error', "[upgradePlan] Erro ao sincronizar com Asaas: " . ($asaasRes['message'] ?? 'Erro desconhecido'));
-                }
+                $subModel->update($sub['id'], [
+                    'plan_id' => $newPlanId,
+                    'price'   => $newTotalAmount,
+                ]);
+            }
+
+            UserPlanService::assignPlanToUser($targetUserId, $newPlanId, [
+                'extra_websites'        => $extraWebsites,
+                'extra_websites_price'  => $extraWebsitesPrice,
+                'extra_ai_tokens'       => $extraAiTokens,
+                'extra_ai_tokens_price' => $extraAiTokensPrice,
+            ]);
+
+            $updatedDetails = UserPlanService::getUserPlanDetails($targetUserId);
+            $endDateFmt = !empty($sub['current_period_end']) ? date('d/m/Y', strtotime($sub['current_period_end'])) : date('d/m/Y', strtotime('+30 days'));
+
+            return $this->respond([
+                'status'       => 200,
+                'success'      => true,
+                'message'      => "Alteração para o plano {$newPlan['name']} programada com sucesso! Nenhuma cobrança foi realizada agora. A partir de {$endDateFmt}, sua mensalidade será de R$ " . number_format($newTotalAmount, 2, ',', '.') . "/mês.",
+                'plan_details' => $updatedDetails,
+            ]);
+        }
+
+        // 2. UPGRADE COM DIFERENÇA (PRÓ-RATA)
+        $now = time();
+        $currentPeriodEnd = $sub['current_period_end'] ?? null;
+        if ($sub && !empty($currentPeriodEnd) && strtotime($currentPeriodEnd) > $now) {
+            $endTs = strtotime($currentPeriodEnd);
+            $daysRemaining = max(1, (int)ceil(($endTs - $now) / 86400));
+            $nextDueDateFmt = date('d/m/Y', $endTs);
+        } else {
+            $daysRemaining = 30;
+            $nextDueDateFmt = date('d/m/Y', strtotime('+30 days'));
+        }
+
+        $proratedRatio = min(1.0, max(0.033, $daysRemaining / 30.0));
+        $proratedAmount = round($difference * $proratedRatio, 2);
+
+        $transModel = new PaymentTransactionModel();
+        $lastTrans = $sub ? $transModel->where('subscription_id', $sub['id'])->orderBy('id', 'DESC')->first() : null;
+        $meta = !empty($lastTrans['metadata']) ? json_decode($lastTrans['metadata'], true) : [];
+        $billingType = ($lastTrans['payment_method'] ?? '') === 'credit_card' ? 'CREDIT_CARD' : ($meta['billing_type'] ?? 'CREDIT_CARD');
+
+        // Se o usuário tem assinatura de CARTÃO DE CRÉDITO ativa
+        if ($sub && $billingType === 'CREDIT_CARD') {
+            $asaasCustomerId = $sub['gateway_customer_id'] ?? ($user['asaas_customer_id'] ?? 'cus_sim');
+            $extRef = "prorated_upg_{$sub['id']}_usr_{$targetUserId}_" . time();
+            $desc = "Diferenca Pro-rata Upgrade {$newPlan['name']} ({$daysRemaining} dias)";
+
+            $cardPayRes = $asaasService->createPaymentCreditCard($asaasCustomerId, $proratedAmount, $desc, $extRef);
+            if (!$cardPayRes['success']) {
+                return $this->fail('Não foi possível processar a cobrança pró-rata de R$ ' . number_format($proratedAmount, 2, ',', '.') . ' no seu cartão: ' . ($cardPayRes['message'] ?? 'Cartão recusado'), 400);
+            }
+
+            // Grava transação do pró-rata
+            $transModel->insert([
+                'user_id'                => $targetUserId,
+                'subscription_id'        => $sub['id'],
+                'plan_id'                => $newPlanId,
+                'gateway'                => 'asaas',
+                'gateway_transaction_id' => $cardPayRes['payment_id'] ?? ('pay_prorated_' . uniqid()),
+                'amount'                 => $proratedAmount,
+                'payment_method'         => 'credit_card',
+                'status'                 => 'paid',
+                'paid_at'                => date('Y-m-d H:i:s'),
+                'metadata'               => json_encode([
+                    'type'            => 'prorated_upgrade',
+                    'new_plan'        => $newPlan['name'],
+                    'days_remaining'  => $daysRemaining,
+                    'prorated_amount' => $proratedAmount,
+                    'new_monthly'     => $newTotalAmount,
+                    'card_last4'      => $meta['card_last4'] ?? '4242',
+                ]),
+            ]);
+
+            // Atualiza a assinatura no Asaas com o novo valor integral para as próximas faturas
+            if (!empty($sub['gateway_subscription_id'])) {
+                $asaasService->updateSubscription($sub['gateway_subscription_id'], [
+                    'value'                 => $newTotalAmount,
+                    'description'           => "Assinatura Recorrente {$newPlan['name']} - Validar Seguranca",
+                    'updatePendingPayments' => false,
+                ]);
             }
 
             $subModel->update($sub['id'], [
                 'plan_id' => $newPlanId,
                 'price'   => $newTotalAmount,
             ]);
+
+            UserPlanService::assignPlanToUser($targetUserId, $newPlanId, [
+                'extra_websites'        => $extraWebsites,
+                'extra_websites_price'  => $extraWebsitesPrice,
+                'extra_ai_tokens'       => $extraAiTokens,
+                'extra_ai_tokens_price' => $extraAiTokensPrice,
+            ]);
+
+            $updatedDetails = UserPlanService::getUserPlanDetails($targetUserId);
+
+            return $this->respond([
+                'status'       => 200,
+                'success'      => true,
+                'message'      => "Upgrade para o Plano {$newPlan['name']} ativado com sucesso! Foi debitado no seu cartão o valor proporcional de R$ " . number_format($proratedAmount, 2, ',', '.') . " referente aos {$daysRemaining} dias restantes até {$nextDueDateFmt}. A partir dessa data, sua fatura regular será de R$ " . number_format($newTotalAmount, 2, ',', '.') . "/mês.",
+                'plan_details' => $updatedDetails,
+            ]);
         }
 
-        // Atribuir o novo plano ao usuário preservando os add-ons
+        // Se o usuário tem assinatura de PIX ativa
+        if ($sub && $billingType === 'PIX') {
+            $asaasCustomerId = $sub['gateway_customer_id'] ?? ($user['asaas_customer_id'] ?? 'cus_sim');
+            $extRef = "prorated_pix_upg_{$sub['id']}_usr_{$targetUserId}_" . time();
+            $desc = "Diferenca Pro-rata Upgrade {$newPlan['name']} ({$daysRemaining} dias)";
+
+            $pixRes = $asaasService->createPaymentPix($asaasCustomerId, $proratedAmount, $desc, $extRef);
+            if (!$pixRes['success']) {
+                return $this->fail('Falha ao gerar cobrança PIX pró-rata: ' . ($pixRes['message'] ?? 'Erro no Asaas'), 400);
+            }
+
+            $pixDetails = $asaasService->getPixQrCode($pixRes['payment_id']);
+
+            return $this->respond([
+                'status'                  => 200,
+                'require_pix'             => true,
+                'payment_id'              => $pixRes['payment_id'],
+                'prorated_amount'         => $proratedAmount,
+                'pix_qr_code'             => $pixDetails['encoded_image'] ?? null,
+                'pix_copy_paste'          => $pixDetails['payload'] ?? null,
+                'days_remaining'          => $daysRemaining,
+                'next_due_date_formatted' => $nextDueDateFmt,
+                'new_monthly'             => $newTotalAmount,
+                'new_plan_id'             => $newPlanId,
+                'message'                 => "Para ativar seu upgrade, efetue o pagamento da diferença proporcional de R$ " . number_format($proratedAmount, 2, ',', '.') . " via PIX.",
+            ]);
+        }
+
+        // Sem assinatura ativa vinculada (conta cortesia/admin ou teste sem gateway)
         UserPlanService::assignPlanToUser($targetUserId, $newPlanId, [
             'extra_websites'        => $extraWebsites,
             'extra_websites_price'  => $extraWebsitesPrice,
@@ -230,26 +497,17 @@ class Subscriptions extends ResourceController
 
         $updatedDetails = UserPlanService::getUserPlanDetails($targetUserId);
 
-        log_message('info', "[upgradePlan] Usuário {$targetUserId} atualizado para o plano {$newPlan['name']}. Add-ons preservados ({$extraWebsites} sites extras, {$extraAiTokens} tokens extras). Novo total: R$ {$newTotalAmount}");
-
         return $this->respond([
-            'status'                  => 200,
-            'success'                 => true,
-            'message'                 => "Upgrade para o Plano {$newPlan['name']} realizado com sucesso! Seus add-ons existentes foram mantidos.",
-            'has_active_subscription' => !empty($sub),
-            'plan_details'            => $updatedDetails,
+            'status'       => 200,
+            'success'      => true,
+            'message'      => "Upgrade para o Plano {$newPlan['name']} realizado com sucesso!",
+            'plan_details' => $updatedDetails,
         ]);
     }
 
     /**
      * POST /api/subscriptions/manage-addons
-     * Adiciona, atualiza ou cancela/remove add-ons do usuário.
-     * 
-     * REGRA DE NEGÓCIO MANDATÓRIA:
-     * Para remover ou reduzir o add-on de sites, o cliente NÃO pode ter uma quantidade maior de sites
-     * cadastrados do que o limite que restará no plano após a remoção.
-     * Exemplo: se o plano dá direito a 4 sites e tem addon de 2 (total 6), tendo 5 sites cadastrados ele NÃO pode remover o addon.
-     * O sistema deve bloquear e informar a quantidade de sites que ele precisa remover antes.
+     * Adiciona, atualiza ou remove add-ons do usuário com controle de pró-rata e transparência
      */
     public function manageAddons()
     {
@@ -288,10 +546,18 @@ class Subscriptions extends ResourceController
             return $this->failNotFound('Plano do usuário não identificado.');
         }
 
+        // Valores atuais
+        $currentExtraWebsites      = (int)($user['extra_websites'] ?? 0);
+        $currentExtraWebsitesPrice = (float)($user['extra_websites_price'] ?? 0.00);
+        $currentExtraAiTokens      = (int)($user['extra_ai_tokens'] ?? 0);
+        $currentExtraAiTokensPrice = (float)($user['extra_ai_tokens_price'] ?? 0.00);
+        $basePrice                 = (float)$plan['price_monthly'];
+        $currentTotalMonthly       = round($basePrice + $currentExtraWebsitesPrice + $currentExtraAiTokensPrice, 2);
+
         // Novos valores de add-ons
         $newExtraWebsites = isset($json['extra_websites'])
             ? max(0, (int)$json['extra_websites'])
-            : (int)($user['extra_websites'] ?? 0);
+            : $currentExtraWebsites;
         $newExtraWebsitesPrice = round($newExtraWebsites * 8.00, 2);
 
         if (isset($json['extra_ai_packs'])) {
@@ -302,15 +568,13 @@ class Subscriptions extends ResourceController
             $newExtraAiTokens = max(0, (int)$json['extra_ai_tokens']);
             $newExtraAiTokensPrice = round(($newExtraAiTokens / 250000) * 60.00, 2);
         } else {
-            $newExtraAiTokens = (int)($user['extra_ai_tokens'] ?? 0);
-            $newExtraAiTokensPrice = (float)($user['extra_ai_tokens_price'] ?? 0.00);
+            $newExtraAiTokens = $currentExtraAiTokens;
+            $newExtraAiTokensPrice = $currentExtraAiTokensPrice;
         }
 
-        // REGRA DE VALIDAÇÃO MANDATÓRIA:
-        // Se o plano base possui limite e o novo limite for menor do que os sites cadastrados, BLOQUEAR!
+        // REGRA DE CAPACIDADE MANDATÓRIA:
         $websiteModel = new WebsiteModel();
         $websitesCount = $websiteModel->where('user_id', $targetUserId)->countAllResults();
-
         $baseMaxWebsites = $plan['max_websites'] !== null ? (int)$plan['max_websites'] : null;
 
         if ($baseMaxWebsites !== null) {
@@ -324,21 +588,107 @@ class Subscriptions extends ResourceController
             }
         }
 
-        $basePrice = (float)$plan['price_monthly'];
         $newTotalAmount = round($basePrice + $newExtraWebsitesPrice + $newExtraAiTokensPrice, 2);
+        $difference = round($newTotalAmount - $currentTotalMonthly, 2);
 
-        // Se houver assinatura ativa, sincroniza no Asaas e banco
-        if ($sub) {
-            if (!empty($sub['gateway_subscription_id'])) {
-                $asaasService = new AsaasService();
-                $asaasRes = $asaasService->updateSubscription($sub['gateway_subscription_id'], [
+        $asaasService = new AsaasService();
+
+        // 1. DOWNGRADE / REDUÇÃO / CANCELAMENTO DE ADD-ONS (SEM COBRANÇA AGORA)
+        if ($difference <= 0) {
+            if ($sub && !empty($sub['gateway_subscription_id'])) {
+                $asaasService->updateSubscription($sub['gateway_subscription_id'], [
                     'value'                 => $newTotalAmount,
                     'description'           => "Assinatura Recorrente {$plan['name']} - Validar Seguranca",
                     'updatePendingPayments' => true,
                 ]);
-                if (!$asaasRes['success']) {
-                    log_message('error', "[manageAddons] Erro ao sincronizar com Asaas: " . ($asaasRes['message'] ?? 'Erro desconhecido'));
-                }
+
+                $subModel->update($sub['id'], [
+                    'price'                => $newTotalAmount,
+                    'extra_websites'       => $newExtraWebsites,
+                    'extra_websites_price' => $newExtraWebsitesPrice,
+                    'extra_ai_tokens'      => $newExtraAiTokens,
+                    'extra_ai_tokens_price'=> $newExtraAiTokensPrice,
+                ]);
+            }
+
+            UserPlanService::assignPlanToUser($targetUserId, (int)$plan['id'], [
+                'extra_websites'        => $newExtraWebsites,
+                'extra_websites_price'  => $newExtraWebsitesPrice,
+                'extra_ai_tokens'       => $newExtraAiTokens,
+                'extra_ai_tokens_price' => $newExtraAiTokensPrice,
+            ]);
+
+            $updatedDetails = UserPlanService::getUserPlanDetails($targetUserId);
+            $endDateFmt = !empty($sub['current_period_end']) ? date('d/m/Y', strtotime($sub['current_period_end'])) : date('d/m/Y', strtotime('+30 days'));
+
+            return $this->respond([
+                'status'       => 200,
+                'success'      => true,
+                'message'      => "Redução de add-ons programada com sucesso! Nenhuma cobrança foi realizada agora. Seus recursos continuam ativos até {$endDateFmt}. A partir do próximo ciclo ({$endDateFmt}), sua fatura será reduzida para R$ " . number_format($newTotalAmount, 2, ',', '.') . "/mês.",
+                'plan_details' => $updatedDetails,
+            ]);
+        }
+
+        // 2. AUMENTO DE ADD-ONS COM PRÓ-RATA
+        $now = time();
+        $currentPeriodEnd = $sub['current_period_end'] ?? null;
+        if ($sub && !empty($currentPeriodEnd) && strtotime($currentPeriodEnd) > $now) {
+            $endTs = strtotime($currentPeriodEnd);
+            $daysRemaining = max(1, (int)ceil(($endTs - $now) / 86400));
+            $nextDueDateFmt = date('d/m/Y', $endTs);
+        } else {
+            $daysRemaining = 30;
+            $nextDueDateFmt = date('d/m/Y', strtotime('+30 days'));
+        }
+
+        $proratedRatio = min(1.0, max(0.033, $daysRemaining / 30.0));
+        $proratedAmount = round($difference * $proratedRatio, 2);
+
+        $transModel = new PaymentTransactionModel();
+        $lastTrans = $sub ? $transModel->where('subscription_id', $sub['id'])->orderBy('id', 'DESC')->first() : null;
+        $meta = !empty($lastTrans['metadata']) ? json_decode($lastTrans['metadata'], true) : [];
+        $billingType = ($lastTrans['payment_method'] ?? '') === 'credit_card' ? 'CREDIT_CARD' : ($meta['billing_type'] ?? 'CREDIT_CARD');
+
+        // Se assinatura for CARTÃO DE CRÉDITO
+        if ($sub && $billingType === 'CREDIT_CARD') {
+            $asaasCustomerId = $sub['gateway_customer_id'] ?? ($user['asaas_customer_id'] ?? 'cus_sim');
+            $extRef = "prorated_addons_{$sub['id']}_usr_{$targetUserId}_" . time();
+            $desc = "Diferenca Pro-rata Add-ons ({$daysRemaining} dias)";
+
+            $cardPayRes = $asaasService->createPaymentCreditCard($asaasCustomerId, $proratedAmount, $desc, $extRef);
+            if (!$cardPayRes['success']) {
+                return $this->fail('Não foi possível processar a cobrança pró-rata de R$ ' . number_format($proratedAmount, 2, ',', '.') . ' no seu cartão: ' . ($cardPayRes['message'] ?? 'Cartão recusado'), 400);
+            }
+
+            // Grava transação do pró-rata
+            $transModel->insert([
+                'user_id'                => $targetUserId,
+                'subscription_id'        => $sub['id'],
+                'plan_id'                => (int)$plan['id'],
+                'gateway'                => 'asaas',
+                'gateway_transaction_id' => $cardPayRes['payment_id'] ?? ('pay_prorated_' . uniqid()),
+                'amount'                 => $proratedAmount,
+                'payment_method'         => 'credit_card',
+                'status'                 => 'paid',
+                'paid_at'                => date('Y-m-d H:i:s'),
+                'metadata'               => json_encode([
+                    'type'                 => 'prorated_addons',
+                    'extra_websites'       => $newExtraWebsites,
+                    'extra_ai_tokens'      => $newExtraAiTokens,
+                    'days_remaining'       => $daysRemaining,
+                    'prorated_amount'      => $proratedAmount,
+                    'new_monthly'          => $newTotalAmount,
+                    'card_last4'           => $meta['card_last4'] ?? '4242',
+                ]),
+            ]);
+
+            // Atualiza assinatura no Asaas com novo valor integral para as próximas faturas
+            if (!empty($sub['gateway_subscription_id'])) {
+                $asaasService->updateSubscription($sub['gateway_subscription_id'], [
+                    'value'                 => $newTotalAmount,
+                    'description'           => "Assinatura Recorrente {$plan['name']} - Validar Seguranca",
+                    'updatePendingPayments' => false,
+                ]);
             }
 
             $subModel->update($sub['id'], [
@@ -348,9 +698,54 @@ class Subscriptions extends ResourceController
                 'extra_ai_tokens'      => $newExtraAiTokens,
                 'extra_ai_tokens_price'=> $newExtraAiTokensPrice,
             ]);
+
+            UserPlanService::assignPlanToUser($targetUserId, (int)$plan['id'], [
+                'extra_websites'        => $newExtraWebsites,
+                'extra_websites_price'  => $newExtraWebsitesPrice,
+                'extra_ai_tokens'       => $newExtraAiTokens,
+                'extra_ai_tokens_price' => $newExtraAiTokensPrice,
+            ]);
+
+            $updatedDetails = UserPlanService::getUserPlanDetails($targetUserId);
+
+            return $this->respond([
+                'status'       => 200,
+                'success'      => true,
+                'message'      => "Add-ons ativados com sucesso! Foi debitado no seu cartão o valor proporcional de R$ " . number_format($proratedAmount, 2, ',', '.') . " referente aos {$daysRemaining} dias restantes até {$nextDueDateFmt}. A partir dessa data, sua fatura regular será de R$ " . number_format($newTotalAmount, 2, ',', '.') . "/mês.",
+                'plan_details' => $updatedDetails,
+            ]);
         }
 
-        // Atualiza dados no usuário
+        // Se assinatura for PIX
+        if ($sub && $billingType === 'PIX') {
+            $asaasCustomerId = $sub['gateway_customer_id'] ?? ($user['asaas_customer_id'] ?? 'cus_sim');
+            $extRef = "prorated_pix_addons_{$sub['id']}_usr_{$targetUserId}_" . time();
+            $desc = "Diferenca Pro-rata Add-ons ({$daysRemaining} dias)";
+
+            $pixRes = $asaasService->createPaymentPix($asaasCustomerId, $proratedAmount, $desc, $extRef);
+            if (!$pixRes['success']) {
+                return $this->fail('Falha ao gerar cobrança PIX pró-rata: ' . ($pixRes['message'] ?? 'Erro no Asaas'), 400);
+            }
+
+            $pixDetails = $asaasService->getPixQrCode($pixRes['payment_id']);
+
+            return $this->respond([
+                'status'                  => 200,
+                'require_pix'             => true,
+                'payment_id'              => $pixRes['payment_id'],
+                'prorated_amount'         => $proratedAmount,
+                'pix_qr_code'             => $pixDetails['encoded_image'] ?? null,
+                'pix_copy_paste'          => $pixDetails['payload'] ?? null,
+                'days_remaining'          => $daysRemaining,
+                'next_due_date_formatted' => $nextDueDateFmt,
+                'new_monthly'             => $newTotalAmount,
+                'extra_websites'          => $newExtraWebsites,
+                'extra_ai_tokens'         => $newExtraAiTokens,
+                'message'                 => "Para ativar seus add-ons, efetue o pagamento da diferença proporcional de R$ " . number_format($proratedAmount, 2, ',', '.') . " via PIX.",
+            ]);
+        }
+
+        // Sem assinatura ativa no gateway (conta cortesia ou admin)
         UserPlanService::assignPlanToUser($targetUserId, (int)$plan['id'], [
             'extra_websites'        => $newExtraWebsites,
             'extra_websites_price'  => $newExtraWebsitesPrice,
@@ -360,12 +755,99 @@ class Subscriptions extends ResourceController
 
         $updatedDetails = UserPlanService::getUserPlanDetails($targetUserId);
 
-        log_message('info', "[manageAddons] Add-ons do usuário {$targetUserId} atualizados: {$newExtraWebsites} sites extras, {$newExtraAiTokens} tokens extras. Novo total: R$ {$newTotalAmount}");
-
         return $this->respond([
             'status'       => 200,
             'success'      => true,
             'message'      => 'Add-ons atualizados com sucesso!',
+            'plan_details' => $updatedDetails,
+        ]);
+    }
+
+    /**
+     * POST /api/subscriptions/confirm-prorated-pix
+     * Confirma o pagamento PIX da diferença proporcional e ativa os novos limites
+     */
+    public function confirmProratedPix()
+    {
+        $userData = $this->request->userData ?? null;
+        $effectiveUserId = (int)($this->request->effectiveUserId ?? ($userData->id ?? 0));
+        $isAdmin = (($userData->role ?? 'user') === 'admin');
+
+        $json = $this->request->getJSON(true) ?? $this->request->getPost();
+        $targetUserId = $effectiveUserId;
+        if ($isAdmin && !empty($json['user_id'])) {
+            $targetUserId = (int)$json['user_id'];
+        }
+
+        $paymentId = trim($json['payment_id'] ?? '');
+        if (empty($paymentId)) {
+            return $this->fail('ID do pagamento não informado.', 400);
+        }
+
+        $asaasService = new AsaasService();
+        $statusRes = $asaasService->getPaymentStatus($paymentId);
+        $status = strtoupper($statusRes['status'] ?? 'PENDING');
+        $isPaid = in_array($status, ['CONFIRMED', 'RECEIVED'], true) || !empty($statusRes['simulated']);
+
+        if (!$isPaid) {
+            return $this->respond([
+                'status'  => 200,
+                'paid'    => false,
+                'message' => 'Pagamento PIX ainda não foi confirmado. Aguarde alguns instantes.',
+            ]);
+        }
+
+        $subModel = new SubscriptionModel();
+        $sub = $subModel->where('user_id', $targetUserId)
+                        ->where('status', 'active')
+                        ->orderBy('id', 'DESC')
+                        ->first();
+
+        $planModel = new PlanModel();
+        $planId = !empty($json['plan_id']) ? (int)$json['plan_id'] : ($sub['plan_id'] ?? 1);
+        $plan = $planModel->find($planId) ?: $planModel->getDefaultPlan();
+
+        $extraWebsites = isset($json['extra_websites']) ? max(0, (int)$json['extra_websites']) : 0;
+        $extraWebsitesPrice = round($extraWebsites * 8.00, 2);
+
+        $extraAiTokens = isset($json['extra_ai_tokens']) ? max(0, (int)$json['extra_ai_tokens']) : 0;
+        $extraAiTokensPrice = round(($extraAiTokens / 250000) * 60.00, 2);
+
+        $newTotalAmount = round((float)$plan['price_monthly'] + $extraWebsitesPrice + $extraAiTokensPrice, 2);
+
+        // Atualiza no Asaas
+        if ($sub && !empty($sub['gateway_subscription_id'])) {
+            $asaasService->updateSubscription($sub['gateway_subscription_id'], [
+                'value'                 => $newTotalAmount,
+                'description'           => "Assinatura Recorrente {$plan['name']} - Validar Seguranca",
+                'updatePendingPayments' => false,
+            ]);
+
+            $subModel->update($sub['id'], [
+                'plan_id'              => $planId,
+                'price'                => $newTotalAmount,
+                'extra_websites'       => $extraWebsites,
+                'extra_websites_price' => $extraWebsitesPrice,
+                'extra_ai_tokens'      => $extraAiTokens,
+                'extra_ai_tokens_price'=> $extraAiTokensPrice,
+            ]);
+        }
+
+        // Aplica limites no usuário
+        UserPlanService::assignPlanToUser($targetUserId, $planId, [
+            'extra_websites'        => $extraWebsites,
+            'extra_websites_price'  => $extraWebsitesPrice,
+            'extra_ai_tokens'       => $extraAiTokens,
+            'extra_ai_tokens_price' => $extraAiTokensPrice,
+        ]);
+
+        $updatedDetails = UserPlanService::getUserPlanDetails($targetUserId);
+
+        return $this->respond([
+            'status'       => 200,
+            'paid'         => true,
+            'success'      => true,
+            'message'      => 'Pagamento confirmado com sucesso! Seus novos limites já estão ativos.',
             'plan_details' => $updatedDetails,
         ]);
     }

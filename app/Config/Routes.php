@@ -119,8 +119,10 @@ $routes->group('api', function ($routes) {
         // Subscription routes
         $routes->get('subscriptions/current', 'Api\Subscriptions::current');
         $routes->post('subscriptions/cancel', 'Api\Subscriptions::cancel');
+        $routes->post('subscriptions/preview-change', 'Api\Subscriptions::previewChange');
         $routes->post('subscriptions/upgrade-plan', 'Api\Subscriptions::upgradePlan');
         $routes->post('subscriptions/manage-addons', 'Api\Subscriptions::manageAddons');
+        $routes->post('subscriptions/confirm-prorated-pix', 'Api\Subscriptions::confirmProratedPix');
     });
 });
 

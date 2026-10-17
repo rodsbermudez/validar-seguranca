@@ -1186,6 +1186,40 @@ export const cancelSubscription = async (
   return response.data;
 };
 
+export interface SubscriptionChangePreview {
+  status: number;
+  current_plan_name: string;
+  current_monthly: number;
+  new_plan_name: string;
+  new_monthly: number;
+  difference: number;
+  is_downgrade: boolean;
+  days_remaining: number;
+  next_due_date: string;
+  next_due_date_formatted: string;
+  prorated_amount: number;
+  websites_count: number;
+  new_effective_max_websites: number | null;
+  is_capacity_blocked: boolean;
+  excess_websites: number;
+  billing_type: 'CREDIT_CARD' | 'PIX';
+  card_last4?: string;
+  card_brand?: string;
+  has_active_subscription: boolean;
+  gateway_subscription_id?: string;
+}
+
+export const previewSubscriptionChange = async (payload: {
+  plan_id?: number;
+  extra_websites?: number;
+  extra_ai_packs?: number;
+  extra_ai_tokens?: number;
+  user_id?: number;
+}): Promise<SubscriptionChangePreview> => {
+  const response = await api.post('/subscriptions/preview-change', payload);
+  return response.data;
+};
+
 export const upgradePlan = async (
   planId: number,
   userId?: number
@@ -1193,8 +1227,17 @@ export const upgradePlan = async (
   status: number;
   success: boolean;
   message: string;
-  has_active_subscription: boolean;
-  plan_details: UserPlanDetails;
+  has_active_subscription?: boolean;
+  require_pix?: boolean;
+  payment_id?: string;
+  prorated_amount?: number;
+  pix_qr_code?: string;
+  pix_copy_paste?: string;
+  days_remaining?: number;
+  next_due_date_formatted?: string;
+  new_monthly?: number;
+  new_plan_id?: number;
+  plan_details?: UserPlanDetails;
 }> => {
   const response = await api.post('/subscriptions/upgrade-plan', {
     plan_id: planId,
@@ -1212,9 +1255,36 @@ export const manageAddons = async (payload: {
   status: number;
   success: boolean;
   message: string;
-  plan_details: UserPlanDetails;
+  require_pix?: boolean;
+  payment_id?: string;
+  prorated_amount?: number;
+  pix_qr_code?: string;
+  pix_copy_paste?: string;
+  days_remaining?: number;
+  next_due_date_formatted?: string;
+  new_monthly?: number;
+  extra_websites?: number;
+  extra_ai_tokens?: number;
+  plan_details?: UserPlanDetails;
 }> => {
   const response = await api.post('/subscriptions/manage-addons', payload);
+  return response.data;
+};
+
+export const confirmProratedPix = async (payload: {
+  payment_id: string;
+  plan_id?: number;
+  extra_websites?: number;
+  extra_ai_tokens?: number;
+  user_id?: number;
+}): Promise<{
+  status: number;
+  paid: boolean;
+  success?: boolean;
+  message: string;
+  plan_details?: UserPlanDetails;
+}> => {
+  const response = await api.post('/subscriptions/confirm-prorated-pix', payload);
   return response.data;
 };
 

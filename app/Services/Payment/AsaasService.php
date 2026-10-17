@@ -294,6 +294,78 @@ class AsaasService
     }
 
     /**
+     * Cria cobrança avulsa de cartão de crédito para pagamento de diferença pró-rata
+     */
+    public function createPaymentCreditCard(
+        string $customerId,
+        float $amount,
+        string $description,
+        string $externalReference,
+        ?array $creditCard = null,
+        ?array $creditCardHolderInfo = null
+    ): array {
+        if (!$this->isConfigured()) {
+            $simPayId = 'pay_sim_' . uniqid();
+            return [
+                'success'        => true,
+                'payment_id'     => $simPayId,
+                'status'         => 'CONFIRMED',
+                'payment_status' => 'CONFIRMED',
+                'amount'         => round($amount, 2),
+                'simulated'      => true,
+            ];
+        }
+
+        $payload = [
+            'customer'          => $customerId,
+            'billingType'       => 'CREDIT_CARD',
+            'value'             => round($amount, 2),
+            'dueDate'           => date('Y-m-d'),
+            'description'       => $description,
+            'externalReference' => $externalReference,
+        ];
+
+        if (!empty($creditCard)) {
+            $payload['creditCard'] = [
+                'holderName'  => trim($creditCard['holder_name'] ?? $creditCard['holderName'] ?? ''),
+                'number'      => preg_replace('/\D/', '', $creditCard['number'] ?? ''),
+                'expiryMonth' => str_pad(trim($creditCard['expiry_month'] ?? $creditCard['expiryMonth'] ?? ''), 2, '0', STR_PAD_LEFT),
+                'expiryYear'  => trim($creditCard['expiry_year'] ?? $creditCard['expiryYear'] ?? ''),
+                'ccv'         => trim($creditCard['ccv'] ?? ''),
+            ];
+            if (!empty($creditCardHolderInfo)) {
+                $payload['creditCardHolderInfo'] = [
+                    'name'          => trim($creditCardHolderInfo['name'] ?? ''),
+                    'email'         => trim($creditCardHolderInfo['email'] ?? ''),
+                    'cpfCnpj'       => preg_replace('/\D/', '', $creditCardHolderInfo['cpf_cnpj'] ?? $creditCardHolderInfo['cpfCnpj'] ?? ''),
+                    'postalCode'    => preg_replace('/\D/', '', $creditCardHolderInfo['postal_code'] ?? $creditCardHolderInfo['postalCode'] ?? '01310000'),
+                    'addressNumber' => trim($creditCardHolderInfo['address_number'] ?? $creditCardHolderInfo['addressNumber'] ?? 'S/N'),
+                    'phone'         => preg_replace('/\D/', '', $creditCardHolderInfo['phone'] ?? ''),
+                    'mobilePhone'   => preg_replace('/\D/', '', $creditCardHolderInfo['phone'] ?? ''),
+                ];
+            }
+        }
+
+        $response = $this->request('payments', 'POST', $payload);
+        if (!$response['success']) {
+            return $response;
+        }
+
+        $paymentData = $response['data'];
+        $status = $paymentData['status'] ?? 'PENDING';
+        return [
+            'success'        => true,
+            'payment_id'     => $paymentData['id'],
+            'status'         => $status,
+            'payment_status' => $status,
+            'amount'         => (float)($paymentData['value'] ?? $amount),
+            'invoice_url'    => $paymentData['invoiceUrl'] ?? null,
+            'simulated'      => false,
+            'data'           => $paymentData,
+        ];
+    }
+
+    /**
      * Cria uma assinatura recorrente no Asaas (ciclo mensal via Pix ou Cartão de Crédito)
      */
     public function createSubscription(

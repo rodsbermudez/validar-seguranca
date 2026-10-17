@@ -126,8 +126,22 @@ class Checkout extends ResourceController
 
         $billingType = strtoupper(trim($json['billing_type'] ?? 'PIX')) === 'CREDIT_CARD' ? 'CREDIT_CARD' : 'PIX';
 
-        // Criar registro de assinatura pendente
+        // Garantia Anti-Duplicação: cancela assinatura anterior ativa no Asaas e banco antes de criar nova
         $subscriptionModel = new SubscriptionModel();
+        $existingActiveSubs = $subscriptionModel->where('user_id', $userId)
+                                                ->where('status', 'active')
+                                                ->findAll();
+        foreach ($existingActiveSubs as $prevSub) {
+            if (!empty($prevSub['gateway_subscription_id'])) {
+                $asaasService->cancelSubscription($prevSub['gateway_subscription_id']);
+            }
+            $subscriptionModel->update($prevSub['id'], [
+                'status'      => 'canceled',
+                'canceled_at' => date('Y-m-d H:i:s'),
+            ]);
+        }
+
+        // Criar registro de assinatura pendente
         $subId = $subscriptionModel->insert([
             'user_id'                 => $userId,
             'plan_id'                 => $planId,
