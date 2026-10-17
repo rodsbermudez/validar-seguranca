@@ -445,11 +445,23 @@ export function UserPlanManagementView({
                     Inclui {pd.base_max_websites} do plano base + {pd.extra_websites} adicionais contratados.
                   </Text>
                 ) : null}
+                {pd?.shared_websites_count ? (
+                  <Text size="11px" c="violet.3" mt={2}>
+                    + {pd.shared_websites_count} site(s) compartilhado(s) sob gestão (não consom cota contratada).
+                  </Text>
+                ) : null}
               </Stack>
             ) : (
-              <Text size="xs" c="teal" mt="sm">
-                Sem limite de websites para este plano.
-              </Text>
+              <Stack gap={4} mt="sm">
+                <Text size="xs" c="teal">
+                  Sem limite de websites para este plano.
+                </Text>
+                {pd?.shared_websites_count ? (
+                  <Text size="11px" c="violet.3">
+                    + {pd.shared_websites_count} site(s) compartilhado(s) sob gestão.
+                  </Text>
+                ) : null}
+              </Stack>
             )}
           </Card>
         </Grid.Col>

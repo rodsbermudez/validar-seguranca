@@ -29,6 +29,8 @@ class UserPlanService
                 'effective_max_websites'     => 0,
                 'is_websites_unlimited'      => false,
                 'websites_count'             => 0,
+                'shared_websites_count'      => 0,
+                'total_websites_managed'     => 0,
                 'websites_remaining'         => 0,
                 'is_websites_limit_reached'  => true,
                 'base_ai_tokens'             => 0,
@@ -55,6 +57,7 @@ class UserPlanService
 
         $websiteModel = new WebsiteModel();
         $websitesCount = $websiteModel->where('user_id', $userId)->countAllResults();
+        $sharedWebsitesCount = (int) (new \App\Models\WebsiteShareModel())->where('user_id', $userId)->countAllResults();
 
         // 1. Limite Efetivo de Websites
         $baseMaxWebsites = $plan ? ($plan['max_websites'] !== null ? (int)$plan['max_websites'] : null) : null;
@@ -142,6 +145,8 @@ class UserPlanService
             'effective_max_websites'    => $effectiveMaxWebsites,
             'is_websites_unlimited'     => $isWebsitesUnlimited,
             'websites_count'            => $websitesCount,
+            'shared_websites_count'     => $sharedWebsitesCount,
+            'total_websites_managed'    => $websitesCount + $sharedWebsitesCount,
             'websites_remaining'        => $websitesRemaining,
             'is_websites_limit_reached' => $isWebsitesLimitReached,
             'base_ai_tokens'            => $baseAiTokens,

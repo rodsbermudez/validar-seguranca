@@ -426,6 +426,8 @@ export interface MaintenanceHistoryItem {
 
 export interface DashboardMetrics {
   total_websites: number;
+  own_websites?: number;
+  shared_websites?: number;
   connected_websites: number;
   pending_websites: number;
   average_score: number | null;
@@ -940,6 +942,8 @@ export interface UserPlanDetails {
   effective_max_websites: number | null;
   is_websites_unlimited: boolean;
   websites_count: number;
+  shared_websites_count?: number;
+  total_websites_managed?: number;
   websites_remaining: number | null;
   is_websites_limit_reached: boolean;
   base_ai_tokens: number;

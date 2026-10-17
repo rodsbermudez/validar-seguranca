@@ -41,6 +41,7 @@ import {
   IconPlus,
   IconBrain,
   IconPackage,
+  IconUsers,
 } from '@tabler/icons-react';
 import {
   getDashboardOverview,
@@ -209,6 +210,8 @@ export const OverviewDashboardView: React.FC<OverviewDashboardViewProps> = ({
 
   const metrics = data?.metrics || {
     total_websites: 0,
+    own_websites: 0,
+    shared_websites: 0,
     connected_websites: 0,
     pending_websites: 0,
     average_score: null,
@@ -243,9 +246,10 @@ export const OverviewDashboardView: React.FC<OverviewDashboardViewProps> = ({
 
   const isWebsitesUnlimited = planDetails?.is_websites_unlimited ?? false;
   const websitesLimit = planDetails?.effective_max_websites;
-  const websitesCount = planDetails?.websites_count ?? metrics.total_websites;
+  const ownWebsitesCount = metrics.own_websites ?? planDetails?.websites_count ?? metrics.total_websites;
+  const sharedWebsitesCount = metrics.shared_websites ?? (planDetails?.shared_websites_count ?? Math.max(0, metrics.total_websites - ownWebsitesCount));
   const websitesPercent = !isWebsitesUnlimited && websitesLimit && websitesLimit > 0
-    ? Math.min(100, Math.round((websitesCount / websitesLimit) * 100))
+    ? Math.min(100, Math.round((ownWebsitesCount / websitesLimit) * 100))
     : 0;
   const websitesQuotaColor = websitesPercent >= 100 ? 'red' : websitesPercent >= 80 ? 'yellow' : 'blue';
 
@@ -338,30 +342,73 @@ export const OverviewDashboardView: React.FC<OverviewDashboardViewProps> = ({
 
       {/* KPI Metrics Cards */}
       <Grid>
-        {/* Card 1: Websites */}
+        {/* Card 1: Websites Administrados */}
         <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
           <Card padding="md" radius="md" withBorder bg="dark.7" h="100%">
             <Group justify="space-between" align="flex-start" mb="xs">
               <Text size="xs" fw={700} c="dimmed" tt="uppercase">
-                Websites Cadastrados
+                Websites Administrados
               </Text>
               <ThemeIcon color="indigo" variant="light" radius="xl" size="md">
                 <IconWorld size={18} />
               </ThemeIcon>
             </Group>
-            <Text fw={800} fz={26} lh={1}>
-              {metrics.total_websites}
-            </Text>
-            <Group gap="xs" mt="xs">
+
+            <Group align="baseline" gap="xs">
+              <Text fw={800} fz={26} lh={1}>
+                {metrics.total_websites}
+              </Text>
+              <Text size="xs" c="dimmed" fw={500}>
+                total sob gestão
+              </Text>
+            </Group>
+
+            {/* Distinção Clara: Sites Próprios (Plano) vs Sites Compartilhados */}
+            <Group gap={6} mt="xs" wrap="wrap">
+              <Tooltip
+                label={
+                  !isWebsitesUnlimited && websitesLimit
+                    ? `${ownWebsitesCount} de ${websitesLimit} vagas contratadas do plano utilizadas`
+                    : 'Sites próprios que consom as vagas contratadas do seu plano'
+                }
+              >
+                <Badge color="blue" variant="light" size="xs">
+                  {ownWebsitesCount} Próprio{ownWebsitesCount !== 1 ? 's' : ''} (Plano)
+                </Badge>
+              </Tooltip>
+
+              {sharedWebsitesCount > 0 ? (
+                <Tooltip label="Sites compartilhados com você por outros usuários (não consom as vagas do seu plano contratado)">
+                  <Badge color="violet" variant="outline" size="xs" leftSection={<IconUsers size={11} />}>
+                    {sharedWebsitesCount} Compartilhado{sharedWebsitesCount !== 1 ? 's' : ''}
+                  </Badge>
+                </Tooltip>
+              ) : (
+                <Tooltip label="Nenhum site compartilhado com você até o momento">
+                  <Badge color="gray" variant="subtle" size="xs">
+                    0 Compartilhados
+                  </Badge>
+                </Tooltip>
+              )}
+            </Group>
+
+            {/* Status de Conexão com o Agente */}
+            <Group gap="xs" mt={6}>
               <Badge color="green" variant="light" size="xs" leftSection={<IconPlugConnected size={11} />}>
-                {metrics.connected_websites} Conectados
+                {metrics.connected_websites} Conectado{metrics.connected_websites !== 1 ? 's' : ''}
               </Badge>
               {metrics.pending_websites > 0 && (
                 <Badge color="gray" variant="outline" size="xs" leftSection={<IconPlugConnectedX size={11} />}>
-                  {metrics.pending_websites} Pendentes
+                  {metrics.pending_websites} Pendente{metrics.pending_websites !== 1 ? 's' : ''}
                 </Badge>
               )}
             </Group>
+
+            {sharedWebsitesCount > 0 && (
+              <Text size="10px" c="dimmed" mt={6} style={{ fontStyle: 'italic', lineHeight: 1.2 }}>
+                * Apenas os {ownWebsitesCount} sites próprios consom a cota do seu plano.
+              </Text>
+            )}
           </Card>
         </Grid.Col>
 
@@ -544,17 +591,17 @@ export const OverviewDashboardView: React.FC<OverviewDashboardViewProps> = ({
           </Group>
 
           <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
-            {/* Barra 1: Websites */}
+            {/* Barra 1: Websites do Plano */}
             <Paper p="xs" radius="sm" bg="dark.8">
               <Group justify="space-between" mb={4}>
                 <Group gap={4}>
                   <IconWorld size={14} color="#60a5fa" />
                   <Text size="xs" fw={700}>
-                    Websites Cadastrados
+                    Websites do Plano (Próprios)
                   </Text>
                 </Group>
                 <Text size="xs" c={websitesQuotaColor} fw={700}>
-                  {websitesCount} {isWebsitesUnlimited ? 'sites (Ilimitado)' : `/ ${websitesLimit} sites`}
+                  {ownWebsitesCount} {isWebsitesUnlimited ? 'sites (Ilimitado)' : `/ ${websitesLimit} sites`}
                 </Text>
               </Group>
               {!isWebsitesUnlimited ? (
@@ -567,17 +614,29 @@ export const OverviewDashboardView: React.FC<OverviewDashboardViewProps> = ({
                   />
                   <Group justify="space-between" mt={4}>
                     <Text size="11px" c="dimmed">
-                      {websitesPercent}% da cota utilizada
+                      {websitesPercent}% da cota utilizada ({ownWebsitesCount} de {websitesLimit})
                     </Text>
                     <Text size="11px" c={websitesQuotaColor} fw={600}>
                       {planDetails?.websites_remaining !== undefined ? `${planDetails.websites_remaining} vaga(s) disponível(is)` : ''}
                     </Text>
                   </Group>
+                  {sharedWebsitesCount > 0 && (
+                    <Text size="10px" c="violet.3" mt={4}>
+                      + {sharedWebsitesCount} site(s) compartilhado(s) sob sua gestão (não consom a cota).
+                    </Text>
+                  )}
                 </>
               ) : (
-                <Text size="11px" c="teal" mt={4}>
-                  Sites ilimitados neste plano.
-                </Text>
+                <Group justify="space-between" mt={4}>
+                  <Text size="11px" c="teal">
+                    Sites ilimitados neste plano.
+                  </Text>
+                  {sharedWebsitesCount > 0 && (
+                    <Text size="10px" c="violet.3">
+                      + {sharedWebsitesCount} compartilhado(s)
+                    </Text>
+                  )}
+                </Group>
               )}
             </Paper>
 
@@ -743,6 +802,13 @@ export const OverviewDashboardView: React.FC<OverviewDashboardViewProps> = ({
                               >
                                 {(task.environment || 'prod').toUpperCase().slice(0, 4)}
                               </Badge>
+                              {!task.is_owner && (
+                                <Tooltip label={`Compartilhado por ${task.owner_name || 'outro usuário'}`}>
+                                  <Badge size="xs" color="violet" variant="outline" leftSection={<IconUsers size={11} />}>
+                                    COMPARTILHADO
+                                  </Badge>
+                                </Tooltip>
+                              )}
                             </Group>
                             <Text size="xs" c="dimmed" truncate style={{ maxWidth: 220 }}>
                               {task.website_url}

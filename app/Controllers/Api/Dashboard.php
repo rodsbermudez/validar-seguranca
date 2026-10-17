@@ -35,21 +35,30 @@ class Dashboard extends ResourceController
         $yearMonthLabel = ($mesesPt[$mes] ?? $mes) . ' de ' . $ano;
 
         // Cálculos e Agrupamentos
-        $totalWebsites      = count($websites);
-        $connectedWebsites  = 0;
-        $scores             = [];
-        $totalScheduled     = 0;
-        $completedCount     = 0;
-        $overdueCount       = 0;
-        $todayCount         = 0;
-        $upcomingCount      = 0;
-        $notScheduledCount  = 0;
+        $totalWebsites       = count($websites);
+        $ownWebsitesCount    = 0;
+        $sharedWebsitesCount = 0;
+        $connectedWebsites   = 0;
+        $scores              = [];
+        $totalScheduled      = 0;
+        $completedCount      = 0;
+        $overdueCount        = 0;
+        $todayCount          = 0;
+        $upcomingCount       = 0;
+        $notScheduledCount   = 0;
 
         $maintenanceTasks = [];
         $securityRadar    = [];
         $integrityRadar   = [];
 
         foreach ($websites as $site) {
+            $isOwner = !empty($site['is_owner']);
+            if ($isOwner) {
+                $ownWebsitesCount++;
+            } else {
+                $sharedWebsitesCount++;
+            }
+
             if (!empty($site['is_connected']) && (int)$site['is_connected'] === 1) {
                 $connectedWebsites++;
             }
@@ -109,6 +118,8 @@ class Dashboard extends ResourceController
                 'website_name'      => $site['name'],
                 'website_url'       => $site['url'],
                 'environment'       => $site['environment'],
+                'is_owner'          => (bool)$site['is_owner'],
+                'owner_name'        => $site['owner_name'],
                 'is_connected'      => (int)$site['is_connected'] === 1,
                 'latest_score'      => $site['latest_score'],
                 'latest_grade'      => $site['latest_grade'] ?? null,
@@ -125,6 +136,8 @@ class Dashboard extends ResourceController
                 'website_name'      => $site['name'],
                 'website_url'       => $site['url'],
                 'environment'       => $site['environment'],
+                'is_owner'          => (bool)$site['is_owner'],
+                'owner_name'        => $site['owner_name'],
                 'is_connected'      => (int)$site['is_connected'] === 1,
                 'total_checked'     => isset($site['integrity_total_checked']) ? (int)$site['integrity_total_checked'] : null,
                 'passed'            => isset($site['integrity_passed']) ? (int)$site['integrity_passed'] : null,
@@ -263,6 +276,8 @@ class Dashboard extends ResourceController
                 'year_month_label' => $yearMonthLabel,
                 'metrics'          => [
                     'total_websites'      => $totalWebsites,
+                    'own_websites'        => $ownWebsitesCount,
+                    'shared_websites'     => $sharedWebsitesCount,
                     'connected_websites'  => $connectedWebsites,
                     'pending_websites'    => $totalWebsites - $connectedWebsites,
                     'average_score'       => $averageScore,
