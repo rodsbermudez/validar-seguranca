@@ -140,22 +140,43 @@ class Checkout extends ResourceController
             'extra_ai_tokens_price'   => $extraAiTokensPrice,
         ]);
 
-        // Criar cobrança Pix no Asaas
-        $description = "Assinatura {$plan['name']} - Validar Seguranca";
+        // Criar assinatura recorrente no Asaas (ciclo mensal via Pix)
+        $description = "Assinatura Recorrente {$plan['name']} - Validar Seguranca";
         $extRef = "sub_{$subId}_usr_{$userId}";
 
-        $paymentRes = $asaasService->createPaymentPix(
+        $subRes = $asaasService->createSubscription(
             $asaasCustomerId ?: 'cus_sim',
             $totalAmount,
             $description,
             $extRef
         );
 
-        if (!$paymentRes['success']) {
-            return $this->fail('Falha ao gerar cobrança no Asaas: ' . ($paymentRes['message'] ?? 'Erro desconhecido'), 500);
+        if (!$subRes['success']) {
+            return $this->fail('Falha ao gerar assinatura no Asaas: ' . ($subRes['message'] ?? 'Erro desconhecido'), 500);
         }
 
-        $paymentId = $paymentRes['payment_id'];
+        $asaasSubId = $subRes['subscription_id'] ?? null;
+        $paymentId  = $subRes['payment_id'] ?? null;
+
+        if ($asaasSubId) {
+            $subscriptionModel->update($subId, [
+                'gateway_subscription_id' => $asaasSubId,
+            ]);
+        }
+
+        // Se o Asaas não retornou a cobrança inicial diretamente, gera fallback
+        if (empty($paymentId)) {
+            $paymentRes = $asaasService->createPaymentPix(
+                $asaasCustomerId ?: 'cus_sim',
+                $totalAmount,
+                $description,
+                $extRef
+            );
+            $paymentId = $paymentRes['payment_id'] ?? null;
+            $invoiceUrl = $paymentRes['invoice_url'] ?? null;
+        } else {
+            $invoiceUrl = $subRes['invoice_url'] ?? null;
+        }
 
         // Buscar QR Code e chave Pix Copia e Cola
         $qrRes = $asaasService->getPixQrCode($paymentId);

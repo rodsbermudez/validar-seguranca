@@ -467,6 +467,7 @@ class Users extends ResourceController
         return $this->respond([
             'status'                        => 200,
             'plan_details'                  => $planDetails,
+            'subscription'                  => $planDetails['subscription'] ?? null,
             'available_plans'               => $availablePlans,
             'websites'                      => $userWebsites,
             'metrics'                       => $stats,

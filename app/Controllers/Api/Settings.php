@@ -69,6 +69,7 @@ class Settings extends ResourceController
         $promptPrice     = (float) SettingsModel::getSetting('ai_prompt_token_price_per_1k', $basePrice > 0 ? (string)$basePrice : '0.00');
         $completionPrice = (float) SettingsModel::getSetting('ai_completion_token_price_per_1k', $basePrice > 0 ? (string)$basePrice : '0.00');
         $apiKey          = env('OPENCODE_API_KEY');
+        $hasKey          = !empty($apiKey);
         $asaasKey         = SettingsModel::getSetting('asaas_api_key', env('ASAAS_API_KEY') ?: '');
         $asaasEnv         = SettingsModel::getSetting('asaas_environment', env('ASAAS_ENVIRONMENT') ?: 'sandbox');
         $asaasSecret      = SettingsModel::getSetting('asaas_webhook_secret', env('ASAAS_WEBHOOK_SECRET') ?: '');

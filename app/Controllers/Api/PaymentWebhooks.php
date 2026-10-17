@@ -42,15 +42,56 @@ class PaymentWebhooks extends ResourceController
             return $this->respond(['received' => true, 'message' => 'Evento sem ID de pagamento ignorado.']);
         }
 
+        $now = date('Y-m-d H:i:s');
+
         $transactionModel = new PaymentTransactionModel();
         $trans = $transactionModel->findByGatewayId($paymentId);
 
         if (!$trans) {
-            log_message('notice', "[Webhook Asaas] Transação {$paymentId} não encontrada no banco local.");
-            return $this->respond(['received' => true, 'warning' => 'Transação não cadastrada localmente.']);
-        }
+            // Se a transação não foi encontrada mas o pagamento pertence a uma assinatura existente (renovação mensal)
+            $gatewaySubId = $payment['subscription'] ?? null;
+            if (!empty($gatewaySubId)) {
+                $subModel = new SubscriptionModel();
+                $sub = $subModel->where('gateway_subscription_id', $gatewaySubId)->first();
+                if ($sub) {
+                    // Criar registro da transação recorrente no banco
+                    $newTransId = $transactionModel->insert([
+                        'user_id'                => $sub['user_id'],
+                        'subscription_id'        => $sub['id'],
+                        'plan_id'                => $sub['plan_id'],
+                        'gateway'                => 'asaas',
+                        'gateway_transaction_id' => $paymentId,
+                        'amount'                 => (float)($payment['value'] ?? $sub['price']),
+                        'payment_method'         => 'pix',
+                        'status'                 => 'pending',
+                        'invoice_url'            => $payment['invoiceUrl'] ?? null,
+                    ]);
+                    $trans = $transactionModel->find($newTransId);
+                }
+            }
 
-        $now = date('Y-m-d H:i:s');
+            if (!$trans) {
+                // Verificar se é um evento de cancelamento direto da assinatura
+                if (in_array($event, ['SUBSCRIPTION_DELETED', 'SUBSCRIPTION_INACTIVATED'], true)) {
+                    $asaasSubId = $json['subscription']['id'] ?? ($payment['subscription'] ?? ($json['id'] ?? null));
+                    if ($asaasSubId) {
+                        $subModel = new SubscriptionModel();
+                        $sub = $subModel->where('gateway_subscription_id', $asaasSubId)->first();
+                        if ($sub && $sub['status'] === 'active') {
+                            $subModel->update($sub['id'], [
+                                'status'      => 'canceled',
+                                'canceled_at' => $now,
+                            ]);
+                            log_message('info', "[Webhook Asaas] Assinatura {$sub['id']} marcada como cancelada via webhook. Acesso mantido até {$sub['current_period_end']}.");
+                        }
+                    }
+                    return $this->respond(['received' => true, 'event' => $event]);
+                }
+
+                log_message('notice', "[Webhook Asaas] Transação {$paymentId} não encontrada no banco local.");
+                return $this->respond(['received' => true, 'warning' => 'Transação não cadastrada localmente.']);
+            }
+        }
 
         switch ($event) {
             case 'PAYMENT_RECEIVED':

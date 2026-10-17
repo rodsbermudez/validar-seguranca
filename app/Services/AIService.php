@@ -62,6 +62,10 @@ class AIService
 
         $userPlan = \App\Services\UserPlanService::getUserPlanDetails($userId);
 
+        if (!empty($userPlan['is_subscription_expired'])) {
+            throw new \RuntimeException("Sua assinatura expirou. Renove seu plano para continuar utilizando os recursos de IA.");
+        }
+
         if (empty($userPlan['ai_enabled'])) {
             throw new \RuntimeException("O uso de inteligência artificial está desabilitado para o seu plano. Entre em contato com o suporte ou administrador.");
         }

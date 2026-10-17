@@ -292,4 +292,81 @@ class AsaasService
             'simulated' => false,
         ];
     }
+
+    /**
+     * Cria uma assinatura recorrente no Asaas (ciclo mensal via Pix)
+     */
+    public function createSubscription(string $customerId, float $amount, string $description, string $externalReference, ?string $nextDueDate = null): array
+    {
+        if (empty($nextDueDate)) {
+            $nextDueDate = date('Y-m-d', strtotime('+1 day'));
+        }
+
+        if (!$this->isConfigured()) {
+            $simSubId = 'sub_sim_' . uniqid();
+            $simPayId = 'pay_sim_' . uniqid();
+            return [
+                'success'         => true,
+                'subscription_id' => $simSubId,
+                'payment_id'      => $simPayId,
+                'status'          => 'ACTIVE',
+                'amount'          => $amount,
+                'invoice_url'     => 'https://sandbox.asaas.com/simulated/' . $simPayId,
+                'simulated'       => true,
+            ];
+        }
+
+        $payload = [
+            'customer'          => $customerId,
+            'billingType'       => 'PIX',
+            'value'             => round($amount, 2),
+            'nextDueDate'       => $nextDueDate,
+            'cycle'             => 'MONTHLY',
+            'description'       => $description,
+            'externalReference' => $externalReference,
+        ];
+
+        $response = $this->request('subscriptions', 'POST', $payload);
+        if (!$response['success']) {
+            return $response;
+        }
+
+        $subData = $response['data'];
+        $subId = $subData['id'];
+
+        // Buscar a cobrança inicial gerada pelo Asaas para esta assinatura
+        $paymentsRes = $this->request('subscriptions/' . $subId . '/payments');
+        $firstPayment = $paymentsRes['success'] && !empty($paymentsRes['data']['data'][0])
+            ? $paymentsRes['data']['data'][0]
+            : null;
+
+        $paymentId = $firstPayment['id'] ?? null;
+
+        return [
+            'success'         => true,
+            'subscription_id' => $subId,
+            'payment_id'      => $paymentId,
+            'status'          => $subData['status'] ?? 'ACTIVE',
+            'amount'          => (float) ($subData['value'] ?? $amount),
+            'invoice_url'     => $firstPayment['invoiceUrl'] ?? null,
+            'data'            => $subData,
+            'simulated'       => false,
+        ];
+    }
+
+    /**
+     * Cancela a renovação da assinatura no Asaas
+     */
+    public function cancelSubscription(string $subscriptionId): array
+    {
+        if (!$this->isConfigured() || str_starts_with($subscriptionId, 'sub_sim_')) {
+            return [
+                'success'   => true,
+                'status'    => 'INACTIVE',
+                'simulated' => true,
+            ];
+        }
+
+        return $this->request('subscriptions/' . $subscriptionId, 'DELETE');
+    }
 }

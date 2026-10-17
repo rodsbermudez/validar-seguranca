@@ -115,6 +115,10 @@ $routes->group('api', function ($routes) {
         // AI Global Monitoring & Reporting routes (Admin)
         $routes->get('ai-monitoring/metrics', 'Api\AiMonitoring::metrics');
         $routes->get('ai-monitoring/logs', 'Api\AiMonitoring::logs');
+
+        // Subscription routes
+        $routes->get('subscriptions/current', 'Api\Subscriptions::current');
+        $routes->post('subscriptions/cancel', 'Api\Subscriptions::cancel');
     });
 });
 

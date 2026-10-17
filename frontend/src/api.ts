@@ -936,6 +936,27 @@ export interface Plan {
   updated_at?: string;
 }
 
+export interface SubscriptionInfo {
+  id: number;
+  plan_id: number;
+  status: 'active' | 'canceled' | 'expired' | 'pending' | 'past_due';
+  gateway: string;
+  gateway_subscription_id?: string;
+  billing_cycle: string;
+  price: number;
+  extra_websites: number;
+  extra_websites_price: number;
+  extra_ai_tokens: number;
+  extra_ai_tokens_price: number;
+  current_period_start?: string;
+  current_period_end?: string;
+  canceled_at?: string;
+  is_period_active: boolean;
+  days_remaining: number;
+  can_cancel: boolean;
+  can_reactivate?: boolean;
+}
+
 export interface UserPlanDetails {
   user_id: number;
   user_name: string;
@@ -964,11 +985,16 @@ export interface UserPlanDetails {
   base_price: number;
   custom_price_monthly: number | null;
   total_monthly_price: number;
+  subscription?: SubscriptionInfo | null;
+  is_subscription_active?: boolean;
+  is_subscription_canceled?: boolean;
+  is_subscription_expired?: boolean;
 }
 
 export interface UserPlanResponse {
   status: number;
   plan_details: UserPlanDetails;
+  subscription?: SubscriptionInfo | null;
   available_plans: Plan[];
   websites: Array<{
     id: number;
@@ -1114,6 +1140,31 @@ export const simulateConfirmCheckout = async (
   const response = await api.post(
     `/public/checkout/simulate-confirm/${transactionIdOrGatewayId}`
   );
+  return response.data;
+};
+
+export const getCurrentSubscription = async (): Promise<{
+  status: number;
+  subscription: SubscriptionInfo | null;
+  plan_details: UserPlanDetails;
+}> => {
+  const response = await api.get('/subscriptions/current');
+  return response.data;
+};
+
+export const cancelSubscription = async (
+  userId?: number
+): Promise<{
+  status: number;
+  success: boolean;
+  message: string;
+  subscription_id: number;
+  current_period_end: string;
+  formatted_end_date: string;
+  days_remaining: number;
+  canceled_at: string;
+}> => {
+  const response = await api.post('/subscriptions/cancel', userId ? { user_id: userId } : {});
   return response.data;
 };
 

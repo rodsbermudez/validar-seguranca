@@ -305,6 +305,48 @@ export const OverviewDashboardView: React.FC<OverviewDashboardViewProps> = ({
         </Group>
       </Paper>
 
+      {/* Alerta de Assinatura Cancelada com Acesso Ativo até o final do período */}
+      {planDetails?.subscription?.status === 'canceled' && planDetails?.subscription?.is_period_active && (
+        <Alert
+          color="yellow"
+          variant="light"
+          icon={<IconAlertTriangle size={18} />}
+          title={`Assinatura Cancelada — Acesso liberado até ${formatDateOnly(planDetails.subscription.current_period_end)}`}
+        >
+          <Group justify="space-between" align="center" wrap="wrap">
+            <Text size="xs">
+              Sua renovação automática foi cancelada. Seu plano continua 100% ativo por mais <b>{planDetails.subscription.days_remaining} dias</b> (até {formatDateOnly(planDetails.subscription.current_period_end)}). Nenhuma nova cobrança será realizada.
+            </Text>
+            {onNavigateToAiUsage && (
+              <Button size="xs" variant="outline" color="yellow" onClick={onNavigateToAiUsage}>
+                Gerenciar Assinatura
+              </Button>
+            )}
+          </Group>
+        </Alert>
+      )}
+
+      {/* Alerta de Assinatura Expirada */}
+      {(planDetails?.subscription?.status === 'expired' || planDetails?.is_subscription_expired) && (
+        <Alert
+          color="red"
+          variant="filled"
+          icon={<IconAlertTriangle size={18} />}
+          title="Assinatura Expirada — Recursos Congelados"
+        >
+          <Group justify="space-between" align="center" wrap="wrap">
+            <Text size="xs">
+              O ciclo pago da sua assinatura encerrou. O cadastro de novos sites e as funcionalidades de IA estão congelados até a renovação.
+            </Text>
+            {onNavigateToAiUsage && (
+              <Button size="xs" variant="white" color="red" onClick={onNavigateToAiUsage}>
+                Renovar Assinatura
+              </Button>
+            )}
+          </Group>
+        </Alert>
+      )}
+
       {/* Empty State Onboarding Banner if 0 websites */}
       {metrics.total_websites === 0 && (
         <Paper

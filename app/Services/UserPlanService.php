@@ -47,12 +47,81 @@ class UserPlanService
 
         $isAdmin = ($user['role'] ?? 'user') === 'admin';
 
-        $planModel = new PlanModel();
-        $plan = !empty($user['plan_id']) ? $planModel->find($user['plan_id']) : null;
+        // 0. Assinatura Recorrente e Validação do Período de Vigência
+        $subModel = new \App\Models\SubscriptionModel();
+        $sub = $subModel->where('user_id', $userId)->orderBy('id', 'DESC')->first();
 
-        // Se o usuário não tem plano e não é admin, tenta buscar o plano padrão
-        if (!$plan && !$isAdmin) {
-            $plan = $planModel->getDefaultPlan();
+        $subscriptionInfo = null;
+        $isSubscriptionActive = false;
+        $isSubscriptionCanceled = false;
+        $isSubscriptionExpired = false;
+        $subscriptionDaysRemaining = 0;
+
+        if ($sub) {
+            $status = $sub['status'];
+            $periodEnd = !empty($sub['current_period_end']) ? strtotime($sub['current_period_end']) : null;
+            $now = time();
+
+            if ($status === 'active') {
+                $isSubscriptionActive = true;
+                $subscriptionDaysRemaining = $periodEnd ? max(0, (int)ceil(($periodEnd - $now) / 86400)) : 30;
+            } elseif ($status === 'canceled') {
+                $isSubscriptionCanceled = true;
+                // REGRA CRÍTICA: Se o cliente cancelou, ele CONTINUA com acesso ativo até o término do período já pago
+                if ($periodEnd && $periodEnd >= $now) {
+                    $isSubscriptionActive = true;
+                    $subscriptionDaysRemaining = max(0, (int)ceil(($periodEnd - $now) / 86400));
+                } else {
+                    // O período pago terminou: PERDE O ACESSO
+                    $isSubscriptionActive = false;
+                    $isSubscriptionExpired = true;
+                    $subscriptionDaysRemaining = 0;
+                    if ($status !== 'expired') {
+                        $subModel->update($sub['id'], ['status' => 'expired']);
+                        $sub['status'] = 'expired';
+                    }
+                }
+            } elseif ($status === 'expired') {
+                $isSubscriptionActive = false;
+                $isSubscriptionExpired = true;
+                $subscriptionDaysRemaining = 0;
+            }
+
+            $subscriptionInfo = [
+                'id'                      => (int)$sub['id'],
+                'plan_id'                 => (int)$sub['plan_id'],
+                'status'                  => $sub['status'],
+                'gateway'                 => $sub['gateway'],
+                'gateway_subscription_id' => $sub['gateway_subscription_id'],
+                'billing_cycle'           => $sub['billing_cycle'],
+                'price'                   => (float)$sub['price'],
+                'extra_websites'          => (int)$sub['extra_websites'],
+                'extra_websites_price'    => (float)$sub['extra_websites_price'],
+                'extra_ai_tokens'         => (int)$sub['extra_ai_tokens'],
+                'extra_ai_tokens_price'   => (float)$sub['extra_ai_tokens_price'],
+                'current_period_start'    => $sub['current_period_start'],
+                'current_period_end'      => $sub['current_period_end'],
+                'canceled_at'             => $sub['canceled_at'],
+                'is_period_active'        => $isSubscriptionActive,
+                'days_remaining'          => $subscriptionDaysRemaining,
+                'can_cancel'              => ($sub['status'] === 'active'),
+            ];
+        }
+
+        $planModel = new PlanModel();
+        $plan = null;
+
+        if (!$isAdmin && $isSubscriptionExpired) {
+            // Perdeu o acesso após encerramento do período pago
+            $plan = null;
+        } else {
+            $effectivePlanId = !empty($user['plan_id']) ? $user['plan_id'] : ($sub['plan_id'] ?? null);
+            if ($effectivePlanId) {
+                $plan = $planModel->find($effectivePlanId);
+            }
+            if (!$plan && !$isAdmin && !$sub) {
+                $plan = $planModel->getDefaultPlan();
+            }
         }
 
         $websiteModel = new WebsiteModel();
@@ -61,8 +130,8 @@ class UserPlanService
 
         // 1. Limite Efetivo de Websites
         $baseMaxWebsites = $plan ? ($plan['max_websites'] !== null ? (int)$plan['max_websites'] : null) : null;
-        $extraWebsites = (int)($user['extra_websites'] ?? 0);
-        $extraWebsitesPrice = (float)($user['extra_websites_price'] ?? 0.00);
+        $extraWebsites = (int)($user['extra_websites'] ?? ($sub['extra_websites'] ?? 0));
+        $extraWebsitesPrice = (float)($user['extra_websites_price'] ?? ($sub['extra_websites_price'] ?? 0.00));
         $customMaxWebsites = array_key_exists('custom_max_websites', $user) && $user['custom_max_websites'] !== null
             ? (int)$user['custom_max_websites']
             : null;
@@ -71,41 +140,60 @@ class UserPlanService
             // Administradores não têm trava de sites
             $effectiveMaxWebsites = null;
             $isWebsitesUnlimited = true;
+            $isWebsitesLimitReached = false;
+            $websitesRemaining = null;
+        } elseif ($isSubscriptionExpired) {
+            // Assinatura expirou: limites zerados/bloqueados
+            $effectiveMaxWebsites = 0;
+            $isWebsitesUnlimited = false;
+            $isWebsitesLimitReached = true;
+            $websitesRemaining = 0;
         } elseif ($customMaxWebsites !== null) {
             $effectiveMaxWebsites = $customMaxWebsites;
             $isWebsitesUnlimited = false;
+            $websitesRemaining = max(0, $effectiveMaxWebsites - $websitesCount);
+            $isWebsitesLimitReached = ($websitesCount >= $effectiveMaxWebsites);
         } elseif ($plan) {
             if ($baseMaxWebsites === null) {
                 $effectiveMaxWebsites = null;
                 $isWebsitesUnlimited = true;
+                $websitesRemaining = null;
+                $isWebsitesLimitReached = false;
             } else {
                 $effectiveMaxWebsites = $baseMaxWebsites + $extraWebsites;
                 $isWebsitesUnlimited = false;
+                $websitesRemaining = max(0, $effectiveMaxWebsites - $websitesCount);
+                $isWebsitesLimitReached = ($websitesCount >= $effectiveMaxWebsites);
             }
         } else {
-            // Fallback sem plano
-            $effectiveMaxWebsites = 1;
+            // Sem plano
+            $effectiveMaxWebsites = 0;
             $isWebsitesUnlimited = false;
+            $websitesRemaining = 0;
+            $isWebsitesLimitReached = true;
         }
-
-        $websitesRemaining = $effectiveMaxWebsites !== null ? max(0, $effectiveMaxWebsites - $websitesCount) : null;
-        $isWebsitesLimitReached = !$isAdmin && ($effectiveMaxWebsites !== null && $websitesCount >= $effectiveMaxWebsites);
 
         // 2. Limite Efetivo de Tokens de IA Mensais (sempre estrito e finito)
         $aiEnabled = isset($user['ai_enabled']) ? (int)$user['ai_enabled'] : 1;
         $baseAiTokens = $plan ? (int)$plan['ai_monthly_tokens'] : 250000;
-        $extraAiTokens = (int)($user['extra_ai_tokens'] ?? 0);
-        $extraAiTokensPrice = (float)($user['extra_ai_tokens_price'] ?? 0.00);
+        $extraAiTokens = (int)($user['extra_ai_tokens'] ?? ($sub['extra_ai_tokens'] ?? 0));
+        $extraAiTokensPrice = (float)($user['extra_ai_tokens_price'] ?? ($sub['extra_ai_tokens_price'] ?? 0.00));
         $customAiTokenLimit = array_key_exists('custom_ai_token_limit', $user) && $user['custom_ai_token_limit'] !== null
             ? (int)$user['custom_ai_token_limit']
             : null;
 
-        // Suporte a legado ai_monthly_token_limit caso ainda não tenha sido migrado
         $legacyAiLimit = isset($user['ai_monthly_token_limit']) && $user['ai_monthly_token_limit'] !== null
             ? (int)$user['ai_monthly_token_limit']
             : null;
 
-        if ($aiEnabled === 0) {
+        if ($isAdmin) {
+            $aiEnabled = 1;
+            $effectiveAiTokenLimit = 10000000;
+        } elseif ($isSubscriptionExpired) {
+            // Assinatura expirou: IA desabilitada
+            $aiEnabled = 0;
+            $effectiveAiTokenLimit = 0;
+        } elseif ($aiEnabled === 0) {
             $effectiveAiTokenLimit = 0;
         } elseif ($customAiTokenLimit !== null) {
             $effectiveAiTokenLimit = $customAiTokenLimit;
@@ -114,11 +202,11 @@ class UserPlanService
         } elseif ($legacyAiLimit !== null) {
             $effectiveAiTokenLimit = $legacyAiLimit;
         } else {
-            $effectiveAiTokenLimit = 250000; // padrão
+            $effectiveAiTokenLimit = 0;
         }
 
         // 3. Financeiro (Mensalidade)
-        $basePrice = $plan ? (float)$plan['price_monthly'] : 0.00;
+        $basePrice = $plan ? (float)$plan['price_monthly'] : ($sub ? (float)$sub['price'] : 0.00);
         $customPriceMonthly = array_key_exists('custom_price_monthly', $user) && $user['custom_price_monthly'] !== null
             ? (float)$user['custom_price_monthly']
             : null;
@@ -129,6 +217,12 @@ class UserPlanService
             $totalMonthlyPrice = round($basePrice + $extraWebsitesPrice + $extraAiTokensPrice, 2);
         }
 
+        $planName = $isAdmin
+            ? 'Administrador'
+            : ($isSubscriptionExpired
+                ? 'Assinatura Expirada'
+                : ($plan ? $plan['name'] : 'Sem Plano'));
+
         return [
             'user_id'                   => (int)$user['id'],
             'user_name'                 => $user['name'],
@@ -136,7 +230,7 @@ class UserPlanService
             'is_admin'                  => $isAdmin,
             'plan_id'                   => $plan ? (int)$plan['id'] : null,
             'plan'                      => $plan,
-            'plan_name'                 => $plan ? $plan['name'] : 'Sem Plano',
+            'plan_name'                 => $planName,
             'ai_enabled'                => $aiEnabled,
             'base_max_websites'         => $baseMaxWebsites,
             'extra_websites'            => $extraWebsites,
@@ -157,6 +251,10 @@ class UserPlanService
             'base_price'                => $basePrice,
             'custom_price_monthly'      => $customPriceMonthly,
             'total_monthly_price'       => $totalMonthlyPrice,
+            'subscription'              => $subscriptionInfo,
+            'is_subscription_active'    => $isSubscriptionActive,
+            'is_subscription_canceled'  => $isSubscriptionCanceled,
+            'is_subscription_expired'   => $isSubscriptionExpired,
         ];
     }
 
@@ -187,6 +285,15 @@ class UserPlanService
 
         if ($details['is_admin']) {
             return ['allowed' => true, 'current' => $details['websites_count'], 'limit' => null];
+        }
+
+        if (!empty($details['is_subscription_expired'])) {
+            return [
+                'allowed' => false,
+                'reason'  => 'Sua assinatura expirou. Renove seu plano para voltar a adicionar e gerenciar websites.',
+                'current' => $details['websites_count'],
+                'limit'   => 0,
+            ];
         }
 
         if ($details['is_websites_unlimited']) {

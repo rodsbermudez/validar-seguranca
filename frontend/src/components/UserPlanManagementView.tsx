@@ -20,6 +20,7 @@ import {
   Loader,
   Pagination,
   Select,
+  Modal,
 } from '@mantine/core';
 import {
   IconArrowLeft,
@@ -40,15 +41,19 @@ import {
   IconCrown,
   IconReceipt,
   IconTrendingUp,
+  IconCreditCard,
+  IconAlertTriangle,
 } from '@tabler/icons-react';
 import {
   getUserPlanDetails,
   updateUserPlan,
   getUserAiLogs,
+  cancelSubscription,
   UserPlanResponse,
   AiUsageLogItem,
 } from '../api';
-import { formatDateTime, formatMonthYear } from '../utils/date';
+import { formatDateTime, formatDateOnly, formatMonthYear } from '../utils/date';
+import { CheckoutModal } from './CheckoutModal';
 
 export interface UserPlanManagementViewProps {
   user: {
@@ -90,6 +95,12 @@ export function UserPlanManagementView({
 
   const [savingPlan, setSavingPlan] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+
+  // Subscription Cancellation & Renewal State
+  const [cancelModalOpen, setCancelModalOpen] = useState(false);
+  const [cancelingSub, setCancelingSub] = useState(false);
+  const [cancelFeedback, setCancelFeedback] = useState<string | null>(null);
+  const [renewModalOpen, setRenewModalOpen] = useState(false);
 
   // Logs & Pagination State
   const [logs, setLogs] = useState<AiUsageLogItem[]>([]);
@@ -195,6 +206,26 @@ export function UserPlanManagementView({
     }
   };
 
+  const handleCancelSubscription = async () => {
+    try {
+      setCancelingSub(true);
+      setErrorMessage('');
+      const res = await cancelSubscription(initialUser.id);
+      setCancelModalOpen(false);
+      setCancelFeedback(res.message);
+      await loadData();
+    } catch (err: any) {
+      console.error(err);
+      setErrorMessage(
+        err.response?.data?.messages?.error ||
+          err.response?.data?.message ||
+          'Erro ao cancelar assinatura.'
+      );
+    } finally {
+      setCancelingSub(false);
+    }
+  };
+
   const formatTokens = (val: number | string | null | undefined): string => {
     if (val === null || val === undefined || val === '') return '0';
     return Number(val).toLocaleString('pt-BR');
@@ -222,7 +253,8 @@ export function UserPlanManagementView({
   };
 
   const pd = data?.plan_details;
-  const currentPlan = data?.available_plans.find((p) => String(p.id) === String(selectedPlanId));
+  const sub = pd?.subscription || data?.subscription;
+  const currentPlan = data?.available_plans.find((p) => String(p.id) === String(selectedPlanId || sub?.plan_id || pd?.plan_id));
 
   // Dynamic preview calculations for admin form
   const previewBaseWebsites = currentPlan ? currentPlan.max_websites : null;
@@ -334,6 +366,137 @@ export function UserPlanManagementView({
       {errorMessage && (
         <Alert icon={<IconAlertCircle size={16} />} color="red" variant="filled" title="Erro">
           {errorMessage}
+        </Alert>
+      )}
+
+      {/* Feedback de cancelamento */}
+      {cancelFeedback && (
+        <Alert
+          icon={<IconCheck size={16} />}
+          color="teal"
+          variant="filled"
+          withCloseButton
+          onClose={() => setCancelFeedback(null)}
+          title="Cancelamento Registrado"
+        >
+          {cancelFeedback}
+        </Alert>
+      )}
+
+      {/* Card / Alerta de Status da Assinatura */}
+      {sub && (
+        <Paper
+          p="md"
+          radius="md"
+          bg="dark.8"
+          withBorder
+          style={{
+            borderColor:
+              sub.status === 'active'
+                ? '#10b981'
+                : sub.status === 'canceled' && sub.is_period_active
+                ? '#f59e0b'
+                : '#ef4444',
+          }}
+        >
+          <Group justify="space-between" align="center" wrap="wrap" gap="md">
+            <Group gap="sm">
+              <ThemeIcon
+                size="lg"
+                radius="md"
+                color={
+                  sub.status === 'active'
+                    ? 'teal'
+                    : sub.status === 'canceled' && sub.is_period_active
+                    ? 'yellow'
+                    : 'red'
+                }
+                variant="light"
+              >
+                <IconCreditCard size={20} />
+              </ThemeIcon>
+              <div>
+                <Group gap="xs" align="center">
+                  <Text fw={700} size="sm">
+                    Assinatura Recorrente Asaas (Pix)
+                  </Text>
+                  <Badge
+                    size="sm"
+                    variant="filled"
+                    color={
+                      sub.status === 'active'
+                        ? 'teal'
+                        : sub.status === 'canceled' && sub.is_period_active
+                        ? 'yellow'
+                        : 'red'
+                    }
+                  >
+                    {sub.status === 'active'
+                      ? 'ATIVA'
+                      : sub.status === 'canceled' && sub.is_period_active
+                      ? 'CANCELADA (ACESSO ATIVO)'
+                      : sub.status === 'canceled'
+                      ? 'CANCELADA (EXPIRADA)'
+                      : 'EXPIRADA'}
+                  </Badge>
+                </Group>
+                <Text size="xs" c="dimmed" mt={2}>
+                  {sub.status === 'active' ? (
+                    <>
+                      Próxima renovação em <b>{sub.current_period_end ? formatDateOnly(sub.current_period_end) : '—'}</b> ({sub.days_remaining} dias restantes no ciclo).
+                    </>
+                  ) : sub.status === 'canceled' && sub.is_period_active ? (
+                    <>
+                      Cancelada em {sub.canceled_at ? formatDateOnly(sub.canceled_at) : '—'}. Seu acesso permanece 100% liberado até <b>{sub.current_period_end ? formatDateOnly(sub.current_period_end) : '—'}</b> ({sub.days_remaining} dias restantes). Nenhuma nova cobrança será realizada.
+                    </>
+                  ) : (
+                    <>
+                      O período pago encerrou em {sub.current_period_end ? formatDateOnly(sub.current_period_end) : '—'}. O cadastro de novos sites e os recursos de IA estão bloqueados até uma nova contratação.
+                    </>
+                  )}
+                </Text>
+              </div>
+            </Group>
+
+            <Group gap="xs">
+              {sub.status === 'active' && (
+                <Button
+                  variant="outline"
+                  color="red"
+                  size="xs"
+                  leftSection={<IconX size={14} />}
+                  onClick={() => setCancelModalOpen(true)}
+                >
+                  Cancelar Assinatura
+                </Button>
+              )}
+              {(sub.status === 'canceled' || sub.status === 'expired') && (
+                <Button
+                  variant="filled"
+                  color="indigo"
+                  size="xs"
+                  leftSection={<IconRefresh size={14} />}
+                  onClick={() => setRenewModalOpen(true)}
+                >
+                  {sub.is_period_active ? 'Reativar / Renovar Assinatura' : 'Contratar Novo Plano'}
+                </Button>
+              )}
+            </Group>
+          </Group>
+        </Paper>
+      )}
+
+      {/* Se o plano expirou e não há sub explícito */}
+      {!sub && pd?.is_subscription_expired && (
+        <Alert icon={<IconAlertTriangle size={16} />} color="red" variant="filled" title="Assinatura Expirada">
+          <Group justify="space-between" align="center">
+            <Text size="xs">
+              O período contratado da sua assinatura foi concluído. Os limites de sites e as funcionalidades de IA estão congelados.
+            </Text>
+            <Button size="xs" variant="white" color="red" onClick={() => setRenewModalOpen(true)}>
+              Contratar Novo Plano
+            </Button>
+          </Group>
         </Alert>
       )}
 
@@ -1006,6 +1169,60 @@ export function UserPlanManagementView({
           </>
         )}
       </Paper>
+
+      {/* Modal de Confirmação de Cancelamento de Assinatura */}
+      <Modal
+        opened={cancelModalOpen}
+        onClose={() => setCancelModalOpen(false)}
+        title={<Text fw={700} size="md">Confirmar Cancelamento de Assinatura</Text>}
+        centered
+        radius="md"
+        size="md"
+        styles={{ content: { backgroundColor: '#1f2937' }, header: { backgroundColor: '#1f2937' } }}
+      >
+        <Stack gap="md">
+          <Alert color="yellow" variant="light" icon={<IconAlertTriangle size={18} />} title="Importante sobre o cancelamento:">
+            <Text size="xs">
+              Ao confirmar o cancelamento da assinatura:
+            </Text>
+            <ul style={{ margin: '6px 0 0 0', paddingLeft: 18, fontSize: 12 }}>
+              <li>Nenhuma nova fatura de renovação será gerada no Asaas.</li>
+              <li>
+                <b>Você continua com ACESSO COMPLETO</b> a todos os recursos do seu plano até o término do período já pago (
+                <b>{sub?.current_period_end ? formatDateOnly(sub.current_period_end) : 'fim do ciclo atual'}</b>, restando {sub?.days_remaining || 0} dias).
+              </li>
+              <li>Após essa data, os limites de sites e inteligência artificial serão pausados até uma nova contratação.</li>
+            </ul>
+          </Alert>
+
+          <Text size="sm" c="dimmed">
+            Tem certeza de que deseja cancelar a renovação da sua assinatura?
+          </Text>
+
+          <Group justify="flex-end" mt="sm">
+            <Button variant="subtle" color="gray" size="sm" onClick={() => setCancelModalOpen(false)} disabled={cancelingSub}>
+              Manter Assinatura
+            </Button>
+            <Button color="red" size="sm" onClick={handleCancelSubscription} loading={cancelingSub} leftSection={<IconX size={14} />}>
+              Sim, Cancelar Assinatura
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      {/* Modal de Renovação / Contratação de Plano */}
+      {renewModalOpen && (
+        <CheckoutModal
+          opened={renewModalOpen}
+          onClose={() => setRenewModalOpen(false)}
+          selectedPlan={currentPlan || (data?.available_plans?.[0] ?? null)}
+          currentUser={initialUser}
+          onPaymentSuccess={() => {
+            setRenewModalOpen(false);
+            loadData();
+          }}
+        />
+      )}
     </Stack>
   );
 }
