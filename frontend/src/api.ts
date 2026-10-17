@@ -951,6 +951,7 @@ export interface SubscriptionInfo {
   current_period_start?: string;
   current_period_end?: string;
   canceled_at?: string;
+  created_at?: string;
   is_period_active: boolean;
   days_remaining: number;
   can_cancel: boolean;
@@ -986,6 +987,7 @@ export interface UserPlanDetails {
   custom_price_monthly: number | null;
   total_monthly_price: number;
   subscription?: SubscriptionInfo | null;
+  user_created_at?: string;
   is_subscription_active?: boolean;
   is_subscription_canceled?: boolean;
   is_subscription_expired?: boolean;

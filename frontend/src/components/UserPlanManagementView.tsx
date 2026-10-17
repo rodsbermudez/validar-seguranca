@@ -61,7 +61,7 @@ import {
   AiUsageLogItem,
   Plan,
 } from '../api';
-import { formatDateTime, formatDateOnly, formatMonthYear } from '../utils/date';
+import { formatDateTime, formatDateOnly, formatMonthYear, parseDate } from '../utils/date';
 import { CheckoutModal } from './CheckoutModal';
 
 export interface UserPlanManagementViewProps {
@@ -354,6 +354,22 @@ export function UserPlanManagementView({
   const nextCycleDueDateFmt = cycleEnd ? formatDateOnly(cycleEnd) : formatDateOnly(new Date(Date.now() + 30 * 86400000).toISOString());
   const proratedRatioCalc = Math.min(1.0, Math.max(0.033, daysRemainingInCycle / 30.0));
   const addonsProratedDueNow = addonsDiffMonthly > 0 ? Math.round(addonsDiffMonthly * proratedRatioCalc * 100) / 100 : 0;
+  const cyclePercentRemaining = Math.round(proratedRatioCalc * 100);
+
+  const getDayOfMonth = (val: string | number | Date | null | undefined): number => {
+    if (!val) return 1;
+    if (typeof val === 'string') {
+      const match = val.match(/^\d{4}-\d{2}-(\d{2})/);
+      if (match) return parseInt(match[1], 10);
+    }
+    const d = parseDate(val);
+    return d ? d.getDate() : 1;
+  };
+
+  const startDateRaw = sub?.current_period_start || sub?.created_at || pd?.user_created_at || (initialUser as any)?.created_at;
+  const planStartDateFmt = startDateRaw ? formatDateOnly(startDateRaw) : formatDateOnly(new Date().toISOString());
+  const nextPaymentDateFmt = cycleEnd ? formatDateOnly(cycleEnd) : formatDateOnly(new Date(Date.now() + 30 * 86400000).toISOString());
+  const renewalDayNumber = getDayOfMonth(startDateRaw || cycleEnd);
 
   const handleConfirmUpgrade = async () => {
     if (!targetUpgradePlanId) return;
@@ -674,11 +690,11 @@ export function UserPlanManagementView({
                 <Text size="xs" c="dimmed" mt={2}>
                   {sub.status === 'active' ? (
                     <>
-                      Próxima renovação em <b>{sub.current_period_end ? formatDateOnly(sub.current_period_end) : '—'}</b> ({sub.days_remaining} dias restantes no ciclo).
+                      Plano iniciado em <b>{planStartDateFmt}</b> (dia {renewalDayNumber}) • Próxima renovação em <b>{nextPaymentDateFmt}</b> (renovação mensal todo dia <b>{renewalDayNumber}</b> • {sub.days_remaining} dias restantes no ciclo).
                     </>
                   ) : sub.status === 'canceled' && sub.is_period_active ? (
                     <>
-                      Cancelada em {sub.canceled_at ? formatDateOnly(sub.canceled_at) : '—'}. Seu acesso permanece 100% liberado até <b>{sub.current_period_end ? formatDateOnly(sub.current_period_end) : '—'}</b> ({sub.days_remaining} dias restantes). Nenhuma nova cobrança será realizada.
+                      Cancelada em {sub.canceled_at ? formatDateOnly(sub.canceled_at) : '—'}. Seu acesso permanece 100% liberado até <b>{nextPaymentDateFmt}</b> ({sub.days_remaining} dias restantes). Nenhuma nova cobrança será realizada.
                     </>
                   ) : (
                     <>
@@ -759,12 +775,90 @@ export function UserPlanManagementView({
                 <IconReceipt size={18} />
               </ThemeIcon>
             </Group>
-            <Text fw={800} size="26px" c="teal.4">
-              {formatMoney(pd?.total_monthly_price)}
-              <Text component="span" size="xs" c="dimmed" fw={400} ml={4}>
-                /mês
+            {/* Top row do Card: Valor à esquerda, Próximo Pagamento & Dia de Renovação à direita */}
+            <Group justify="space-between" align="flex-start" wrap="wrap" gap="xs">
+              <div>
+                <Text fw={800} size="24px" c="teal.4" style={{ lineHeight: 1.1 }}>
+                  {formatMoney(pd?.total_monthly_price)}
+                  <Text component="span" size="xs" c="dimmed" fw={400} ml={4}>
+                    /mês
+                  </Text>
+                </Text>
+                <Text size="11px" c="dimmed" mt={4}>
+                  Iniciado em <Text component="span" fw={600} c="gray.3">{planStartDateFmt}</Text>
+                </Text>
+              </div>
+
+              <Paper
+                p="6px 10px"
+                radius="sm"
+                bg="dark.7"
+                withBorder
+                style={{ borderColor: '#374151' }}
+              >
+                <Group gap={6} align="center">
+                  <ThemeIcon color={sub?.status === 'canceled' ? 'yellow' : 'teal'} size="xs" radius="xl" variant="light">
+                    <IconCalendarEvent size={12} />
+                  </ThemeIcon>
+                  <div>
+                    <Text size="9px" c="dimmed" fw={700} tt="uppercase">
+                      {sub?.status === 'canceled' ? 'Vigência Até' : 'Próximo Pagamento'}
+                    </Text>
+                    <Text size="xs" fw={700} c={sub?.status === 'canceled' ? 'yellow.3' : 'teal.2'}>
+                      {nextPaymentDateFmt}
+                    </Text>
+                  </div>
+                </Group>
+                <Badge
+                  size="xs"
+                  variant="light"
+                  color={sub?.status === 'canceled' ? 'yellow' : 'teal'}
+                  mt={4}
+                  fullWidth
+                  style={{ textTransform: 'none' }}
+                >
+                  {sub?.status === 'canceled' ? 'Cancelamento agendado' : `Renovação todo dia ${renewalDayNumber}`}
+                </Badge>
+              </Paper>
+            </Group>
+
+            {/* Bloco de Transparência do Cálculo de Dias e % Pró-rata */}
+            <Paper
+              p="xs"
+              radius="sm"
+              bg="rgba(16, 185, 129, 0.05)"
+              withBorder
+              style={{ borderColor: 'rgba(16, 185, 129, 0.25)' }}
+              mt="xs"
+            >
+              <Group justify="space-between" align="center" mb={4}>
+                <Group gap={5}>
+                  <IconClock size={13} color="#10b981" />
+                  <Text size="11px" fw={700} c="teal.3">
+                    Ciclo Vigente & Pró-rata ({cyclePercentRemaining}%)
+                  </Text>
+                </Group>
+                <Badge size="xs" color="teal" variant="filled">
+                  {daysRemainingInCycle} de 30 dias restantes
+                </Badge>
+              </Group>
+
+              <Progress
+                value={cyclePercentRemaining}
+                color="teal"
+                size="xs"
+                radius="xl"
+                mb={6}
+              />
+
+              <Text size="11px" c="dimmed" style={{ lineHeight: 1.4 }}>
+                Plano ativo desde <Text component="span" fw={600} c="white">{planStartDateFmt}</Text> (dia {renewalDayNumber}).
+                Renovação mensal recorrente <Text component="span" fw={600} c="white">todo dia {renewalDayNumber}</Text>.
               </Text>
-            </Text>
+              <Text size="10px" c="dimmed" mt={4} style={{ lineHeight: 1.35 }}>
+                💡 <b>Transparência no cálculo:</b> Se você adicionar sites ou trocar de plano hoje, você paga apenas <Text component="span" fw={600} c="teal.3">{cyclePercentRemaining}% do valor adicional</Text> ({daysRemainingInCycle}/30 dias proporcionais até {nextPaymentDateFmt}). A cobrança integral só ocorre a partir da próxima renovação.
+              </Text>
+            </Paper>
 
             <Stack gap={3} mt="sm">
               <Group justify="space-between">
