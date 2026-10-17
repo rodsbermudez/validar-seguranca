@@ -808,16 +808,6 @@ export function UserPlanManagementView({
                     </Text>
                   </div>
                 </Group>
-                <Badge
-                  size="xs"
-                  variant="light"
-                  color={sub?.status === 'canceled' ? 'yellow' : 'teal'}
-                  mt={4}
-                  fullWidth
-                  style={{ textTransform: 'none' }}
-                >
-                  {sub?.status === 'canceled' ? 'Cancelamento agendado' : `Renovação todo dia ${renewalDayNumber}`}
-                </Badge>
               </Paper>
             </Group>
 
