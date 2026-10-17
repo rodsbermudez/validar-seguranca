@@ -1076,6 +1076,16 @@ export const getPublicPlans = async (): Promise<{ status: number; data: Plan[] }
 // Checkout & Asaas Payments API
 // ==========================================
 
+export interface CreditCardPayload {
+  holder_name: string;
+  number: string;
+  expiry_month: string;
+  expiry_year: string;
+  ccv: string;
+  postal_code?: string;
+  address_number?: string;
+}
+
 export interface CheckoutInitiatePayload {
   plan_id: number;
   name: string;
@@ -1083,6 +1093,10 @@ export interface CheckoutInitiatePayload {
   cpf_cnpj: string;
   phone: string;
   password?: string;
+  billing_type?: 'PIX' | 'CREDIT_CARD';
+  credit_card?: CreditCardPayload;
+  postal_code?: string;
+  address_number?: string;
   extra_websites?: number;
   extra_websites_price?: number;
   extra_ai_tokens?: number;
@@ -1092,14 +1106,18 @@ export interface CheckoutInitiatePayload {
 export interface CheckoutInitiateResponse {
   status: number;
   success: boolean;
+  billing_type?: 'PIX' | 'CREDIT_CARD';
+  activated?: boolean;
   transaction_id: number;
   subscription_id: number;
   gateway_transaction_id: string;
   amount: number;
   plan_name: string;
-  pix_qr_code: string;
-  pix_copy_paste: string;
-  pix_expiration: string;
+  pix_qr_code?: string;
+  pix_copy_paste?: string;
+  pix_expiration?: string;
+  card_last4?: string;
+  card_brand?: string;
   invoice_url: string | null;
   is_simulated: boolean;
   token?: string;

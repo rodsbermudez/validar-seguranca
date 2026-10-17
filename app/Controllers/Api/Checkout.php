@@ -124,6 +124,8 @@ class Checkout extends ResourceController
             $userModel->update($userId, ['asaas_customer_id' => $asaasCustomerId]);
         }
 
+        $billingType = strtoupper(trim($json['billing_type'] ?? 'PIX')) === 'CREDIT_CARD' ? 'CREDIT_CARD' : 'PIX';
+
         // Criar registro de assinatura pendente
         $subscriptionModel = new SubscriptionModel();
         $subId = $subscriptionModel->insert([
@@ -140,15 +142,136 @@ class Checkout extends ResourceController
             'extra_ai_tokens_price'   => $extraAiTokensPrice,
         ]);
 
-        // Criar assinatura recorrente no Asaas (ciclo mensal via Pix)
         $description = "Assinatura Recorrente {$plan['name']} - Validar Seguranca";
         $extRef = "sub_{$subId}_usr_{$userId}";
 
+        if ($billingType === 'CREDIT_CARD') {
+            $creditCard = $json['credit_card'] ?? [];
+            $holderName  = trim($creditCard['holder_name'] ?? '');
+            $cardNumber  = preg_replace('/\D/', '', $creditCard['number'] ?? '');
+            $expiryMonth = trim($creditCard['expiry_month'] ?? '');
+            $expiryYear  = trim($creditCard['expiry_year'] ?? '');
+            $ccv         = trim($creditCard['ccv'] ?? '');
+            $postalCode  = preg_replace('/\D/', '', $json['postal_code'] ?? ($creditCard['postal_code'] ?? ''));
+            $addressNum  = trim($json['address_number'] ?? ($creditCard['address_number'] ?? 'S/N'));
+
+            if (empty($holderName) || empty($cardNumber) || empty($expiryMonth) || empty($expiryYear) || empty($ccv)) {
+                return $this->fail('Todos os dados do cartão de crédito (titular, número, validade e CVV) são obrigatórios.', 400);
+            }
+
+            $creditCardPayload = [
+                'holder_name'  => $holderName,
+                'number'       => $cardNumber,
+                'expiry_month' => $expiryMonth,
+                'expiry_year'  => $expiryYear,
+                'ccv'          => $ccv,
+            ];
+
+            $creditCardHolderInfo = [
+                'name'           => $holderName,
+                'email'          => $email,
+                'cpf_cnpj'       => $cpfCnpj,
+                'postal_code'    => $postalCode ?: '01310000',
+                'address_number' => $addressNum ?: 'S/N',
+                'phone'          => $phone,
+            ];
+
+            $subRes = $asaasService->createSubscription(
+                $asaasCustomerId ?: 'cus_sim',
+                $totalAmount,
+                $description,
+                $extRef,
+                date('Y-m-d'),
+                'CREDIT_CARD',
+                $creditCardPayload,
+                $creditCardHolderInfo
+            );
+
+            if (!$subRes['success']) {
+                return $this->fail('Falha ao processar assinatura no cartão: ' . ($subRes['message'] ?? 'Cartão recusado'), 400);
+            }
+
+            $asaasSubId = $subRes['subscription_id'] ?? null;
+            $paymentId  = $subRes['payment_id'] ?? ('pay_' . uniqid());
+            $isCardApproved = in_array(strtoupper($subRes['payment_status'] ?? ''), ['CONFIRMED', 'RECEIVED', 'ACTIVE'], true);
+
+            $now = date('Y-m-d H:i:s');
+            if ($asaasSubId) {
+                $subscriptionModel->update($subId, [
+                    'gateway_subscription_id' => $asaasSubId,
+                    'status'                  => $isCardApproved ? 'active' : 'pending',
+                    'current_period_start'    => $isCardApproved ? $now : null,
+                    'current_period_end'      => $isCardApproved ? date('Y-m-d H:i:s', strtotime('+30 days')) : null,
+                ]);
+            }
+
+            $transactionModel = new PaymentTransactionModel();
+            $transId = $transactionModel->insert([
+                'user_id'                => $userId,
+                'subscription_id'        => $subId,
+                'plan_id'                => $planId,
+                'gateway'                => 'asaas',
+                'gateway_transaction_id' => $paymentId,
+                'amount'                 => $totalAmount,
+                'payment_method'         => 'credit_card',
+                'status'                 => $isCardApproved ? 'paid' : 'pending',
+                'paid_at'                => $isCardApproved ? $now : null,
+                'invoice_url'            => $subRes['invoice_url'] ?? null,
+                'metadata'               => json_encode([
+                    'plan_name'             => $plan['name'],
+                    'billing_type'          => 'CREDIT_CARD',
+                    'card_last4'            => $subRes['card_last4'] ?? substr($cardNumber, -4),
+                    'card_brand'            => $subRes['card_brand'] ?? 'MASTERCARD',
+                    'extra_websites'        => $extraWebsites,
+                    'extra_websites_price'  => $extraWebsitesPrice,
+                    'extra_ai_tokens'       => $extraAiTokens,
+                    'extra_ai_tokens_price' => $extraAiTokensPrice,
+                    'simulated'             => !empty($subRes['simulated']),
+                ]),
+            ]);
+
+            if ($isCardApproved) {
+                UserPlanService::assignPlanToUser($userId, $planId, [
+                    'extra_websites'        => $extraWebsites,
+                    'extra_websites_price'  => $extraWebsitesPrice,
+                    'extra_ai_tokens'       => $extraAiTokens,
+                    'extra_ai_tokens_price' => $extraAiTokensPrice,
+                ]);
+            }
+
+            $token = JWTAuth::generateToken($user);
+
+            return $this->respond([
+                'status'                 => 200,
+                'success'                => true,
+                'billing_type'           => 'CREDIT_CARD',
+                'activated'              => $isCardApproved,
+                'transaction_id'         => $transId,
+                'subscription_id'        => $subId,
+                'gateway_transaction_id' => $paymentId,
+                'amount'                 => $totalAmount,
+                'plan_name'              => $plan['name'],
+                'card_last4'             => $subRes['card_last4'] ?? substr($cardNumber, -4),
+                'card_brand'             => $subRes['card_brand'] ?? 'MASTERCARD',
+                'is_simulated'           => !empty($subRes['simulated']),
+                'token'                  => $token,
+                'user'                   => [
+                    'id'    => $user['id'],
+                    'name'  => $user['name'],
+                    'email' => $user['email'],
+                    'role'  => $user['role'] ?? 'user',
+                ],
+            ]);
+        }
+
+        // Fluxo PIX:
         $subRes = $asaasService->createSubscription(
             $asaasCustomerId ?: 'cus_sim',
             $totalAmount,
             $description,
-            $extRef
+            $extRef,
+            date('Y-m-d', strtotime('+1 day')),
+            'PIX'
         );
 
         if (!$subRes['success']) {
@@ -198,14 +321,15 @@ class Checkout extends ResourceController
             'pix_qr_code'            => $pixQrCode,
             'pix_copy_paste'         => $pixCopyPaste,
             'pix_expiration'         => $pixExp,
-            'invoice_url'            => $paymentRes['invoice_url'] ?? null,
+            'invoice_url'            => $invoiceUrl,
             'metadata'               => json_encode([
                 'plan_name'             => $plan['name'],
+                'billing_type'          => 'PIX',
                 'extra_websites'        => $extraWebsites,
                 'extra_websites_price'  => $extraWebsitesPrice,
                 'extra_ai_tokens'       => $extraAiTokens,
                 'extra_ai_tokens_price' => $extraAiTokensPrice,
-                'simulated'             => !empty($paymentRes['simulated']),
+                'simulated'             => !empty($subRes['simulated']),
             ]),
         ]);
 
@@ -215,6 +339,8 @@ class Checkout extends ResourceController
         return $this->respond([
             'status'                 => 200,
             'success'                => true,
+            'billing_type'           => 'PIX',
+            'activated'              => false,
             'transaction_id'         => $transId,
             'subscription_id'        => $subId,
             'gateway_transaction_id' => $paymentId,
@@ -223,8 +349,8 @@ class Checkout extends ResourceController
             'pix_qr_code'            => $pixQrCode,
             'pix_copy_paste'         => $pixCopyPaste,
             'pix_expiration'         => $pixExp,
-            'invoice_url'            => $paymentRes['invoice_url'] ?? null,
-            'is_simulated'           => !empty($paymentRes['simulated']),
+            'invoice_url'            => $invoiceUrl,
+            'is_simulated'           => !empty($subRes['simulated']),
             'token'                  => $token,
             'user'                   => [
                 'id'    => $user['id'],

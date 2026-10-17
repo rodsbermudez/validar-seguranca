@@ -294,22 +294,39 @@ class AsaasService
     }
 
     /**
-     * Cria uma assinatura recorrente no Asaas (ciclo mensal via Pix)
+     * Cria uma assinatura recorrente no Asaas (ciclo mensal via Pix ou Cartão de Crédito)
      */
-    public function createSubscription(string $customerId, float $amount, string $description, string $externalReference, ?string $nextDueDate = null): array
-    {
+    public function createSubscription(
+        string $customerId,
+        float $amount,
+        string $description,
+        string $externalReference,
+        ?string $nextDueDate = null,
+        string $billingType = 'PIX',
+        ?array $creditCard = null,
+        ?array $creditCardHolderInfo = null
+    ): array {
+        $billingType = strtoupper(trim($billingType)) === 'CREDIT_CARD' ? 'CREDIT_CARD' : 'PIX';
+
         if (empty($nextDueDate)) {
-            $nextDueDate = date('Y-m-d', strtotime('+1 day'));
+            $nextDueDate = $billingType === 'CREDIT_CARD' ? date('Y-m-d') : date('Y-m-d', strtotime('+1 day'));
         }
 
         if (!$this->isConfigured()) {
             $simSubId = 'sub_sim_' . uniqid();
             $simPayId = 'pay_sim_' . uniqid();
+            $cleanCard = preg_replace('/\D/', '', $creditCard['number'] ?? '4242');
+            $last4 = substr($cleanCard, -4) ?: '4242';
+
             return [
                 'success'         => true,
                 'subscription_id' => $simSubId,
                 'payment_id'      => $simPayId,
                 'status'          => 'ACTIVE',
+                'payment_status'  => $billingType === 'CREDIT_CARD' ? 'CONFIRMED' : 'PENDING',
+                'billing_type'    => $billingType,
+                'card_last4'      => $last4,
+                'card_brand'      => 'MASTERCARD',
                 'amount'          => $amount,
                 'invoice_url'     => 'https://sandbox.asaas.com/simulated/' . $simPayId,
                 'simulated'       => true,
@@ -318,13 +335,35 @@ class AsaasService
 
         $payload = [
             'customer'          => $customerId,
-            'billingType'       => 'PIX',
+            'billingType'       => $billingType,
             'value'             => round($amount, 2),
             'nextDueDate'       => $nextDueDate,
             'cycle'             => 'MONTHLY',
             'description'       => $description,
             'externalReference' => $externalReference,
         ];
+
+        if ($billingType === 'CREDIT_CARD' && !empty($creditCard)) {
+            $payload['creditCard'] = [
+                'holderName'  => trim($creditCard['holder_name'] ?? $creditCard['holderName'] ?? ''),
+                'number'      => preg_replace('/\D/', '', $creditCard['number'] ?? ''),
+                'expiryMonth' => str_pad(trim($creditCard['expiry_month'] ?? $creditCard['expiryMonth'] ?? ''), 2, '0', STR_PAD_LEFT),
+                'expiryYear'  => trim($creditCard['expiry_year'] ?? $creditCard['expiryYear'] ?? ''),
+                'ccv'         => trim($creditCard['ccv'] ?? ''),
+            ];
+
+            if (!empty($creditCardHolderInfo)) {
+                $payload['creditCardHolderInfo'] = [
+                    'name'          => trim($creditCardHolderInfo['name'] ?? ''),
+                    'email'         => trim($creditCardHolderInfo['email'] ?? ''),
+                    'cpfCnpj'       => preg_replace('/\D/', '', $creditCardHolderInfo['cpf_cnpj'] ?? $creditCardHolderInfo['cpfCnpj'] ?? ''),
+                    'postalCode'    => preg_replace('/\D/', '', $creditCardHolderInfo['postal_code'] ?? $creditCardHolderInfo['postalCode'] ?? ''),
+                    'addressNumber' => trim($creditCardHolderInfo['address_number'] ?? $creditCardHolderInfo['addressNumber'] ?? 'S/N'),
+                    'phone'         => preg_replace('/\D/', '', $creditCardHolderInfo['phone'] ?? ''),
+                    'mobilePhone'   => preg_replace('/\D/', '', $creditCardHolderInfo['phone'] ?? ''),
+                ];
+            }
+        }
 
         $response = $this->request('subscriptions', 'POST', $payload);
         if (!$response['success']) {
@@ -341,12 +380,17 @@ class AsaasService
             : null;
 
         $paymentId = $firstPayment['id'] ?? null;
+        $paymentStatus = $firstPayment['status'] ?? ($billingType === 'CREDIT_CARD' ? 'CONFIRMED' : 'PENDING');
 
         return [
             'success'         => true,
             'subscription_id' => $subId,
             'payment_id'      => $paymentId,
             'status'          => $subData['status'] ?? 'ACTIVE',
+            'payment_status'  => $paymentStatus,
+            'billing_type'    => $billingType,
+            'card_last4'      => $subData['creditCard']['creditCardNumber'] ?? null,
+            'card_brand'      => $subData['creditCard']['creditCardBrand'] ?? null,
             'amount'          => (float) ($subData['value'] ?? $amount),
             'invoice_url'     => $firstPayment['invoiceUrl'] ?? null,
             'data'            => $subData,

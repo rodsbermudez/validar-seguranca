@@ -31,6 +31,8 @@ import {
   IconSparkles,
   IconBrandWhatsapp,
   IconRocket,
+  IconCreditCard,
+  IconMapPin,
 } from '@tabler/icons-react';
 import {
   Plan,
@@ -66,11 +68,22 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
 
+  // Payment method: credit_card or pix
+  const [paymentMethod, setPaymentMethod] = useState<'credit_card' | 'pix'>('credit_card');
+
+  // Credit Card fields
+  const [cardHolder, setCardHolder] = useState('');
+  const [cardNumber, setCardNumber] = useState('');
+  const [cardExpiry, setCardExpiry] = useState('');
+  const [cardCcv, setCardCcv] = useState('');
+  const [postalCode, setPostalCode] = useState('');
+  const [addressNumber, setAddressNumber] = useState('');
+
   // Add-ons
   const [extraWebsites, setExtraWebsites] = useState<number>(0);
   const [extraAiPacks, setExtraAiPacks] = useState<number>(0); // cada pack = 250k tokens por R$ 60
 
-  // Pix payment state
+  // Payment response & verification state
   const [checkoutData, setCheckoutData] = useState<CheckoutInitiateResponse | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
   const [simulating, setSimulating] = useState(false);
@@ -85,6 +98,13 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       setCheckoutData(null);
       setExtraWebsites(0);
       setExtraAiPacks(0);
+      setPaymentMethod('credit_card');
+      setCardHolder('');
+      setCardNumber('');
+      setCardExpiry('');
+      setCardCcv('');
+      setPostalCode('');
+      setAddressNumber('');
 
       if (currentUser) {
         setName(currentUser.name || '');
@@ -182,6 +202,44 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     }
   };
 
+  // Format Card Number (0000 0000 0000 0000)
+  const handleCardNumberChange = (val: string) => {
+    const digits = val.replace(/\D/g, '').slice(0, 19);
+    const formatted = digits.replace(/(\d{4})(?=\d)/g, '$1 ');
+    setCardNumber(formatted);
+  };
+
+  // Format Card Expiry (MM/AA)
+  const handleCardExpiryChange = (val: string) => {
+    let digits = val.replace(/\D/g, '').slice(0, 4);
+    if (digits.length >= 2) {
+      const month = parseInt(digits.slice(0, 2), 10);
+      if (month > 12) {
+        digits = '12' + digits.slice(2);
+      } else if (month === 0 && digits.length === 2) {
+        digits = '01';
+      }
+      setCardExpiry(digits.slice(0, 2) + '/' + digits.slice(2));
+    } else {
+      setCardExpiry(digits);
+    }
+  };
+
+  // Format Card CVV (3 or 4 digits)
+  const handleCardCcvChange = (val: string) => {
+    setCardCcv(val.replace(/\D/g, '').slice(0, 4));
+  };
+
+  // Format Postal Code CEP (00000-000)
+  const handlePostalCodeChange = (val: string) => {
+    const digits = val.replace(/\D/g, '').slice(0, 8);
+    if (digits.length <= 5) {
+      setPostalCode(digits);
+    } else {
+      setPostalCode(`${digits.slice(0, 5)}-${digits.slice(5)}`);
+    }
+  };
+
   const handleStartPayment = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -197,24 +255,105 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       return;
     }
 
+    // Validate Credit Card fields if selected
+    if (paymentMethod === 'credit_card') {
+      if (!cardHolder.trim()) {
+        setError('Por favor, informe o nome do titular como impresso no cartão.');
+        return;
+      }
+
+      const cleanNumber = cardNumber.replace(/\D/g, '');
+      if (cleanNumber.length < 13 || cleanNumber.length > 19) {
+        setError('Por favor, informe um número de cartão de crédito válido (13 a 19 dígitos).');
+        return;
+      }
+
+      const [monthStr, yearStrRaw] = cardExpiry.split('/');
+      const monthNum = parseInt(monthStr, 10);
+      if (!monthStr || isNaN(monthNum) || monthNum < 1 || monthNum > 12) {
+        setError('Por favor, informe um mês de validade válido (01 a 12).');
+        return;
+      }
+
+      if (!yearStrRaw || yearStrRaw.length < 2) {
+        setError('Por favor, informe o ano de validade do cartão (ex: 28 ou 2028).');
+        return;
+      }
+
+      const cleanCcv = cardCcv.replace(/\D/g, '');
+      if (cleanCcv.length < 3 || cleanCcv.length > 4) {
+        setError('O código de segurança (CVV) deve possuir 3 ou 4 dígitos.');
+        return;
+      }
+
+      const cleanCep = postalCode.replace(/\D/g, '');
+      if (cleanCep.length !== 8) {
+        setError('Por favor, informe um CEP válido com 8 dígitos para o faturamento do cartão.');
+        return;
+      }
+
+      if (!addressNumber.trim()) {
+        setError('Por favor, informe o número do endereço do titular.');
+        return;
+      }
+    }
+
     setLoading(true);
 
     try {
-      const res = await initiateCheckout({
+      const payload: any = {
         plan_id: selectedPlan.id,
         name: name.trim(),
         email: email.trim().toLowerCase(),
         cpf_cnpj: cleanCpf,
         phone: phone.replace(/\D/g, ''),
         password: password || undefined,
+        billing_type: paymentMethod === 'credit_card' ? 'CREDIT_CARD' : 'PIX',
         extra_websites: extraWebsites,
         extra_websites_price: extraWebsitesPrice,
         extra_ai_tokens: extraAiTokens,
         extra_ai_tokens_price: extraAiPrice,
-      });
+      };
 
+      if (paymentMethod === 'credit_card') {
+        const [monthStr, yearStrRaw] = cardExpiry.split('/');
+        const yearStr = yearStrRaw.length === 2 ? `20${yearStrRaw}` : yearStrRaw;
+        const cleanCep = postalCode.replace(/\D/g, '');
+
+        payload.credit_card = {
+          holder_name: cardHolder.trim().toUpperCase(),
+          number: cardNumber.replace(/\D/g, ''),
+          expiry_month: monthStr.padStart(2, '0'),
+          expiry_year: yearStr,
+          ccv: cardCcv.replace(/\D/g, ''),
+          postal_code: cleanCep,
+          address_number: addressNumber.trim(),
+        };
+        payload.postal_code = cleanCep;
+        payload.address_number = addressNumber.trim();
+      }
+
+      const res = await initiateCheckout(payload);
       setCheckoutData(res);
-      setStep('pix');
+
+      if (res.activated) {
+        // Ativação imediata no cartão de crédito
+        if (res.token && res.user) {
+          localStorage.setItem('jwt_token', res.token);
+          localStorage.setItem('user', JSON.stringify(res.user));
+        }
+        setStep('success');
+      } else if (paymentMethod === 'credit_card') {
+        // Se foi cartão mas status requer acompanhamento
+        if (res.token && res.user) {
+          localStorage.setItem('jwt_token', res.token);
+          localStorage.setItem('user', JSON.stringify(res.user));
+        }
+        setStep('success');
+      } else {
+        // Fluxo Pix
+        setStep('pix');
+      }
     } catch (err: any) {
       const msg =
         err?.response?.data?.messages?.error ||
@@ -424,22 +563,158 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               />
             )}
 
+            <Divider label="Forma de Pagamento da Assinatura" labelPosition="center" color="dark.5" />
+
+            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs">
+              <Paper
+                p="sm"
+                radius="md"
+                onClick={() => setPaymentMethod('credit_card')}
+                style={{
+                  cursor: 'pointer',
+                  background: paymentMethod === 'credit_card' ? 'rgba(99, 102, 241, 0.15)' : 'rgba(30, 41, 59, 0.5)',
+                  border: paymentMethod === 'credit_card' ? '2px solid #6366f1' : '1px solid rgba(255, 255, 255, 0.08)',
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                <Group justify="space-between" mb={4}>
+                  <Group gap="xs">
+                    <IconCreditCard size={18} color={paymentMethod === 'credit_card' ? '#818cf8' : '#94a3b8'} />
+                    <Text size="sm" fw={700} c={paymentMethod === 'credit_card' ? 'white' : 'gray.4'}>
+                      Cartão de Crédito
+                    </Text>
+                  </Group>
+                  <Badge size="xs" color="indigo" variant="light">Automático</Badge>
+                </Group>
+                <Text size="xs" c="dimmed">
+                  Cobrança recorrente mensal sem risco de interrupção.
+                </Text>
+              </Paper>
+
+              <Paper
+                p="sm"
+                radius="md"
+                onClick={() => setPaymentMethod('pix')}
+                style={{
+                  cursor: 'pointer',
+                  background: paymentMethod === 'pix' ? 'rgba(99, 102, 241, 0.15)' : 'rgba(30, 41, 59, 0.5)',
+                  border: paymentMethod === 'pix' ? '2px solid #6366f1' : '1px solid rgba(255, 255, 255, 0.08)',
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                <Group justify="space-between" mb={4}>
+                  <Group gap="xs">
+                    <IconQrcode size={18} color={paymentMethod === 'pix' ? '#818cf8' : '#94a3b8'} />
+                    <Text size="sm" fw={700} c={paymentMethod === 'pix' ? 'white' : 'gray.4'}>
+                      Pix Instantâneo
+                    </Text>
+                  </Group>
+                  <Badge size="xs" color="teal" variant="light">QR Code</Badge>
+                </Group>
+                <Text size="xs" c="dimmed">
+                  Pagamento com QR Code instantâneo a cada renovação.
+                </Text>
+              </Paper>
+            </SimpleGrid>
+
+            {/* Campos de Cartão de Crédito */}
+            {paymentMethod === 'credit_card' && (
+              <Card p="sm" radius="md" bg="rgba(15, 23, 42, 0.6)" style={{ border: '1px solid rgba(99, 102, 241, 0.25)' }}>
+                <Stack gap="xs">
+                  <Text size="xs" fw={700} c="indigo.3" style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Dados do Cartão de Crédito
+                  </Text>
+
+                  <TextInput
+                    label="Nome Impresso no Cartão"
+                    placeholder="Ex: CARLOS E SILVA"
+                    value={cardHolder}
+                    onChange={(e) => setCardHolder(e.target.value.toUpperCase())}
+                    required
+                  />
+
+                  <TextInput
+                    label="Número do Cartão"
+                    placeholder="0000 0000 0000 0000"
+                    value={cardNumber}
+                    onChange={(e) => handleCardNumberChange(e.target.value)}
+                    leftSection={<IconCreditCard size={16} />}
+                    required
+                  />
+
+                  <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs">
+                    <TextInput
+                      label="Validade (MM/AA)"
+                      placeholder="MM/AA"
+                      value={cardExpiry}
+                      onChange={(e) => handleCardExpiryChange(e.target.value)}
+                      maxLength={5}
+                      required
+                    />
+                    <TextInput
+                      label="Código de Segurança (CVV)"
+                      placeholder="123"
+                      value={cardCcv}
+                      onChange={(e) => handleCardCcvChange(e.target.value)}
+                      maxLength={4}
+                      leftSection={<IconLock size={16} />}
+                      required
+                      type="password"
+                    />
+                  </SimpleGrid>
+
+                  <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs">
+                    <TextInput
+                      label="CEP do Titular"
+                      placeholder="00000-000"
+                      value={postalCode}
+                      onChange={(e) => handlePostalCodeChange(e.target.value)}
+                      maxLength={9}
+                      leftSection={<IconMapPin size={16} />}
+                      required
+                    />
+                    <TextInput
+                      label="Número do Endereço"
+                      placeholder="Ex: 100 ou S/N"
+                      value={addressNumber}
+                      onChange={(e) => setAddressNumber(e.target.value)}
+                      required
+                    />
+                  </SimpleGrid>
+                </Stack>
+              </Card>
+            )}
+
             <Button
               type="submit"
               size="md"
               color="indigo"
               variant="gradient"
-              gradient={{ from: 'indigo.6', to: 'blue.6' }}
-              leftSection={<IconQrcode size={18} />}
+              gradient={
+                paymentMethod === 'credit_card'
+                  ? { from: 'indigo.6', to: 'violet.6' }
+                  : { from: 'indigo.6', to: 'blue.6' }
+              }
+              leftSection={
+                paymentMethod === 'credit_card' ? (
+                  <IconCreditCard size={18} />
+                ) : (
+                  <IconQrcode size={18} />
+                )
+              }
               loading={loading}
               fullWidth
               mt="xs"
             >
-              Gerar Pix para Pagamento (R$ {totalAmount.toFixed(2).replace('.', ',')})
+              {paymentMethod === 'credit_card'
+                ? `Assinar no Cartão (R$ ${totalAmount.toFixed(2).replace('.', ',')}/mês)`
+                : `Gerar Pix para Pagamento (R$ ${totalAmount.toFixed(2).replace('.', ',')})`}
             </Button>
 
             <Text size="xs" c="dimmed" ta="center">
-              🔒 Pagamento seguro processado via gateway Asaas. Liberação automática via Pix.
+              {paymentMethod === 'credit_card'
+                ? '🔒 Transação criptografada de ponta a ponta. Recorrência automática processada pelo Asaas.'
+                : '🔒 Pagamento seguro processado via gateway Asaas. Liberação automática via Pix.'}
             </Text>
           </Stack>
         </form>
@@ -526,7 +801,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 </Text>
               </Group>
               <Text size="xs" c="dimmed">
-                Expira em: {new Date(checkoutData.pix_expiration).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                Expira em: {checkoutData.pix_expiration ? new Date(checkoutData.pix_expiration).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '30 minutos'}
               </Text>
             </Group>
           </Paper>
@@ -611,6 +886,18 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 <Text size="sm" fw={600} c="green.4">R$ {totalAmount.toFixed(2).replace('.', ',')}</Text>
               </div>
               <div>
+                <Text size="xs" c="dimmed">Forma de Pagamento</Text>
+                <Text size="sm" fw={600} c="indigo.3">
+                  {checkoutData?.billing_type === 'CREDIT_CARD'
+                    ? `Cartão •••• ${checkoutData.card_last4 || ''} (${checkoutData.card_brand || 'Crédito'})`
+                    : 'Pix Instantâneo'}
+                </Text>
+              </div>
+              <div>
+                <Text size="xs" c="dimmed">Status</Text>
+                <Badge color="green" variant="light" size="sm">Assinatura Ativa</Badge>
+              </div>
+              <div>
                 <Text size="xs" c="dimmed">Capacidade de Sites</Text>
                 <Text size="sm" fw={600} c="white">
                   {selectedPlan.max_websites === null
@@ -626,6 +913,14 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               </div>
             </SimpleGrid>
           </Paper>
+
+          {checkoutData?.billing_type === 'CREDIT_CARD' && (
+            <Alert color="indigo" variant="light" w="100%">
+              <Text size="xs">
+                <b>Renovação Automática:</b> O plano será renovado mensalmente de forma automática em seu cartão de crédito. Você pode gerenciar ou cancelar sua assinatura a qualquer momento na tela de <b>Gestão do Plano</b>, com acesso assegurado até o fim do ciclo pago.
+              </Text>
+            </Alert>
+          )}
 
           <Button
             size="lg"
