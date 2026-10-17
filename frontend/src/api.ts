@@ -1186,5 +1186,37 @@ export const cancelSubscription = async (
   return response.data;
 };
 
+export const upgradePlan = async (
+  planId: number,
+  userId?: number
+): Promise<{
+  status: number;
+  success: boolean;
+  message: string;
+  has_active_subscription: boolean;
+  plan_details: UserPlanDetails;
+}> => {
+  const response = await api.post('/subscriptions/upgrade-plan', {
+    plan_id: planId,
+    ...(userId ? { user_id: userId } : {}),
+  });
+  return response.data;
+};
+
+export const manageAddons = async (payload: {
+  extra_websites: number;
+  extra_ai_packs?: number;
+  extra_ai_tokens?: number;
+  user_id?: number;
+}): Promise<{
+  status: number;
+  success: boolean;
+  message: string;
+  plan_details: UserPlanDetails;
+}> => {
+  const response = await api.post('/subscriptions/manage-addons', payload);
+  return response.data;
+};
+
 
 

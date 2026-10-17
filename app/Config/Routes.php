@@ -119,6 +119,8 @@ $routes->group('api', function ($routes) {
         // Subscription routes
         $routes->get('subscriptions/current', 'Api\Subscriptions::current');
         $routes->post('subscriptions/cancel', 'Api\Subscriptions::cancel');
+        $routes->post('subscriptions/upgrade-plan', 'Api\Subscriptions::upgradePlan');
+        $routes->post('subscriptions/manage-addons', 'Api\Subscriptions::manageAddons');
     });
 });
 

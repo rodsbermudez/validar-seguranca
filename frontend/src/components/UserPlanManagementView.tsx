@@ -43,12 +43,15 @@ import {
   IconTrendingUp,
   IconCreditCard,
   IconAlertTriangle,
+  IconPlus,
 } from '@tabler/icons-react';
 import {
   getUserPlanDetails,
   updateUserPlan,
   getUserAiLogs,
   cancelSubscription,
+  upgradePlan,
+  manageAddons,
   UserPlanResponse,
   AiUsageLogItem,
 } from '../api';
@@ -101,6 +104,17 @@ export function UserPlanManagementView({
   const [cancelingSub, setCancelingSub] = useState(false);
   const [cancelFeedback, setCancelFeedback] = useState<string | null>(null);
   const [renewModalOpen, setRenewModalOpen] = useState(false);
+
+  // Upgrade Plan Modal State
+  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
+  const [targetUpgradePlanId, setTargetUpgradePlanId] = useState<number | null>(null);
+  const [upgradingPlan, setUpgradingPlan] = useState(false);
+
+  // Addons Modal State
+  const [addonsModalOpen, setAddonsModalOpen] = useState(false);
+  const [modalExtraWebsites, setModalExtraWebsites] = useState<number>(0);
+  const [modalExtraAiPacks, setModalExtraAiPacks] = useState<number>(0);
+  const [savingAddons, setSavingAddons] = useState(false);
 
   // Logs & Pagination State
   const [logs, setLogs] = useState<AiUsageLogItem[]>([]);
@@ -286,6 +300,83 @@ export function UserPlanManagementView({
   const currentAiCost = data?.current_month_cost || 0;
   const grossProfit = Math.max(0, monthlyRevenue - currentAiCost);
   const profitMarginPercent = monthlyRevenue > 0 ? Math.round((grossProfit / monthlyRevenue) * 100) : 100;
+
+  // Add-ons capacity validation variables
+  const baseWebsitesLimit = pd?.base_max_websites ?? null;
+  const userWebsitesCount = pd?.websites_count ?? 0;
+  const newEffectiveWebsitesLimit = baseWebsitesLimit !== null ? baseWebsitesLimit + modalExtraWebsites : null;
+  const isAddonRemovalBlocked = newEffectiveWebsitesLimit !== null && newEffectiveWebsitesLimit < userWebsitesCount;
+  const sitesExcessCount = newEffectiveWebsitesLimit !== null ? Math.max(0, userWebsitesCount - newEffectiveWebsitesLimit) : 0;
+
+  const handleConfirmUpgrade = async () => {
+    if (!targetUpgradePlanId) return;
+
+    if (!sub || sub.status !== 'active') {
+      setUpgradeModalOpen(false);
+      setRenewModalOpen(true);
+      return;
+    }
+
+    try {
+      setUpgradingPlan(true);
+      setErrorMessage('');
+      const res = await upgradePlan(targetUpgradePlanId, initialUser.id);
+      setUpgradeModalOpen(false);
+      setCancelFeedback(res.message);
+      await loadData();
+    } catch (err: any) {
+      console.error(err);
+      setErrorMessage(
+        err.response?.data?.messages?.error ||
+          err.response?.data?.message ||
+          'Erro ao realizar upgrade de plano.'
+      );
+    } finally {
+      setUpgradingPlan(false);
+    }
+  };
+
+  const handleSaveAddons = async () => {
+    const baseMax = pd?.base_max_websites;
+    const currentWebsites = pd?.websites_count || 0;
+    if (baseMax !== null && baseMax !== undefined) {
+      const newLimit = baseMax + modalExtraWebsites;
+      if (currentWebsites > newLimit) {
+        setErrorMessage(
+          `Não é possível remover ou reduzir o add-on de sites: você possui ${currentWebsites} sites cadastrados, mas o novo limite seria de ${newLimit} sites (${baseMax} do plano + ${modalExtraWebsites} extras). Remova pelo menos ${currentWebsites - newLimit} site(s) antes de reduzir este add-on.`
+        );
+        return;
+      }
+    }
+
+    if (!sub || sub.status !== 'active') {
+      setAddonsModalOpen(false);
+      setRenewModalOpen(true);
+      return;
+    }
+
+    try {
+      setSavingAddons(true);
+      setErrorMessage('');
+      const res = await manageAddons({
+        extra_websites: modalExtraWebsites,
+        extra_ai_packs: modalExtraAiPacks,
+        user_id: initialUser.id,
+      });
+      setAddonsModalOpen(false);
+      setCancelFeedback(res.message);
+      await loadData();
+    } catch (err: any) {
+      console.error(err);
+      setErrorMessage(
+        err.response?.data?.messages?.error ||
+          err.response?.data?.message ||
+          'Erro ao atualizar add-ons.'
+      );
+    } finally {
+      setSavingAddons(false);
+    }
+  };
 
   return (
     <Stack gap="lg">
@@ -571,6 +662,35 @@ export function UserPlanManagementView({
                 </>
               )}
             </Stack>
+
+            <Divider my="sm" color="dark.6" />
+            <Group gap="xs" grow>
+              <Button
+                size="xs"
+                color="indigo"
+                variant="light"
+                leftSection={<IconCrown size={14} />}
+                onClick={() => {
+                  setTargetUpgradePlanId(pd?.plan_id || null);
+                  setUpgradeModalOpen(true);
+                }}
+              >
+                Upgrade de Plano
+              </Button>
+              <Button
+                size="xs"
+                color="teal"
+                variant="light"
+                leftSection={<IconSparkles size={14} />}
+                onClick={() => {
+                  setModalExtraWebsites(pd?.extra_websites || 0);
+                  setModalExtraAiPacks(Math.round((pd?.extra_ai_tokens || 0) / 250000));
+                  setAddonsModalOpen(true);
+                }}
+              >
+                Add-ons
+              </Button>
+            </Group>
           </Card>
         </Grid.Col>
 
@@ -626,6 +746,22 @@ export function UserPlanManagementView({
                 ) : null}
               </Stack>
             )}
+
+            <Button
+              size="xs"
+              color="blue"
+              variant="subtle"
+              leftSection={<IconPlus size={14} />}
+              fullWidth
+              mt="xs"
+              onClick={() => {
+                setModalExtraWebsites(pd?.extra_websites || 0);
+                setModalExtraAiPacks(Math.round((pd?.extra_ai_tokens || 0) / 250000));
+                setAddonsModalOpen(true);
+              }}
+            >
+              {pd?.extra_websites ? 'Gerenciar Sites Extras' : 'Adicionar Sites Extras (+R$ 8/site)'}
+            </Button>
           </Card>
         </Grid.Col>
 
@@ -667,9 +803,72 @@ export function UserPlanManagementView({
                 IA desabilitada para esta conta.
               </Text>
             )}
+
+            <Button
+              size="xs"
+              color="violet"
+              variant="subtle"
+              leftSection={<IconPlus size={14} />}
+              fullWidth
+              mt="xs"
+              onClick={() => {
+                setModalExtraWebsites(pd?.extra_websites || 0);
+                setModalExtraAiPacks(Math.round((pd?.extra_ai_tokens || 0) / 250000));
+                setAddonsModalOpen(true);
+              }}
+            >
+              {pd?.extra_ai_tokens ? 'Gerenciar Cota de IA' : 'Adicionar Pacote de IA (+250k)'}
+            </Button>
           </Card>
         </Grid.Col>
       </Grid>
+
+      {/* Banner / Painel de Ações de Expansão e Upgrades */}
+      <Paper p="md" radius="md" bg="rgba(30, 41, 59, 0.5)" withBorder style={{ borderColor: 'rgba(99, 102, 241, 0.3)' }}>
+        <Group justify="space-between" align="center" wrap="wrap" gap="md">
+          <div>
+            <Group gap="xs">
+              <ThemeIcon size="md" color="indigo" variant="light" radius="md">
+                <IconTrendingUp size={18} />
+              </ThemeIcon>
+              <Text fw={700} size="sm" c="white">
+                Expansão de Recursos & Upgrades
+              </Text>
+            </Group>
+            <Text size="xs" c="dimmed" mt={4} maw={620}>
+              Precisa de mais capacidade? Mude seu plano com preservação automática dos add-ons contratados, ou adicione/cancele sites e pacotes de IA sob demanda.
+            </Text>
+          </div>
+          <Group gap="xs">
+            <Button
+              size="sm"
+              color="indigo"
+              variant="gradient"
+              gradient={{ from: 'indigo.6', to: 'violet.6' }}
+              leftSection={<IconCrown size={16} />}
+              onClick={() => {
+                setTargetUpgradePlanId(pd?.plan_id || null);
+                setUpgradeModalOpen(true);
+              }}
+            >
+              Fazer Upgrade de Plano
+            </Button>
+            <Button
+              size="sm"
+              color="teal"
+              variant="light"
+              leftSection={<IconSparkles size={16} />}
+              onClick={() => {
+                setModalExtraWebsites(pd?.extra_websites || 0);
+                setModalExtraAiPacks(Math.round((pd?.extra_ai_tokens || 0) / 250000));
+                setAddonsModalOpen(true);
+              }}
+            >
+              Contratar / Gerenciar Add-ons
+            </Button>
+          </Group>
+        </Group>
+      </Paper>
 
       {/* Plan & Add-ons Configuration Form (Admin Only) */}
       {!readOnly && (
@@ -1205,6 +1404,333 @@ export function UserPlanManagementView({
             </Button>
             <Button color="red" size="sm" onClick={handleCancelSubscription} loading={cancelingSub} leftSection={<IconX size={14} />}>
               Sim, Cancelar Assinatura
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      {/* Modal de Upgrade de Plano */}
+      <Modal
+        opened={upgradeModalOpen}
+        onClose={() => setUpgradeModalOpen(false)}
+        title={
+          <Group gap="xs">
+            <IconCrown size={20} color="var(--mantine-color-indigo-4)" />
+            <Text fw={700} size="md">
+              Fazer Upgrade de Plano
+            </Text>
+          </Group>
+        }
+        size="lg"
+        radius="md"
+        centered
+        styles={{
+          header: { background: 'rgba(15, 23, 42, 0.95)', borderBottom: '1px solid rgba(255, 255, 255, 0.08)' },
+          content: { background: '#0f172a', border: '1px solid rgba(99, 102, 241, 0.3)' },
+        }}
+      >
+        <Stack gap="md">
+          {/* Alerta de preservação de add-ons */}
+          <Alert color="indigo" variant="light" icon={<IconSparkles size={16} />}>
+            <Text size="xs">
+              <b>Preservação de Add-ons:</b> Seus add-ons contratados atuais (
+              <b>{pd?.extra_websites || 0} sites extras</b> e <b>{((pd?.extra_ai_tokens || 0) / 1000).toLocaleString('pt-BR')}k tokens de IA extras</b>)
+              permanecerão ativos no novo plano.
+            </Text>
+          </Alert>
+
+          <Text size="xs" c="dimmed">
+            Selecione o plano desejado para realizar o upgrade. A capacidade de sites e tokens do novo plano será aplicada imediatamente:
+          </Text>
+
+          {/* Cards dos Planos Disponíveis */}
+          <Stack gap="xs">
+            {data?.available_plans.map((p) => {
+              const isCurrent = String(p.id) === String(pd?.plan_id);
+              const isSelected = targetUpgradePlanId === p.id;
+              const websitesCapacity = p.max_websites === null
+                ? 'Sites Ilimitados'
+                : `${p.max_websites + (pd?.extra_websites || 0)} Sites (${p.max_websites} base + ${pd?.extra_websites || 0} extras)`;
+              const aiCapacity = `${((p.ai_monthly_tokens + (pd?.extra_ai_tokens || 0)) / 1000).toLocaleString('pt-BR')}k Tokens/mês`;
+              const planPrice = Number(p.price_monthly) + (pd?.extra_websites_price || 0) + (pd?.extra_ai_tokens_price || 0);
+
+              // Validação de capacidade
+              const isCapacityInsufficient = p.max_websites !== null &&
+                (p.max_websites + (pd?.extra_websites || 0)) < (pd?.websites_count || 0);
+
+              return (
+                <Paper
+                  key={p.id}
+                  p="sm"
+                  radius="md"
+                  onClick={() => {
+                    if (!isCapacityInsufficient) {
+                      setTargetUpgradePlanId(p.id);
+                    }
+                  }}
+                  style={{
+                    cursor: isCapacityInsufficient ? 'not-allowed' : 'pointer',
+                    background: isSelected
+                      ? 'rgba(99, 102, 241, 0.15)'
+                      : isCurrent
+                      ? 'rgba(30, 41, 59, 0.8)'
+                      : 'rgba(30, 41, 59, 0.4)',
+                    border: isSelected
+                      ? '2px solid #6366f1'
+                      : isCurrent
+                      ? '1px solid rgba(16, 185, 129, 0.4)'
+                      : '1px solid rgba(255, 255, 255, 0.08)',
+                    opacity: isCapacityInsufficient ? 0.6 : 1,
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  <Group justify="space-between" align="center">
+                    <div>
+                      <Group gap="xs">
+                        <Text fw={700} size="sm" c="white">
+                          Plano {p.name}
+                        </Text>
+                        {isCurrent && (
+                          <Badge color="green" size="xs" variant="light">
+                            Plano Atual
+                          </Badge>
+                        )}
+                        {isSelected && !isCurrent && (
+                          <Badge color="indigo" size="xs" variant="filled">
+                            Selecionado
+                          </Badge>
+                        )}
+                      </Group>
+                      <Text size="xs" c="dimmed" mt={2}>
+                        {p.description || 'Monitoramento contínuo e remediação com IA.'}
+                      </Text>
+                      <Group gap="xs" mt={4}>
+                        <Badge color="blue" size="xs" variant="outline">
+                          {websitesCapacity}
+                        </Badge>
+                        <Badge color="violet" size="xs" variant="outline">
+                          {aiCapacity}
+                        </Badge>
+                      </Group>
+                    </div>
+
+                    <div style={{ textAlign: 'right' }}>
+                      <Text fw={700} size="md" c="indigo.3">
+                        R$ {planPrice.toFixed(2).replace('.', ',')}
+                        <Text component="span" size="xs" c="dimmed" fw={400}> /mês</Text>
+                      </Text>
+                      {isCapacityInsufficient && (
+                        <Text size="10px" c="red.4" mt={2}>
+                          Insuficiente para {pd?.websites_count} sites
+                        </Text>
+                      )}
+                    </div>
+                  </Group>
+                </Paper>
+              );
+            })}
+          </Stack>
+
+          {/* Validação de erro se o selecionado não comportar */}
+          {(() => {
+            const selectedP = data?.available_plans.find((p) => p.id === targetUpgradePlanId);
+            if (
+              selectedP &&
+              selectedP.max_websites !== null &&
+              selectedP.max_websites + (pd?.extra_websites || 0) < (pd?.websites_count || 0)
+            ) {
+              const diff = (pd?.websites_count || 0) - (selectedP.max_websites + (pd?.extra_websites || 0));
+              return (
+                <Alert color="red" variant="filled" icon={<IconAlertCircle size={16} />}>
+                  <Text size="xs">
+                    Você possui <b>{pd?.websites_count} sites cadastrados</b>. O Plano {selectedP.name} com seus add-ons comportará apenas <b>{selectedP.max_websites + (pd?.extra_websites || 0)} sites</b>. Exclua pelo menos <b>{diff} site(s)</b> antes de selecionar este plano.
+                  </Text>
+                </Alert>
+              );
+            }
+            return null;
+          })()}
+
+          <Group justify="flex-end" mt="sm">
+            <Button variant="subtle" color="gray" size="sm" onClick={() => setUpgradeModalOpen(false)} disabled={upgradingPlan}>
+              Cancelar
+            </Button>
+            <Button
+              color="indigo"
+              variant="gradient"
+              gradient={{ from: 'indigo.6', to: 'violet.6' }}
+              size="sm"
+              onClick={handleConfirmUpgrade}
+              loading={upgradingPlan}
+              disabled={
+                !targetUpgradePlanId ||
+                targetUpgradePlanId === pd?.plan_id ||
+                (() => {
+                  const sp = data?.available_plans.find((p) => p.id === targetUpgradePlanId);
+                  return (
+                    sp &&
+                    sp.max_websites !== null &&
+                    sp.max_websites + (pd?.extra_websites || 0) < (pd?.websites_count || 0)
+                  );
+                })()
+              }
+              leftSection={<IconCrown size={16} />}
+            >
+              Confirmar Upgrade
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      {/* Modal de Gestão / Contratação de Add-ons */}
+      <Modal
+        opened={addonsModalOpen}
+        onClose={() => setAddonsModalOpen(false)}
+        title={
+          <Group gap="xs">
+            <IconSparkles size={20} color="var(--mantine-color-teal-4)" />
+            <Text fw={700} size="md">
+              Contratar ou Gerenciar Add-ons
+            </Text>
+          </Group>
+        }
+        size="lg"
+        radius="md"
+        centered
+        styles={{
+          header: { background: 'rgba(15, 23, 42, 0.95)', borderBottom: '1px solid rgba(255, 255, 255, 0.08)' },
+          content: { background: '#0f172a', border: '1px solid rgba(20, 184, 166, 0.3)' },
+        }}
+      >
+        <Stack gap="md">
+          <Text size="xs" c="dimmed">
+            Personalize sua assinatura adicionando sites extras ou pacotes de inteligência artificial. Os valores serão integrados à sua mensalidade recorrente.
+          </Text>
+
+          {/* Add-on 1: Sites Extras */}
+          <Card p="md" radius="md" bg="rgba(15, 23, 42, 0.7)" style={{ border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+            <Group justify="space-between" mb="xs">
+              <div>
+                <Group gap="xs">
+                  <ThemeIcon color="blue" variant="light" size="sm">
+                    <IconWorld size={14} />
+                  </ThemeIcon>
+                  <Text size="sm" fw={700} c="white">
+                    Sites Extras (+R$ 8,00/mês por site)
+                  </Text>
+                </Group>
+                <Text size="xs" c="dimmed" mt={2}>
+                  Plano base {pd?.plan_name}: <b>{pd?.base_max_websites ?? 'Ilimitados'} sites</b> • Atualmente cadastrados: <b>{pd?.websites_count || 0} sites</b>
+                </Text>
+              </div>
+              <Badge color="blue" variant="light">
+                +R$ {(modalExtraWebsites * 8).toFixed(2).replace('.', ',')}/mês
+              </Badge>
+            </Group>
+
+            <Group gap="md" align="center" mt="xs">
+              <NumberInput
+                min={0}
+                max={100}
+                value={modalExtraWebsites}
+                onChange={(val) => setModalExtraWebsites(Number(val) || 0)}
+                placeholder="0 sites"
+                style={{ width: 140 }}
+                size="sm"
+              />
+              <Text size="xs" c="dimmed">
+                Capacidade total resultante:{' '}
+                <Text component="span" fw={700} c={isAddonRemovalBlocked ? 'red.4' : 'blue.3'}>
+                  {baseWebsitesLimit !== null ? `${newEffectiveWebsitesLimit} sites` : 'Ilimitado'}
+                </Text>
+              </Text>
+            </Group>
+
+            {/* ALERTA DE REMOÇÃO BLOQUEADA (REGRA MANDATÓRIA) */}
+            {isAddonRemovalBlocked && (
+              <Alert color="red" variant="filled" icon={<IconAlertCircle size={16} />} mt="sm">
+                <Text size="xs" fw={700}>Remoção Bloqueada:</Text>
+                <Text size="xs" mt={2}>
+                  Você possui <b>{userWebsitesCount} sites cadastrados</b> no sistema, mas o limite com esta configuração seria de apenas <b>{newEffectiveWebsitesLimit} sites</b> ({baseWebsitesLimit} do plano {pd?.plan_name} + {modalExtraWebsites} extras).
+                  Para remover ou reduzir este add-on, você deve primeiro excluir ou desvincular pelo menos <b>{sitesExcessCount} site(s)</b>.
+                </Text>
+              </Alert>
+            )}
+          </Card>
+
+          {/* Add-on 2: Pacotes Extras de IA */}
+          <Card p="md" radius="md" bg="rgba(15, 23, 42, 0.7)" style={{ border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+            <Group justify="space-between" mb="xs">
+              <div>
+                <Group gap="xs">
+                  <ThemeIcon color="violet" variant="light" size="sm">
+                    <IconBrain size={14} />
+                  </ThemeIcon>
+                  <Text size="sm" fw={700} c="white">
+                    Pacotes IA (+250k tokens por R$ 60,00/mês cada)
+                  </Text>
+                </Group>
+                <Text size="xs" c="dimmed" mt={2}>
+                  Plano base {pd?.plan_name}: <b>{((pd?.base_ai_tokens || 0) / 1000).toLocaleString('pt-BR')}k tokens</b>
+                </Text>
+              </div>
+              <Badge color="violet" variant="light">
+                +R$ {(modalExtraAiPacks * 60).toFixed(2).replace('.', ',')}/mês
+              </Badge>
+            </Group>
+
+            <Group gap="md" align="center" mt="xs">
+              <NumberInput
+                min={0}
+                max={20}
+                value={modalExtraAiPacks}
+                onChange={(val) => setModalExtraAiPacks(Number(val) || 0)}
+                placeholder="0 pacotes"
+                style={{ width: 140 }}
+                size="sm"
+              />
+              <Text size="xs" c="dimmed">
+                Cota total resultante:{' '}
+                <Text component="span" fw={700} c="violet.3">
+                  {(((pd?.base_ai_tokens || 0) + (modalExtraAiPacks * 250000)) / 1000).toLocaleString('pt-BR')}k tokens/mês
+                </Text>
+              </Text>
+            </Group>
+          </Card>
+
+          {/* Resumo do Novo Faturamento Mensal */}
+          <Paper p="sm" radius="md" bg="rgba(30, 41, 59, 0.5)" style={{ border: '1px dashed rgba(255, 255, 255, 0.15)' }}>
+            <Group justify="space-between" align="center">
+              <div>
+                <Text size="xs" c="dimmed">Novo Valor Mensal Estimado:</Text>
+                <Text size="xs" c="dimmed">
+                  Plano {pd?.plan_name} (R$ {(pd?.base_price || 0).toFixed(2).replace('.', ',')}) + Sites Extras (R$ {(modalExtraWebsites * 8).toFixed(2).replace('.', ',')}) + IA Extra (R$ {(modalExtraAiPacks * 60).toFixed(2).replace('.', ',')})
+                </Text>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <Text fw={800} size="lg" c="teal.3">
+                  R$ {((pd?.base_price || 0) + (modalExtraWebsites * 8) + (modalExtraAiPacks * 60)).toFixed(2).replace('.', ',')}
+                  <Text component="span" size="xs" c="dimmed" fw={400}> /mês</Text>
+                </Text>
+              </div>
+            </Group>
+          </Paper>
+
+          <Group justify="flex-end" mt="sm">
+            <Button variant="subtle" color="gray" size="sm" onClick={() => setAddonsModalOpen(false)} disabled={savingAddons}>
+              Cancelar
+            </Button>
+            <Button
+              color="teal"
+              variant="gradient"
+              gradient={{ from: 'teal.6', to: 'green.6' }}
+              size="sm"
+              onClick={handleSaveAddons}
+              loading={savingAddons}
+              disabled={isAddonRemovalBlocked}
+              leftSection={<IconDeviceFloppy size={16} />}
+            >
+              Salvar Alterações de Add-ons
             </Button>
           </Group>
         </Stack>

@@ -413,4 +413,33 @@ class AsaasService
 
         return $this->request('subscriptions/' . $subscriptionId, 'DELETE');
     }
+
+    /**
+     * Atualiza o valor ou dados de uma assinatura existente no Asaas
+     */
+    public function updateSubscription(string $subscriptionId, array $data): array
+    {
+        if (!$this->isConfigured() || str_starts_with($subscriptionId, 'sub_sim_')) {
+            return [
+                'success'   => true,
+                'status'    => 'ACTIVE',
+                'simulated' => true,
+                'data'      => $data,
+            ];
+        }
+
+        $payload = [];
+        if (isset($data['value'])) {
+            $payload['value'] = round((float)$data['value'], 2);
+        }
+        if (isset($data['description'])) {
+            $payload['description'] = $data['description'];
+        }
+        if (isset($data['updatePendingPayments'])) {
+            $payload['updatePendingPayments'] = (bool)$data['updatePendingPayments'];
+        }
+
+        // Asaas v3 endpoint para atualização de assinatura é POST /v3/subscriptions/{id}
+        return $this->request('subscriptions/' . $subscriptionId, 'POST', $payload);
+    }
 }
