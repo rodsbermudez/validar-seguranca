@@ -24,6 +24,9 @@ $routes->group('api', function ($routes) {
     // Public Activity Logs route for clients (no auth required)
     $routes->get('public/activity-logs/(:segment)', 'Api\Websites::publicActivityLogs/$1');
 
+    // Public Plans Catalog route for Landing Page
+    $routes->get('public/plans', 'Api\Plans::publicIndex');
+
     // Protected routes (JWT Auth required)
     $routes->group('', ['filter' => 'jwtAuth'], function ($routes) {
         $routes->get('websites', 'Api\Websites::index');

@@ -45,6 +45,34 @@ class Plans extends ResourceController
     }
 
     /**
+     * GET /api/public/plans
+     * Lista planos ativos publicamente para a Landing Page (sem autenticação)
+     */
+    public function publicIndex()
+    {
+        $planModel = new PlanModel();
+        $plans = $planModel->where('is_active', 1)
+                           ->orderBy('sort_order', 'ASC')
+                           ->orderBy('id', 'ASC')
+                           ->findAll();
+
+        foreach ($plans as &$p) {
+            $p['id'] = (int)$p['id'];
+            $p['max_websites'] = $p['max_websites'] !== null ? (int)$p['max_websites'] : null;
+            $p['ai_monthly_tokens'] = (int)$p['ai_monthly_tokens'];
+            $p['price_monthly'] = (float)$p['price_monthly'];
+            $p['is_active'] = (int)$p['is_active'];
+            $p['is_default'] = (int)$p['is_default'];
+            $p['sort_order'] = (int)$p['sort_order'];
+        }
+
+        return $this->respond([
+            'status' => 200,
+            'data'   => $plans,
+        ]);
+    }
+
+    /**
      * POST /api/plans
      * Criar novo plano (admin)
      */

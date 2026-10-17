@@ -1031,3 +1031,9 @@ export const updateUserPlan = async (
   return response.data;
 };
 
+export const getPublicPlans = async (): Promise<{ status: number; data: Plan[] }> => {
+  const response = await api.get<{ status: number; data: Plan[] }>('/public/plans');
+  return response.data;
+};
+
+

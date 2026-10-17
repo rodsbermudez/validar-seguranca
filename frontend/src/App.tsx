@@ -25,7 +25,7 @@ import {
   IconBrain,
   IconPackage,
 } from '@tabler/icons-react';
-import { LoginView } from './components/LoginView';
+import { LandingPageView } from './components/LandingPageView';
 import { OverviewDashboardView } from './components/OverviewDashboardView';
 import { WebsitesList } from './components/WebsitesList';
 import { UsersList } from './components/UsersList';
@@ -43,7 +43,7 @@ export default function App() {
   const [selectedWebsite, setSelectedWebsite] = useState<any | null>(null);
   const [selectedAiUser, setSelectedAiUser] = useState<any | null>(null);
   const [dashboardTab, setDashboardTab] = useState<string>('overview');
-  const [viewMode, setViewMode] = useState<'overview' | 'list' | 'dashboard' | 'report' | 'users' | 'solutions' | 'logs' | 'settings' | 'user-ai' | 'user-ai-view' | 'ai-monitoring'>('overview');
+  const [viewMode, setViewMode] = useState<'overview' | 'list' | 'dashboard' | 'report' | 'users' | 'solutions' | 'logs' | 'settings' | 'user-ai' | 'user-ai-view' | 'ai-monitoring' | 'landing'>('overview');
 
   // Detecta se a página foi acessada via link de compartilhamento de logs para o cliente
   const [shareToken, setShareToken] = useState<string | null>(() => {
@@ -143,7 +143,17 @@ export default function App() {
   }
 
   if (!user) {
-    return <LoginView onLoginSuccess={handleLoginSuccess} />;
+    return <LandingPageView onLoginSuccess={handleLoginSuccess} />;
+  }
+
+  if (viewMode === 'landing') {
+    return (
+      <LandingPageView
+        onLoginSuccess={handleLoginSuccess}
+        currentUser={user}
+        onGoToDashboard={() => setViewMode('overview')}
+      />
+    );
   }
 
   const isAdmin = user.role === 'admin';
@@ -328,6 +338,9 @@ export default function App() {
                     {impersonatedUser ? impersonatedUser.email : user.email}
                   </Menu.Label>
                   <Menu.Divider />
+                  <Menu.Item leftSection={<IconWorld size={14} />} onClick={() => setViewMode('landing')}>
+                    Ver Home Pública
+                  </Menu.Item>
                   {impersonatedUser && (
                     <Menu.Item leftSection={<IconArrowLeft size={14} />} onClick={handleStopImpersonating}>
                       Voltar para Admin
