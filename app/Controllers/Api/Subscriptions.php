@@ -391,20 +391,62 @@ class Subscriptions extends ResourceController
         $proratedRatio = min(1.0, max(0.033, $daysRemaining / 30.0));
         $proratedAmount = round($difference * $proratedRatio, 2);
 
-        $transModel = new PaymentTransactionModel();
-        $lastTrans = $sub ? $transModel->where('subscription_id', $sub['id'])->orderBy('id', 'DESC')->first() : null;
-        $meta = !empty($lastTrans['metadata']) ? json_decode($lastTrans['metadata'], true) : [];
-        $billingType = ($lastTrans['payment_method'] ?? '') === 'credit_card' ? 'CREDIT_CARD' : ($meta['billing_type'] ?? 'CREDIT_CARD');
+        $requestedBillingType = strtoupper(trim($json['billing_type'] ?? ''));
 
-        // Se o usuário tem assinatura de CARTÃO DE CRÉDITO ativa
-        if ($sub && $billingType === 'CREDIT_CARD') {
+        // Se o usuário solicitou pagamento com CARTÃO DE CRÉDITO
+        if ($sub && $requestedBillingType === 'CREDIT_CARD') {
+            $creditCard = $json['credit_card'] ?? [];
+            $holderName  = trim($creditCard['holder_name'] ?? '');
+            $cardNumber  = preg_replace('/\D/', '', $creditCard['number'] ?? '');
+            $expiryMonth = trim($creditCard['expiry_month'] ?? '');
+            $expiryYear  = trim($creditCard['expiry_year'] ?? '');
+            $ccv         = trim($creditCard['ccv'] ?? '');
+            $postalCode  = preg_replace('/\D/', '', $creditCard['postal_code'] ?? ($user['postal_code'] ?? '01310000'));
+            $addressNum  = trim($creditCard['address_number'] ?? 'S/N');
+
+            if (empty($holderName) || empty($cardNumber) || empty($expiryMonth) || empty($expiryYear) || empty($ccv)) {
+                return $this->fail('Todos os dados do cartão de crédito (titular, número, validade e CVV) são obrigatórios.', 400);
+            }
+
+            $creditCardPayload = [
+                'holder_name'  => $holderName,
+                'number'       => $cardNumber,
+                'expiry_month' => $expiryMonth,
+                'expiry_year'  => $expiryYear,
+                'ccv'          => $ccv,
+            ];
+
+            $creditCardHolderInfo = [
+                'name'           => $holderName,
+                'email'          => $user['email'] ?? '',
+                'cpf_cnpj'       => $user['cpf_cnpj'] ?? '',
+                'postal_code'    => $postalCode ?: '01310000',
+                'address_number' => $addressNum ?: 'S/N',
+                'phone'          => $user['phone'] ?? '',
+            ];
+
             $asaasCustomerId = $sub['gateway_customer_id'] ?? ($user['asaas_customer_id'] ?? 'cus_sim');
             $extRef = "prorated_upg_{$sub['id']}_usr_{$targetUserId}_" . time();
             $desc = "Diferenca Pro-rata Upgrade {$newPlan['name']} ({$daysRemaining} dias)";
 
-            $cardPayRes = $asaasService->createPaymentCreditCard($asaasCustomerId, $proratedAmount, $desc, $extRef);
+            $cardPayRes = $asaasService->createPaymentCreditCard(
+                $asaasCustomerId,
+                $proratedAmount,
+                $desc,
+                $extRef,
+                $creditCardPayload,
+                $creditCardHolderInfo
+            );
+
             if (!$cardPayRes['success']) {
-                return $this->fail('Não foi possível processar a cobrança pró-rata de R$ ' . number_format($proratedAmount, 2, ',', '.') . ' no seu cartão: ' . ($cardPayRes['message'] ?? 'Cartão recusado'), 400);
+                return $this->fail('Falha ao processar pagamento no cartão: ' . ($cardPayRes['message'] ?? 'Cartão recusado'), 400);
+            }
+
+            $cardStatus = strtoupper($cardPayRes['status'] ?? ($cardPayRes['payment_status'] ?? 'PENDING'));
+            $isApproved = in_array($cardStatus, ['CONFIRMED', 'RECEIVED', 'ACTIVE'], true) || !empty($cardPayRes['simulated']);
+
+            if (!$isApproved) {
+                return $this->fail('O pagamento não foi autorizado pela operadora do cartão (status: ' . $cardStatus . '). Verifique os dados ou o limite disponível.', 400);
             }
 
             // Grava transação do pró-rata
@@ -424,7 +466,7 @@ class Subscriptions extends ResourceController
                     'days_remaining'  => $daysRemaining,
                     'prorated_amount' => $proratedAmount,
                     'new_monthly'     => $newTotalAmount,
-                    'card_last4'      => $meta['card_last4'] ?? '4242',
+                    'card_last4'      => substr($cardNumber, -4),
                 ]),
             ]);
 
@@ -454,13 +496,14 @@ class Subscriptions extends ResourceController
             return $this->respond([
                 'status'       => 200,
                 'success'      => true,
-                'message'      => "Upgrade para o Plano {$newPlan['name']} ativado com sucesso! Foi debitado no seu cartão o valor proporcional de R$ " . number_format($proratedAmount, 2, ',', '.') . " referente aos {$daysRemaining} dias restantes até {$nextDueDateFmt}. A partir dessa data, sua fatura regular será de R$ " . number_format($newTotalAmount, 2, ',', '.') . "/mês.",
+                'paid'         => true,
+                'message'      => "Upgrade para o Plano {$newPlan['name']} ativado com sucesso! O pagamento proporcional de R$ " . number_format($proratedAmount, 2, ',', '.') . " foi aprovado no cartão.",
                 'plan_details' => $updatedDetails,
             ]);
         }
 
-        // Se o usuário tem assinatura de PIX ativa
-        if ($sub && $billingType === 'PIX') {
+        // Se o usuário tem assinatura ativa e solicitou PIX (ou não informou cartão):
+        if ($sub && ($requestedBillingType === 'PIX' || empty($requestedBillingType))) {
             $asaasCustomerId = $sub['gateway_customer_id'] ?? ($user['asaas_customer_id'] ?? 'cus_sim');
             $extRef = "prorated_pix_upg_{$sub['id']}_usr_{$targetUserId}_" . time();
             $desc = "Diferenca Pro-rata Upgrade {$newPlan['name']} ({$daysRemaining} dias)";
@@ -658,23 +701,65 @@ class Subscriptions extends ResourceController
         $proratedRatio = min(1.0, max(0.033, $daysRemaining / 30.0));
         $proratedAmount = round($difference * $proratedRatio, 2);
 
-        $transModel = new PaymentTransactionModel();
-        $lastTrans = $sub ? $transModel->where('subscription_id', $sub['id'])->orderBy('id', 'DESC')->first() : null;
-        $meta = !empty($lastTrans['metadata']) ? json_decode($lastTrans['metadata'], true) : [];
-        $billingType = ($lastTrans['payment_method'] ?? '') === 'credit_card' ? 'CREDIT_CARD' : ($meta['billing_type'] ?? 'CREDIT_CARD');
+        $requestedBillingType = strtoupper(trim($json['billing_type'] ?? ''));
 
-        // Se assinatura for CARTÃO DE CRÉDITO
-        if ($sub && $billingType === 'CREDIT_CARD') {
+        // Se o cliente escolheu Cartão de Crédito
+        if ($sub && $requestedBillingType === 'CREDIT_CARD') {
+            $creditCard = $json['credit_card'] ?? [];
+            $holderName  = trim($creditCard['holder_name'] ?? '');
+            $cardNumber  = preg_replace('/\D/', '', $creditCard['number'] ?? '');
+            $expiryMonth = trim($creditCard['expiry_month'] ?? '');
+            $expiryYear  = trim($creditCard['expiry_year'] ?? '');
+            $ccv         = trim($creditCard['ccv'] ?? '');
+            $postalCode  = preg_replace('/\D/', '', $creditCard['postal_code'] ?? ($user['postal_code'] ?? '01310000'));
+            $addressNum  = trim($creditCard['address_number'] ?? 'S/N');
+
+            if (empty($holderName) || empty($cardNumber) || empty($expiryMonth) || empty($expiryYear) || empty($ccv)) {
+                return $this->fail('Todos os dados do cartão de crédito (titular, número, validade e CVV) são obrigatórios para realizar o pagamento.', 400);
+            }
+
+            $creditCardPayload = [
+                'holder_name'  => $holderName,
+                'number'       => $cardNumber,
+                'expiry_month' => $expiryMonth,
+                'expiry_year'  => $expiryYear,
+                'ccv'          => $ccv,
+            ];
+
+            $creditCardHolderInfo = [
+                'name'           => $holderName,
+                'email'          => $user['email'] ?? '',
+                'cpf_cnpj'       => $user['cpf_cnpj'] ?? '',
+                'postal_code'    => $postalCode ?: '01310000',
+                'address_number' => $addressNum ?: 'S/N',
+                'phone'          => $user['phone'] ?? '',
+            ];
+
             $asaasCustomerId = $sub['gateway_customer_id'] ?? ($user['asaas_customer_id'] ?? 'cus_sim');
             $extRef = "prorated_addons_{$sub['id']}_usr_{$targetUserId}_" . time();
             $desc = "Diferenca Pro-rata Add-ons ({$daysRemaining} dias)";
 
-            $cardPayRes = $asaasService->createPaymentCreditCard($asaasCustomerId, $proratedAmount, $desc, $extRef);
+            $cardPayRes = $asaasService->createPaymentCreditCard(
+                $asaasCustomerId,
+                $proratedAmount,
+                $desc,
+                $extRef,
+                $creditCardPayload,
+                $creditCardHolderInfo
+            );
+
             if (!$cardPayRes['success']) {
-                return $this->fail('Não foi possível processar a cobrança pró-rata de R$ ' . number_format($proratedAmount, 2, ',', '.') . ' no seu cartão: ' . ($cardPayRes['message'] ?? 'Cartão recusado'), 400);
+                return $this->fail('Falha ao processar pagamento no cartão: ' . ($cardPayRes['message'] ?? 'Cartão recusado pela operadora.'), 400);
             }
 
-            // Grava transação do pró-rata
+            $cardStatus = strtoupper($cardPayRes['status'] ?? ($cardPayRes['payment_status'] ?? 'PENDING'));
+            $isApproved = in_array($cardStatus, ['CONFIRMED', 'RECEIVED', 'ACTIVE'], true) || !empty($cardPayRes['simulated']);
+
+            if (!$isApproved) {
+                return $this->fail('O pagamento não foi autorizado pela operadora do cartão (status: ' . $cardStatus . '). Verifique os dados ou o limite disponível.', 400);
+            }
+
+            // Pagamento APROVADO: Grava transação do pró-rata
             $transModel->insert([
                 'user_id'                => $targetUserId,
                 'subscription_id'        => $sub['id'],
@@ -692,7 +777,7 @@ class Subscriptions extends ResourceController
                     'days_remaining'       => $daysRemaining,
                     'prorated_amount'      => $proratedAmount,
                     'new_monthly'          => $newTotalAmount,
-                    'card_last4'           => $meta['card_last4'] ?? '4242',
+                    'card_last4'           => substr($cardNumber, -4),
                 ]),
             ]);
 
@@ -725,13 +810,14 @@ class Subscriptions extends ResourceController
             return $this->respond([
                 'status'       => 200,
                 'success'      => true,
-                'message'      => "Add-ons ativados com sucesso! Foi debitado no seu cartão o valor proporcional de R$ " . number_format($proratedAmount, 2, ',', '.') . " referente aos {$daysRemaining} dias restantes até {$nextDueDateFmt}. A partir dessa data, sua fatura regular será de R$ " . number_format($newTotalAmount, 2, ',', '.') . "/mês.",
+                'paid'         => true,
+                'message'      => "Add-ons ativados com sucesso! O pagamento proporcional de R$ " . number_format($proratedAmount, 2, ',', '.') . " foi aprovado no seu cartão. A partir de {$nextDueDateFmt}, sua fatura regular será de R$ " . number_format($newTotalAmount, 2, ',', '.') . "/mês.",
                 'plan_details' => $updatedDetails,
             ]);
         }
 
-        // Se assinatura for PIX
-        if ($sub && $billingType === 'PIX') {
+        // Se o cliente escolheu PIX (ou não informou cartão):
+        if ($sub && ($requestedBillingType === 'PIX' || empty($requestedBillingType))) {
             $asaasCustomerId = $sub['gateway_customer_id'] ?? ($user['asaas_customer_id'] ?? 'cus_sim');
             $extRef = "prorated_pix_addons_{$sub['id']}_usr_{$targetUserId}_" . time();
             $desc = "Diferenca Pro-rata Add-ons ({$daysRemaining} dias)";

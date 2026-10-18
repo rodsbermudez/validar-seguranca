@@ -87,12 +87,17 @@ class UserPlanService
                 $subscriptionDaysRemaining = 0;
             }
 
+            $transModel = new \App\Models\PaymentTransactionModel();
+            $lastTrans = $transModel->where('subscription_id', $sub['id'])->orderBy('id', 'DESC')->first();
+            $paymentMethod = $lastTrans['payment_method'] ?? 'credit_card';
+
             $subscriptionInfo = [
                 'id'                      => (int)$sub['id'],
                 'plan_id'                 => (int)$sub['plan_id'],
                 'status'                  => $sub['status'],
                 'gateway'                 => $sub['gateway'],
                 'gateway_subscription_id' => $sub['gateway_subscription_id'],
+                'payment_method'          => $paymentMethod,
                 'billing_cycle'           => $sub['billing_cycle'],
                 'price'                   => (float)$sub['price'],
                 'extra_websites'          => (int)$sub['extra_websites'],

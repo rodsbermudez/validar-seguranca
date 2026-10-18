@@ -942,6 +942,7 @@ export interface SubscriptionInfo {
   status: 'active' | 'canceled' | 'expired' | 'pending' | 'past_due';
   gateway: string;
   gateway_subscription_id?: string;
+  payment_method?: string;
   billing_cycle: string;
   price: number;
   extra_websites: number;
@@ -1254,6 +1255,7 @@ export const upgradePlan = async (
   next_due_date_formatted?: string;
   new_monthly?: number;
   new_plan_id?: number;
+  paid?: boolean;
   plan_details?: UserPlanDetails;
 }> => {
   const response = await api.post('/subscriptions/upgrade-plan', {
@@ -1263,11 +1265,39 @@ export const upgradePlan = async (
   return response.data;
 };
 
+export const upgradePlanWithOptions = async (payload: {
+  plan_id: number;
+  user_id?: number;
+  billing_type?: 'PIX' | 'CREDIT_CARD';
+  credit_card?: CreditCardPayload;
+}): Promise<{
+  status: number;
+  success: boolean;
+  message: string;
+  require_pix?: boolean;
+  require_checkout?: boolean;
+  payment_id?: string;
+  prorated_amount?: number;
+  pix_qr_code?: string;
+  pix_copy_paste?: string;
+  days_remaining?: number;
+  next_due_date_formatted?: string;
+  new_monthly?: number;
+  new_plan_id?: number;
+  paid?: boolean;
+  plan_details?: UserPlanDetails;
+}> => {
+  const response = await api.post('/subscriptions/upgrade-plan', payload);
+  return response.data;
+};
+
 export const manageAddons = async (payload: {
   extra_websites: number;
   extra_ai_packs?: number;
   extra_ai_tokens?: number;
   user_id?: number;
+  billing_type?: 'PIX' | 'CREDIT_CARD';
+  credit_card?: CreditCardPayload;
 }): Promise<{
   status: number;
   success: boolean;
@@ -1283,6 +1313,7 @@ export const manageAddons = async (payload: {
   new_monthly?: number;
   extra_websites?: number;
   extra_ai_tokens?: number;
+  paid?: boolean;
   plan_details?: UserPlanDetails;
 }> => {
   const response = await api.post('/subscriptions/manage-addons', payload);

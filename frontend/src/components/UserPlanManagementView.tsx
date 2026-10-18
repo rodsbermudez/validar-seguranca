@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Paper,
   Title,
@@ -22,6 +22,8 @@ import {
   Select,
   Modal,
   TextInput,
+  SimpleGrid,
+  CopyButton,
 } from '@mantine/core';
 import {
   IconArrowLeft,
@@ -48,13 +50,16 @@ import {
   IconInfoCircle,
   IconQrcode,
   IconCopy,
+  IconLock,
+  IconShieldCheck,
+  IconMapPin,
 } from '@tabler/icons-react';
 import {
   getUserPlanDetails,
   updateUserPlan,
   getUserAiLogs,
   cancelSubscription,
-  upgradePlan,
+  upgradePlanWithOptions,
   manageAddons,
   confirmProratedPix,
   UserPlanResponse,
@@ -123,16 +128,16 @@ export function UserPlanManagementView({
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
   const [targetUpgradePlanId, setTargetUpgradePlanId] = useState<number | null>(null);
   const [upgradingPlan, setUpgradingPlan] = useState(false);
-
-  // Addons Modal State
-  const [addonsModalOpen, setAddonsModalOpen] = useState(false);
-  const [modalExtraWebsites, setModalExtraWebsites] = useState<number>(0);
-  const [modalExtraAiPacks, setModalExtraAiPacks] = useState<number>(0);
-  const [savingAddons, setSavingAddons] = useState(false);
-
-  // PIX Prorated Modal State
-  const [pixModalOpen, setPixModalOpen] = useState(false);
-  const [pixData, setPixData] = useState<{
+  const [upgradeStep, setUpgradeStep] = useState<'config' | 'payment'>('config');
+  const [upgradePaymentMethod, setUpgradePaymentMethod] = useState<'credit_card' | 'pix'>('credit_card');
+  const [upgradeCardHolder, setUpgradeCardHolder] = useState(initialUser.name || '');
+  const [upgradeCardNumber, setUpgradeCardNumber] = useState('');
+  const [upgradeCardExpiry, setUpgradeCardExpiry] = useState('');
+  const [upgradeCardCcv, setUpgradeCardCcv] = useState('');
+  const [upgradePostalCode, setUpgradePostalCode] = useState('');
+  const [upgradeAddressNumber, setUpgradeAddressNumber] = useState('');
+  const [upgradePaymentError, setUpgradePaymentError] = useState<string | null>(null);
+  const [upgradePixData, setUpgradePixData] = useState<{
     payment_id: string;
     prorated_amount: number;
     pix_qr_code?: string | null;
@@ -140,12 +145,36 @@ export function UserPlanManagementView({
     days_remaining?: number;
     next_due_date_formatted?: string;
     new_monthly?: number;
-    plan_id?: number;
-    extra_websites?: number;
-    extra_ai_tokens?: number;
   } | null>(null);
-  const [confirmingPix, setConfirmingPix] = useState(false);
-  const [pixCopied, setPixCopied] = useState(false);
+  const [upgradePixLoading, setUpgradePixLoading] = useState(false);
+
+  // Addons Modal State
+  const [addonsModalOpen, setAddonsModalOpen] = useState(false);
+  const [modalExtraWebsites, setModalExtraWebsites] = useState<number>(0);
+  const [modalExtraAiPacks, setModalExtraAiPacks] = useState<number>(0);
+  const [savingAddons, setSavingAddons] = useState(false);
+  const [addonStep, setAddonStep] = useState<'config' | 'payment'>('config');
+  const [addonPaymentMethod, setAddonPaymentMethod] = useState<'credit_card' | 'pix'>('credit_card');
+  const [addonCardHolder, setAddonCardHolder] = useState(initialUser.name || '');
+  const [addonCardNumber, setAddonCardNumber] = useState('');
+  const [addonCardExpiry, setAddonCardExpiry] = useState('');
+  const [addonCardCcv, setAddonCardCcv] = useState('');
+  const [addonPostalCode, setAddonPostalCode] = useState('');
+  const [addonAddressNumber, setAddonAddressNumber] = useState('');
+  const [addonPaymentError, setAddonPaymentError] = useState<string | null>(null);
+  const [addonPixData, setAddonPixData] = useState<{
+    payment_id: string;
+    prorated_amount: number;
+    pix_qr_code?: string | null;
+    pix_copy_paste?: string | null;
+    days_remaining?: number;
+    next_due_date_formatted?: string;
+    new_monthly?: number;
+  } | null>(null);
+  const [addonPixLoading, setAddonPixLoading] = useState(false);
+
+  const addonPixPollingRef = useRef<any>(null);
+  const upgradePixPollingRef = useRef<any>(null);
 
   // Logs & Pagination State
   const [logs, setLogs] = useState<AiUsageLogItem[]>([]);
@@ -355,6 +384,14 @@ export function UserPlanManagementView({
   const proratedRatioCalc = Math.min(1.0, Math.max(0.033, daysRemainingInCycle / 30.0));
   const addonsProratedDueNow = addonsDiffMonthly > 0 ? Math.round(addonsDiffMonthly * proratedRatioCalc * 100) / 100 : 0;
 
+  const selectedUpgradePlan = data?.available_plans.find((p) => p.id === targetUpgradePlanId);
+  const upgradeNewTotal = selectedUpgradePlan
+    ? Number(selectedUpgradePlan.price_monthly) + (Number(pd?.extra_websites || 0) * 8) + (Number(pd?.extra_ai_tokens_price || 0))
+    : 0;
+  const upgradeDiffMonthly = Math.round((upgradeNewTotal - currentTotalMonthly) * 100) / 100;
+  const isUpgradeDowngrade = upgradeDiffMonthly <= 0;
+  const upgradeProratedDue = upgradeDiffMonthly > 0 ? Math.round(upgradeDiffMonthly * proratedRatioCalc * 100) / 100 : 0;
+
   const getDayOfMonth = (val: string | number | Date | null | undefined): number => {
     if (!val) return 1;
     if (typeof val === 'string') {
@@ -370,59 +407,148 @@ export function UserPlanManagementView({
   const nextPaymentDateFmt = cycleEnd ? formatDateOnly(cycleEnd) : formatDateOnly(new Date(Date.now() + 30 * 86400000).toISOString());
   const renewalDayNumber = getDayOfMonth(startDateRaw || cycleEnd);
 
-  const handleConfirmUpgrade = async () => {
-    if (!targetUpgradePlanId) return;
+  const handleCardNumberFormat = (val: string, setter: (v: string) => void) => {
+    const raw = val.replace(/\D/g, '').slice(0, 16);
+    setter(raw.replace(/(\d{4})(?=\d)/g, '$1 '));
+  };
 
-    try {
-      setUpgradingPlan(true);
-      setErrorMessage('');
-      const res = await upgradePlan(targetUpgradePlanId, initialUser.id);
-      
-      if (res.require_checkout) {
-        setUpgradeModalOpen(false);
-        const planToCheckout = data?.available_plans.find((p) => p.id === targetUpgradePlanId) || currentPlan || null;
-        setCheckoutPlan(planToCheckout);
-        setCheckoutExtraWebsites(pd?.extra_websites || 0);
-        setCheckoutExtraAiPacks(Math.round((pd?.extra_ai_tokens || 0) / 1000000));
-        setRenewModalOpen(true);
-      } else if (res.require_pix) {
-        setUpgradeModalOpen(false);
-        setPixData({
-          payment_id: res.payment_id!,
-          prorated_amount: res.prorated_amount || 0,
-          pix_qr_code: res.pix_qr_code,
-          pix_copy_paste: res.pix_copy_paste,
-          days_remaining: res.days_remaining,
-          next_due_date_formatted: res.next_due_date_formatted,
-          new_monthly: res.new_monthly,
-          plan_id: res.new_plan_id || targetUpgradePlanId,
-          extra_websites: pd?.extra_websites || 0,
-          extra_ai_tokens: pd?.extra_ai_tokens || 0,
-        });
-        setPixModalOpen(true);
-      } else {
-        setUpgradeModalOpen(false);
-        setFeedback({
-          title: 'Plano Atualizado com Sucesso',
-          message: res.message,
-          color: 'teal',
-          icon: 'check',
-        });
-        await loadData();
-      }
-    } catch (err: any) {
-      console.error(err);
-      setErrorMessage(
-        err.response?.data?.messages?.error ||
-          err.response?.data?.message ||
-          'Erro ao realizar alteração de plano.'
-      );
-    } finally {
-      setUpgradingPlan(false);
+  const handleCardExpiryFormat = (val: string, setter: (v: string) => void) => {
+    const raw = val.replace(/\D/g, '').slice(0, 4);
+    if (raw.length <= 2) {
+      setter(raw);
+    } else {
+      setter(`${raw.slice(0, 2)}/${raw.slice(2)}`);
     }
   };
 
-  const handleSaveAddons = async () => {
+  const handleCardCcvFormat = (val: string, setter: (v: string) => void) => {
+    setter(val.replace(/\D/g, '').slice(0, 4));
+  };
+
+  const handlePostalCodeFormat = (val: string, setter: (v: string) => void) => {
+    const raw = val.replace(/\D/g, '').slice(0, 8);
+    if (raw.length <= 5) {
+      setter(raw);
+    } else {
+      setter(`${raw.slice(0, 5)}-${raw.slice(5)}`);
+    }
+  };
+
+  const handleOpenAddonsModal = () => {
+    setModalExtraWebsites(pd?.extra_websites || 0);
+    setModalExtraAiPacks(Math.round((pd?.extra_ai_tokens || 0) / 250000));
+    setAddonStep('config');
+    setAddonPaymentMethod(sub?.payment_method === 'credit_card' ? 'credit_card' : 'pix');
+    setAddonPaymentError(null);
+    setAddonPixData(null);
+    setAddonCardHolder(initialUser.name || '');
+    setAddonCardNumber('');
+    setAddonCardExpiry('');
+    setAddonCardCcv('');
+    setAddonPostalCode('');
+    setAddonAddressNumber('');
+    setAddonsModalOpen(true);
+  };
+
+  const handleOpenUpgradeModal = () => {
+    setTargetUpgradePlanId(pd?.plan_id ? Number(pd.plan_id) : null);
+    setUpgradeStep('config');
+    setUpgradePaymentMethod(sub?.payment_method === 'credit_card' ? 'credit_card' : 'pix');
+    setUpgradePaymentError(null);
+    setUpgradePixData(null);
+    setUpgradeCardHolder(initialUser.name || '');
+    setUpgradeCardNumber('');
+    setUpgradeCardExpiry('');
+    setUpgradeCardCcv('');
+    setUpgradePostalCode('');
+    setUpgradeAddressNumber('');
+    setUpgradeModalOpen(true);
+  };
+
+  // Polling for Addon Pix payment
+  useEffect(() => {
+    if (addonsModalOpen && addonStep === 'payment' && addonPaymentMethod === 'pix' && addonPixData?.payment_id) {
+      addonPixPollingRef.current = setInterval(async () => {
+        try {
+          const res = await confirmProratedPix({
+            payment_id: addonPixData.payment_id,
+            plan_id: pd?.plan_id ? Number(pd.plan_id) : undefined,
+            extra_websites: modalExtraWebsites,
+            extra_ai_tokens: modalExtraAiPacks * 250000,
+            user_id: initialUser.id,
+          });
+          if (res.paid) {
+            clearInterval(addonPixPollingRef.current);
+            setAddonsModalOpen(false);
+            setAddonStep('config');
+            setFeedback({
+              title: 'Pagamento PIX Confirmado!',
+              message: res.message || 'Add-ons ativados com sucesso! Seus novos limites já estão disponíveis.',
+              color: 'teal',
+              icon: 'check',
+            });
+            await loadData();
+          }
+        } catch (e) {
+          // Keep polling silently
+        }
+      }, 4000);
+
+      return () => {
+        if (addonPixPollingRef.current) {
+          clearInterval(addonPixPollingRef.current);
+        }
+      };
+    }
+  }, [addonsModalOpen, addonStep, addonPaymentMethod, addonPixData, modalExtraWebsites, modalExtraAiPacks, pd?.plan_id, initialUser.id]);
+
+  // Polling for Upgrade Pix payment
+  useEffect(() => {
+    if (upgradeModalOpen && upgradeStep === 'payment' && upgradePaymentMethod === 'pix' && upgradePixData?.payment_id && targetUpgradePlanId) {
+      upgradePixPollingRef.current = setInterval(async () => {
+        try {
+          const res = await confirmProratedPix({
+            payment_id: upgradePixData.payment_id,
+            plan_id: targetUpgradePlanId,
+            extra_websites: pd?.extra_websites || 0,
+            extra_ai_tokens: pd?.extra_ai_tokens || 0,
+            user_id: initialUser.id,
+          });
+          if (res.paid) {
+            clearInterval(upgradePixPollingRef.current);
+            setUpgradeModalOpen(false);
+            setUpgradeStep('config');
+            setFeedback({
+              title: 'Pagamento PIX Confirmado!',
+              message: res.message || 'Upgrade de plano confirmado com sucesso!',
+              color: 'teal',
+              icon: 'check',
+            });
+            await loadData();
+          }
+        } catch (e) {
+          // Keep polling silently
+        }
+      }, 4000);
+
+      return () => {
+        if (upgradePixPollingRef.current) {
+          clearInterval(upgradePixPollingRef.current);
+        }
+      };
+    }
+  }, [upgradeModalOpen, upgradeStep, upgradePaymentMethod, upgradePixData, targetUpgradePlanId, pd?.extra_websites, pd?.extra_ai_tokens, initialUser.id]);
+
+  // Clean polling intervals on unmount
+  useEffect(() => {
+    return () => {
+      if (addonPixPollingRef.current) clearInterval(addonPixPollingRef.current);
+      if (upgradePixPollingRef.current) clearInterval(upgradePixPollingRef.current);
+    };
+  }, []);
+
+  // Redução de add-ons (sem cobrança agora)
+  const handleSaveAddonsReduction = async () => {
     const baseMax = pd?.base_max_websites;
     const currentWebsites = pd?.websites_count || 0;
     if (baseMax !== null && baseMax !== undefined) {
@@ -444,38 +570,14 @@ export function UserPlanManagementView({
         user_id: initialUser.id,
       });
 
-      if (res.require_checkout) {
-        setAddonsModalOpen(false);
-        setCheckoutPlan(currentPlan || null);
-        setCheckoutExtraWebsites(modalExtraWebsites);
-        setCheckoutExtraAiPacks(modalExtraAiPacks);
-        setRenewModalOpen(true);
-      } else if (res.require_pix) {
-        setAddonsModalOpen(false);
-        setPixData({
-          payment_id: res.payment_id!,
-          prorated_amount: res.prorated_amount || 0,
-          pix_qr_code: res.pix_qr_code,
-          pix_copy_paste: res.pix_copy_paste,
-          days_remaining: res.days_remaining,
-          next_due_date_formatted: res.next_due_date_formatted,
-          new_monthly: res.new_monthly,
-          plan_id: pd?.plan_id ? Number(pd.plan_id) : undefined,
-          extra_websites: res.extra_websites,
-          extra_ai_tokens: res.extra_ai_tokens,
-        });
-        setPixModalOpen(true);
-      } else {
-        setAddonsModalOpen(false);
-        const isScheduled = res.message?.toLowerCase().includes('programada') || res.message?.toLowerCase().includes('redução');
-        setFeedback({
-          title: isScheduled ? 'Redução Agendada para a Próxima Fatura' : 'Add-ons Atualizados com Sucesso',
-          message: res.message,
-          color: isScheduled ? 'blue' : 'teal',
-          icon: isScheduled ? 'info' : 'check',
-        });
-        await loadData();
-      }
+      setAddonsModalOpen(false);
+      setFeedback({
+        title: 'Redução Agendada para a Próxima Fatura',
+        message: res.message,
+        color: 'blue',
+        icon: 'info',
+      });
+      await loadData();
     } catch (err: any) {
       console.error(err);
       setErrorMessage(
@@ -488,40 +590,396 @@ export function UserPlanManagementView({
     }
   };
 
-  const handleConfirmPixPayment = async () => {
-    if (!pixData?.payment_id) return;
+  // Avançar para o Quadro de Pagamento de Add-ons
+  const handleProceedToAddonPayment = async () => {
+    const baseMax = pd?.base_max_websites;
+    const currentWebsites = pd?.websites_count || 0;
+    if (baseMax !== null && baseMax !== undefined) {
+      const newLimit = baseMax + modalExtraWebsites;
+      if (currentWebsites > newLimit) {
+        setErrorMessage(
+          `Não é possível remover ou reduzir o add-on de sites: você possui ${currentWebsites} sites cadastrados, mas o novo limite seria de ${newLimit} sites. Remova pelo menos ${currentWebsites - newLimit} site(s) primeiro.`
+        );
+        return;
+      }
+    }
+
+    setAddonPaymentError(null);
+    setAddonStep('payment');
+
+    if (addonPaymentMethod === 'pix' && !addonPixData) {
+      handleGenerateAddonPix();
+    }
+  };
+
+  // Gerar cobrança Pix para add-ons
+  const handleGenerateAddonPix = async () => {
     try {
-      setConfirmingPix(true);
-      setErrorMessage('');
+      setAddonPixLoading(true);
+      setAddonPaymentError(null);
+      const res = await manageAddons({
+        extra_websites: modalExtraWebsites,
+        extra_ai_packs: modalExtraAiPacks,
+        user_id: initialUser.id,
+        billing_type: 'PIX',
+      });
+
+      if (res.require_pix && res.payment_id) {
+        setAddonPixData({
+          payment_id: res.payment_id,
+          prorated_amount: res.prorated_amount || addonsProratedDueNow,
+          pix_qr_code: res.pix_qr_code,
+          pix_copy_paste: res.pix_copy_paste,
+          days_remaining: res.days_remaining,
+          next_due_date_formatted: res.next_due_date_formatted,
+          new_monthly: res.new_monthly,
+        });
+      } else if (res.require_checkout) {
+        setAddonsModalOpen(false);
+        setCheckoutPlan(currentPlan || null);
+        setCheckoutExtraWebsites(modalExtraWebsites);
+        setCheckoutExtraAiPacks(modalExtraAiPacks);
+        setRenewModalOpen(true);
+      }
+    } catch (err: any) {
+      console.error(err);
+      setAddonPaymentError(
+        err.response?.data?.messages?.error ||
+          err.response?.data?.message ||
+          'Falha ao gerar cobrança PIX para os add-ons.'
+      );
+    } finally {
+      setAddonPixLoading(false);
+    }
+  };
+
+  // Pagar add-ons no cartão de crédito
+  const handlePayAddonsWithCard = async () => {
+    const cleanNumber = addonCardNumber.replace(/\D/g, '');
+    const cleanCcv = addonCardCcv.replace(/\D/g, '');
+    const cleanCep = addonPostalCode.replace(/\D/g, '');
+
+    if (!addonCardHolder.trim()) {
+      setAddonPaymentError('Informe o nome impresso no cartão.');
+      return;
+    }
+    if (cleanNumber.length < 15) {
+      setAddonPaymentError('Número do cartão inválido (mínimo 15 dígitos).');
+      return;
+    }
+    const [monthStr, yearStrRaw] = (addonCardExpiry || '').split('/');
+    if (!monthStr || !yearStrRaw || monthStr.length !== 2 || yearStrRaw.length !== 2) {
+      setAddonPaymentError('Validade do cartão inválida. Utilize o formato MM/AA.');
+      return;
+    }
+    if (cleanCcv.length < 3) {
+      setAddonPaymentError('Código CVV inválido (3 ou 4 dígitos).');
+      return;
+    }
+    if (cleanCep.length !== 8) {
+      setAddonPaymentError('Informe um CEP válido (8 dígitos).');
+      return;
+    }
+    if (!addonAddressNumber.trim()) {
+      setAddonPaymentError('Informe o número do endereço.');
+      return;
+    }
+
+    const yearStr = `20${yearStrRaw}`;
+
+    try {
+      setSavingAddons(true);
+      setAddonPaymentError(null);
+
+      const res = await manageAddons({
+        extra_websites: modalExtraWebsites,
+        extra_ai_packs: modalExtraAiPacks,
+        user_id: initialUser.id,
+        billing_type: 'CREDIT_CARD',
+        credit_card: {
+          holder_name: addonCardHolder.trim().toUpperCase(),
+          number: cleanNumber,
+          expiry_month: monthStr,
+          expiry_year: yearStr,
+          ccv: cleanCcv,
+          postal_code: cleanCep,
+          address_number: addonAddressNumber.trim(),
+        },
+      });
+
+      if (res.paid) {
+        setAddonsModalOpen(false);
+        setAddonStep('config');
+        setFeedback({
+          title: 'Add-ons Ativados com Sucesso!',
+          message: res.message || 'Pagamento pró-rata aprovado no cartão de crédito. Seus recursos adicionais já estão disponíveis!',
+          color: 'teal',
+          icon: 'check',
+        });
+        await loadData();
+      } else if (res.require_checkout) {
+        setAddonsModalOpen(false);
+        setCheckoutPlan(currentPlan || null);
+        setCheckoutExtraWebsites(modalExtraWebsites);
+        setCheckoutExtraAiPacks(modalExtraAiPacks);
+        setRenewModalOpen(true);
+      } else {
+        setAddonPaymentError(res.message || 'Pagamento pendente ou recusado pela operadora.');
+      }
+    } catch (err: any) {
+      console.error(err);
+      setAddonPaymentError(
+        err.response?.data?.messages?.error ||
+          err.response?.data?.message ||
+          'Falha ao processar pagamento do cartão. Verifique os dados ou limite disponível.'
+      );
+    } finally {
+      setSavingAddons(false);
+    }
+  };
+
+  // Verificar pagamento Pix de Add-ons
+  const handleCheckAddonPixPayment = async () => {
+    if (!addonPixData?.payment_id) return;
+    try {
+      setAddonPixLoading(true);
+      setAddonPaymentError(null);
       const res = await confirmProratedPix({
-        payment_id: pixData.payment_id,
-        plan_id: pixData.plan_id,
-        extra_websites: pixData.extra_websites,
-        extra_ai_tokens: pixData.extra_ai_tokens,
+        payment_id: addonPixData.payment_id,
+        plan_id: pd?.plan_id ? Number(pd.plan_id) : undefined,
+        extra_websites: modalExtraWebsites,
+        extra_ai_tokens: modalExtraAiPacks * 250000,
         user_id: initialUser.id,
       });
 
       if (res.paid) {
-        setPixModalOpen(false);
+        setAddonsModalOpen(false);
+        setAddonStep('config');
         setFeedback({
-          title: 'Pagamento Confirmado',
-          message: res.message,
+          title: 'Pagamento PIX Confirmado!',
+          message: res.message || 'Add-ons ativados com sucesso! Seus novos limites já estão disponíveis.',
           color: 'teal',
           icon: 'check',
         });
         await loadData();
       } else {
-        setErrorMessage(res.message || 'Pagamento ainda não confirmado pelo Asaas. Aguarde alguns instantes e tente novamente.');
+        setAddonPaymentError(res.message || 'Pagamento ainda não confirmado pelo Asaas. Aguarde alguns instantes após o pagamento no seu banco.');
       }
     } catch (err: any) {
       console.error(err);
-      setErrorMessage(
+      setAddonPaymentError(
         err.response?.data?.messages?.error ||
           err.response?.data?.message ||
           'Erro ao verificar pagamento PIX.'
       );
     } finally {
-      setConfirmingPix(false);
+      setAddonPixLoading(false);
+    }
+  };
+
+  // Upgrade downgrade (sem cobrança)
+  const handleConfirmUpgradeDowngrade = async () => {
+    if (!targetUpgradePlanId) return;
+    try {
+      setUpgradingPlan(true);
+      setErrorMessage('');
+      const res = await upgradePlanWithOptions({
+        plan_id: targetUpgradePlanId,
+        user_id: initialUser.id,
+      });
+      setUpgradeModalOpen(false);
+      setFeedback({
+        title: 'Alteração de Plano Programada',
+        message: res.message,
+        color: 'blue',
+        icon: 'info',
+      });
+      await loadData();
+    } catch (err: any) {
+      console.error(err);
+      setErrorMessage(
+        err.response?.data?.messages?.error ||
+          err.response?.data?.message ||
+          'Erro ao alterar plano.'
+      );
+    } finally {
+      setUpgradingPlan(false);
+    }
+  };
+
+  // Avançar para o Quadro de Pagamento do Upgrade
+  const handleProceedToUpgradePayment = () => {
+    setUpgradePaymentError(null);
+    setUpgradeStep('payment');
+    if (upgradePaymentMethod === 'pix' && !upgradePixData) {
+      handleGenerateUpgradePix();
+    }
+  };
+
+  // Gerar cobrança Pix para Upgrade
+  const handleGenerateUpgradePix = async () => {
+    if (!targetUpgradePlanId) return;
+    try {
+      setUpgradePixLoading(true);
+      setUpgradePaymentError(null);
+      const res = await upgradePlanWithOptions({
+        plan_id: targetUpgradePlanId,
+        user_id: initialUser.id,
+        billing_type: 'PIX',
+      });
+
+      if (res.require_pix && res.payment_id) {
+        setUpgradePixData({
+          payment_id: res.payment_id,
+          prorated_amount: res.prorated_amount || 0,
+          pix_qr_code: res.pix_qr_code,
+          pix_copy_paste: res.pix_copy_paste,
+          days_remaining: res.days_remaining,
+          next_due_date_formatted: res.next_due_date_formatted,
+          new_monthly: res.new_monthly,
+        });
+      } else if (res.require_checkout) {
+        setUpgradeModalOpen(false);
+        const planToCheckout = data?.available_plans.find((p) => p.id === targetUpgradePlanId) || currentPlan || null;
+        setCheckoutPlan(planToCheckout);
+        setCheckoutExtraWebsites(pd?.extra_websites || 0);
+        setCheckoutExtraAiPacks(Math.round((pd?.extra_ai_tokens || 0) / 250000));
+        setRenewModalOpen(true);
+      }
+    } catch (err: any) {
+      console.error(err);
+      setUpgradePaymentError(
+        err.response?.data?.messages?.error ||
+          err.response?.data?.message ||
+          'Falha ao gerar cobrança PIX para o upgrade.'
+      );
+    } finally {
+      setUpgradePixLoading(false);
+    }
+  };
+
+  // Pagar Upgrade no Cartão
+  const handlePayUpgradeWithCard = async () => {
+    if (!targetUpgradePlanId) return;
+    const cleanNumber = upgradeCardNumber.replace(/\D/g, '');
+    const cleanCcv = upgradeCardCcv.replace(/\D/g, '');
+    const cleanCep = upgradePostalCode.replace(/\D/g, '');
+
+    if (!upgradeCardHolder.trim()) {
+      setUpgradePaymentError('Informe o nome impresso no cartão.');
+      return;
+    }
+    if (cleanNumber.length < 15) {
+      setUpgradePaymentError('Número do cartão inválido (mínimo 15 dígitos).');
+      return;
+    }
+    const [monthStr, yearStrRaw] = (upgradeCardExpiry || '').split('/');
+    if (!monthStr || !yearStrRaw || monthStr.length !== 2 || yearStrRaw.length !== 2) {
+      setUpgradePaymentError('Validade do cartão inválida. Utilize o formato MM/AA.');
+      return;
+    }
+    if (cleanCcv.length < 3) {
+      setUpgradePaymentError('Código CVV inválido (3 ou 4 dígitos).');
+      return;
+    }
+    if (cleanCep.length !== 8) {
+      setUpgradePaymentError('Informe um CEP válido (8 dígitos).');
+      return;
+    }
+    if (!upgradeAddressNumber.trim()) {
+      setUpgradePaymentError('Informe o número do endereço.');
+      return;
+    }
+
+    const yearStr = `20${yearStrRaw}`;
+
+    try {
+      setUpgradingPlan(true);
+      setUpgradePaymentError(null);
+
+      const res = await upgradePlanWithOptions({
+        plan_id: targetUpgradePlanId,
+        user_id: initialUser.id,
+        billing_type: 'CREDIT_CARD',
+        credit_card: {
+          holder_name: upgradeCardHolder.trim().toUpperCase(),
+          number: cleanNumber,
+          expiry_month: monthStr,
+          expiry_year: yearStr,
+          ccv: cleanCcv,
+          postal_code: cleanCep,
+          address_number: upgradeAddressNumber.trim(),
+        },
+      });
+
+      if (res.paid) {
+        setUpgradeModalOpen(false);
+        setUpgradeStep('config');
+        setFeedback({
+          title: 'Upgrade Ativado com Sucesso!',
+          message: res.message || 'Pagamento pró-rata aprovado no cartão! Seu novo plano já está ativo.',
+          color: 'teal',
+          icon: 'check',
+        });
+        await loadData();
+      } else if (res.require_checkout) {
+        setUpgradeModalOpen(false);
+        const planToCheckout = data?.available_plans.find((p) => p.id === targetUpgradePlanId) || currentPlan || null;
+        setCheckoutPlan(planToCheckout);
+        setCheckoutExtraWebsites(pd?.extra_websites || 0);
+        setCheckoutExtraAiPacks(Math.round((pd?.extra_ai_tokens || 0) / 250000));
+        setRenewModalOpen(true);
+      } else {
+        setUpgradePaymentError(res.message || 'Pagamento pendente ou recusado pela operadora.');
+      }
+    } catch (err: any) {
+      console.error(err);
+      setUpgradePaymentError(
+        err.response?.data?.messages?.error ||
+          err.response?.data?.message ||
+          'Falha ao processar pagamento do cartão. Verifique os dados ou limite disponível.'
+      );
+    } finally {
+      setUpgradingPlan(false);
+    }
+  };
+
+  // Verificar pagamento Pix de Upgrade
+  const handleCheckUpgradePixPayment = async () => {
+    if (!upgradePixData?.payment_id || !targetUpgradePlanId) return;
+    try {
+      setUpgradePixLoading(true);
+      setUpgradePaymentError(null);
+      const res = await confirmProratedPix({
+        payment_id: upgradePixData.payment_id,
+        plan_id: targetUpgradePlanId,
+        extra_websites: pd?.extra_websites || 0,
+        extra_ai_tokens: pd?.extra_ai_tokens || 0,
+        user_id: initialUser.id,
+      });
+
+      if (res.paid) {
+        setUpgradeModalOpen(false);
+        setUpgradeStep('config');
+        setFeedback({
+          title: 'Pagamento PIX Confirmado!',
+          message: res.message || 'Upgrade de plano confirmado com sucesso!',
+          color: 'teal',
+          icon: 'check',
+        });
+        await loadData();
+      } else {
+        setUpgradePaymentError(res.message || 'Pagamento ainda não confirmado pelo Asaas. Aguarde alguns instantes após o pagamento no seu banco.');
+      }
+    } catch (err: any) {
+      console.error(err);
+      setUpgradePaymentError(
+        err.response?.data?.messages?.error ||
+          err.response?.data?.message ||
+          'Erro ao verificar pagamento PIX.'
+      );
+    } finally {
+      setUpgradePixLoading(false);
     }
   };
 
@@ -664,7 +1122,7 @@ export function UserPlanManagementView({
               <div>
                 <Group gap="xs" align="center">
                   <Text fw={700} size="sm">
-                    Assinatura Recorrente Asaas (Pix)
+                    Assinatura Recorrente Asaas {sub.payment_method === 'credit_card' ? '(Cartão de Crédito)' : sub.payment_method === 'pix' ? '(Pix)' : ''}
                   </Text>
                   <Badge
                     size="sm"
@@ -871,10 +1329,7 @@ export function UserPlanManagementView({
                 color="indigo"
                 variant="light"
                 leftSection={<IconCrown size={14} />}
-                onClick={() => {
-                  setTargetUpgradePlanId(pd?.plan_id || null);
-                  setUpgradeModalOpen(true);
-                }}
+                onClick={handleOpenUpgradeModal}
               >
                 Upgrade de Plano
               </Button>
@@ -883,11 +1338,7 @@ export function UserPlanManagementView({
                 color="teal"
                 variant="light"
                 leftSection={<IconSparkles size={14} />}
-                onClick={() => {
-                  setModalExtraWebsites(pd?.extra_websites || 0);
-                  setModalExtraAiPacks(Math.round((pd?.extra_ai_tokens || 0) / 250000));
-                  setAddonsModalOpen(true);
-                }}
+                onClick={handleOpenAddonsModal}
               >
                 Add-ons
               </Button>
@@ -955,11 +1406,7 @@ export function UserPlanManagementView({
               leftSection={<IconPlus size={14} />}
               fullWidth
               mt="xs"
-              onClick={() => {
-                setModalExtraWebsites(pd?.extra_websites || 0);
-                setModalExtraAiPacks(Math.round((pd?.extra_ai_tokens || 0) / 250000));
-                setAddonsModalOpen(true);
-              }}
+              onClick={handleOpenAddonsModal}
             >
               {pd?.extra_websites ? 'Gerenciar Sites Extras' : 'Adicionar Sites Extras (+R$ 8/site)'}
             </Button>
@@ -1012,11 +1459,7 @@ export function UserPlanManagementView({
               leftSection={<IconPlus size={14} />}
               fullWidth
               mt="xs"
-              onClick={() => {
-                setModalExtraWebsites(pd?.extra_websites || 0);
-                setModalExtraAiPacks(Math.round((pd?.extra_ai_tokens || 0) / 250000));
-                setAddonsModalOpen(true);
-              }}
+              onClick={handleOpenAddonsModal}
             >
               {pd?.extra_ai_tokens ? 'Gerenciar Cota de IA' : 'Adicionar Pacote de IA (+250k)'}
             </Button>
@@ -1047,10 +1490,7 @@ export function UserPlanManagementView({
               variant="gradient"
               gradient={{ from: 'indigo.6', to: 'violet.6' }}
               leftSection={<IconCrown size={16} />}
-              onClick={() => {
-                setTargetUpgradePlanId(pd?.plan_id || null);
-                setUpgradeModalOpen(true);
-              }}
+              onClick={handleOpenUpgradeModal}
             >
               Fazer Upgrade de Plano
             </Button>
@@ -1059,11 +1499,7 @@ export function UserPlanManagementView({
               color="teal"
               variant="light"
               leftSection={<IconSparkles size={16} />}
-              onClick={() => {
-                setModalExtraWebsites(pd?.extra_websites || 0);
-                setModalExtraAiPacks(Math.round((pd?.extra_ai_tokens || 0) / 250000));
-                setAddonsModalOpen(true);
-              }}
+              onClick={handleOpenAddonsModal}
             >
               Contratar / Gerenciar Add-ons
             </Button>
@@ -1618,7 +2054,7 @@ export function UserPlanManagementView({
           <Group gap="xs">
             <IconCrown size={20} color="var(--mantine-color-indigo-4)" />
             <Text fw={700} size="md">
-              Fazer Upgrade de Plano
+              {upgradeStep === 'config' ? 'Fazer Upgrade de Plano' : 'Quadro de Pagamento — Ativação de Upgrade'}
             </Text>
           </Group>
         }
@@ -1630,201 +2066,468 @@ export function UserPlanManagementView({
           content: { background: '#0f172a', border: '1px solid rgba(99, 102, 241, 0.3)' },
         }}
       >
-        <Stack gap="md">
-          {/* Alerta de preservação de add-ons */}
-          <Alert color="indigo" variant="light" icon={<IconSparkles size={16} />}>
-            <Text size="xs">
-              <b>Preservação de Add-ons:</b> Seus add-ons contratados atuais (
-              <b>{pd?.extra_websites || 0} sites extras</b> e <b>{((pd?.extra_ai_tokens || 0) / 1000).toLocaleString('pt-BR')}k tokens de IA extras</b>)
-              permanecerão ativos no novo plano.
+        {upgradeStep === 'config' ? (
+          <Stack gap="md">
+            {/* Alerta de preservação de add-ons */}
+            <Alert color="indigo" variant="light" icon={<IconSparkles size={16} />}>
+              <Text size="xs">
+                <b>Preservação de Add-ons:</b> Seus add-ons contratados atuais (
+                <b>{pd?.extra_websites || 0} sites extras</b> e <b>{((pd?.extra_ai_tokens || 0) / 1000).toLocaleString('pt-BR')}k tokens de IA extras</b>)
+                permanecerão ativos no novo plano.
+              </Text>
+            </Alert>
+
+            <Text size="xs" c="dimmed">
+              Selecione o plano desejado para realizar o upgrade. A capacidade de sites e tokens do novo plano será aplicada imediatamente:
             </Text>
-          </Alert>
 
-          <Text size="xs" c="dimmed">
-            Selecione o plano desejado para realizar o upgrade. A capacidade de sites e tokens do novo plano será aplicada imediatamente:
-          </Text>
+            {/* Cards dos Planos Disponíveis */}
+            <Stack gap="xs">
+              {data?.available_plans.map((p) => {
+                const isCurrent = String(p.id) === String(pd?.plan_id);
+                const isSelected = targetUpgradePlanId === p.id;
+                const websitesCapacity = p.max_websites === null
+                  ? 'Sites Ilimitados'
+                  : `${p.max_websites + (pd?.extra_websites || 0)} Sites (${p.max_websites} base + ${pd?.extra_websites || 0} extras)`;
+                const aiCapacity = `${((p.ai_monthly_tokens + (pd?.extra_ai_tokens || 0)) / 1000).toLocaleString('pt-BR')}k Tokens/mês`;
+                const planPrice = Number(p.price_monthly) + (pd?.extra_websites_price || 0) + (pd?.extra_ai_tokens_price || 0);
 
-          {/* Cards dos Planos Disponíveis */}
-          <Stack gap="xs">
-            {data?.available_plans.map((p) => {
-              const isCurrent = String(p.id) === String(pd?.plan_id);
-              const isSelected = targetUpgradePlanId === p.id;
-              const websitesCapacity = p.max_websites === null
-                ? 'Sites Ilimitados'
-                : `${p.max_websites + (pd?.extra_websites || 0)} Sites (${p.max_websites} base + ${pd?.extra_websites || 0} extras)`;
-              const aiCapacity = `${((p.ai_monthly_tokens + (pd?.extra_ai_tokens || 0)) / 1000).toLocaleString('pt-BR')}k Tokens/mês`;
-              const planPrice = Number(p.price_monthly) + (pd?.extra_websites_price || 0) + (pd?.extra_ai_tokens_price || 0);
+                // Validação de capacidade
+                const isCapacityInsufficient = p.max_websites !== null &&
+                  (p.max_websites + (pd?.extra_websites || 0)) < (pd?.websites_count || 0);
 
-              // Validação de capacidade
-              const isCapacityInsufficient = p.max_websites !== null &&
-                (p.max_websites + (pd?.extra_websites || 0)) < (pd?.websites_count || 0);
-
-              return (
-                <Paper
-                  key={p.id}
-                  p="sm"
-                  radius="md"
-                  onClick={() => {
-                    if (!isCapacityInsufficient) {
-                      setTargetUpgradePlanId(p.id);
-                    }
-                  }}
-                  style={{
-                    cursor: isCapacityInsufficient ? 'not-allowed' : 'pointer',
-                    background: isSelected
-                      ? 'rgba(99, 102, 241, 0.15)'
-                      : isCurrent
-                      ? 'rgba(30, 41, 59, 0.8)'
-                      : 'rgba(30, 41, 59, 0.4)',
-                    border: isSelected
-                      ? '2px solid #6366f1'
-                      : isCurrent
-                      ? '1px solid rgba(16, 185, 129, 0.4)'
-                      : '1px solid rgba(255, 255, 255, 0.08)',
-                    opacity: isCapacityInsufficient ? 0.6 : 1,
-                    transition: 'all 0.2s ease',
-                  }}
-                >
-                  <Group justify="space-between" align="center">
-                    <div>
-                      <Group gap="xs">
-                        <Text fw={700} size="sm" c="white">
-                          Plano {p.name}
+                return (
+                  <Paper
+                    key={p.id}
+                    p="sm"
+                    radius="md"
+                    onClick={() => {
+                      if (!isCapacityInsufficient) {
+                        setTargetUpgradePlanId(p.id);
+                      }
+                    }}
+                    style={{
+                      cursor: isCapacityInsufficient ? 'not-allowed' : 'pointer',
+                      background: isSelected
+                        ? 'rgba(99, 102, 241, 0.15)'
+                        : isCurrent
+                        ? 'rgba(30, 41, 59, 0.8)'
+                        : 'rgba(30, 41, 59, 0.4)',
+                      border: isSelected
+                        ? '2px solid #6366f1'
+                        : isCurrent
+                        ? '1px solid rgba(16, 185, 129, 0.4)'
+                        : '1px solid rgba(255, 255, 255, 0.08)',
+                      opacity: isCapacityInsufficient ? 0.6 : 1,
+                      transition: 'all 0.2s ease',
+                    }}
+                  >
+                    <Group justify="space-between" align="center">
+                      <div>
+                        <Group gap="xs">
+                          <Text fw={700} size="sm" c="white">
+                            Plano {p.name}
+                          </Text>
+                          {isCurrent && (
+                            <Badge color="green" size="xs" variant="light">
+                              Plano Atual
+                            </Badge>
+                          )}
+                          {isSelected && !isCurrent && (
+                            <Badge color="indigo" size="xs" variant="filled">
+                              Selecionado
+                            </Badge>
+                          )}
+                        </Group>
+                        <Text size="xs" c="dimmed" mt={2}>
+                          {p.description || 'Monitoramento contínuo e remediação com IA.'}
                         </Text>
-                        {isCurrent && (
-                          <Badge color="green" size="xs" variant="light">
-                            Plano Atual
+                        <Group gap="xs" mt={4}>
+                          <Badge color="blue" size="xs" variant="outline">
+                            {websitesCapacity}
                           </Badge>
-                        )}
-                        {isSelected && !isCurrent && (
-                          <Badge color="indigo" size="xs" variant="filled">
-                            Selecionado
+                          <Badge color="violet" size="xs" variant="outline">
+                            {aiCapacity}
                           </Badge>
-                        )}
-                      </Group>
-                      <Text size="xs" c="dimmed" mt={2}>
-                        {p.description || 'Monitoramento contínuo e remediação com IA.'}
-                      </Text>
-                      <Group gap="xs" mt={4}>
-                        <Badge color="blue" size="xs" variant="outline">
-                          {websitesCapacity}
-                        </Badge>
-                        <Badge color="violet" size="xs" variant="outline">
-                          {aiCapacity}
-                        </Badge>
-                      </Group>
-                    </div>
+                        </Group>
+                      </div>
 
-                    <div style={{ textAlign: 'right' }}>
-                      <Text fw={700} size="md" c="indigo.3">
-                        R$ {planPrice.toFixed(2).replace('.', ',')}
-                        <Text component="span" size="xs" c="dimmed" fw={400}> /mês</Text>
-                      </Text>
-                      {isCapacityInsufficient && (
-                        <Text size="10px" c="red.4" mt={2}>
-                          Insuficiente para {pd?.websites_count} sites
+                      <div style={{ textAlign: 'right' }}>
+                        <Text fw={700} size="md" c="indigo.3">
+                          R$ {planPrice.toFixed(2).replace('.', ',')}
+                          <Text component="span" size="xs" c="dimmed" fw={400}> /mês</Text>
                         </Text>
-                      )}
-                    </div>
-                  </Group>
-                </Paper>
-              );
-            })}
-          </Stack>
+                        {isCapacityInsufficient && (
+                          <Text size="10px" c="red.4" mt={2}>
+                            Insuficiente para {pd?.websites_count} sites
+                          </Text>
+                        )}
+                      </div>
+                    </Group>
+                  </Paper>
+                );
+              })}
+            </Stack>
 
-          {/* Validação de erro se o selecionado não comportar */}
-          {(() => {
-            const selectedP = data?.available_plans.find((p) => p.id === targetUpgradePlanId);
-            if (
-              selectedP &&
-              selectedP.max_websites !== null &&
-              selectedP.max_websites + (pd?.extra_websites || 0) < (pd?.websites_count || 0)
-            ) {
-              const diff = (pd?.websites_count || 0) - (selectedP.max_websites + (pd?.extra_websites || 0));
-              return (
+            {/* Validação de erro se o selecionado não comportar */}
+            {selectedUpgradePlan &&
+              selectedUpgradePlan.max_websites !== null &&
+              selectedUpgradePlan.max_websites + (pd?.extra_websites || 0) < (pd?.websites_count || 0) && (
                 <Alert color="red" variant="filled" icon={<IconAlertCircle size={16} />}>
                   <Text size="xs">
-                    Você possui <b>{pd?.websites_count} sites cadastrados</b>. O Plano {selectedP.name} com seus add-ons comportará apenas <b>{selectedP.max_websites + (pd?.extra_websites || 0)} sites</b>. Exclua pelo menos <b>{diff} site(s)</b> antes de selecionar este plano.
+                    Você possui <b>{pd?.websites_count} sites cadastrados</b>. O Plano {selectedUpgradePlan.name} com seus add-ons comportará apenas <b>{selectedUpgradePlan.max_websites + (pd?.extra_websites || 0)} sites</b>. Exclua pelo menos <b>{(pd?.websites_count || 0) - (selectedUpgradePlan.max_websites + (pd?.extra_websites || 0))} site(s)</b> antes de selecionar este plano.
                   </Text>
                 </Alert>
-              );
-            }
-            return null;
-          })()}
+            )}
 
-          {/* Transparência de Pró-rata e Próxima Fatura */}
-          {(() => {
-            if (!targetUpgradePlanId || targetUpgradePlanId === pd?.plan_id) return null;
-            const sp = data?.available_plans.find((p) => p.id === targetUpgradePlanId);
-            if (!sp) return null;
-
-            const newTotal = Number(sp.price_monthly) + (Number(pd?.extra_websites || 0) * 8) + (Number(pd?.extra_ai_tokens_price || 0));
-            const diff = Math.round((newTotal - currentTotalMonthly) * 100) / 100;
-            const isDowngrade = diff <= 0;
-            const proratedDue = diff > 0 ? Math.round(diff * proratedRatioCalc * 100) / 100 : 0;
-
-            if (isDowngrade) {
-              return (
+            {/* Transparência de Pró-rata e Próxima Fatura */}
+            {targetUpgradePlanId && targetUpgradePlanId !== pd?.plan_id && selectedUpgradePlan && (
+              isUpgradeDowngrade ? (
                 <Alert color="teal" variant="light" icon={<IconInfoCircle size={18} />}>
                   <Text size="xs" fw={700}>Efeito na Próxima Fatura (Nenhuma cobrança hoje):</Text>
                   <Text size="xs" mt={2}>
                     Nenhum valor será cobrado agora. Seu plano atual permanece ativo até <b>{nextCycleDueDateFmt}</b>.
-                    A partir dessa data, sua fatura passará para <b>R$ {newTotal.toFixed(2).replace('.', ',')}/mês</b> no Plano {sp.name} (seus add-ons continuam preservados).
+                    A partir dessa data, sua fatura passará para <b>R$ {upgradeNewTotal.toFixed(2).replace('.', ',')}/mês</b> no Plano {selectedUpgradePlan.name} (seus add-ons continuam preservados).
                   </Text>
                 </Alert>
-              );
-            }
+              ) : (
+                <Alert color="indigo" variant="light" icon={<IconTrendingUp size={18} />}>
+                  <Text size="xs" fw={700}>Cobrança Proporcional aos Dias Restantes (Pró-rata):</Text>
+                  <Text size="xs" mt={2}>
+                    Faltam <b>{daysRemainingInCycle} dias</b> até sua renovação em <b>{nextCycleDueDateFmt}</b>.
+                    Você não paga o plano cheio novamente hoje: paga apenas <b>R$ {upgradeProratedDue.toFixed(2).replace('.', ',')}</b> referente aos dias restantes.
+                    A partir de <b>{nextCycleDueDateFmt}</b>, sua assinatura mensal regular passará para <b>R$ {upgradeNewTotal.toFixed(2).replace('.', ',')}/mês</b>.
+                  </Text>
+                </Alert>
+              )
+            )}
 
-            return (
-              <Alert color="indigo" variant="light" icon={<IconTrendingUp size={18} />}>
-                <Text size="xs" fw={700}>Cobrança Proporcional aos Dias Restantes (Pró-rata):</Text>
-                <Text size="xs" mt={2}>
-                  Faltam <b>{daysRemainingInCycle} dias</b> até sua renovação em <b>{nextCycleDueDateFmt}</b>.
-                  Você não paga o plano cheio novamente hoje: paga apenas <b>R$ {proratedDue.toFixed(2).replace('.', ',')}</b> referente aos dias restantes.
-                  A partir de <b>{nextCycleDueDateFmt}</b>, sua assinatura mensal regular passará para <b>R$ {newTotal.toFixed(2).replace('.', ',')}/mês</b>.
-                </Text>
+            <Group justify="flex-end" mt="sm">
+              <Button variant="subtle" color="gray" size="sm" onClick={() => setUpgradeModalOpen(false)} disabled={upgradingPlan}>
+                Cancelar
+              </Button>
+              <Button
+                color="indigo"
+                variant="gradient"
+                gradient={{ from: 'indigo.6', to: 'violet.6' }}
+                size="sm"
+                onClick={isUpgradeDowngrade ? handleConfirmUpgradeDowngrade : handleProceedToUpgradePayment}
+                loading={upgradingPlan}
+                disabled={
+                  !targetUpgradePlanId ||
+                  targetUpgradePlanId === pd?.plan_id ||
+                  Boolean(
+                    selectedUpgradePlan &&
+                    selectedUpgradePlan.max_websites !== null &&
+                    selectedUpgradePlan.max_websites + (pd?.extra_websites || 0) < (pd?.websites_count || 0)
+                  )
+                }
+                leftSection={isUpgradeDowngrade ? <IconDeviceFloppy size={16} /> : <IconCreditCard size={16} />}
+              >
+                {isUpgradeDowngrade
+                  ? 'Confirmar Alteração para o Próximo Mês'
+                  : `Prosseguir para Pagamento (R$ ${upgradeProratedDue.toFixed(2).replace('.', ',')} Pró-rata) →`}
+              </Button>
+            </Group>
+          </Stack>
+        ) : (
+          /* STEP 2: QUADRO DE PAGAMENTO DO UPGRADE */
+          <Stack gap="md">
+            {/* Box Resumo do Valor Proporcional */}
+            <Paper p="md" radius="md" bg="rgba(30, 41, 59, 0.6)" style={{ border: '1px solid rgba(99, 102, 241, 0.3)' }}>
+              <Group justify="space-between" align="center">
+                <div>
+                  <Text size="xs" c="dimmed" tt="uppercase" fw={700}>Resumo da Operação</Text>
+                  <Text size="sm" fw={700} c="white">
+                    Upgrade para Plano {selectedUpgradePlan?.name}
+                  </Text>
+                  <Text size="xs" c="dimmed" mt={2}>
+                    Período proporcional: <b>{daysRemainingInCycle} dias restantes</b> até renovação em <b>{nextCycleDueDateFmt}</b>
+                  </Text>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <Text size="xs" c="dimmed">Valor a Pagar Hoje (Pró-rata):</Text>
+                  <Text fw={800} size="xl" c="indigo.3">
+                    R$ {upgradeProratedDue.toFixed(2).replace('.', ',')}
+                  </Text>
+                  <Text size="11px" c="dimmed">
+                    Próxima mensalidade: R$ {upgradeNewTotal.toFixed(2).replace('.', ',')}/mês
+                  </Text>
+                </div>
+              </Group>
+            </Paper>
+
+            {/* Seletor de Método de Pagamento */}
+            <div>
+              <Text size="xs" fw={700} c="dimmed" mb={6} tt="uppercase">
+                Escolha a Forma de Pagamento
+              </Text>
+              <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs">
+                <Paper
+                  p="sm"
+                  radius="md"
+                  onClick={() => setUpgradePaymentMethod('credit_card')}
+                  style={{
+                    cursor: 'pointer',
+                    background: upgradePaymentMethod === 'credit_card' ? 'rgba(99, 102, 241, 0.2)' : 'rgba(30, 41, 59, 0.5)',
+                    border: upgradePaymentMethod === 'credit_card' ? '2px solid #6366f1' : '1px solid rgba(255, 255, 255, 0.08)',
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  <Group justify="space-between" mb={4}>
+                    <Group gap="xs">
+                      <IconCreditCard size={18} color={upgradePaymentMethod === 'credit_card' ? '#818cf8' : '#94a3b8'} />
+                      <Text size="sm" fw={700} c={upgradePaymentMethod === 'credit_card' ? 'white' : 'gray.4'}>
+                        Cartão de Crédito
+                      </Text>
+                    </Group>
+                    <Badge size="xs" color="indigo" variant="light">Instantâneo</Badge>
+                  </Group>
+                  <Text size="xs" c="dimmed">
+                    Aprovação imediata e liberação automática do novo plano.
+                  </Text>
+                </Paper>
+
+                <Paper
+                  p="sm"
+                  radius="md"
+                  onClick={() => {
+                    setUpgradePaymentMethod('pix');
+                    if (!upgradePixData) {
+                      handleGenerateUpgradePix();
+                    }
+                  }}
+                  style={{
+                    cursor: 'pointer',
+                    background: upgradePaymentMethod === 'pix' ? 'rgba(99, 102, 241, 0.2)' : 'rgba(30, 41, 59, 0.5)',
+                    border: upgradePaymentMethod === 'pix' ? '2px solid #6366f1' : '1px solid rgba(255, 255, 255, 0.08)',
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  <Group justify="space-between" mb={4}>
+                    <Group gap="xs">
+                      <IconQrcode size={18} color={upgradePaymentMethod === 'pix' ? '#818cf8' : '#94a3b8'} />
+                      <Text size="sm" fw={700} c={upgradePaymentMethod === 'pix' ? 'white' : 'gray.4'}>
+                        PIX Instantâneo
+                      </Text>
+                    </Group>
+                    <Badge size="xs" color="teal" variant="light">QR Code</Badge>
+                  </Group>
+                  <Text size="xs" c="dimmed">
+                    Pagamento via QR Code ou Copia e Cola com confirmação rápida.
+                  </Text>
+                </Paper>
+              </SimpleGrid>
+            </div>
+
+            {/* ABA CARTÃO DE CRÉDITO */}
+            {upgradePaymentMethod === 'credit_card' && (
+              <Card p="sm" radius="md" bg="rgba(15, 23, 42, 0.6)" style={{ border: '1px solid rgba(99, 102, 241, 0.25)' }}>
+                <Stack gap="xs">
+                  <Text size="xs" fw={700} c="indigo.3" style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Dados do Cartão para Pagamento
+                  </Text>
+
+                  <TextInput
+                    label="Nome Impresso no Cartão"
+                    placeholder="Ex: CARLOS E SILVA"
+                    value={upgradeCardHolder}
+                    onChange={(e) => setUpgradeCardHolder(e.target.value.toUpperCase())}
+                    required
+                    size="xs"
+                  />
+
+                  <TextInput
+                    label="Número do Cartão"
+                    placeholder="0000 0000 0000 0000"
+                    value={upgradeCardNumber}
+                    onChange={(e) => handleCardNumberFormat(e.target.value, setUpgradeCardNumber)}
+                    leftSection={<IconCreditCard size={16} />}
+                    required
+                    size="xs"
+                  />
+
+                  <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs">
+                    <TextInput
+                      label="Validade (MM/AA)"
+                      placeholder="MM/AA"
+                      value={upgradeCardExpiry}
+                      onChange={(e) => handleCardExpiryFormat(e.target.value, setUpgradeCardExpiry)}
+                      maxLength={5}
+                      required
+                      size="xs"
+                    />
+                    <TextInput
+                      label="Código de Segurança (CVV)"
+                      placeholder="123"
+                      value={upgradeCardCcv}
+                      onChange={(e) => handleCardCcvFormat(e.target.value, setUpgradeCardCcv)}
+                      maxLength={4}
+                      leftSection={<IconLock size={16} />}
+                      required
+                      type="password"
+                      size="xs"
+                    />
+                  </SimpleGrid>
+
+                  <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs">
+                    <TextInput
+                      label="CEP do Titular"
+                      placeholder="00000-000"
+                      value={upgradePostalCode}
+                      onChange={(e) => handlePostalCodeFormat(e.target.value, setUpgradePostalCode)}
+                      maxLength={9}
+                      leftSection={<IconMapPin size={16} />}
+                      required
+                      size="xs"
+                    />
+                    <TextInput
+                      label="Número do Endereço"
+                      placeholder="Ex: 100 ou S/N"
+                      value={upgradeAddressNumber}
+                      onChange={(e) => setUpgradeAddressNumber(e.target.value)}
+                      required
+                      size="xs"
+                    />
+                  </SimpleGrid>
+
+                  <Group gap="xs" mt={4}>
+                    <IconShieldCheck size={16} color="var(--mantine-color-green-4)" />
+                    <Text size="11px" c="dimmed">
+                      Pagamento seguro processado pelo gateway bancário Asaas com aprovação imediata.
+                    </Text>
+                  </Group>
+                </Stack>
+              </Card>
+            )}
+
+            {/* ABA PIX */}
+            {upgradePaymentMethod === 'pix' && (
+              <Card p="md" radius="md" bg="rgba(15, 23, 42, 0.6)" style={{ border: '1px solid rgba(20, 184, 166, 0.3)' }}>
+                {upgradePixLoading && !upgradePixData ? (
+                  <Stack align="center" py="lg">
+                    <Loader size="md" color="teal" />
+                    <Text size="xs" c="dimmed">Gerando cobrança PIX com o gateway Asaas...</Text>
+                  </Stack>
+                ) : upgradePixData ? (
+                  <Stack gap="sm" align="center">
+                    {upgradePixData.pix_qr_code && (
+                      <Paper p="xs" radius="md" bg="white" style={{ display: 'inline-block' }}>
+                        <img
+                          src={upgradePixData.pix_qr_code}
+                          alt="QR Code PIX Upgrade"
+                          style={{ width: 170, height: 170, display: 'block' }}
+                        />
+                      </Paper>
+                    )}
+
+                    {upgradePixData.pix_copy_paste && (
+                      <Stack gap={4} style={{ width: '100%' }}>
+                        <Text size="xs" c="dimmed" ta="center">
+                          Código Copia e Cola:
+                        </Text>
+                        <TextInput
+                          readOnly
+                          value={upgradePixData.pix_copy_paste}
+                          size="xs"
+                          rightSection={
+                            <CopyButton value={upgradePixData.pix_copy_paste} timeout={2500}>
+                              {({ copied, copy }) => (
+                                <Button
+                                  size="compact-xs"
+                                  variant="subtle"
+                                  color={copied ? 'teal' : 'blue'}
+                                  onClick={copy}
+                                >
+                                  {copied ? <IconCheck size={14} /> : <IconCopy size={14} />}
+                                </Button>
+                              )}
+                            </CopyButton>
+                          }
+                        />
+                      </Stack>
+                    )}
+
+                    <Alert color="teal" variant="light" style={{ width: '100%' }}>
+                      <Text size="xs" ta="center">
+                        Aguardando confirmação bancária. Assim que o pagamento for realizado no seu banco, o upgrade será ativado automaticamente.
+                      </Text>
+                    </Alert>
+
+                    <Button
+                      color="teal"
+                      variant="light"
+                      size="xs"
+                      onClick={handleCheckUpgradePixPayment}
+                      loading={upgradePixLoading}
+                      leftSection={<IconCheck size={14} />}
+                    >
+                      Já realizei o pagamento via PIX / Verificar
+                    </Button>
+                  </Stack>
+                ) : (
+                  <Stack align="center" py="md">
+                    <Button
+                      color="teal"
+                      size="sm"
+                      onClick={handleGenerateUpgradePix}
+                      loading={upgradePixLoading}
+                      leftSection={<IconQrcode size={16} />}
+                    >
+                      Gerar QR Code PIX de R$ {upgradeProratedDue.toFixed(2).replace('.', ',')}
+                    </Button>
+                  </Stack>
+                )}
+              </Card>
+            )}
+
+            {/* Exibição de Erro no Quadro de Pagamento */}
+            {upgradePaymentError && (
+              <Alert color="red" variant="filled" icon={<IconAlertCircle size={16} />}>
+                <Text size="xs">{upgradePaymentError}</Text>
               </Alert>
-            );
-          })()}
+            )}
 
-          <Group justify="flex-end" mt="sm">
-            <Button variant="subtle" color="gray" size="sm" onClick={() => setUpgradeModalOpen(false)} disabled={upgradingPlan}>
-              Cancelar
-            </Button>
-            <Button
-              color="indigo"
-              variant="gradient"
-              gradient={{ from: 'indigo.6', to: 'violet.6' }}
-              size="sm"
-              onClick={handleConfirmUpgrade}
-              loading={upgradingPlan}
-              disabled={
-                !targetUpgradePlanId ||
-                targetUpgradePlanId === pd?.plan_id ||
-                (() => {
-                  const sp = data?.available_plans.find((p) => p.id === targetUpgradePlanId);
-                  return (
-                    sp &&
-                    sp.max_websites !== null &&
-                    sp.max_websites + (pd?.extra_websites || 0) < (pd?.websites_count || 0)
-                  );
-                })()
-              }
-              leftSection={<IconCrown size={16} />}
-            >
-              {(() => {
-                if (!targetUpgradePlanId || targetUpgradePlanId === pd?.plan_id) return 'Confirmar Upgrade';
-                const sp = data?.available_plans.find((p) => p.id === targetUpgradePlanId);
-                if (!sp) return 'Confirmar Upgrade';
-                const newTotal = Number(sp.price_monthly) + (Number(pd?.extra_websites || 0) * 8) + (Number(pd?.extra_ai_tokens_price || 0));
-                const diff = Math.round((newTotal - currentTotalMonthly) * 100) / 100;
-                if (diff <= 0) return 'Confirmar Alteração para Próximo Mês';
-                const proratedDue = Math.round(diff * proratedRatioCalc * 100) / 100;
-                return `Confirmar Upgrade (R$ ${proratedDue.toFixed(2).replace('.', ',')} Pró-rata)`;
-              })()}
-            </Button>
-          </Group>
-        </Stack>
+            {/* Footer Buttons do Quadro de Pagamento */}
+            <Group justify="space-between" mt="sm">
+              <Button
+                variant="subtle"
+                color="gray"
+                size="sm"
+                onClick={() => setUpgradeStep('config')}
+                disabled={upgradingPlan || upgradePixLoading}
+                leftSection={<IconArrowLeft size={16} />}
+              >
+                Voltar à Seleção
+              </Button>
+
+              {upgradePaymentMethod === 'credit_card' && (
+                <Button
+                  color="indigo"
+                  variant="gradient"
+                  gradient={{ from: 'indigo.6', to: 'violet.6' }}
+                  size="sm"
+                  onClick={handlePayUpgradeWithCard}
+                  loading={upgradingPlan}
+                  leftSection={<IconCreditCard size={16} />}
+                >
+                  Pagar R$ {upgradeProratedDue.toFixed(2).replace('.', ',')} no Cartão
+                </Button>
+              )}
+
+              {upgradePaymentMethod === 'pix' && (
+                <Button
+                  variant="subtle"
+                  color="gray"
+                  size="sm"
+                  onClick={() => setUpgradeModalOpen(false)}
+                >
+                  Fechar
+                </Button>
+              )}
+            </Group>
+          </Stack>
+        )}
       </Modal>
 
       {/* Modal de Gestão / Contratação de Add-ons */}
@@ -1835,7 +2538,7 @@ export function UserPlanManagementView({
           <Group gap="xs">
             <IconSparkles size={20} color="var(--mantine-color-teal-4)" />
             <Text fw={700} size="md">
-              Contratar ou Gerenciar Add-ons
+              {addonStep === 'config' ? 'Contratar ou Gerenciar Add-ons' : 'Quadro de Pagamento — Ativação de Add-ons'}
             </Text>
           </Group>
         }
@@ -1847,257 +2550,464 @@ export function UserPlanManagementView({
           content: { background: '#0f172a', border: '1px solid rgba(20, 184, 166, 0.3)' },
         }}
       >
-        <Stack gap="md">
-          <Text size="xs" c="dimmed">
-            Personalize sua assinatura adicionando sites extras ou pacotes de inteligência artificial. Os valores serão integrados à sua mensalidade recorrente.
-          </Text>
+        {addonStep === 'config' ? (
+          <Stack gap="md">
+            <Text size="xs" c="dimmed">
+              Personalize sua assinatura adicionando sites extras ou pacotes de inteligência artificial. Os valores serão integrados à sua mensalidade recorrente.
+            </Text>
 
-          {/* Add-on 1: Sites Extras */}
-          <Card p="md" radius="md" bg="rgba(15, 23, 42, 0.7)" style={{ border: '1px solid rgba(255, 255, 255, 0.08)' }}>
-            <Group justify="space-between" mb="xs">
-              <div>
-                <Group gap="xs">
-                  <ThemeIcon color="blue" variant="light" size="sm">
-                    <IconWorld size={14} />
-                  </ThemeIcon>
-                  <Text size="sm" fw={700} c="white">
-                    Sites Extras (+R$ 8,00/mês por site)
+            {/* Add-on 1: Sites Extras */}
+            <Card p="md" radius="md" bg="rgba(15, 23, 42, 0.7)" style={{ border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+              <Group justify="space-between" mb="xs">
+                <div>
+                  <Group gap="xs">
+                    <ThemeIcon color="blue" variant="light" size="sm">
+                      <IconWorld size={14} />
+                    </ThemeIcon>
+                    <Text size="sm" fw={700} c="white">
+                      Sites Extras (+R$ 8,00/mês por site)
+                    </Text>
+                  </Group>
+                  <Text size="xs" c="dimmed" mt={2}>
+                    Plano base {pd?.plan_name}: <b>{pd?.base_max_websites ?? 'Ilimitados'} sites</b> • Atualmente cadastrados: <b>{pd?.websites_count || 0} sites</b>
                   </Text>
-                </Group>
-                <Text size="xs" c="dimmed" mt={2}>
-                  Plano base {pd?.plan_name}: <b>{pd?.base_max_websites ?? 'Ilimitados'} sites</b> • Atualmente cadastrados: <b>{pd?.websites_count || 0} sites</b>
-                </Text>
-              </div>
-              <Badge color="blue" variant="light">
-                +R$ {(modalExtraWebsites * 8).toFixed(2).replace('.', ',')}/mês
-              </Badge>
-            </Group>
+                </div>
+                <Badge color="blue" variant="light">
+                  +R$ {(modalExtraWebsites * 8).toFixed(2).replace('.', ',')}/mês
+                </Badge>
+              </Group>
 
-            <Group gap="md" align="center" mt="xs">
-              <NumberInput
-                min={0}
-                max={100}
-                value={modalExtraWebsites}
-                onChange={(val) => setModalExtraWebsites(Number(val) || 0)}
-                placeholder="0 sites"
-                style={{ width: 140 }}
-                size="sm"
-              />
-              <Text size="xs" c="dimmed">
-                Capacidade total resultante:{' '}
-                <Text component="span" fw={700} c={isAddonRemovalBlocked ? 'red.4' : 'blue.3'}>
-                  {baseWebsitesLimit !== null ? `${newEffectiveWebsitesLimit} sites` : 'Ilimitado'}
+              <Group gap="md" align="center" mt="xs">
+                <NumberInput
+                  min={0}
+                  max={100}
+                  value={modalExtraWebsites}
+                  onChange={(val) => setModalExtraWebsites(Number(val) || 0)}
+                  placeholder="0 sites"
+                  style={{ width: 140 }}
+                  size="sm"
+                />
+                <Text size="xs" c="dimmed">
+                  Capacidade total resultante:{' '}
+                  <Text component="span" fw={700} c={isAddonRemovalBlocked ? 'red.4' : 'blue.3'}>
+                    {baseWebsitesLimit !== null ? `${newEffectiveWebsitesLimit} sites` : 'Ilimitado'}
+                  </Text>
                 </Text>
-              </Text>
-            </Group>
+              </Group>
 
-            {/* ALERTA DE REMOÇÃO BLOQUEADA (REGRA MANDATÓRIA) */}
-            {isAddonRemovalBlocked && (
-              <Alert color="red" variant="filled" icon={<IconAlertCircle size={16} />} mt="sm">
-                <Text size="xs" fw={700}>Remoção Bloqueada:</Text>
+              {/* ALERTA DE REMOÇÃO BLOQUEADA (REGRA MANDATÓRIA) */}
+              {isAddonRemovalBlocked && (
+                <Alert color="red" variant="filled" icon={<IconAlertCircle size={16} />} mt="sm">
+                  <Text size="xs" fw={700}>Remoção Bloqueada:</Text>
+                  <Text size="xs" mt={2}>
+                    Você possui <b>{userWebsitesCount} sites cadastrados</b> no sistema, mas o limite com esta configuração seria de apenas <b>{newEffectiveWebsitesLimit} sites</b> ({baseWebsitesLimit} do plano {pd?.plan_name} + {modalExtraWebsites} extras).
+                    Para remover ou reduzir este add-on, você deve primeiro excluir ou desvincular pelo menos <b>{sitesExcessCount} site(s)</b>.
+                  </Text>
+                </Alert>
+              )}
+            </Card>
+
+            {/* Add-on 2: Pacotes Extras de IA */}
+            <Card p="md" radius="md" bg="rgba(15, 23, 42, 0.7)" style={{ border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+              <Group justify="space-between" mb="xs">
+                <div>
+                  <Group gap="xs">
+                    <ThemeIcon color="violet" variant="light" size="sm">
+                      <IconBrain size={14} />
+                    </ThemeIcon>
+                    <Text size="sm" fw={700} c="white">
+                      Pacotes IA (+250k tokens por R$ 60,00/mês cada)
+                    </Text>
+                  </Group>
+                  <Text size="xs" c="dimmed" mt={2}>
+                    Plano base {pd?.plan_name}: <b>{((pd?.base_ai_tokens || 0) / 1000).toLocaleString('pt-BR')}k tokens</b>
+                  </Text>
+                </div>
+                <Badge color="violet" variant="light">
+                  +R$ {(modalExtraAiPacks * 60).toFixed(2).replace('.', ',')}/mês
+                </Badge>
+              </Group>
+
+              <Group gap="md" align="center" mt="xs">
+                <NumberInput
+                  min={0}
+                  max={20}
+                  value={modalExtraAiPacks}
+                  onChange={(val) => setModalExtraAiPacks(Number(val) || 0)}
+                  placeholder="0 pacotes"
+                  style={{ width: 140 }}
+                  size="sm"
+                />
+                <Text size="xs" c="dimmed">
+                  Cota total resultante:{' '}
+                  <Text component="span" fw={700} c="violet.3">
+                    {(((pd?.base_ai_tokens || 0) + (modalExtraAiPacks * 250000)) / 1000).toLocaleString('pt-BR')}k tokens/mês
+                  </Text>
+                </Text>
+              </Group>
+            </Card>
+
+            {/* Resumo do Novo Faturamento Mensal */}
+            <Paper p="sm" radius="md" bg="rgba(30, 41, 59, 0.5)" style={{ border: '1px dashed rgba(255, 255, 255, 0.15)' }}>
+              <Group justify="space-between" align="center">
+                <div>
+                  <Text size="xs" c="dimmed">Novo Valor Mensal Estimado:</Text>
+                  <Text size="xs" c="dimmed">
+                    Plano {pd?.plan_name} (R$ {(pd?.base_price || 0).toFixed(2).replace('.', ',')}) + Sites Extras (R$ {(modalExtraWebsites * 8).toFixed(2).replace('.', ',')}) + IA Extra (R$ {(modalExtraAiPacks * 60).toFixed(2).replace('.', ',')})
+                  </Text>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <Text fw={800} size="lg" c="teal.3">
+                    R$ {newAddonsTotalMonthly.toFixed(2).replace('.', ',')}
+                    <Text component="span" size="xs" c="dimmed" fw={400}> /mês</Text>
+                  </Text>
+                </div>
+              </Group>
+            </Paper>
+
+            {/* Transparência: Pró-rata vs Próximo Mês */}
+            {isAddonsDowngrade ? (
+              <Alert color="teal" variant="light" icon={<IconInfoCircle size={18} />}>
+                <Text size="xs" fw={700}>Efeito na Próxima Fatura (Nenhuma cobrança hoje):</Text>
                 <Text size="xs" mt={2}>
-                  Você possui <b>{userWebsitesCount} sites cadastrados</b> no sistema, mas o limite com esta configuração seria de apenas <b>{newEffectiveWebsitesLimit} sites</b> ({baseWebsitesLimit} do plano {pd?.plan_name} + {modalExtraWebsites} extras).
-                  Para remover ou reduzir este add-on, você deve primeiro excluir ou desvincular pelo menos <b>{sitesExcessCount} site(s)</b>.
+                  Você já possui seus add-ons pagos até <b>{nextCycleDueDateFmt}</b>. Nenhum valor será cobrado agora.
+                  Ao confirmar, seus recursos atuais permanecem ativos até <b>{nextCycleDueDateFmt}</b>, e a partir dessa data sua fatura passará a ser de <b>R$ {newAddonsTotalMonthly.toFixed(2).replace('.', ',')}/mês</b>.
+                </Text>
+              </Alert>
+            ) : (
+              <Alert color="indigo" variant="light" icon={<IconTrendingUp size={18} />}>
+                <Text size="xs" fw={700}>Cobrança Proporcional aos Dias Restantes (Pró-rata):</Text>
+                <Text size="xs" mt={2}>
+                  Faltam <b>{daysRemainingInCycle} dias</b> até seu próximo vencimento em <b>{nextCycleDueDateFmt}</b>.
+                  Você não paga o plano cheio novamente: paga apenas <b>R$ {addonsProratedDueNow.toFixed(2).replace('.', ',')}</b> correspondente aos dias restantes.
+                  A partir de <b>{nextCycleDueDateFmt}</b>, sua fatura regular passará a ser de <b>R$ {newAddonsTotalMonthly.toFixed(2).replace('.', ',')}/mês</b>.
                 </Text>
               </Alert>
             )}
-          </Card>
 
-          {/* Add-on 2: Pacotes Extras de IA */}
-          <Card p="md" radius="md" bg="rgba(15, 23, 42, 0.7)" style={{ border: '1px solid rgba(255, 255, 255, 0.08)' }}>
-            <Group justify="space-between" mb="xs">
-              <div>
-                <Group gap="xs">
-                  <ThemeIcon color="violet" variant="light" size="sm">
-                    <IconBrain size={14} />
-                  </ThemeIcon>
-                  <Text size="sm" fw={700} c="white">
-                    Pacotes IA (+250k tokens por R$ 60,00/mês cada)
-                  </Text>
-                </Group>
-                <Text size="xs" c="dimmed" mt={2}>
-                  Plano base {pd?.plan_name}: <b>{((pd?.base_ai_tokens || 0) / 1000).toLocaleString('pt-BR')}k tokens</b>
-                </Text>
-              </div>
-              <Badge color="violet" variant="light">
-                +R$ {(modalExtraAiPacks * 60).toFixed(2).replace('.', ',')}/mês
-              </Badge>
-            </Group>
-
-            <Group gap="md" align="center" mt="xs">
-              <NumberInput
-                min={0}
-                max={20}
-                value={modalExtraAiPacks}
-                onChange={(val) => setModalExtraAiPacks(Number(val) || 0)}
-                placeholder="0 pacotes"
-                style={{ width: 140 }}
+            <Group justify="flex-end" mt="sm">
+              <Button variant="subtle" color="gray" size="sm" onClick={() => setAddonsModalOpen(false)} disabled={savingAddons}>
+                Cancelar
+              </Button>
+              <Button
+                color="teal"
+                variant="gradient"
+                gradient={{ from: 'teal.6', to: 'green.6' }}
                 size="sm"
-              />
-              <Text size="xs" c="dimmed">
-                Cota total resultante:{' '}
-                <Text component="span" fw={700} c="violet.3">
-                  {(((pd?.base_ai_tokens || 0) + (modalExtraAiPacks * 250000)) / 1000).toLocaleString('pt-BR')}k tokens/mês
-                </Text>
-              </Text>
+                onClick={isAddonsDowngrade ? handleSaveAddonsReduction : handleProceedToAddonPayment}
+                loading={savingAddons}
+                disabled={isAddonRemovalBlocked}
+                leftSection={isAddonsDowngrade ? <IconDeviceFloppy size={16} /> : <IconCreditCard size={16} />}
+              >
+                {isAddonsDowngrade
+                  ? 'Confirmar Redução para o Próximo Mês'
+                  : `Prosseguir para Pagamento (R$ ${addonsProratedDueNow.toFixed(2).replace('.', ',')} Pró-rata) →`}
+              </Button>
             </Group>
-          </Card>
-
-          {/* Resumo do Novo Faturamento Mensal */}
-          <Paper p="sm" radius="md" bg="rgba(30, 41, 59, 0.5)" style={{ border: '1px dashed rgba(255, 255, 255, 0.15)' }}>
-            <Group justify="space-between" align="center">
-              <div>
-                <Text size="xs" c="dimmed">Novo Valor Mensal Estimado:</Text>
-                <Text size="xs" c="dimmed">
-                  Plano {pd?.plan_name} (R$ {(pd?.base_price || 0).toFixed(2).replace('.', ',')}) + Sites Extras (R$ {(modalExtraWebsites * 8).toFixed(2).replace('.', ',')}) + IA Extra (R$ {(modalExtraAiPacks * 60).toFixed(2).replace('.', ',')})
-                </Text>
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <Text fw={800} size="lg" c="teal.3">
-                  R$ {newAddonsTotalMonthly.toFixed(2).replace('.', ',')}
-                  <Text component="span" size="xs" c="dimmed" fw={400}> /mês</Text>
-                </Text>
-              </div>
-            </Group>
-          </Paper>
-
-          {/* Transparência: Pró-rata vs Próximo Mês */}
-          {isAddonsDowngrade ? (
-            <Alert color="teal" variant="light" icon={<IconInfoCircle size={18} />}>
-              <Text size="xs" fw={700}>Efeito na Próxima Fatura (Nenhuma cobrança hoje):</Text>
-              <Text size="xs" mt={2}>
-                Você já possui seus add-ons pagos até <b>{nextCycleDueDateFmt}</b>. Nenhum valor será cobrado agora.
-                Ao confirmar, seus recursos atuais permanecem ativos até <b>{nextCycleDueDateFmt}</b>, e a partir dessa data sua fatura passará a ser de <b>R$ {newAddonsTotalMonthly.toFixed(2).replace('.', ',')}/mês</b>.
-              </Text>
-            </Alert>
-          ) : (
-            <Alert color="indigo" variant="light" icon={<IconTrendingUp size={18} />}>
-              <Text size="xs" fw={700}>Cobrança Proporcional aos Dias Restantes (Pró-rata):</Text>
-              <Text size="xs" mt={2}>
-                Faltam <b>{daysRemainingInCycle} dias</b> até seu próximo vencimento em <b>{nextCycleDueDateFmt}</b>.
-                Você não paga o plano cheio novamente: paga apenas <b>R$ {addonsProratedDueNow.toFixed(2).replace('.', ',')}</b> correspondente aos dias restantes.
-                A partir de <b>{nextCycleDueDateFmt}</b>, sua fatura regular passará a ser de <b>R$ {newAddonsTotalMonthly.toFixed(2).replace('.', ',')}/mês</b>.
-              </Text>
-            </Alert>
-          )}
-
-          <Group justify="flex-end" mt="sm">
-            <Button variant="subtle" color="gray" size="sm" onClick={() => setAddonsModalOpen(false)} disabled={savingAddons}>
-              Cancelar
-            </Button>
-            <Button
-              color="teal"
-              variant="gradient"
-              gradient={{ from: 'teal.6', to: 'green.6' }}
-              size="sm"
-              onClick={handleSaveAddons}
-              loading={savingAddons}
-              disabled={isAddonRemovalBlocked}
-              leftSection={<IconDeviceFloppy size={16} />}
-            >
-              {isAddonsDowngrade
-                ? 'Confirmar Redução para o Próximo Mês'
-                : `Confirmar e Contratar Add-ons (R$ ${addonsProratedDueNow.toFixed(2).replace('.', ',')} Pró-rata)`}
-            </Button>
-          </Group>
-        </Stack>
-      </Modal>
-
-      {/* Modal de Pagamento PIX Pró-rata */}
-      <Modal
-        opened={pixModalOpen}
-        onClose={() => setPixModalOpen(false)}
-        title={
-          <Group gap="xs">
-            <IconQrcode size={20} color="var(--mantine-color-teal-4)" />
-            <Text fw={700} size="md">
-              Pagamento da Diferença Proporcional (PIX)
-            </Text>
-          </Group>
-        }
-        size="md"
-        radius="md"
-        centered
-        styles={{
-          header: { background: 'rgba(15, 23, 42, 0.95)', borderBottom: '1px solid rgba(255, 255, 255, 0.08)' },
-          content: { background: '#0f172a', border: '1px solid rgba(20, 184, 166, 0.4)' },
-        }}
-      >
-        <Stack gap="md" align="center">
-          <Alert color="indigo" variant="light" style={{ width: '100%' }}>
-            <Text size="xs">
-              Faltam <b>{pixData?.days_remaining} dias</b> até sua renovação em <b>{pixData?.next_due_date_formatted}</b>.
-              Efetue o pagamento abaixo para ativar seus novos limites imediatamente.
-            </Text>
-          </Alert>
-
-          <Paper p="md" radius="md" bg="rgba(30, 41, 59, 0.6)" style={{ textAlign: 'center', width: '100%' }}>
-            <Text size="xs" c="dimmed">Valor Proporcional a Pagar:</Text>
-            <Text fw={800} size="xl" c="teal.3">
-              R$ {(pixData?.prorated_amount || 0).toFixed(2).replace('.', ',')}
-            </Text>
-            <Text size="xs" c="dimmed" mt={4}>
-              Sua próxima mensalidade em {pixData?.next_due_date_formatted} será de R$ {(pixData?.new_monthly || 0).toFixed(2).replace('.', ',')}/mês
-            </Text>
-          </Paper>
-
-          {pixData?.pix_qr_code && (
-            <Paper p="sm" radius="md" bg="white" style={{ display: 'inline-block' }}>
-              <img
-                src={pixData.pix_qr_code}
-                alt="QR Code PIX"
-                style={{ width: 180, height: 180, display: 'block' }}
-              />
+          </Stack>
+        ) : (
+          /* STEP 2: QUADRO DE PAGAMENTO DOS ADD-ONS */
+          <Stack gap="md">
+            {/* Box Resumo do Valor Proporcional */}
+            <Paper p="md" radius="md" bg="rgba(30, 41, 59, 0.6)" style={{ border: '1px solid rgba(20, 184, 166, 0.3)' }}>
+              <Group justify="space-between" align="center">
+                <div>
+                  <Text size="xs" c="dimmed" tt="uppercase" fw={700}>Resumo da Operação</Text>
+                  <Text size="sm" fw={700} c="white">
+                    {modalExtraWebsites > 0 ? `+${modalExtraWebsites} site(s) extra(s)` : ''}
+                    {modalExtraWebsites > 0 && modalExtraAiPacks > 0 ? ' • ' : ''}
+                    {modalExtraAiPacks > 0 ? `+${modalExtraAiPacks} pacote(s) IA extra(s)` : ''}
+                  </Text>
+                  <Text size="xs" c="dimmed" mt={2}>
+                    Período proporcional: <b>{daysRemainingInCycle} dias restantes</b> até renovação em <b>{nextCycleDueDateFmt}</b>
+                  </Text>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <Text size="xs" c="dimmed">Valor a Pagar Hoje (Pró-rata):</Text>
+                  <Text fw={800} size="xl" c="teal.3">
+                    R$ {addonsProratedDueNow.toFixed(2).replace('.', ',')}
+                  </Text>
+                  <Text size="11px" c="dimmed">
+                    Próxima mensalidade: R$ {newAddonsTotalMonthly.toFixed(2).replace('.', ',')}/mês
+                  </Text>
+                </div>
+              </Group>
             </Paper>
-          )}
 
-          {pixData?.pix_copy_paste && (
-            <Stack gap="xs" style={{ width: '100%' }}>
-              <Text size="xs" c="dimmed" ta="center">
-                Código Copia e Cola:
+            {/* Seletor de Método de Pagamento */}
+            <div>
+              <Text size="xs" fw={700} c="dimmed" mb={6} tt="uppercase">
+                Escolha a Forma de Pagamento
               </Text>
-              <TextInput
-                readOnly
-                value={pixData.pix_copy_paste}
-                size="xs"
-                rightSection={
-                  <Button
-                    size="compact-xs"
-                    variant="subtle"
-                    color={pixCopied ? 'teal' : 'blue'}
-                    onClick={() => {
-                      if (pixData?.pix_copy_paste) {
-                        navigator.clipboard.writeText(pixData.pix_copy_paste);
-                        setPixCopied(true);
-                        setTimeout(() => setPixCopied(false), 3000);
-                      }
-                    }}
-                  >
-                    {pixCopied ? <IconCheck size={14} /> : <IconCopy size={14} />}
-                  </Button>
-                }
-              />
-            </Stack>
-          )}
+              <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs">
+                <Paper
+                  p="sm"
+                  radius="md"
+                  onClick={() => setAddonPaymentMethod('credit_card')}
+                  style={{
+                    cursor: 'pointer',
+                    background: addonPaymentMethod === 'credit_card' ? 'rgba(20, 184, 166, 0.15)' : 'rgba(30, 41, 59, 0.5)',
+                    border: addonPaymentMethod === 'credit_card' ? '2px solid #14b8a6' : '1px solid rgba(255, 255, 255, 0.08)',
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  <Group justify="space-between" mb={4}>
+                    <Group gap="xs">
+                      <IconCreditCard size={18} color={addonPaymentMethod === 'credit_card' ? '#2dd4bf' : '#94a3b8'} />
+                      <Text size="sm" fw={700} c={addonPaymentMethod === 'credit_card' ? 'white' : 'gray.4'}>
+                        Cartão de Crédito
+                      </Text>
+                    </Group>
+                    <Badge size="xs" color="teal" variant="light">Instantâneo</Badge>
+                  </Group>
+                  <Text size="xs" c="dimmed">
+                    Aprovação imediata e liberação automática dos add-ons contratados.
+                  </Text>
+                </Paper>
 
-          <Group justify="space-between" style={{ width: '100%' }} mt="sm">
-            <Button variant="subtle" color="gray" size="sm" onClick={() => setPixModalOpen(false)}>
-              Fechar
-            </Button>
-            <Button
-              color="teal"
-              variant="gradient"
-              gradient={{ from: 'teal.6', to: 'green.6' }}
-              size="sm"
-              onClick={handleConfirmPixPayment}
-              loading={confirmingPix}
-              leftSection={<IconCheck size={16} />}
-            >
-              Já paguei via PIX
-            </Button>
-          </Group>
-        </Stack>
+                <Paper
+                  p="sm"
+                  radius="md"
+                  onClick={() => {
+                    setAddonPaymentMethod('pix');
+                    if (!addonPixData) {
+                      handleGenerateAddonPix();
+                    }
+                  }}
+                  style={{
+                    cursor: 'pointer',
+                    background: addonPaymentMethod === 'pix' ? 'rgba(20, 184, 166, 0.15)' : 'rgba(30, 41, 59, 0.5)',
+                    border: addonPaymentMethod === 'pix' ? '2px solid #14b8a6' : '1px solid rgba(255, 255, 255, 0.08)',
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  <Group justify="space-between" mb={4}>
+                    <Group gap="xs">
+                      <IconQrcode size={18} color={addonPaymentMethod === 'pix' ? '#2dd4bf' : '#94a3b8'} />
+                      <Text size="sm" fw={700} c={addonPaymentMethod === 'pix' ? 'white' : 'gray.4'}>
+                        PIX Instantâneo
+                      </Text>
+                    </Group>
+                    <Badge size="xs" color="cyan" variant="light">QR Code</Badge>
+                  </Group>
+                  <Text size="xs" c="dimmed">
+                    Pagamento via QR Code ou Copia e Cola com confirmação rápida.
+                  </Text>
+                </Paper>
+              </SimpleGrid>
+            </div>
+
+            {/* ABA CARTÃO DE CRÉDITO */}
+            {addonPaymentMethod === 'credit_card' && (
+              <Card p="sm" radius="md" bg="rgba(15, 23, 42, 0.6)" style={{ border: '1px solid rgba(20, 184, 166, 0.25)' }}>
+                <Stack gap="xs">
+                  <Text size="xs" fw={700} c="teal.3" style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Dados do Cartão para Pagamento
+                  </Text>
+
+                  <TextInput
+                    label="Nome Impresso no Cartão"
+                    placeholder="Ex: CARLOS E SILVA"
+                    value={addonCardHolder}
+                    onChange={(e) => setAddonCardHolder(e.target.value.toUpperCase())}
+                    required
+                    size="xs"
+                  />
+
+                  <TextInput
+                    label="Número do Cartão"
+                    placeholder="0000 0000 0000 0000"
+                    value={addonCardNumber}
+                    onChange={(e) => handleCardNumberFormat(e.target.value, setAddonCardNumber)}
+                    leftSection={<IconCreditCard size={16} />}
+                    required
+                    size="xs"
+                  />
+
+                  <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs">
+                    <TextInput
+                      label="Validade (MM/AA)"
+                      placeholder="MM/AA"
+                      value={addonCardExpiry}
+                      onChange={(e) => handleCardExpiryFormat(e.target.value, setAddonCardExpiry)}
+                      maxLength={5}
+                      required
+                      size="xs"
+                    />
+                    <TextInput
+                      label="Código de Segurança (CVV)"
+                      placeholder="123"
+                      value={addonCardCcv}
+                      onChange={(e) => handleCardCcvFormat(e.target.value, setAddonCardCcv)}
+                      maxLength={4}
+                      leftSection={<IconLock size={16} />}
+                      required
+                      type="password"
+                      size="xs"
+                    />
+                  </SimpleGrid>
+
+                  <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs">
+                    <TextInput
+                      label="CEP do Titular"
+                      placeholder="00000-000"
+                      value={addonPostalCode}
+                      onChange={(e) => handlePostalCodeFormat(e.target.value, setAddonPostalCode)}
+                      maxLength={9}
+                      leftSection={<IconMapPin size={16} />}
+                      required
+                      size="xs"
+                    />
+                    <TextInput
+                      label="Número do Endereço"
+                      placeholder="Ex: 100 ou S/N"
+                      value={addonAddressNumber}
+                      onChange={(e) => setAddonAddressNumber(e.target.value)}
+                      required
+                      size="xs"
+                    />
+                  </SimpleGrid>
+
+                  <Group gap="xs" mt={4}>
+                    <IconShieldCheck size={16} color="var(--mantine-color-green-4)" />
+                    <Text size="11px" c="dimmed">
+                      Pagamento seguro processado pelo gateway bancário Asaas com aprovação imediata.
+                    </Text>
+                  </Group>
+                </Stack>
+              </Card>
+            )}
+
+            {/* ABA PIX */}
+            {addonPaymentMethod === 'pix' && (
+              <Card p="md" radius="md" bg="rgba(15, 23, 42, 0.6)" style={{ border: '1px solid rgba(20, 184, 166, 0.3)' }}>
+                {addonPixLoading && !addonPixData ? (
+                  <Stack align="center" py="lg">
+                    <Loader size="md" color="teal" />
+                    <Text size="xs" c="dimmed">Gerando cobrança PIX com o gateway Asaas...</Text>
+                  </Stack>
+                ) : addonPixData ? (
+                  <Stack gap="sm" align="center">
+                    {addonPixData.pix_qr_code && (
+                      <Paper p="xs" radius="md" bg="white" style={{ display: 'inline-block' }}>
+                        <img
+                          src={addonPixData.pix_qr_code}
+                          alt="QR Code PIX Add-ons"
+                          style={{ width: 170, height: 170, display: 'block' }}
+                        />
+                      </Paper>
+                    )}
+
+                    {addonPixData.pix_copy_paste && (
+                      <Stack gap={4} style={{ width: '100%' }}>
+                        <Text size="xs" c="dimmed" ta="center">
+                          Código Copia e Cola:
+                        </Text>
+                        <TextInput
+                          readOnly
+                          value={addonPixData.pix_copy_paste}
+                          size="xs"
+                          rightSection={
+                            <CopyButton value={addonPixData.pix_copy_paste} timeout={2500}>
+                              {({ copied, copy }) => (
+                                <Button
+                                  size="compact-xs"
+                                  variant="subtle"
+                                  color={copied ? 'teal' : 'blue'}
+                                  onClick={copy}
+                                >
+                                  {copied ? <IconCheck size={14} /> : <IconCopy size={14} />}
+                                </Button>
+                              )}
+                            </CopyButton>
+                          }
+                        />
+                      </Stack>
+                    )}
+
+                    <Alert color="teal" variant="light" style={{ width: '100%' }}>
+                      <Text size="xs" ta="center">
+                        Aguardando confirmação bancária. Assim que o pagamento for realizado no seu banco, os add-ons serão ativados automaticamente.
+                      </Text>
+                    </Alert>
+
+                    <Button
+                      color="teal"
+                      variant="light"
+                      size="xs"
+                      onClick={handleCheckAddonPixPayment}
+                      loading={addonPixLoading}
+                      leftSection={<IconCheck size={14} />}
+                    >
+                      Já realizei o pagamento via PIX / Verificar
+                    </Button>
+                  </Stack>
+                ) : (
+                  <Stack align="center" py="md">
+                    <Button
+                      color="teal"
+                      size="sm"
+                      onClick={handleGenerateAddonPix}
+                      loading={addonPixLoading}
+                      leftSection={<IconQrcode size={16} />}
+                    >
+                      Gerar QR Code PIX de R$ {addonsProratedDueNow.toFixed(2).replace('.', ',')}
+                    </Button>
+                  </Stack>
+                )}
+              </Card>
+            )}
+
+            {/* Exibição de Erro no Quadro de Pagamento */}
+            {addonPaymentError && (
+              <Alert color="red" variant="filled" icon={<IconAlertCircle size={16} />}>
+                <Text size="xs">{addonPaymentError}</Text>
+              </Alert>
+            )}
+
+            {/* Footer Buttons do Quadro de Pagamento */}
+            <Group justify="space-between" mt="sm">
+              <Button
+                variant="subtle"
+                color="gray"
+                size="sm"
+                onClick={() => setAddonStep('config')}
+                disabled={savingAddons || addonPixLoading}
+                leftSection={<IconArrowLeft size={16} />}
+              >
+                Voltar à Configuração
+              </Button>
+
+              {addonPaymentMethod === 'credit_card' && (
+                <Button
+                  color="teal"
+                  variant="gradient"
+                  gradient={{ from: 'teal.6', to: 'green.6' }}
+                  size="sm"
+                  onClick={handlePayAddonsWithCard}
+                  loading={savingAddons}
+                  leftSection={<IconCreditCard size={16} />}
+                >
+                  Pagar R$ {addonsProratedDueNow.toFixed(2).replace('.', ',')} no Cartão
+                </Button>
+              )}
+
+              {addonPaymentMethod === 'pix' && (
+                <Button
+                  variant="subtle"
+                  color="gray"
+                  size="sm"
+                  onClick={() => setAddonsModalOpen(false)}
+                >
+                  Fechar
+                </Button>
+              )}
+            </Group>
+          </Stack>
+        )}
       </Modal>
+
+
 
       {/* Modal de Renovação / Contratação de Plano */}
       {renewModalOpen && (
