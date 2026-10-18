@@ -39,7 +39,7 @@ import {
   IconLayoutDashboard,
   IconLayersLinked,
 } from '@tabler/icons-react';
-import { getPublicPlans, getDocsUrl, Plan, api } from '../api';
+import { getPublicPlans, getDocsUrl, Plan, PaymentMethodsConfig, api } from '../api';
 import { CheckoutModal } from './CheckoutModal';
 
 interface LandingPageViewProps {
@@ -104,6 +104,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
     },
   ]);
   const [loadingPlans, setLoadingPlans] = useState(false);
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethodsConfig | undefined>(undefined);
 
   // Busca automática dos planos da plataforma
   useEffect(() => {
@@ -113,6 +114,9 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
         const res = await getPublicPlans();
         if (res && res.data && res.data.length > 0) {
           setPlans(res.data);
+        }
+        if (res && res.payment_methods) {
+          setPaymentMethods(res.payment_methods);
         }
       } catch (err) {
         console.warn('Usando planos padrão de fallback na Landing Page:', err);
@@ -1162,6 +1166,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
         onClose={() => setContractModalOpen(false)}
         selectedPlan={selectedPlan}
         currentUser={currentUser}
+        paymentMethods={paymentMethods}
         onOpenLogin={() => setLoginModalOpen(true)}
         onPaymentSuccess={(user, token) => {
           setContractModalOpen(false);

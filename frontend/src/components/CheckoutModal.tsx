@@ -42,6 +42,8 @@ import {
   simulateConfirmCheckout,
   checkCheckoutEmail,
   CheckoutInitiateResponse,
+  PaymentMethodsConfig,
+  getPublicPaymentMethods,
 } from '../api';
 
 interface CheckoutModalProps {
@@ -51,6 +53,7 @@ interface CheckoutModalProps {
   currentUser?: any;
   initialExtraWebsites?: number;
   initialExtraAiPacks?: number;
+  paymentMethods?: PaymentMethodsConfig;
   onOpenLogin?: () => void;
   onPaymentSuccess: (user: any, token?: string) => void;
 }
@@ -62,6 +65,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   currentUser,
   initialExtraWebsites = 0,
   initialExtraAiPacks = 0,
+  paymentMethods,
   onOpenLogin,
   onPaymentSuccess,
 }) => {
@@ -81,8 +85,36 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [emailExists, setEmailExists] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
 
+  // Active payment methods configuration
+  const [activePaymentMethods, setActivePaymentMethods] = useState<PaymentMethodsConfig>(
+    paymentMethods || { credit_card: true, pix: false }
+  );
+
+  useEffect(() => {
+    if (paymentMethods) {
+      setActivePaymentMethods(paymentMethods);
+    }
+  }, [paymentMethods]);
+
+  useEffect(() => {
+    if (opened && !paymentMethods) {
+      getPublicPaymentMethods()
+        .then((res) => {
+          if (res && res.payment_methods) {
+            setActivePaymentMethods(res.payment_methods);
+          }
+        })
+        .catch((e) => console.warn('Could not fetch public payment methods:', e));
+    }
+  }, [opened, paymentMethods]);
+
+  const allowCreditCard = activePaymentMethods.credit_card;
+  const allowPix = activePaymentMethods.pix;
+
   // Payment method: credit_card or pix
-  const [paymentMethod, setPaymentMethod] = useState<'credit_card' | 'pix'>('credit_card');
+  const [paymentMethod, setPaymentMethod] = useState<'credit_card' | 'pix'>(
+    allowCreditCard ? 'credit_card' : 'pix'
+  );
 
   // Credit Card fields
   const [cardHolder, setCardHolder] = useState('');
@@ -114,7 +146,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       setCheckoutData(null);
       setExtraWebsites(initialExtraWebsites);
       setExtraAiPacks(initialExtraAiPacks);
-      setPaymentMethod('credit_card');
+      setPaymentMethod(allowCreditCard ? 'credit_card' : 'pix');
       setCardHolder('');
       setCardNumber('');
       setCardExpiry('');
@@ -685,57 +717,97 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
             <Divider label="Forma de Pagamento da Assinatura" labelPosition="center" color="dark.5" />
 
-            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs">
-              <Paper
-                p="sm"
-                radius="md"
-                onClick={() => setPaymentMethod('credit_card')}
-                style={{
-                  cursor: 'pointer',
-                  background: paymentMethod === 'credit_card' ? 'rgba(99, 102, 241, 0.15)' : 'rgba(30, 41, 59, 0.5)',
-                  border: paymentMethod === 'credit_card' ? '2px solid #6366f1' : '1px solid rgba(255, 255, 255, 0.08)',
-                  transition: 'all 0.2s ease',
-                }}
-              >
-                <Group justify="space-between" mb={4}>
-                  <Group gap="xs">
-                    <IconCreditCard size={18} color={paymentMethod === 'credit_card' ? '#818cf8' : '#94a3b8'} />
-                    <Text size="sm" fw={700} c={paymentMethod === 'credit_card' ? 'white' : 'gray.4'}>
-                      Cartão de Crédito
-                    </Text>
+            {allowCreditCard && allowPix && (
+              <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs">
+                <Paper
+                  p="sm"
+                  radius="md"
+                  onClick={() => setPaymentMethod('credit_card')}
+                  style={{
+                    cursor: 'pointer',
+                    background: paymentMethod === 'credit_card' ? 'rgba(99, 102, 241, 0.15)' : 'rgba(30, 41, 59, 0.5)',
+                    border: paymentMethod === 'credit_card' ? '2px solid #6366f1' : '1px solid rgba(255, 255, 255, 0.08)',
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  <Group justify="space-between" mb={4}>
+                    <Group gap="xs">
+                      <IconCreditCard size={18} color={paymentMethod === 'credit_card' ? '#818cf8' : '#94a3b8'} />
+                      <Text size="sm" fw={700} c={paymentMethod === 'credit_card' ? 'white' : 'gray.4'}>
+                        Cartão de Crédito
+                      </Text>
+                    </Group>
+                    <Badge size="xs" color="indigo" variant="light">Automático</Badge>
                   </Group>
-                  <Badge size="xs" color="indigo" variant="light">Automático</Badge>
-                </Group>
-                <Text size="xs" c="dimmed">
-                  Cobrança recorrente mensal sem risco de interrupção.
-                </Text>
-              </Paper>
+                  <Text size="xs" c="dimmed">
+                    Cobrança recorrente mensal sem risco de interrupção.
+                  </Text>
+                </Paper>
 
-              <Paper
-                p="sm"
-                radius="md"
-                onClick={() => setPaymentMethod('pix')}
-                style={{
-                  cursor: 'pointer',
-                  background: paymentMethod === 'pix' ? 'rgba(99, 102, 241, 0.15)' : 'rgba(30, 41, 59, 0.5)',
-                  border: paymentMethod === 'pix' ? '2px solid #6366f1' : '1px solid rgba(255, 255, 255, 0.08)',
-                  transition: 'all 0.2s ease',
-                }}
-              >
-                <Group justify="space-between" mb={4}>
+                <Paper
+                  p="sm"
+                  radius="md"
+                  onClick={() => setPaymentMethod('pix')}
+                  style={{
+                    cursor: 'pointer',
+                    background: paymentMethod === 'pix' ? 'rgba(99, 102, 241, 0.15)' : 'rgba(30, 41, 59, 0.5)',
+                    border: paymentMethod === 'pix' ? '2px solid #6366f1' : '1px solid rgba(255, 255, 255, 0.08)',
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  <Group justify="space-between" mb={4}>
+                    <Group gap="xs">
+                      <IconQrcode size={18} color={paymentMethod === 'pix' ? '#818cf8' : '#94a3b8'} />
+                      <Text size="sm" fw={700} c={paymentMethod === 'pix' ? 'white' : 'gray.4'}>
+                        Pix Instantâneo
+                      </Text>
+                    </Group>
+                    <Badge size="xs" color="teal" variant="light">QR Code</Badge>
+                  </Group>
+                  <Text size="xs" c="dimmed">
+                    Pagamento com QR Code instantâneo a cada renovação.
+                  </Text>
+                </Paper>
+              </SimpleGrid>
+            )}
+
+            {allowCreditCard && !allowPix && (
+              <Paper p="sm" radius="md" bg="rgba(99, 102, 241, 0.1)" style={{ border: '1px solid rgba(99, 102, 241, 0.3)' }}>
+                <Group justify="space-between">
                   <Group gap="xs">
-                    <IconQrcode size={18} color={paymentMethod === 'pix' ? '#818cf8' : '#94a3b8'} />
-                    <Text size="sm" fw={700} c={paymentMethod === 'pix' ? 'white' : 'gray.4'}>
-                      Pix Instantâneo
-                    </Text>
+                    <IconCreditCard size={18} color="#818cf8" />
+                    <div>
+                      <Text size="sm" fw={700} c="white">
+                        Pagamento via Cartão de Crédito
+                      </Text>
+                      <Text size="xs" c="dimmed">
+                        Cobrança mensal recorrente com ativação imediata dos limites.
+                      </Text>
+                    </div>
+                  </Group>
+                  <Badge size="xs" color="indigo" variant="light">Recorrência Automática</Badge>
+                </Group>
+              </Paper>
+            )}
+
+            {!allowCreditCard && allowPix && (
+              <Paper p="sm" radius="md" bg="rgba(20, 184, 166, 0.1)" style={{ border: '1px solid rgba(20, 184, 166, 0.3)' }}>
+                <Group justify="space-between">
+                  <Group gap="xs">
+                    <IconQrcode size={18} color="#2dd4bf" />
+                    <div>
+                      <Text size="sm" fw={700} c="white">
+                        Pagamento via Pix Instantâneo
+                      </Text>
+                      <Text size="xs" c="dimmed">
+                        Geração de QR Code e código Copia e Cola na próxima etapa.
+                      </Text>
+                    </div>
                   </Group>
                   <Badge size="xs" color="teal" variant="light">QR Code</Badge>
                 </Group>
-                <Text size="xs" c="dimmed">
-                  Pagamento com QR Code instantâneo a cada renovação.
-                </Text>
               </Paper>
-            </SimpleGrid>
+            )}
 
             {/* Campos de Cartão de Crédito */}
             {paymentMethod === 'credit_card' && (

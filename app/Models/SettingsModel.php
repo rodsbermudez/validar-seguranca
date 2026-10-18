@@ -61,4 +61,26 @@ class SettingsModel extends Model
             return false;
         }
     }
+
+    /**
+     * Retorna a configuração das formas de pagamento habilitadas na plataforma.
+     * Padrão atual: Cartão de Crédito ativo, Pix inativo (configurável pelo admin).
+     * Garante que ao menos uma forma de pagamento permaneça ativa.
+     */
+    public static function getPaymentMethods(): array
+    {
+        $creditCard = self::getSetting('payment_method_credit_card', '1') === '1';
+        $pix        = self::getSetting('payment_method_pix', '0') === '1';
+
+        // Garante que ao menos uma opção esteja habilitada
+        if (!$creditCard && !$pix) {
+            $creditCard = true;
+        }
+
+        return [
+            'credit_card' => $creditCard,
+            'pix'         => $pix,
+        ];
+    }
 }
+

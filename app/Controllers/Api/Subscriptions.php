@@ -8,6 +8,7 @@ use App\Models\UserModel;
 use App\Models\PlanModel;
 use App\Models\WebsiteModel;
 use App\Models\PaymentTransactionModel;
+use App\Models\SettingsModel;
 use App\Services\Payment\AsaasService;
 use App\Services\UserPlanService;
 
@@ -391,7 +392,18 @@ class Subscriptions extends ResourceController
         $proratedRatio = min(1.0, max(0.033, $daysRemaining / 30.0));
         $proratedAmount = round($difference * $proratedRatio, 2);
 
+        $paymentMethods = SettingsModel::getPaymentMethods();
         $requestedBillingType = strtoupper(trim($json['billing_type'] ?? ''));
+        if (empty($requestedBillingType)) {
+            $requestedBillingType = $paymentMethods['credit_card'] ? 'CREDIT_CARD' : 'PIX';
+        }
+
+        if ($requestedBillingType === 'PIX' && empty($paymentMethods['pix'])) {
+            return $this->fail('O pagamento via Pix está temporariamente desativado. Por favor, utilize Cartão de Crédito.', 400);
+        }
+        if ($requestedBillingType === 'CREDIT_CARD' && empty($paymentMethods['credit_card'])) {
+            return $this->fail('O pagamento via Cartão de Crédito está desativado no momento. Por favor, utilize Pix.', 400);
+        }
 
         // Se o usuário solicitou pagamento com CARTÃO DE CRÉDITO
         if ($sub && $requestedBillingType === 'CREDIT_CARD') {
@@ -717,7 +729,18 @@ class Subscriptions extends ResourceController
         $proratedRatio = min(1.0, max(0.033, $daysRemaining / 30.0));
         $proratedAmount = round($difference * $proratedRatio, 2);
 
+        $paymentMethods = SettingsModel::getPaymentMethods();
         $requestedBillingType = strtoupper(trim($json['billing_type'] ?? ''));
+        if (empty($requestedBillingType)) {
+            $requestedBillingType = $paymentMethods['credit_card'] ? 'CREDIT_CARD' : 'PIX';
+        }
+
+        if ($requestedBillingType === 'PIX' && empty($paymentMethods['pix'])) {
+            return $this->fail('O pagamento via Pix está temporariamente desativado. Por favor, utilize Cartão de Crédito.', 400);
+        }
+        if ($requestedBillingType === 'CREDIT_CARD' && empty($paymentMethods['credit_card'])) {
+            return $this->fail('O pagamento via Cartão de Crédito está desativado no momento. Por favor, utilize Pix.', 400);
+        }
 
         // Se o cliente escolheu Cartão de Crédito
         if ($sub && $requestedBillingType === 'CREDIT_CARD') {

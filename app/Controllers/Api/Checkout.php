@@ -7,6 +7,7 @@ use App\Models\UserModel;
 use App\Models\PlanModel;
 use App\Models\SubscriptionModel;
 use App\Models\PaymentTransactionModel;
+use App\Models\SettingsModel;
 use App\Services\Payment\AsaasService;
 use App\Services\UserPlanService;
 use App\Libraries\JWTAuth;
@@ -123,7 +124,20 @@ class Checkout extends ResourceController
             $userModel->update($userId, ['asaas_customer_id' => $asaasCustomerId]);
         }
 
-        $billingType = strtoupper(trim($json['billing_type'] ?? 'PIX')) === 'CREDIT_CARD' ? 'CREDIT_CARD' : 'PIX';
+        $paymentMethods = SettingsModel::getPaymentMethods();
+        $rawBillingType = strtoupper(trim($json['billing_type'] ?? ''));
+        if (empty($rawBillingType)) {
+            $billingType = $paymentMethods['credit_card'] ? 'CREDIT_CARD' : 'PIX';
+        } else {
+            $billingType = $rawBillingType === 'CREDIT_CARD' ? 'CREDIT_CARD' : 'PIX';
+        }
+
+        if ($billingType === 'PIX' && empty($paymentMethods['pix'])) {
+            return $this->fail('O pagamento via Pix está temporariamente desativado. Por favor, utilize Cartão de Crédito.', 400);
+        }
+        if ($billingType === 'CREDIT_CARD' && empty($paymentMethods['credit_card'])) {
+            return $this->fail('O pagamento via Cartão de Crédito está desativado no momento. Por favor, utilize Pix.', 400);
+        }
 
         // Garantia Anti-Duplicação: cancela assinatura anterior ativa no Asaas e banco antes de criar nova
         $subscriptionModel = new SubscriptionModel();

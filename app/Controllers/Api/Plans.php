@@ -5,6 +5,7 @@ namespace App\Controllers\Api;
 use CodeIgniter\RESTful\ResourceController;
 use App\Models\PlanModel;
 use App\Models\UserModel;
+use App\Models\SettingsModel;
 
 class Plans extends ResourceController
 {
@@ -67,8 +68,9 @@ class Plans extends ResourceController
         }
 
         return $this->respond([
-            'status' => 200,
-            'data'   => $plans,
+            'status'          => 200,
+            'data'            => $plans,
+            'payment_methods' => SettingsModel::getPaymentMethods(),
         ]);
     }
 

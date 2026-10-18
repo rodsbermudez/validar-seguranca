@@ -26,6 +26,7 @@ $routes->group('api', function ($routes) {
 
     // Public Plans Catalog route for Landing Page
     $routes->get('public/plans', 'Api\Plans::publicIndex');
+    $routes->get('public/payment-methods', 'Api\Settings::publicPaymentMethods');
 
     // Public Checkout & Asaas Payments
     $routes->post('public/checkout/initiate', 'Api\Checkout::initiate');

@@ -111,6 +111,11 @@ export interface AIModelOption {
   color: string;
 }
 
+export interface PaymentMethodsConfig {
+  credit_card: boolean;
+  pix: boolean;
+}
+
 export interface PlatformSettingsResponse {
   status: number;
   success: boolean;
@@ -124,6 +129,7 @@ export interface PlatformSettingsResponse {
   asaas_environment?: 'sandbox' | 'production';
   asaas_webhook_secret?: string;
   asaas_configured?: boolean;
+  payment_methods?: PaymentMethodsConfig;
   message?: string;
 }
 
@@ -139,7 +145,8 @@ export const updateSettings = async (
   completionTokenPricePer1k?: number,
   asaasApiKey?: string,
   asaasEnvironment?: 'sandbox' | 'production',
-  asaasWebhookSecret?: string
+  asaasWebhookSecret?: string,
+  paymentMethods?: Partial<PaymentMethodsConfig>
 ): Promise<PlatformSettingsResponse> => {
   const payload: Record<string, any> = {};
   if (aiModel !== undefined) payload.ai_model = aiModel;
@@ -149,6 +156,8 @@ export const updateSettings = async (
   if (asaasApiKey !== undefined) payload.asaas_api_key = asaasApiKey;
   if (asaasEnvironment !== undefined) payload.asaas_environment = asaasEnvironment;
   if (asaasWebhookSecret !== undefined) payload.asaas_webhook_secret = asaasWebhookSecret;
+  if (paymentMethods?.credit_card !== undefined) payload.payment_method_credit_card = paymentMethods.credit_card;
+  if (paymentMethods?.pix !== undefined) payload.payment_method_pix = paymentMethods.pix;
   const response = await api.post<PlatformSettingsResponse>('/settings', payload);
   return response.data;
 };
@@ -1001,6 +1010,7 @@ export interface UserPlanResponse {
   plan_details: UserPlanDetails;
   subscription?: SubscriptionInfo | null;
   available_plans: Plan[];
+  payment_methods?: PaymentMethodsConfig;
   websites: Array<{
     id: number;
     name: string;
@@ -1072,8 +1082,13 @@ export const updateUserPlan = async (
   return response.data;
 };
 
-export const getPublicPlans = async (): Promise<{ status: number; data: Plan[] }> => {
-  const response = await api.get<{ status: number; data: Plan[] }>('/public/plans');
+export const getPublicPlans = async (): Promise<{ status: number; data: Plan[]; payment_methods?: PaymentMethodsConfig }> => {
+  const response = await api.get<{ status: number; data: Plan[]; payment_methods?: PaymentMethodsConfig }>('/public/plans');
+  return response.data;
+};
+
+export const getPublicPaymentMethods = async (): Promise<{ status: number; success: boolean; payment_methods: PaymentMethodsConfig }> => {
+  const response = await api.get<{ status: number; success: boolean; payment_methods: PaymentMethodsConfig }>('/public/payment-methods');
   return response.data;
 };
 

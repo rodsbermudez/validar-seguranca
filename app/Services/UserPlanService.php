@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\UserModel;
 use App\Models\PlanModel;
 use App\Models\WebsiteModel;
+use App\Models\SettingsModel;
 
 class UserPlanService
 {
@@ -264,6 +265,7 @@ class UserPlanService
             'is_subscription_active'    => $isSubscriptionActive,
             'is_subscription_canceled'  => $isSubscriptionCanceled,
             'is_subscription_expired'   => $isSubscriptionExpired,
+            'payment_methods'           => SettingsModel::getPaymentMethods(),
         ];
     }
 

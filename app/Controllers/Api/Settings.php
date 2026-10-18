@@ -87,6 +87,7 @@ class Settings extends ResourceController
             'asaas_environment'             => $asaasEnv,
             'asaas_webhook_secret'          => $asaasSecret,
             'asaas_configured'              => !empty($asaasKey),
+            'payment_methods'               => SettingsModel::getPaymentMethods(),
         ]);
     }
 
@@ -113,7 +114,10 @@ class Settings extends ResourceController
         $asaasEnvInput        = array_key_exists('asaas_environment', $json) ? trim($json['asaas_environment']) : ($this->request->getPost('asaas_environment') !== null ? trim($this->request->getPost('asaas_environment')) : null);
         $asaasSecretInput     = array_key_exists('asaas_webhook_secret', $json) ? trim($json['asaas_webhook_secret']) : ($this->request->getPost('asaas_webhook_secret') !== null ? trim($this->request->getPost('asaas_webhook_secret')) : null);
 
-        if (empty($aiModel) && $tokenPriceInput === null && $promptPriceInput === null && $completionPriceInput === null && $asaasKeyInput === null && $asaasEnvInput === null && $asaasSecretInput === null) {
+        $pmCardInput          = array_key_exists('payment_method_credit_card', $json) ? $json['payment_method_credit_card'] : ($this->request->getPost('payment_method_credit_card') !== null ? $this->request->getPost('payment_method_credit_card') : null);
+        $pmPixInput           = array_key_exists('payment_method_pix', $json) ? $json['payment_method_pix'] : ($this->request->getPost('payment_method_pix') !== null ? $this->request->getPost('payment_method_pix') : null);
+
+        if (empty($aiModel) && $tokenPriceInput === null && $promptPriceInput === null && $completionPriceInput === null && $asaasKeyInput === null && $asaasEnvInput === null && $asaasSecretInput === null && $pmCardInput === null && $pmPixInput === null) {
             return $this->fail('Nenhum dado informado para atualização.', 400);
         }
 
@@ -162,6 +166,20 @@ class Settings extends ResourceController
             SettingsModel::setSetting('asaas_webhook_secret', $asaasSecretInput);
         }
 
+        // Formas de Pagamento (Cartão de Crédito / Pix)
+        if ($pmCardInput !== null || $pmPixInput !== null) {
+            $currentPms = SettingsModel::getPaymentMethods();
+            $newCard = $pmCardInput !== null ? filter_var($pmCardInput, FILTER_VALIDATE_BOOLEAN) : $currentPms['credit_card'];
+            $newPix  = $pmPixInput !== null ? filter_var($pmPixInput, FILTER_VALIDATE_BOOLEAN) : $currentPms['pix'];
+
+            if (!$newCard && !$newPix) {
+                return $this->fail('Ao menos uma forma de pagamento deve permanecer ativa na plataforma.', 400);
+            }
+
+            SettingsModel::setSetting('payment_method_credit_card', $newCard ? '1' : '0');
+            SettingsModel::setSetting('payment_method_pix', $newPix ? '1' : '0');
+        }
+
         // Keep ai_token_price_per_1k synchronised if only prompt/completion were updated
         if ($tokenPriceInput === null && ($promptPriceInput !== null || $completionPriceInput !== null)) {
             $pPrice = (float) SettingsModel::getSetting('ai_prompt_token_price_per_1k', '0.00');
@@ -190,6 +208,20 @@ class Settings extends ResourceController
             'asaas_environment'             => $savedAsaasEnv,
             'asaas_webhook_secret'          => $savedAsaasSecret,
             'asaas_configured'              => !empty($savedAsaasKey),
+            'payment_methods'               => SettingsModel::getPaymentMethods(),
+        ]);
+    }
+
+    /**
+     * GET /api/public/payment-methods
+     * Retorna as formas de pagamento disponíveis para o público
+     */
+    public function publicPaymentMethods()
+    {
+        return $this->respond([
+            'status'          => 200,
+            'success'         => true,
+            'payment_methods' => SettingsModel::getPaymentMethods(),
         ]);
     }
 }

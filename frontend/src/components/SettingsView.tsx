@@ -47,6 +47,7 @@ import {
   IconPlus,
   IconCrown,
   IconCreditCard,
+  IconQrcode,
 } from '@tabler/icons-react';
 import {
   getSettings,
@@ -82,6 +83,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onBack, currentUserR
   const [asaasEnv, setAsaasEnv] = useState<'sandbox' | 'production'>('sandbox');
   const [asaasWebhookSecret, setAsaasWebhookSecret] = useState<string>('');
   const [asaasConfigured, setAsaasConfigured] = useState<boolean>(false);
+
+  // Formas de Pagamento Habilitadas
+  const [enableCreditCard, setEnableCreditCard] = useState<boolean>(true);
+  const [enablePix, setEnablePix] = useState<boolean>(false);
+  const [savingPaymentMethods, setSavingPaymentMethods] = useState<boolean>(false);
+  const [paymentMethodsMsg, setPaymentMethodsMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Plans State
   const [plans, setPlans] = useState<Plan[]>([]);
@@ -122,6 +129,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onBack, currentUserR
         setAsaasEnv(res.asaas_environment || 'sandbox');
         setAsaasWebhookSecret(res.asaas_webhook_secret || '');
         setAsaasConfigured(!!res.asaas_configured);
+        if (res.payment_methods) {
+          setEnableCreditCard(!!res.payment_methods.credit_card);
+          setEnablePix(!!res.payment_methods.pix);
+        }
       } else {
         setErrorMsg(res.message || 'Falha ao carregar configurações.');
       }
@@ -196,6 +207,56 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onBack, currentUserR
       setErrorMsg(err.response?.data?.message || 'Erro ao salvar configurações do Asaas.');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSavePaymentMethods = async () => {
+    if (!enableCreditCard && !enablePix) {
+      setPaymentMethodsMsg({
+        type: 'error',
+        text: 'Ao menos uma forma de pagamento deve permanecer ativa na plataforma.',
+      });
+      return;
+    }
+
+    setSavingPaymentMethods(true);
+    setPaymentMethodsMsg(null);
+    try {
+      const res = await updateSettings(
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        {
+          credit_card: enableCreditCard,
+          pix: enablePix,
+        }
+      );
+      if (res.success) {
+        if (res.payment_methods) {
+          setEnableCreditCard(!!res.payment_methods.credit_card);
+          setEnablePix(!!res.payment_methods.pix);
+        }
+        setPaymentMethodsMsg({
+          type: 'success',
+          text: 'Formas de pagamento da plataforma atualizadas com sucesso!',
+        });
+      } else {
+        setPaymentMethodsMsg({
+          type: 'error',
+          text: res.message || 'Falha ao salvar formas de pagamento.',
+        });
+      }
+    } catch (err: any) {
+      setPaymentMethodsMsg({
+        type: 'error',
+        text: err.response?.data?.messages?.error || err.response?.data?.message || 'Erro ao salvar formas de pagamento.',
+      });
+    } finally {
+      setSavingPaymentMethods(false);
     }
   };
 
@@ -767,6 +828,156 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onBack, currentUserR
         {/* TAB 3: GATEWAY ASAAS & CHECKOUT */}
         <Tabs.Panel value="payment">
           <Stack gap="lg">
+            {/* NOVO: FORMAS DE PAGAMENTO HABILITADAS NA PLATAFORMA */}
+            <Paper p="lg" radius="md" bg="dark.8" withBorder style={{ borderColor: '#374151' }}>
+              <Group justify="space-between" mb="md" wrap="wrap" gap="sm">
+                <div>
+                  <Group gap="xs">
+                    <ThemeIcon color="indigo" variant="light" size="md">
+                      <IconAdjustments size={18} />
+                    </ThemeIcon>
+                    <Title order={3}>Formas de Pagamento Habilitadas</Title>
+                  </Group>
+                  <Text size="xs" c="dimmed" mt={2}>
+                    Ative ou desative as formas de pagamento disponíveis para contratação de planos, upgrades e add-ons pelos usuários.
+                  </Text>
+                </div>
+                <Badge
+                  size="lg"
+                  color={enableCreditCard && enablePix ? 'teal' : enableCreditCard ? 'indigo' : 'cyan'}
+                  variant="light"
+                >
+                  {enableCreditCard && enablePix
+                    ? 'Cartão & Pix Ativos'
+                    : enableCreditCard
+                    ? 'Apenas Cartão Ativo'
+                    : 'Apenas Pix Ativo'}
+                </Badge>
+              </Group>
+
+              {paymentMethodsMsg && (
+                <Alert
+                  color={paymentMethodsMsg.type === 'success' ? 'teal' : 'red'}
+                  icon={paymentMethodsMsg.type === 'success' ? <IconCheck size={16} /> : <IconAlertTriangle size={16} />}
+                  mb="md"
+                  withCloseButton
+                  onClose={() => setPaymentMethodsMsg(null)}
+                >
+                  {paymentMethodsMsg.text}
+                </Alert>
+              )}
+
+              <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
+                {/* Switch Cartão de Crédito */}
+                <Paper
+                  p="md"
+                  radius="md"
+                  bg={enableCreditCard ? 'rgba(99, 102, 241, 0.08)' : 'dark.7'}
+                  withBorder
+                  style={{
+                    borderColor: enableCreditCard ? '#6366f1' : '#4b5563',
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  <Group justify="space-between" align="flex-start" mb="xs">
+                    <Group gap="xs">
+                      <ThemeIcon color="indigo" variant={enableCreditCard ? 'filled' : 'light'} size="md">
+                        <IconCreditCard size={18} />
+                      </ThemeIcon>
+                      <div>
+                        <Text fw={700} size="sm" c="white">
+                          Cartão de Crédito
+                        </Text>
+                        <Text size="11px" c="dimmed">
+                          Cobrança Recorrente Automática
+                        </Text>
+                      </div>
+                    </Group>
+                    <Switch
+                      checked={enableCreditCard}
+                      onChange={(e) => {
+                        const checked = e.currentTarget.checked;
+                        if (!checked && !enablePix) {
+                          setPaymentMethodsMsg({
+                            type: 'error',
+                            text: 'Ao menos uma forma de pagamento deve permanecer ativa.',
+                          });
+                          return;
+                        }
+                        setPaymentMethodsMsg(null);
+                        setEnableCreditCard(checked);
+                      }}
+                      color="indigo"
+                      size="md"
+                    />
+                  </Group>
+                  <Text size="xs" c="gray.4" mt="xs">
+                    Permite que clientes contratem planos e add-ons com cobrança recorrente no cartão. A liberação dos limites é instantânea com renovação mensal sem intervenção manual.
+                  </Text>
+                </Paper>
+
+                {/* Switch Pix Instantâneo */}
+                <Paper
+                  p="md"
+                  radius="md"
+                  bg={enablePix ? 'rgba(20, 184, 166, 0.08)' : 'dark.7'}
+                  withBorder
+                  style={{
+                    borderColor: enablePix ? '#14b8a6' : '#4b5563',
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  <Group justify="space-between" align="flex-start" mb="xs">
+                    <Group gap="xs">
+                      <ThemeIcon color="teal" variant={enablePix ? 'filled' : 'light'} size="md">
+                        <IconQrcode size={18} />
+                      </ThemeIcon>
+                      <div>
+                        <Text fw={700} size="sm" c="white">
+                          Pix Instantâneo
+                        </Text>
+                        <Text size="11px" c="dimmed">
+                          QR Code Dinâmico e Copia e Cola
+                        </Text>
+                      </div>
+                    </Group>
+                    <Switch
+                      checked={enablePix}
+                      onChange={(e) => {
+                        const checked = e.currentTarget.checked;
+                        if (!checked && !enableCreditCard) {
+                          setPaymentMethodsMsg({
+                            type: 'error',
+                            text: 'Ao menos uma forma de pagamento deve permanecer ativa.',
+                          });
+                          return;
+                        }
+                        setPaymentMethodsMsg(null);
+                        setEnablePix(checked);
+                      }}
+                      color="teal"
+                      size="md"
+                    />
+                  </Group>
+                  <Text size="xs" c="gray.4" mt="xs">
+                    Permite que clientes paguem via Pix com geração de QR Code dinâmico do Asaas. A cada renovação mensal ou cálculo de pró-rata, um novo Pix é gerado.
+                  </Text>
+                </Paper>
+              </SimpleGrid>
+
+              <Group justify="flex-end" mt="lg">
+                <Button
+                  color="indigo"
+                  size="sm"
+                  leftSection={<IconDeviceFloppy size={16} />}
+                  onClick={handleSavePaymentMethods}
+                  loading={savingPaymentMethods}
+                >
+                  Salvar Formas de Pagamento
+                </Button>
+              </Group>
+            </Paper>
+
             <Paper p="lg" radius="md" bg="dark.8" withBorder style={{ borderColor: '#374151' }}>
               <Group justify="space-between" mb="md" wrap="wrap" gap="sm">
                 <div>

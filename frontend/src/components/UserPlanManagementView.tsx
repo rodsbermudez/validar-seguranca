@@ -366,6 +366,9 @@ export function UserPlanManagementView({
   const sub = pd?.subscription || data?.subscription;
   const currentPlan = data?.available_plans.find((p) => String(p.id) === String(selectedPlanId || sub?.plan_id || pd?.plan_id));
 
+  const allowCreditCard = data?.payment_methods ? data.payment_methods.credit_card : true;
+  const allowPix = data?.payment_methods ? data.payment_methods.pix : false;
+
   // Dynamic preview calculations for admin form
   const previewBaseWebsites = currentPlan ? currentPlan.max_websites : null;
   const previewTotalWebsites = previewBaseWebsites !== null ? previewBaseWebsites + Number(extraWebsites || 0) : null;
@@ -473,7 +476,8 @@ export function UserPlanManagementView({
     setModalExtraWebsites(pd?.extra_websites || 0);
     setModalExtraAiPacks(Math.round((pd?.extra_ai_tokens || 0) / 250000));
     setAddonStep('config');
-    setAddonPaymentMethod(sub?.payment_method === 'credit_card' ? 'credit_card' : 'pix');
+    const defaultPm = allowCreditCard ? 'credit_card' : 'pix';
+    setAddonPaymentMethod(sub?.payment_method === 'pix' && allowPix ? 'pix' : defaultPm);
     setAddonPaymentError(null);
     setAddonPixData(null);
     setAddonCardHolder(initialUser.name || '');
@@ -489,7 +493,8 @@ export function UserPlanManagementView({
   const handleOpenUpgradeModal = () => {
     setTargetUpgradePlanId(pd?.plan_id ? Number(pd.plan_id) : null);
     setUpgradeStep('config');
-    setUpgradePaymentMethod(sub?.payment_method === 'credit_card' ? 'credit_card' : 'pix');
+    const defaultPm = allowCreditCard ? 'credit_card' : 'pix';
+    setUpgradePaymentMethod(sub?.payment_method === 'pix' && allowPix ? 'pix' : defaultPm);
     setUpgradePaymentError(null);
     setUpgradePixData(null);
     setUpgradeCardHolder(initialUser.name || '');
@@ -2303,67 +2308,107 @@ export function UserPlanManagementView({
             </Paper>
 
             {/* Seletor de Método de Pagamento */}
-            <div>
-              <Text size="xs" fw={700} c="dimmed" mb={6} tt="uppercase">
-                Escolha a Forma de Pagamento
-              </Text>
-              <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs">
-                <Paper
-                  p="sm"
-                  radius="md"
-                  onClick={() => setUpgradePaymentMethod('credit_card')}
-                  style={{
-                    cursor: 'pointer',
-                    background: upgradePaymentMethod === 'credit_card' ? 'rgba(99, 102, 241, 0.2)' : 'rgba(30, 41, 59, 0.5)',
-                    border: upgradePaymentMethod === 'credit_card' ? '2px solid #6366f1' : '1px solid rgba(255, 255, 255, 0.08)',
-                    transition: 'all 0.2s ease',
-                  }}
-                >
-                  <Group justify="space-between" mb={4}>
-                    <Group gap="xs">
-                      <IconCreditCard size={18} color={upgradePaymentMethod === 'credit_card' ? '#818cf8' : '#94a3b8'} />
-                      <Text size="sm" fw={700} c={upgradePaymentMethod === 'credit_card' ? 'white' : 'gray.4'}>
-                        Cartão de Crédito
-                      </Text>
+            {allowCreditCard && allowPix && (
+              <div>
+                <Text size="xs" fw={700} c="dimmed" mb={6} tt="uppercase">
+                  Escolha a Forma de Pagamento
+                </Text>
+                <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs">
+                  <Paper
+                    p="sm"
+                    radius="md"
+                    onClick={() => setUpgradePaymentMethod('credit_card')}
+                    style={{
+                      cursor: 'pointer',
+                      background: upgradePaymentMethod === 'credit_card' ? 'rgba(99, 102, 241, 0.2)' : 'rgba(30, 41, 59, 0.5)',
+                      border: upgradePaymentMethod === 'credit_card' ? '2px solid #6366f1' : '1px solid rgba(255, 255, 255, 0.08)',
+                      transition: 'all 0.2s ease',
+                    }}
+                  >
+                    <Group justify="space-between" mb={4}>
+                      <Group gap="xs">
+                        <IconCreditCard size={18} color={upgradePaymentMethod === 'credit_card' ? '#818cf8' : '#94a3b8'} />
+                        <Text size="sm" fw={700} c={upgradePaymentMethod === 'credit_card' ? 'white' : 'gray.4'}>
+                          Cartão de Crédito
+                        </Text>
+                      </Group>
+                      <Badge size="xs" color="indigo" variant="light">Instantâneo</Badge>
                     </Group>
-                    <Badge size="xs" color="indigo" variant="light">Instantâneo</Badge>
-                  </Group>
-                  <Text size="xs" c="dimmed">
-                    Aprovação imediata e liberação automática do novo plano.
-                  </Text>
-                </Paper>
+                    <Text size="xs" c="dimmed">
+                      Aprovação imediata e liberação automática do novo plano.
+                    </Text>
+                  </Paper>
 
-                <Paper
-                  p="sm"
-                  radius="md"
-                  onClick={() => {
-                    setUpgradePaymentMethod('pix');
-                    if (!upgradePixData) {
-                      handleGenerateUpgradePix();
-                    }
-                  }}
-                  style={{
-                    cursor: 'pointer',
-                    background: upgradePaymentMethod === 'pix' ? 'rgba(99, 102, 241, 0.2)' : 'rgba(30, 41, 59, 0.5)',
-                    border: upgradePaymentMethod === 'pix' ? '2px solid #6366f1' : '1px solid rgba(255, 255, 255, 0.08)',
-                    transition: 'all 0.2s ease',
-                  }}
-                >
-                  <Group justify="space-between" mb={4}>
-                    <Group gap="xs">
-                      <IconQrcode size={18} color={upgradePaymentMethod === 'pix' ? '#818cf8' : '#94a3b8'} />
-                      <Text size="sm" fw={700} c={upgradePaymentMethod === 'pix' ? 'white' : 'gray.4'}>
-                        PIX Instantâneo
-                      </Text>
+                  <Paper
+                    p="sm"
+                    radius="md"
+                    onClick={() => {
+                      setUpgradePaymentMethod('pix');
+                      if (!upgradePixData) {
+                        handleGenerateUpgradePix();
+                      }
+                    }}
+                    style={{
+                      cursor: 'pointer',
+                      background: upgradePaymentMethod === 'pix' ? 'rgba(99, 102, 241, 0.2)' : 'rgba(30, 41, 59, 0.5)',
+                      border: upgradePaymentMethod === 'pix' ? '2px solid #6366f1' : '1px solid rgba(255, 255, 255, 0.08)',
+                      transition: 'all 0.2s ease',
+                    }}
+                  >
+                    <Group justify="space-between" mb={4}>
+                      <Group gap="xs">
+                        <IconQrcode size={18} color={upgradePaymentMethod === 'pix' ? '#818cf8' : '#94a3b8'} />
+                        <Text size="sm" fw={700} c={upgradePaymentMethod === 'pix' ? 'white' : 'gray.4'}>
+                          PIX Instantâneo
+                        </Text>
+                      </Group>
+                      <Badge size="xs" color="teal" variant="light">QR Code</Badge>
                     </Group>
-                    <Badge size="xs" color="teal" variant="light">QR Code</Badge>
+                    <Text size="xs" c="dimmed">
+                      Pagamento via QR Code ou Copia e Cola com confirmação rápida.
+                    </Text>
+                  </Paper>
+                </SimpleGrid>
+              </div>
+            )}
+
+            {allowCreditCard && !allowPix && (
+              <Paper p="sm" radius="md" bg="rgba(99, 102, 241, 0.1)" style={{ border: '1px solid rgba(99, 102, 241, 0.3)' }}>
+                <Group justify="space-between">
+                  <Group gap="xs">
+                    <IconCreditCard size={18} color="#818cf8" />
+                    <div>
+                      <Text size="sm" fw={700} c="white">
+                        Pagamento via Cartão de Crédito
+                      </Text>
+                      <Text size="xs" c="dimmed">
+                        Aprovação imediata e liberação automática do novo plano.
+                      </Text>
+                    </div>
                   </Group>
-                  <Text size="xs" c="dimmed">
-                    Pagamento via QR Code ou Copia e Cola com confirmação rápida.
-                  </Text>
-                </Paper>
-              </SimpleGrid>
-            </div>
+                  <Badge size="xs" color="indigo" variant="light">Automático</Badge>
+                </Group>
+              </Paper>
+            )}
+
+            {!allowCreditCard && allowPix && (
+              <Paper p="sm" radius="md" bg="rgba(20, 184, 166, 0.1)" style={{ border: '1px solid rgba(20, 184, 166, 0.3)' }}>
+                <Group justify="space-between">
+                  <Group gap="xs">
+                    <IconQrcode size={18} color="#2dd4bf" />
+                    <div>
+                      <Text size="sm" fw={700} c="white">
+                        Pagamento via Pix Instantâneo
+                      </Text>
+                      <Text size="xs" c="dimmed">
+                        Pagamento via QR Code ou Copia e Cola com confirmação rápida.
+                      </Text>
+                    </div>
+                  </Group>
+                  <Badge size="xs" color="teal" variant="light">QR Code</Badge>
+                </Group>
+              </Paper>
+            )}
 
             {/* ABA CARTÃO DE CRÉDITO */}
             {upgradePaymentMethod === 'credit_card' && (
@@ -2791,67 +2836,107 @@ export function UserPlanManagementView({
             </Paper>
 
             {/* Seletor de Método de Pagamento */}
-            <div>
-              <Text size="xs" fw={700} c="dimmed" mb={6} tt="uppercase">
-                Escolha a Forma de Pagamento
-              </Text>
-              <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs">
-                <Paper
-                  p="sm"
-                  radius="md"
-                  onClick={() => setAddonPaymentMethod('credit_card')}
-                  style={{
-                    cursor: 'pointer',
-                    background: addonPaymentMethod === 'credit_card' ? 'rgba(20, 184, 166, 0.15)' : 'rgba(30, 41, 59, 0.5)',
-                    border: addonPaymentMethod === 'credit_card' ? '2px solid #14b8a6' : '1px solid rgba(255, 255, 255, 0.08)',
-                    transition: 'all 0.2s ease',
-                  }}
-                >
-                  <Group justify="space-between" mb={4}>
-                    <Group gap="xs">
-                      <IconCreditCard size={18} color={addonPaymentMethod === 'credit_card' ? '#2dd4bf' : '#94a3b8'} />
-                      <Text size="sm" fw={700} c={addonPaymentMethod === 'credit_card' ? 'white' : 'gray.4'}>
-                        Cartão de Crédito
-                      </Text>
+            {allowCreditCard && allowPix && (
+              <div>
+                <Text size="xs" fw={700} c="dimmed" mb={6} tt="uppercase">
+                  Escolha a Forma de Pagamento
+                </Text>
+                <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs">
+                  <Paper
+                    p="sm"
+                    radius="md"
+                    onClick={() => setAddonPaymentMethod('credit_card')}
+                    style={{
+                      cursor: 'pointer',
+                      background: addonPaymentMethod === 'credit_card' ? 'rgba(20, 184, 166, 0.15)' : 'rgba(30, 41, 59, 0.5)',
+                      border: addonPaymentMethod === 'credit_card' ? '2px solid #14b8a6' : '1px solid rgba(255, 255, 255, 0.08)',
+                      transition: 'all 0.2s ease',
+                    }}
+                  >
+                    <Group justify="space-between" mb={4}>
+                      <Group gap="xs">
+                        <IconCreditCard size={18} color={addonPaymentMethod === 'credit_card' ? '#2dd4bf' : '#94a3b8'} />
+                        <Text size="sm" fw={700} c={addonPaymentMethod === 'credit_card' ? 'white' : 'gray.4'}>
+                          Cartão de Crédito
+                        </Text>
+                      </Group>
+                      <Badge size="xs" color="teal" variant="light">Instantâneo</Badge>
                     </Group>
-                    <Badge size="xs" color="teal" variant="light">Instantâneo</Badge>
-                  </Group>
-                  <Text size="xs" c="dimmed">
-                    Aprovação imediata e liberação automática dos add-ons contratados.
-                  </Text>
-                </Paper>
+                    <Text size="xs" c="dimmed">
+                      Aprovação imediata e liberação automática dos add-ons contratados.
+                    </Text>
+                  </Paper>
 
-                <Paper
-                  p="sm"
-                  radius="md"
-                  onClick={() => {
-                    setAddonPaymentMethod('pix');
-                    if (!addonPixData) {
-                      handleGenerateAddonPix();
-                    }
-                  }}
-                  style={{
-                    cursor: 'pointer',
-                    background: addonPaymentMethod === 'pix' ? 'rgba(20, 184, 166, 0.15)' : 'rgba(30, 41, 59, 0.5)',
-                    border: addonPaymentMethod === 'pix' ? '2px solid #14b8a6' : '1px solid rgba(255, 255, 255, 0.08)',
-                    transition: 'all 0.2s ease',
-                  }}
-                >
-                  <Group justify="space-between" mb={4}>
-                    <Group gap="xs">
-                      <IconQrcode size={18} color={addonPaymentMethod === 'pix' ? '#2dd4bf' : '#94a3b8'} />
-                      <Text size="sm" fw={700} c={addonPaymentMethod === 'pix' ? 'white' : 'gray.4'}>
-                        PIX Instantâneo
-                      </Text>
+                  <Paper
+                    p="sm"
+                    radius="md"
+                    onClick={() => {
+                      setAddonPaymentMethod('pix');
+                      if (!addonPixData) {
+                        handleGenerateAddonPix();
+                      }
+                    }}
+                    style={{
+                      cursor: 'pointer',
+                      background: addonPaymentMethod === 'pix' ? 'rgba(20, 184, 166, 0.15)' : 'rgba(30, 41, 59, 0.5)',
+                      border: addonPaymentMethod === 'pix' ? '2px solid #14b8a6' : '1px solid rgba(255, 255, 255, 0.08)',
+                      transition: 'all 0.2s ease',
+                    }}
+                  >
+                    <Group justify="space-between" mb={4}>
+                      <Group gap="xs">
+                        <IconQrcode size={18} color={addonPaymentMethod === 'pix' ? '#2dd4bf' : '#94a3b8'} />
+                        <Text size="sm" fw={700} c={addonPaymentMethod === 'pix' ? 'white' : 'gray.4'}>
+                          PIX Instantâneo
+                        </Text>
+                      </Group>
+                      <Badge size="xs" color="cyan" variant="light">QR Code</Badge>
                     </Group>
-                    <Badge size="xs" color="cyan" variant="light">QR Code</Badge>
+                    <Text size="xs" c="dimmed">
+                      Pagamento via QR Code ou Copia e Cola com confirmação rápida.
+                    </Text>
+                  </Paper>
+                </SimpleGrid>
+              </div>
+            )}
+
+            {allowCreditCard && !allowPix && (
+              <Paper p="sm" radius="md" bg="rgba(20, 184, 166, 0.08)" style={{ border: '1px solid rgba(20, 184, 166, 0.25)' }}>
+                <Group justify="space-between">
+                  <Group gap="xs">
+                    <IconCreditCard size={18} color="#2dd4bf" />
+                    <div>
+                      <Text size="sm" fw={700} c="white">
+                        Pagamento via Cartão de Crédito
+                      </Text>
+                      <Text size="xs" c="dimmed">
+                        Aprovação imediata e liberação automática dos add-ons contratados.
+                      </Text>
+                    </div>
                   </Group>
-                  <Text size="xs" c="dimmed">
-                    Pagamento via QR Code ou Copia e Cola com confirmação rápida.
-                  </Text>
-                </Paper>
-              </SimpleGrid>
-            </div>
+                  <Badge size="xs" color="teal" variant="light">Automático</Badge>
+                </Group>
+              </Paper>
+            )}
+
+            {!allowCreditCard && allowPix && (
+              <Paper p="sm" radius="md" bg="rgba(20, 184, 166, 0.08)" style={{ border: '1px solid rgba(20, 184, 166, 0.25)' }}>
+                <Group justify="space-between">
+                  <Group gap="xs">
+                    <IconQrcode size={18} color="#2dd4bf" />
+                    <div>
+                      <Text size="sm" fw={700} c="white">
+                        Pagamento via Pix Instantâneo
+                      </Text>
+                      <Text size="xs" c="dimmed">
+                        Pagamento via QR Code ou Copia e Cola com confirmação rápida.
+                      </Text>
+                    </div>
+                  </Group>
+                  <Badge size="xs" color="cyan" variant="light">QR Code</Badge>
+                </Group>
+              </Paper>
+            )}
 
             {/* ABA CARTÃO DE CRÉDITO */}
             {addonPaymentMethod === 'credit_card' && (
@@ -3085,6 +3170,7 @@ export function UserPlanManagementView({
           currentUser={initialUser}
           initialExtraWebsites={checkoutExtraWebsites}
           initialExtraAiPacks={checkoutExtraAiPacks}
+          paymentMethods={data?.payment_methods}
           onPaymentSuccess={() => {
             setRenewModalOpen(false);
             loadData();
