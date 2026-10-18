@@ -69,6 +69,35 @@ import {
 import { formatDateTime, formatDateOnly, formatMonthYear, parseDate } from '../utils/date';
 import { CheckoutModal } from './CheckoutModal';
 
+const formatCpfCnpjValue = (val: string): string => {
+  const raw = (val || '').replace(/\D/g, '').slice(0, 14);
+  if (raw.length <= 11) {
+    if (raw.length > 9) return `${raw.slice(0, 3)}.${raw.slice(3, 6)}.${raw.slice(6, 9)}-${raw.slice(9)}`;
+    if (raw.length > 6) return `${raw.slice(0, 3)}.${raw.slice(3, 6)}.${raw.slice(6)}`;
+    if (raw.length > 3) return `${raw.slice(0, 3)}.${raw.slice(3)}`;
+    return raw;
+  }
+  let formatted = `${raw.slice(0, 2)}.${raw.slice(2, 5)}.${raw.slice(5, 8)}/${raw.slice(8, 12)}`;
+  if (raw.length > 12) formatted += `-${raw.slice(12)}`;
+  return formatted;
+};
+
+const extractErrorMessage = (err: any, fallback: string): string => {
+  if (!err) return fallback;
+  const resData = err.response?.data;
+  if (typeof resData === 'string' && resData.length > 0) {
+    if (resData.includes('<html') || resData.includes('<!DOCTYPE')) {
+      return 'Erro interno temporário no servidor (HTTP 500). Verifique os logs da aplicação.';
+    }
+    return resData;
+  }
+  if (resData?.messages?.error) return String(resData.messages.error);
+  if (resData?.message) return String(resData.message);
+  if (resData?.error) return String(resData.error);
+  if (err.message && typeof err.message === 'string') return err.message;
+  return fallback;
+};
+
 export interface UserPlanManagementViewProps {
   user: {
     id: number;
@@ -131,6 +160,7 @@ export function UserPlanManagementView({
   const [upgradeStep, setUpgradeStep] = useState<'config' | 'payment'>('config');
   const [upgradePaymentMethod, setUpgradePaymentMethod] = useState<'credit_card' | 'pix'>('credit_card');
   const [upgradeCardHolder, setUpgradeCardHolder] = useState(initialUser.name || '');
+  const [upgradeCpfCnpj, setUpgradeCpfCnpj] = useState('');
   const [upgradeCardNumber, setUpgradeCardNumber] = useState('');
   const [upgradeCardExpiry, setUpgradeCardExpiry] = useState('');
   const [upgradeCardCcv, setUpgradeCardCcv] = useState('');
@@ -156,6 +186,7 @@ export function UserPlanManagementView({
   const [addonStep, setAddonStep] = useState<'config' | 'payment'>('config');
   const [addonPaymentMethod, setAddonPaymentMethod] = useState<'credit_card' | 'pix'>('credit_card');
   const [addonCardHolder, setAddonCardHolder] = useState(initialUser.name || '');
+  const [addonCpfCnpj, setAddonCpfCnpj] = useState('');
   const [addonCardNumber, setAddonCardNumber] = useState('');
   const [addonCardExpiry, setAddonCardExpiry] = useState('');
   const [addonCardCcv, setAddonCardCcv] = useState('');
@@ -434,6 +465,10 @@ export function UserPlanManagementView({
     }
   };
 
+  const handleCpfCnpjFormat = (val: string, setter: (v: string) => void) => {
+    setter(formatCpfCnpjValue(val));
+  };
+
   const handleOpenAddonsModal = () => {
     setModalExtraWebsites(pd?.extra_websites || 0);
     setModalExtraAiPacks(Math.round((pd?.extra_ai_tokens || 0) / 250000));
@@ -442,6 +477,7 @@ export function UserPlanManagementView({
     setAddonPaymentError(null);
     setAddonPixData(null);
     setAddonCardHolder(initialUser.name || '');
+    setAddonCpfCnpj(formatCpfCnpjValue(pd?.user_cpf_cnpj || (initialUser as any)?.cpf_cnpj || ''));
     setAddonCardNumber('');
     setAddonCardExpiry('');
     setAddonCardCcv('');
@@ -457,6 +493,7 @@ export function UserPlanManagementView({
     setUpgradePaymentError(null);
     setUpgradePixData(null);
     setUpgradeCardHolder(initialUser.name || '');
+    setUpgradeCpfCnpj(formatCpfCnpjValue(pd?.user_cpf_cnpj || (initialUser as any)?.cpf_cnpj || ''));
     setUpgradeCardNumber('');
     setUpgradeCardExpiry('');
     setUpgradeCardCcv('');
@@ -658,9 +695,14 @@ export function UserPlanManagementView({
     const cleanNumber = addonCardNumber.replace(/\D/g, '');
     const cleanCcv = addonCardCcv.replace(/\D/g, '');
     const cleanCep = addonPostalCode.replace(/\D/g, '');
+    const cleanCpfCnpj = addonCpfCnpj.replace(/\D/g, '');
 
     if (!addonCardHolder.trim()) {
       setAddonPaymentError('Informe o nome impresso no cartão.');
+      return;
+    }
+    if (cleanCpfCnpj.length !== 11 && cleanCpfCnpj.length !== 14) {
+      setAddonPaymentError('Informe um CPF (11 dígitos) ou CNPJ (14 dígitos) válido do titular.');
       return;
     }
     if (cleanNumber.length < 15) {
@@ -704,6 +746,7 @@ export function UserPlanManagementView({
           ccv: cleanCcv,
           postal_code: cleanCep,
           address_number: addonAddressNumber.trim(),
+          cpf_cnpj: cleanCpfCnpj,
         },
       });
 
@@ -729,9 +772,7 @@ export function UserPlanManagementView({
     } catch (err: any) {
       console.error(err);
       setAddonPaymentError(
-        err.response?.data?.messages?.error ||
-          err.response?.data?.message ||
-          'Falha ao processar pagamento do cartão. Verifique os dados ou limite disponível.'
+        extractErrorMessage(err, 'Falha ao processar pagamento do cartão. Verifique os dados ou limite disponível.')
       );
     } finally {
       setSavingAddons(false);
@@ -864,9 +905,14 @@ export function UserPlanManagementView({
     const cleanNumber = upgradeCardNumber.replace(/\D/g, '');
     const cleanCcv = upgradeCardCcv.replace(/\D/g, '');
     const cleanCep = upgradePostalCode.replace(/\D/g, '');
+    const cleanCpfCnpj = upgradeCpfCnpj.replace(/\D/g, '');
 
     if (!upgradeCardHolder.trim()) {
       setUpgradePaymentError('Informe o nome impresso no cartão.');
+      return;
+    }
+    if (cleanCpfCnpj.length !== 11 && cleanCpfCnpj.length !== 14) {
+      setUpgradePaymentError('Informe um CPF (11 dígitos) ou CNPJ (14 dígitos) válido do titular.');
       return;
     }
     if (cleanNumber.length < 15) {
@@ -909,6 +955,7 @@ export function UserPlanManagementView({
           ccv: cleanCcv,
           postal_code: cleanCep,
           address_number: upgradeAddressNumber.trim(),
+          cpf_cnpj: cleanCpfCnpj,
         },
       });
 
@@ -935,9 +982,7 @@ export function UserPlanManagementView({
     } catch (err: any) {
       console.error(err);
       setUpgradePaymentError(
-        err.response?.data?.messages?.error ||
-          err.response?.data?.message ||
-          'Falha ao processar pagamento do cartão. Verifique os dados ou limite disponível.'
+        extractErrorMessage(err, 'Falha ao processar pagamento do cartão. Verifique os dados ou limite disponível.')
       );
     } finally {
       setUpgradingPlan(false);
@@ -2328,14 +2373,25 @@ export function UserPlanManagementView({
                     Dados do Cartão para Pagamento
                   </Text>
 
-                  <TextInput
-                    label="Nome Impresso no Cartão"
-                    placeholder="Ex: CARLOS E SILVA"
-                    value={upgradeCardHolder}
-                    onChange={(e) => setUpgradeCardHolder(e.target.value.toUpperCase())}
-                    required
-                    size="xs"
-                  />
+                  <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs">
+                    <TextInput
+                      label="Nome Impresso no Cartão"
+                      placeholder="Ex: CARLOS E SILVA"
+                      value={upgradeCardHolder}
+                      onChange={(e) => setUpgradeCardHolder(e.target.value.toUpperCase())}
+                      required
+                      size="xs"
+                    />
+                    <TextInput
+                      label="CPF ou CNPJ do Titular"
+                      placeholder="000.000.000-00"
+                      value={upgradeCpfCnpj}
+                      onChange={(e) => handleCpfCnpjFormat(e.target.value, setUpgradeCpfCnpj)}
+                      maxLength={18}
+                      required
+                      size="xs"
+                    />
+                  </SimpleGrid>
 
                   <TextInput
                     label="Número do Cartão"
@@ -2805,14 +2861,25 @@ export function UserPlanManagementView({
                     Dados do Cartão para Pagamento
                   </Text>
 
-                  <TextInput
-                    label="Nome Impresso no Cartão"
-                    placeholder="Ex: CARLOS E SILVA"
-                    value={addonCardHolder}
-                    onChange={(e) => setAddonCardHolder(e.target.value.toUpperCase())}
-                    required
-                    size="xs"
-                  />
+                  <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs">
+                    <TextInput
+                      label="Nome Impresso no Cartão"
+                      placeholder="Ex: CARLOS E SILVA"
+                      value={addonCardHolder}
+                      onChange={(e) => setAddonCardHolder(e.target.value.toUpperCase())}
+                      required
+                      size="xs"
+                    />
+                    <TextInput
+                      label="CPF ou CNPJ do Titular"
+                      placeholder="000.000.000-00"
+                      value={addonCpfCnpj}
+                      onChange={(e) => handleCpfCnpjFormat(e.target.value, setAddonCpfCnpj)}
+                      maxLength={18}
+                      required
+                      size="xs"
+                    />
+                  </SimpleGrid>
 
                   <TextInput
                     label="Número do Cartão"

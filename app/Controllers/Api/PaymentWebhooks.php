@@ -115,17 +115,26 @@ class PaymentWebhooks extends ResourceController
                     $subModel = new SubscriptionModel();
                     $sub = $subModel->find($trans['subscription_id']);
                     if ($sub) {
-                        $subModel->update($sub['id'], [
-                            'status'               => 'active',
-                            'current_period_start' => $now,
-                            'current_period_end'   => date('Y-m-d H:i:s', strtotime('+30 days')),
-                        ]);
+                        $meta = !empty($trans['metadata']) ? json_decode($trans['metadata'], true) : [];
+                        $isProrated = in_array($meta['type'] ?? '', ['prorated_addons', 'prorated_upgrade', 'prorated_pix'], true);
+
+                        if (!$isProrated) {
+                            $subModel->update($sub['id'], [
+                                'status'               => 'active',
+                                'current_period_start' => $now,
+                                'current_period_end'   => date('Y-m-d H:i:s', strtotime('+30 days')),
+                            ]);
+                        } else {
+                            $subModel->update($sub['id'], [
+                                'status' => 'active',
+                            ]);
+                        }
 
                         UserPlanService::assignPlanToUser((int)$trans['user_id'], (int)$trans['plan_id'], [
-                            'extra_websites'        => (int)($sub['extra_websites'] ?? 0),
-                            'extra_websites_price'  => (float)($sub['extra_websites_price'] ?? 0.00),
-                            'extra_ai_tokens'       => (int)($sub['extra_ai_tokens'] ?? 0),
-                            'extra_ai_tokens_price' => (float)($sub['extra_ai_tokens_price'] ?? 0.00),
+                            'extra_websites'        => (int)($meta['extra_websites'] ?? ($sub['extra_websites'] ?? 0)),
+                            'extra_websites_price'  => (float)($meta['extra_websites_price'] ?? ($sub['extra_websites_price'] ?? 0.00)),
+                            'extra_ai_tokens'       => (int)($meta['extra_ai_tokens'] ?? ($sub['extra_ai_tokens'] ?? 0)),
+                            'extra_ai_tokens_price' => (float)($meta['extra_ai_tokens_price'] ?? ($sub['extra_ai_tokens_price'] ?? 0.00)),
                         ]);
                     }
                 } else {

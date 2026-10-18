@@ -259,6 +259,8 @@ class UserPlanService
             'total_monthly_price'       => $totalMonthlyPrice,
             'subscription'              => $subscriptionInfo,
             'user_created_at'           => $user['created_at'] ?? null,
+            'user_cpf_cnpj'             => $user['cpf_cnpj'] ?? null,
+            'user_phone'                => $user['phone'] ?? null,
             'is_subscription_active'    => $isSubscriptionActive,
             'is_subscription_canceled'  => $isSubscriptionCanceled,
             'is_subscription_expired'   => $isSubscriptionExpired,

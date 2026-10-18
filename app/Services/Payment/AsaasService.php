@@ -56,6 +56,37 @@ class AsaasService
     }
 
     /**
+     * Extrai o IP público real do cliente pagador (obrigatório para análise de risco de cartão)
+     */
+    public function getClientIp(?string $providedIp = null): string
+    {
+        if (!empty($providedIp) && filter_var($providedIp, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+            return $providedIp;
+        }
+
+        $ipSources = [
+            $_SERVER['HTTP_CF_CONNECTING_IP'] ?? null,
+            $_SERVER['HTTP_X_FORWARDED_FOR'] ?? null,
+            $_SERVER['HTTP_X_REAL_IP'] ?? null,
+            $_SERVER['REMOTE_ADDR'] ?? null,
+        ];
+
+        foreach ($ipSources as $ipList) {
+            if (empty($ipList)) continue;
+            $ips = explode(',', $ipList);
+            foreach ($ips as $candidate) {
+                $candidate = trim($candidate);
+                if (filter_var($candidate, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+                    return $candidate;
+                }
+            }
+        }
+
+        // Em localhost/ambiente de testes/privado, retorna um IP público padrão para evitar recusa pelo antifraude
+        return '177.18.20.10';
+    }
+
+    /**
      * Executa requisição HTTP cURL para a API do Asaas
      */
     protected function request(string $endpoint, string $method = 'GET', array $data = []): array
@@ -302,7 +333,8 @@ class AsaasService
         string $description,
         string $externalReference,
         ?array $creditCard = null,
-        ?array $creditCardHolderInfo = null
+        ?array $creditCardHolderInfo = null,
+        ?string $remoteIp = null
     ): array {
         if (!$this->isConfigured()) {
             $simPayId = 'pay_sim_' . uniqid();
@@ -326,6 +358,7 @@ class AsaasService
         ];
 
         if (!empty($creditCard)) {
+            $payload['remoteIp'] = $this->getClientIp($remoteIp);
             $payload['creditCard'] = [
                 'holderName'  => trim($creditCard['holder_name'] ?? $creditCard['holderName'] ?? ''),
                 'number'      => preg_replace('/\D/', '', $creditCard['number'] ?? ''),
@@ -333,15 +366,30 @@ class AsaasService
                 'expiryYear'  => trim($creditCard['expiry_year'] ?? $creditCard['expiryYear'] ?? ''),
                 'ccv'         => trim($creditCard['ccv'] ?? ''),
             ];
-            if (!empty($creditCardHolderInfo)) {
+
+            $cpf = preg_replace('/\D/', '', $creditCardHolderInfo['cpf_cnpj'] ?? $creditCardHolderInfo['cpfCnpj'] ?? $creditCard['cpf_cnpj'] ?? '');
+            $phone = preg_replace('/\D/', '', $creditCardHolderInfo['phone'] ?? $creditCard['phone'] ?? '');
+
+            // Se o CPF não foi informado e temos o customerId real do Asaas, busca no cadastro do cliente
+            if (empty($cpf) && str_starts_with($customerId, 'cus_')) {
+                $cusSearch = $this->request('customers/' . $customerId);
+                if ($cusSearch['success'] && !empty($cusSearch['data']['cpfCnpj'])) {
+                    $cpf = preg_replace('/\D/', '', $cusSearch['data']['cpfCnpj']);
+                }
+                if (empty($phone) && $cusSearch['success'] && !empty($cusSearch['data']['mobilePhone'])) {
+                    $phone = preg_replace('/\D/', '', $cusSearch['data']['mobilePhone']);
+                }
+            }
+
+            if (!empty($creditCardHolderInfo) || !empty($cpf)) {
                 $payload['creditCardHolderInfo'] = [
-                    'name'          => trim($creditCardHolderInfo['name'] ?? ''),
+                    'name'          => trim($creditCardHolderInfo['name'] ?? $creditCard['holder_name'] ?? ''),
                     'email'         => trim($creditCardHolderInfo['email'] ?? ''),
-                    'cpfCnpj'       => preg_replace('/\D/', '', $creditCardHolderInfo['cpf_cnpj'] ?? $creditCardHolderInfo['cpfCnpj'] ?? ''),
-                    'postalCode'    => preg_replace('/\D/', '', $creditCardHolderInfo['postal_code'] ?? $creditCardHolderInfo['postalCode'] ?? '01310000'),
-                    'addressNumber' => trim($creditCardHolderInfo['address_number'] ?? $creditCardHolderInfo['addressNumber'] ?? 'S/N'),
-                    'phone'         => preg_replace('/\D/', '', $creditCardHolderInfo['phone'] ?? ''),
-                    'mobilePhone'   => preg_replace('/\D/', '', $creditCardHolderInfo['phone'] ?? ''),
+                    'cpfCnpj'       => $cpf,
+                    'postalCode'    => preg_replace('/\D/', '', $creditCardHolderInfo['postal_code'] ?? $creditCardHolderInfo['postalCode'] ?? $creditCard['postal_code'] ?? '01310000'),
+                    'addressNumber' => trim($creditCardHolderInfo['address_number'] ?? $creditCardHolderInfo['addressNumber'] ?? $creditCard['address_number'] ?? 'S/N'),
+                    'phone'         => $phone,
+                    'mobilePhone'   => $phone,
                 ];
             }
         }
@@ -376,7 +424,8 @@ class AsaasService
         ?string $nextDueDate = null,
         string $billingType = 'PIX',
         ?array $creditCard = null,
-        ?array $creditCardHolderInfo = null
+        ?array $creditCardHolderInfo = null,
+        ?string $remoteIp = null
     ): array {
         $billingType = strtoupper(trim($billingType)) === 'CREDIT_CARD' ? 'CREDIT_CARD' : 'PIX';
 
@@ -416,6 +465,7 @@ class AsaasService
         ];
 
         if ($billingType === 'CREDIT_CARD' && !empty($creditCard)) {
+            $payload['remoteIp'] = $this->getClientIp($remoteIp);
             $payload['creditCard'] = [
                 'holderName'  => trim($creditCard['holder_name'] ?? $creditCard['holderName'] ?? ''),
                 'number'      => preg_replace('/\D/', '', $creditCard['number'] ?? ''),
@@ -424,15 +474,28 @@ class AsaasService
                 'ccv'         => trim($creditCard['ccv'] ?? ''),
             ];
 
-            if (!empty($creditCardHolderInfo)) {
+            $cpf = preg_replace('/\D/', '', $creditCardHolderInfo['cpf_cnpj'] ?? $creditCardHolderInfo['cpfCnpj'] ?? $creditCard['cpf_cnpj'] ?? '');
+            $phone = preg_replace('/\D/', '', $creditCardHolderInfo['phone'] ?? $creditCard['phone'] ?? '');
+
+            if (empty($cpf) && str_starts_with($customerId, 'cus_')) {
+                $cusSearch = $this->request('customers/' . $customerId);
+                if ($cusSearch['success'] && !empty($cusSearch['data']['cpfCnpj'])) {
+                    $cpf = preg_replace('/\D/', '', $cusSearch['data']['cpfCnpj']);
+                }
+                if (empty($phone) && $cusSearch['success'] && !empty($cusSearch['data']['mobilePhone'])) {
+                    $phone = preg_replace('/\D/', '', $cusSearch['data']['mobilePhone']);
+                }
+            }
+
+            if (!empty($creditCardHolderInfo) || !empty($cpf)) {
                 $payload['creditCardHolderInfo'] = [
-                    'name'          => trim($creditCardHolderInfo['name'] ?? ''),
+                    'name'          => trim($creditCardHolderInfo['name'] ?? $creditCard['holder_name'] ?? ''),
                     'email'         => trim($creditCardHolderInfo['email'] ?? ''),
-                    'cpfCnpj'       => preg_replace('/\D/', '', $creditCardHolderInfo['cpf_cnpj'] ?? $creditCardHolderInfo['cpfCnpj'] ?? ''),
-                    'postalCode'    => preg_replace('/\D/', '', $creditCardHolderInfo['postal_code'] ?? $creditCardHolderInfo['postalCode'] ?? ''),
-                    'addressNumber' => trim($creditCardHolderInfo['address_number'] ?? $creditCardHolderInfo['addressNumber'] ?? 'S/N'),
-                    'phone'         => preg_replace('/\D/', '', $creditCardHolderInfo['phone'] ?? ''),
-                    'mobilePhone'   => preg_replace('/\D/', '', $creditCardHolderInfo['phone'] ?? ''),
+                    'cpfCnpj'       => $cpf,
+                    'postalCode'    => preg_replace('/\D/', '', $creditCardHolderInfo['postal_code'] ?? $creditCardHolderInfo['postalCode'] ?? $creditCard['postal_code'] ?? '01310000'),
+                    'addressNumber' => trim($creditCardHolderInfo['address_number'] ?? $creditCardHolderInfo['addressNumber'] ?? $creditCard['address_number'] ?? 'S/N'),
+                    'phone'         => $phone,
+                    'mobilePhone'   => $phone,
                 ];
             }
         }

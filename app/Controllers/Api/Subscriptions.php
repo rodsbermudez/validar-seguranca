@@ -395,6 +395,9 @@ class Subscriptions extends ResourceController
 
         // Se o usuário solicitou pagamento com CARTÃO DE CRÉDITO
         if ($sub && $requestedBillingType === 'CREDIT_CARD') {
+            $transModel = new PaymentTransactionModel();
+            $userModel = new UserModel();
+
             $creditCard = $json['credit_card'] ?? [];
             $holderName  = trim($creditCard['holder_name'] ?? '');
             $cardNumber  = preg_replace('/\D/', '', $creditCard['number'] ?? '');
@@ -403,6 +406,15 @@ class Subscriptions extends ResourceController
             $ccv         = trim($creditCard['ccv'] ?? '');
             $postalCode  = preg_replace('/\D/', '', $creditCard['postal_code'] ?? ($user['postal_code'] ?? '01310000'));
             $addressNum  = trim($creditCard['address_number'] ?? 'S/N');
+            $cpfCnpj     = preg_replace('/\D/', '', $creditCard['cpf_cnpj'] ?? ($user['cpf_cnpj'] ?? ''));
+            $phone       = preg_replace('/\D/', '', $creditCard['phone'] ?? ($user['phone'] ?? ''));
+
+            if (!empty($cpfCnpj) && empty($user['cpf_cnpj'])) {
+                $userModel->update($targetUserId, ['cpf_cnpj' => $cpfCnpj]);
+            }
+            if (!empty($phone) && empty($user['phone'])) {
+                $userModel->update($targetUserId, ['phone' => $phone]);
+            }
 
             if (empty($holderName) || empty($cardNumber) || empty($expiryMonth) || empty($expiryYear) || empty($ccv)) {
                 return $this->fail('Todos os dados do cartão de crédito (titular, número, validade e CVV) são obrigatórios.', 400);
@@ -414,20 +426,23 @@ class Subscriptions extends ResourceController
                 'expiry_month' => $expiryMonth,
                 'expiry_year'  => $expiryYear,
                 'ccv'          => $ccv,
+                'cpf_cnpj'     => $cpfCnpj,
+                'phone'        => $phone,
             ];
 
             $creditCardHolderInfo = [
                 'name'           => $holderName,
                 'email'          => $user['email'] ?? '',
-                'cpf_cnpj'       => $user['cpf_cnpj'] ?? '',
+                'cpf_cnpj'       => $cpfCnpj,
                 'postal_code'    => $postalCode ?: '01310000',
                 'address_number' => $addressNum ?: 'S/N',
-                'phone'          => $user['phone'] ?? '',
+                'phone'          => $phone,
             ];
 
             $asaasCustomerId = $sub['gateway_customer_id'] ?? ($user['asaas_customer_id'] ?? 'cus_sim');
             $extRef = "prorated_upg_{$sub['id']}_usr_{$targetUserId}_" . time();
             $desc = "Diferenca Pro-rata Upgrade {$newPlan['name']} ({$daysRemaining} dias)";
+            $clientIp = $this->request->getIPAddress();
 
             $cardPayRes = $asaasService->createPaymentCreditCard(
                 $asaasCustomerId,
@@ -435,7 +450,8 @@ class Subscriptions extends ResourceController
                 $desc,
                 $extRef,
                 $creditCardPayload,
-                $creditCardHolderInfo
+                $creditCardHolderInfo,
+                $clientIp
             );
 
             if (!$cardPayRes['success']) {
@@ -443,7 +459,7 @@ class Subscriptions extends ResourceController
             }
 
             $cardStatus = strtoupper($cardPayRes['status'] ?? ($cardPayRes['payment_status'] ?? 'PENDING'));
-            $isApproved = in_array($cardStatus, ['CONFIRMED', 'RECEIVED', 'ACTIVE'], true) || !empty($cardPayRes['simulated']);
+            $isApproved = in_array($cardStatus, ['CONFIRMED', 'RECEIVED', 'ACTIVE', 'AUTHORIZED', 'PAID'], true) || !empty($cardPayRes['simulated']);
 
             if (!$isApproved) {
                 return $this->fail('O pagamento não foi autorizado pela operadora do cartão (status: ' . $cardStatus . '). Verifique os dados ou o limite disponível.', 400);
@@ -705,6 +721,9 @@ class Subscriptions extends ResourceController
 
         // Se o cliente escolheu Cartão de Crédito
         if ($sub && $requestedBillingType === 'CREDIT_CARD') {
+            $transModel = new PaymentTransactionModel();
+            $userModel = new UserModel();
+
             $creditCard = $json['credit_card'] ?? [];
             $holderName  = trim($creditCard['holder_name'] ?? '');
             $cardNumber  = preg_replace('/\D/', '', $creditCard['number'] ?? '');
@@ -713,6 +732,15 @@ class Subscriptions extends ResourceController
             $ccv         = trim($creditCard['ccv'] ?? '');
             $postalCode  = preg_replace('/\D/', '', $creditCard['postal_code'] ?? ($user['postal_code'] ?? '01310000'));
             $addressNum  = trim($creditCard['address_number'] ?? 'S/N');
+            $cpfCnpj     = preg_replace('/\D/', '', $creditCard['cpf_cnpj'] ?? ($user['cpf_cnpj'] ?? ''));
+            $phone       = preg_replace('/\D/', '', $creditCard['phone'] ?? ($user['phone'] ?? ''));
+
+            if (!empty($cpfCnpj) && empty($user['cpf_cnpj'])) {
+                $userModel->update($targetUserId, ['cpf_cnpj' => $cpfCnpj]);
+            }
+            if (!empty($phone) && empty($user['phone'])) {
+                $userModel->update($targetUserId, ['phone' => $phone]);
+            }
 
             if (empty($holderName) || empty($cardNumber) || empty($expiryMonth) || empty($expiryYear) || empty($ccv)) {
                 return $this->fail('Todos os dados do cartão de crédito (titular, número, validade e CVV) são obrigatórios para realizar o pagamento.', 400);
@@ -724,20 +752,23 @@ class Subscriptions extends ResourceController
                 'expiry_month' => $expiryMonth,
                 'expiry_year'  => $expiryYear,
                 'ccv'          => $ccv,
+                'cpf_cnpj'     => $cpfCnpj,
+                'phone'        => $phone,
             ];
 
             $creditCardHolderInfo = [
                 'name'           => $holderName,
                 'email'          => $user['email'] ?? '',
-                'cpf_cnpj'       => $user['cpf_cnpj'] ?? '',
+                'cpf_cnpj'       => $cpfCnpj,
                 'postal_code'    => $postalCode ?: '01310000',
                 'address_number' => $addressNum ?: 'S/N',
-                'phone'          => $user['phone'] ?? '',
+                'phone'          => $phone,
             ];
 
             $asaasCustomerId = $sub['gateway_customer_id'] ?? ($user['asaas_customer_id'] ?? 'cus_sim');
             $extRef = "prorated_addons_{$sub['id']}_usr_{$targetUserId}_" . time();
             $desc = "Diferenca Pro-rata Add-ons ({$daysRemaining} dias)";
+            $clientIp = $this->request->getIPAddress();
 
             $cardPayRes = $asaasService->createPaymentCreditCard(
                 $asaasCustomerId,
@@ -745,7 +776,8 @@ class Subscriptions extends ResourceController
                 $desc,
                 $extRef,
                 $creditCardPayload,
-                $creditCardHolderInfo
+                $creditCardHolderInfo,
+                $clientIp
             );
 
             if (!$cardPayRes['success']) {
@@ -753,7 +785,7 @@ class Subscriptions extends ResourceController
             }
 
             $cardStatus = strtoupper($cardPayRes['status'] ?? ($cardPayRes['payment_status'] ?? 'PENDING'));
-            $isApproved = in_array($cardStatus, ['CONFIRMED', 'RECEIVED', 'ACTIVE'], true) || !empty($cardPayRes['simulated']);
+            $isApproved = in_array($cardStatus, ['CONFIRMED', 'RECEIVED', 'ACTIVE', 'AUTHORIZED', 'PAID'], true) || !empty($cardPayRes['simulated']);
 
             if (!$isApproved) {
                 return $this->fail('O pagamento não foi autorizado pela operadora do cartão (status: ' . $cardStatus . '). Verifique os dados ou o limite disponível.', 400);

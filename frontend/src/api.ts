@@ -989,6 +989,8 @@ export interface UserPlanDetails {
   total_monthly_price: number;
   subscription?: SubscriptionInfo | null;
   user_created_at?: string;
+  user_cpf_cnpj?: string | null;
+  user_phone?: string | null;
   is_subscription_active?: boolean;
   is_subscription_canceled?: boolean;
   is_subscription_expired?: boolean;
@@ -1087,6 +1089,8 @@ export interface CreditCardPayload {
   ccv: string;
   postal_code?: string;
   address_number?: string;
+  cpf_cnpj?: string;
+  phone?: string;
 }
 
 export interface CheckoutInitiatePayload {
