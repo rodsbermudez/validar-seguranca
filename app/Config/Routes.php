@@ -29,6 +29,7 @@ $routes->group('api', function ($routes) {
 
     // Public Checkout & Asaas Payments
     $routes->post('public/checkout/initiate', 'Api\Checkout::initiate');
+    $routes->post('public/checkout/check-email', 'Api\Checkout::checkEmail');
     $routes->get('public/checkout/status/(:segment)', 'Api\Checkout::status/$1');
     $routes->post('public/checkout/simulate-confirm/(:segment)', 'Api\Checkout::simulateConfirm/$1');
 

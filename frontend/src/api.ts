@@ -1103,6 +1103,7 @@ export interface CheckoutInitiatePayload {
   extra_websites_price?: number;
   extra_ai_tokens?: number;
   extra_ai_tokens_price?: number;
+  is_new_signup?: boolean;
 }
 
 export interface CheckoutInitiateResponse {
@@ -1137,6 +1138,19 @@ export interface CheckoutStatusResponse {
   transaction_id: number;
   paid_at?: string;
 }
+
+export interface CheckEmailResponse {
+  status: number;
+  valid: boolean;
+  exists: boolean;
+  user_name?: string;
+  message: string;
+}
+
+export const checkCheckoutEmail = async (email: string): Promise<CheckEmailResponse> => {
+  const response = await api.post<CheckEmailResponse>('/public/checkout/check-email', { email });
+  return response.data;
+};
 
 export const initiateCheckout = async (
   payload: CheckoutInitiatePayload

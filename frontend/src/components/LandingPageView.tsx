@@ -1162,6 +1162,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
         onClose={() => setContractModalOpen(false)}
         selectedPlan={selectedPlan}
         currentUser={currentUser}
+        onOpenLogin={() => setLoginModalOpen(true)}
         onPaymentSuccess={(user, token) => {
           setContractModalOpen(false);
           onLoginSuccess(user, token || '');

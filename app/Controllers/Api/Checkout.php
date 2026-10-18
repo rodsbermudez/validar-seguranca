@@ -64,18 +64,17 @@ class Checkout extends ResourceController
 
         // Usuário autenticado via JWT (se houver)
         $authUser = $this->request->userData ?? null;
+        $isNewSignup = !empty($json['is_new_signup']);
 
         if ($existingUser) {
-            // Se o e-mail já existe no banco:
-            if (!$authUser || (int)$authUser->id !== (int)$existingUser['id']) {
-                // Se não está autenticado como ele mesmo, valida a senha informada
-                if (empty($password) || !password_verify($password, $existingUser['password_hash'])) {
-                    return $this->respond([
-                        'status'      => 409,
-                        'user_exists' => true,
-                        'message'     => 'Este e-mail já possui cadastro. Por favor, confirme sua senha para prosseguir com a contratação.',
-                    ], 409);
-                }
+            // Se for novo cadastro ou usuário não autenticado como o proprietário da conta:
+            // Bloqueia e instrui a fazer login
+            if ($isNewSignup || !$authUser || (int)$authUser->id !== (int)$existingUser['id']) {
+                return $this->respond([
+                    'status'      => 409,
+                    'user_exists' => true,
+                    'message'     => 'Este e-mail já possui cadastro na plataforma. Por favor, faça login com sua conta para contratar ou gerenciar sua assinatura.',
+                ], 409);
             }
             $userId = (int)$existingUser['id'];
             $user = $existingUser;
@@ -506,6 +505,45 @@ class Checkout extends ResourceController
             'message'        => 'Pagamento Pix simulado e confirmado com sucesso!',
             'transaction_id' => $trans['id'],
             'activated'      => true,
+        ]);
+    }
+
+    /**
+     * POST /api/public/checkout/check-email
+     * Verifica se um e-mail já está cadastrado na plataforma para feedback instantâneo no checkout.
+     */
+    public function checkEmail()
+    {
+        $json = $this->request->getJSON(true) ?? [];
+        $email = strtolower(trim($json['email'] ?? ''));
+
+        if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return $this->respond([
+                'status'  => 400,
+                'valid'   => false,
+                'exists'  => false,
+                'message' => 'Informe um e-mail válido.',
+            ], 400);
+        }
+
+        $userModel = new UserModel();
+        $user = $userModel->where('email', $email)->first();
+
+        if ($user) {
+            return $this->respond([
+                'status'      => 200,
+                'valid'       => true,
+                'exists'      => true,
+                'user_name'   => $user['name'] ?? null,
+                'message'     => 'Este e-mail já possui cadastro na plataforma. Faça login com sua conta para gerenciar seu plano.',
+            ]);
+        }
+
+        return $this->respond([
+            'status'  => 200,
+            'valid'   => true,
+            'exists'  => false,
+            'message' => 'E-mail disponível para novo cadastro.',
         ]);
     }
 }

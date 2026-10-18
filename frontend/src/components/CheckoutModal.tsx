@@ -26,6 +26,7 @@ import {
   IconShieldCheck,
   IconLock,
   IconAlertCircle,
+  IconAlertTriangle,
   IconArrowRight,
   IconArrowLeft,
   IconSparkles,
@@ -39,6 +40,7 @@ import {
   initiateCheckout,
   getCheckoutStatus,
   simulateConfirmCheckout,
+  checkCheckoutEmail,
   CheckoutInitiateResponse,
 } from '../api';
 
@@ -49,6 +51,7 @@ interface CheckoutModalProps {
   currentUser?: any;
   initialExtraWebsites?: number;
   initialExtraAiPacks?: number;
+  onOpenLogin?: () => void;
   onPaymentSuccess: (user: any, token?: string) => void;
 }
 
@@ -59,6 +62,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   currentUser,
   initialExtraWebsites = 0,
   initialExtraAiPacks = 0,
+  onOpenLogin,
   onPaymentSuccess,
 }) => {
   const [step, setStep] = useState<'form' | 'pix' | 'success'>('form');
@@ -71,6 +75,11 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [cpfCnpj, setCpfCnpj] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
+
+  // Email validation state
+  const [emailChecking, setEmailChecking] = useState(false);
+  const [emailExists, setEmailExists] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
 
   // Payment method: credit_card or pix
   const [paymentMethod, setPaymentMethod] = useState<'credit_card' | 'pix'>('credit_card');
@@ -99,6 +108,9 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     if (opened) {
       setStep('form');
       setError(null);
+      setEmailChecking(false);
+      setEmailExists(false);
+      setEmailError(null);
       setCheckoutData(null);
       setExtraWebsites(initialExtraWebsites);
       setExtraAiPacks(initialExtraAiPacks);
@@ -113,15 +125,45 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       if (currentUser) {
         setName(currentUser.name || '');
         setEmail(currentUser.email || '');
+        setEmailExists(false);
+        setEmailError(null);
       } else {
         setName('');
         setEmail('');
         setCpfCnpj('');
         setPhone('');
         setPassword('');
+        setEmailExists(false);
+        setEmailError(null);
       }
     }
   }, [opened, currentUser]);
+
+  const validateEmailAvailability = async (emailToTest: string) => {
+    if (currentUser) return;
+    const clean = emailToTest.trim().toLowerCase();
+    if (!clean || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean)) {
+      setEmailExists(false);
+      setEmailError(null);
+      return;
+    }
+
+    try {
+      setEmailChecking(true);
+      const res = await checkCheckoutEmail(clean);
+      if (res.exists) {
+        setEmailExists(true);
+        setEmailError('Este e-mail já possui cadastro na plataforma.');
+      } else {
+        setEmailExists(false);
+        setEmailError(null);
+      }
+    } catch (err) {
+      console.error('Erro ao checar email:', err);
+    } finally {
+      setEmailChecking(false);
+    }
+  };
 
   // Clean polling on unmount or step change
   useEffect(() => {
@@ -302,6 +344,28 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       }
     }
 
+    if (!currentUser) {
+      if (emailExists) {
+        setError('Este e-mail já possui cadastro na plataforma. Por favor, faça login com sua conta para continuar.');
+        return;
+      }
+
+      try {
+        setEmailChecking(true);
+        const checkRes = await checkCheckoutEmail(email.trim().toLowerCase());
+        if (checkRes.exists) {
+          setEmailExists(true);
+          setEmailError('Este e-mail já possui cadastro na plataforma.');
+          setError('Este e-mail já possui cadastro na plataforma. Por favor, faça login com sua conta para contratar ou gerenciar sua assinatura.');
+          return;
+        }
+      } catch (e) {
+        // Ignora falha de rede da checagem prévia e deixa o backend validar
+      } finally {
+        setEmailChecking(false);
+      }
+    }
+
     setLoading(true);
 
     try {
@@ -317,6 +381,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         extra_websites_price: extraWebsitesPrice,
         extra_ai_tokens: extraAiTokens,
         extra_ai_tokens_price: extraAiPrice,
+        is_new_signup: !currentUser,
       };
 
       if (paymentMethod === 'credit_card') {
@@ -359,6 +424,10 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         setStep('pix');
       }
     } catch (err: any) {
+      if (err?.response?.data?.user_exists) {
+        setEmailExists(true);
+        setEmailError('Este e-mail já possui cadastro na plataforma.');
+      }
       const msg =
         err?.response?.data?.messages?.error ||
         err?.response?.data?.message ||
@@ -530,12 +599,59 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 label="E-mail de Acesso"
                 placeholder="seu.email@empresa.com"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  if (emailExists) {
+                    setEmailExists(false);
+                    setEmailError(null);
+                  }
+                }}
+                onBlur={(e) => validateEmailAvailability(e.target.value)}
                 required
                 type="email"
                 disabled={!!currentUser}
+                error={emailError}
+                rightSection={
+                  emailChecking ? (
+                    <Loader size="xs" color="indigo" />
+                  ) : emailExists ? (
+                    <IconAlertCircle size={18} color="var(--mantine-color-red-5)" />
+                  ) : email && !emailError && !currentUser ? (
+                    <IconCheck size={18} color="var(--mantine-color-green-5)" />
+                  ) : null
+                }
               />
             </SimpleGrid>
+
+            {emailExists && !currentUser && (
+              <Alert
+                color="yellow"
+                variant="light"
+                icon={<IconAlertTriangle size={18} />}
+                title="E-mail já cadastrado na plataforma"
+              >
+                <Stack gap="xs">
+                  <Text size="sm">
+                    Identificamos que o e-mail <strong>{email}</strong> já possui uma conta ativa. Para assinar um novo plano ou gerenciar sua assinatura, faça login na sua conta existente.
+                  </Text>
+                  {onOpenLogin && (
+                    <Group>
+                      <Button
+                        size="xs"
+                        variant="filled"
+                        color="yellow"
+                        onClick={() => {
+                          onClose();
+                          onOpenLogin();
+                        }}
+                      >
+                        Fazer Login com esta Conta
+                      </Button>
+                    </Group>
+                  )}
+                </Stack>
+              </Alert>
+            )}
 
             <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
               <TextInput
