@@ -201,9 +201,6 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                 alt="Patropi Comunica"
                 style={{ height: 42, width: 'auto', objectFit: 'contain' }}
               />
-              <Badge color="indigo" variant="outline" size="sm" radius="sm">
-                SaaS Security
-              </Badge>
             </Group>
 
             {/* Menu Links */}

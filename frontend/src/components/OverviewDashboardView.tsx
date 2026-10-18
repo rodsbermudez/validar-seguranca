@@ -270,12 +270,7 @@ export const OverviewDashboardView: React.FC<OverviewDashboardViewProps> = ({
       <Paper p="md" radius="md" bg="dark.7" withBorder style={{ borderLeft: '4px solid #4c6ef5' }}>
         <Group justify="space-between" align="center" wrap="wrap" gap="md">
           <div>
-            <Group gap="xs" align="center">
-              <Title order={3}>Painel Geral & Cockpit de Monitoramento</Title>
-              <Badge color="indigo" variant="filled" size="md">
-                {data?.year_month_label || 'Ciclo Atual'}
-              </Badge>
-            </Group>
+            <Title order={3}>Painel de monitoramento</Title>
             <Text size="sm" c="dimmed" mt={4}>
               Acompanhamento integrado de alvos WordPress, ciclo mensal de manutenções e segurança da carteira.
             </Text>

@@ -40,10 +40,8 @@ import {
   IconAlertCircle,
   IconRefresh,
   IconTrash,
-  IconLock,
   IconFileCheck,
   IconLayoutDashboard,
-  IconDatabase,
   IconFileText,
   IconUsers,
   IconUserPlus,
@@ -961,74 +959,6 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
                 </Card>
               </Grid.Col>
             </Grid>
-
-            {/* Upcoming Features Section (Planejadas) */}
-            <Paper p="lg" radius="md" withBorder bg="dark.8">
-              <Group justify="space-between" mb="md">
-                <div>
-                  <Title order={4}>🚀 Próximos Módulos de Manutenção</Title>
-                  <Text size="xs" c="dimmed">
-                    Ferramentas em planejamento para a gestão ativa e hardening deste site.
-                  </Text>
-                </div>
-                <Badge color="pink" variant="light">
-                  Roadmap
-                </Badge>
-              </Group>
-
-              <Grid>
-                <Grid.Col span={{ base: 12, md: 4 }}>
-                  <Paper p="sm" radius="sm" bg="dark.7" style={{ opacity: 0.85 }}>
-                    <Group justify="space-between" mb={4}>
-                      <Group gap="xs">
-                        <IconLock size={18} style={{ color: '#ffec99' }} />
-                        <Text size="sm" fw={600}>
-                          Hardening em 1-Clique
-                        </Text>
-                      </Group>
-                      <Badge color="yellow" size="xs" variant="light">Módulo 2</Badge>
-                    </Group>
-                    <Text size="xs" c="dimmed">
-                      Desative edição de código, bloqueie XML-RPC e oculte a versão do WP instantaneamente.
-                    </Text>
-                  </Paper>
-                </Grid.Col>
-
-                <Grid.Col span={{ base: 12, md: 4 }}>
-                  <Paper p="sm" radius="sm" bg="dark.7" style={{ opacity: 0.85 }}>
-                    <Group justify="space-between" mb={4}>
-                      <Group gap="xs">
-                        <IconDatabase size={18} style={{ color: '#b197fc' }} />
-                        <Text size="sm" fw={600}>
-                          Backups & Restauração
-                        </Text>
-                      </Group>
-                      <Badge color="grape" size="xs" variant="light">Módulo 4</Badge>
-                    </Group>
-                    <Text size="xs" c="dimmed">
-                      Geração de backups do banco e arquivos antes de rotinas de manutenção com restauração rápida.
-                    </Text>
-                  </Paper>
-                </Grid.Col>
-
-                <Grid.Col span={{ base: 12, md: 4 }}>
-                  <Paper p="sm" radius="sm" bg="dark.7" style={{ opacity: 0.85 }}>
-                    <Group justify="space-between" mb={4}>
-                      <Group gap="xs">
-                        <IconRadar size={18} style={{ color: '#63e6be' }} />
-                        <Text size="sm" fw={600}>
-                          Monitor de Alterações
-                        </Text>
-                      </Group>
-                      <Badge color="teal" size="xs" variant="light">Módulo 5</Badge>
-                    </Group>
-                    <Text size="xs" c="dimmed">
-                      Alerta automático quando novos arquivos PHP forem criados ou modificados no servidor.
-                    </Text>
-                  </Paper>
-                </Grid.Col>
-              </Grid>
-            </Paper>
           </Stack>
         </Tabs.Panel>
 

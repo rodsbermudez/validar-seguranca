@@ -508,7 +508,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           <IconShieldCheck size={22} color="var(--mantine-color-indigo-4)" />
           <Text fw={700} size="lg">
             {step === 'form'
-              ? 'Contratação de Plano SaaS'
+              ? 'Contratação de Plano'
               : step === 'pix'
               ? 'Pagamento via Pix Instantâneo'
               : 'Assinatura Confirmada com Sucesso!'}
