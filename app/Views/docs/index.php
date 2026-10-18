@@ -662,10 +662,10 @@
                     <li class="nav-item" style="margin-left: 10px;"><a href="#testes-resumo" style="font-size: 0.82rem; opacity: 0.85;"><span class="nav-icon">📋</span> Catálogo de Testes</a></li>
                     <li class="nav-item"><a href="#plugin-agente"><span class="nav-icon">🔌</span> Plugin Agente WordPress</a></li>
                     <li class="nav-item"><a href="#integridade-do-core"><span class="nav-icon">🔍</span> Integridade do Core & Auto-Fix</a></li>
-                    <li class="nav-item"><a href="#logs-de-atividades"><span class="nav-icon">📝</span> Logs de Atividades & Diário Técnico</a></li>
-                    <li class="nav-item"><a href="#link-publico-clientes"><span class="nav-icon">🔗</span> Link Público para Clientes</a></li>
                     <li class="nav-item"><a href="#logs-em-tempo-real"><span class="nav-icon">📜</span> Logs de Execução em Tempo Real</a></li>
                     <li class="nav-item"><a href="#atualizacoes-remotas"><span class="nav-icon">🔄</span> Atualizações Remotas (Plugins/Temas/Core)</a></li>
+                    <li class="nav-item"><a href="#logs-de-atividades"><span class="nav-icon">📝</span> Logs de Atividades & Diário Técnico</a></li>
+                    <li class="nav-item"><a href="#link-publico-clientes"><span class="nav-icon">🔗</span> Link Público para Clientes</a></li>
                     <li class="nav-item"><a href="#remediacao-e-ia"><span class="nav-icon">🤖</span> Remediação & Fixes WP</a></li>
                     <li class="nav-item"><a href="#gestao-plano-cliente"><span class="nav-icon">📦</span> Gestão do Plano, Assinaturas & Add-ons</a></li>
                 </ul>
@@ -1831,42 +1831,7 @@
                 <p>Ao salvar as configurações, o agente valida as chaves e estabelece o pareamento instantaneamente com o painel.</p>
             </section>
 
-            <!-- 5. Logs em Tempo Real -->
-            <section id="logs-em-tempo-real" class="doc-section">
-                <h1>📜 Logs de Execução em Tempo Real do WordPress</h1>
-                <p>A aba <strong>Logs em Tempo Real</strong> permite que os administradores monitorem erros de PHP, avisos do sistema (warnings), notices e logs de depuração do WordPress diretamente pelo painel SaaS, sem necessidade de abrir clientes FTP ou gerenciadores de arquivos da hospedagem.</p>
-
-                <h2>Principais Funcionalidades do Módulo de Logs</h2>
-                <ul>
-                    <li><strong>Ativação/Desativação Remota:</strong> Com um único clique no botão de alternância (switch), você ativa o <code>WP_DEBUG_LOG</code> do WordPress. Quando ativado, os erros passam a ser gravados em arquivo protegido e são <em>ocultados da tela pública</em> (prevenindo vazamento de dados aos visitantes).</li>
-                    <li><strong>Filtros por Nível de Severidade:</strong> Filtre os logs em tempo real entre <code>Fatal Error</code>, <code>Warning</code>, <code>Notice</code>, <code>Deprecated</code> ou visualize todos os registros concatenados.</li>
-                    <li><strong>Console com Busca e Auto-Scroll:</strong> Digite termos, nomes de funções ou plugins para localizar a origem exata de problemas e ative o botão de Auto-scroll para acompanhar a execução em tempo real.</li>
-                    <li><strong>Limpeza do Arquivo de Logs:</strong> Permite esvaziar o arquivo <code>debug.log</code> no servidor WordPress para reiniciar o monitoramento de novos incidentes.</li>
-                </ul>
-
-                <div class="callout callout-info">
-                    <div class="callout-title">🔒 Armazenamento Seguro dos Logs</div>
-                    <p>Os logs são armazenados no diretório <code>wp-content/uploads/wp-patropi-logs/debug.log</code> protegido por arquivo <code>.htaccess</code> interno que bloqueia o download direto de navegadores não autorizados.</p>
-                </div>
-            </section>
-
-            <!-- 6. Gestão Centralizada de Atualizações Remotas -->
-            <section id="atualizacoes-remotas" class="doc-section">
-                <h1>🔄 Gestão Centralizada de Atualizações Remotas</h1>
-                <p>O módulo de <strong>Atualizações</strong> oferece visibilidade total do estado de desatualização de componentes do WordPress e permite disparar atualizações remotas e silenciosas sem precisar fazer login no wp-admin de cada site gerenciado.</p>
-
-                <h2>O Que Pode Ser Atualizado Diretamente pelo SaaS</h2>
-                <ol>
-                    <li><strong>Plugins Instalados:</strong> Identifica quais plugins possuem versões mais recentes no repositório oficial do WordPress.org ou via transient ativo e permite atualização individual ou de múltiplos itens.</li>
-                    <li><strong>Temas:</strong> Detecta temas do WordPress que possuem novas versões publicadas com botão de atualização segura.</li>
-                    <li><strong>Core do WordPress:</strong> Compara a versão local em execução contra a última versão estável disponível na API do WordPress.org.</li>
-                </ol>
-
-                <h2>Execução Silenciosa com Classes Nativas</h2>
-                <p>Ao solicitar a atualização, o agente executa as classes nativas do core do WordPress (<code>Plugin_Upgrader</code>, <code>Theme_Upgrader</code>, <code>Core_Upgrader</code>), garantindo que as rotinas de descompactação, verificação de dependências e substituição de arquivos respeitem o fluxo oficial e seguro do WordPress.</p>
-            </section>
-
-            <!-- 7. Verificador de Integridade do Core & Auto-Fix -->
+            <!-- 5. Verificador de Integridade do Core & Auto-Fix -->
             <section id="integridade-do-core" class="doc-section">
                 <h1>🔍 Verificador de Integridade do Core & Auto-Fix Oficial</h1>
                 <p>O <strong>Verificador de Integridade</strong> atua como um escâner forense no WordPress cliente, garantindo que nenhum arquivo de sistema essencial tenha sido adulterado, corrompido ou infectado por injeções de malware, webshells ou backdoors.</p>
@@ -1912,6 +1877,41 @@
                     <li><strong>Restauração com Preservação de Idioma:</strong> Ao restaurar o <code>version.php</code>, o agente injeta a definição do pacote local com fidelidade criptográfica total, prevenindo erros de mismatch.</li>
                     <li><strong>Persistência no Banco de Dados:</strong> O resultado da última varredura (status, contadores e data) é gravado no banco de dados do SaaS, garantindo que o status do site permaneça visível mesmo após novo login na plataforma.</li>
                 </ul>
+            </section>
+
+            <!-- 6. Logs em Tempo Real -->
+            <section id="logs-em-tempo-real" class="doc-section">
+                <h1>📜 Logs de Execução em Tempo Real do WordPress</h1>
+                <p>A aba <strong>Logs em Tempo Real</strong> permite que os administradores monitorem erros de PHP, avisos do sistema (warnings), notices e logs de depuração do WordPress diretamente pelo painel SaaS, sem necessidade de abrir clientes FTP ou gerenciadores de arquivos da hospedagem.</p>
+
+                <h2>Principais Funcionalidades do Módulo de Logs</h2>
+                <ul>
+                    <li><strong>Ativação/Desativação Remota:</strong> Com um único clique no botão de alternância (switch), você ativa o <code>WP_DEBUG_LOG</code> do WordPress. Quando ativado, os erros passam a ser gravados em arquivo protegido e são <em>ocultados da tela pública</em> (prevenindo vazamento de dados aos visitantes).</li>
+                    <li><strong>Filtros por Nível de Severidade:</strong> Filtre os logs em tempo real entre <code>Fatal Error</code>, <code>Warning</code>, <code>Notice</code>, <code>Deprecated</code> ou visualize todos os registros concatenados.</li>
+                    <li><strong>Console com Busca e Auto-Scroll:</strong> Digite termos, nomes de funções ou plugins para localizar a origem exata de problemas e ative o botão de Auto-scroll para acompanhar a execução em tempo real.</li>
+                    <li><strong>Limpeza do Arquivo de Logs:</strong> Permite esvaziar o arquivo <code>debug.log</code> no servidor WordPress para reiniciar o monitoramento de novos incidentes.</li>
+                </ul>
+
+                <div class="callout callout-info">
+                    <div class="callout-title">🔒 Armazenamento Seguro dos Logs</div>
+                    <p>Os logs são armazenados no diretório <code>wp-content/uploads/wp-patropi-logs/debug.log</code> protegido por arquivo <code>.htaccess</code> interno que bloqueia o download direto de navegadores não autorizados.</p>
+                </div>
+            </section>
+
+            <!-- 7. Gestão Centralizada de Atualizações Remotas -->
+            <section id="atualizacoes-remotas" class="doc-section">
+                <h1>🔄 Gestão Centralizada de Atualizações Remotas</h1>
+                <p>O módulo de <strong>Atualizações</strong> oferece visibilidade total do estado de desatualização de componentes do WordPress e permite disparar atualizações remotas e silenciosas sem precisar fazer login no wp-admin de cada site gerenciado.</p>
+
+                <h2>O Que Pode Ser Atualizado Diretamente pelo SaaS</h2>
+                <ol>
+                    <li><strong>Plugins Instalados:</strong> Identifica quais plugins possuem versões mais recentes no repositório oficial do WordPress.org ou via transient ativo e permite atualização individual ou de múltiplos itens.</li>
+                    <li><strong>Temas:</strong> Detecta temas do WordPress que possuem novas versões publicadas com botão de atualização segura.</li>
+                    <li><strong>Core do WordPress:</strong> Compara a versão local em execução contra a última versão estável disponível na API do WordPress.org.</li>
+                </ol>
+
+                <h2>Execução Silenciosa com Classes Nativas</h2>
+                <p>Ao solicitar a atualização, o agente executa as classes nativas do core do WordPress (<code>Plugin_Upgrader</code>, <code>Theme_Upgrader</code>, <code>Core_Upgrader</code>), garantindo que as rotinas de descompactação, verificação de dependências e substituição de arquivos respeitem o fluxo oficial e seguro do WordPress.</p>
             </section>
 
             <!-- 8. Logs de Atividades & Diário Técnico -->
@@ -2600,68 +2600,156 @@ _Checklist oficial gerado pela plataforma Validar Segurança._`;
             }
         }
 
-        // Active Navigation Highlight on Scroll
-        function updateActiveNav() {
-            const sections = document.querySelectorAll('.doc-section');
-            const navLinks = document.querySelectorAll('.nav-item a');
-            const scrollPos = window.scrollY + 140; // Offset for sticky header
+        // Active Navigation Highlight on Scroll (Scrollspy de Alta Precisão)
+        (function() {
+            let isClickScrolling = false;
+            let clickTimeout = null;
 
-            let currentSectionId = '';
-
-            sections.forEach(section => {
-                if (section.style.display === 'none') return;
-                const top = section.offsetTop;
-                const height = section.offsetHeight;
-                if (scrollPos >= top && scrollPos < top + height) {
-                    currentSectionId = section.getAttribute('id');
-                }
-            });
-
-            // If scrolled to bottom of page, highlight last visible item
-            if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 40) {
-                const visibleSections = Array.from(sections).filter(s => s.style.display !== 'none');
-                if (visibleSections.length > 0) {
-                    currentSectionId = visibleSections[visibleSections.length - 1].getAttribute('id');
-                }
+            function getVisibleNavLinks() {
+                return Array.from(document.querySelectorAll('.sidebar .nav-item a')).filter(link => {
+                    const navItem = link.closest('.nav-item');
+                    const navGroup = link.closest('.nav-group');
+                    if (navItem && window.getComputedStyle(navItem).display === 'none') return false;
+                    if (navGroup && window.getComputedStyle(navGroup).display === 'none') return false;
+                    return true;
+                });
             }
 
-            if (currentSectionId) {
+            function setActiveLink(activeId) {
+                const navLinks = document.querySelectorAll('.sidebar .nav-item a');
                 navLinks.forEach(link => {
-                    if (link.getAttribute('href') === '#' + currentSectionId) {
+                    const href = link.getAttribute('href');
+                    if (href === '#' + activeId) {
                         link.classList.add('active');
+                        // Garante que o item ativo esteja visível na sidebar com scroll suave
+                        const sidebar = document.querySelector('aside.sidebar');
+                        if (sidebar) {
+                            const linkTop = link.offsetTop;
+                            const linkHeight = link.offsetHeight;
+                            const sidebarScroll = sidebar.scrollTop;
+                            const sidebarHeight = sidebar.clientHeight;
+                            if (linkTop < sidebarScroll + 30 || linkTop + linkHeight > sidebarScroll + sidebarHeight - 30) {
+                                sidebar.scrollTo({
+                                    top: linkTop - sidebarHeight / 2 + linkHeight / 2,
+                                    behavior: 'smooth'
+                                });
+                            }
+                        }
                     } else {
                         link.classList.remove('active');
                     }
                 });
             }
-        }
 
-        let isScrolling;
-        window.addEventListener('scroll', function() {
-            window.clearTimeout(isScrolling);
-            isScrolling = setTimeout(updateActiveNav, 30);
-        });
-        window.addEventListener('load', updateActiveNav);
+            function updateActiveNav() {
+                if (isClickScrolling) return;
 
-        // Smooth Scroll & Click Active Fix
-        document.querySelectorAll('.nav-item a').forEach(link => {
-            link.addEventListener('click', function(e) {
-                const targetId = this.getAttribute('href');
-                if (targetId && targetId.startsWith('#')) {
-                    e.preventDefault();
-                    const targetEl = document.querySelector(targetId);
-                    if (targetEl) {
-                        const targetOffset = targetEl.offsetTop - 80;
-                        window.scrollTo({
-                            top: targetOffset,
-                            behavior: 'smooth'
-                        });
-                        document.querySelectorAll('.nav-item a').forEach(l => l.classList.remove('active'));
-                        this.classList.add('active');
+                const visibleLinks = getVisibleNavLinks();
+                if (visibleLinks.length === 0) return;
+
+                const scrollY = window.scrollY;
+                const windowHeight = window.innerHeight;
+                const documentHeight = document.documentElement.scrollHeight;
+
+                // 1. Se estiver no topo da página (primeiros 60px), ativa o primeiro item
+                if (scrollY < 60) {
+                    const firstHref = visibleLinks[0].getAttribute('href');
+                    if (firstHref && firstHref.startsWith('#')) {
+                        setActiveLink(firstHref.substring(1));
+                    }
+                    return;
+                }
+
+                // 2. Se estiver no final da página (rodapé), ativa o último item visível
+                if (windowHeight + scrollY >= documentHeight - 60) {
+                    const lastHref = visibleLinks[visibleLinks.length - 1].getAttribute('href');
+                    if (lastHref && lastHref.startsWith('#')) {
+                        setActiveLink(lastHref.substring(1));
+                    }
+                    return;
+                }
+
+                // 3. Coleta os elementos correspondentes a cada link visível
+                const headerOffset = 110; // altura do cabeçalho fixo + margem de respiro
+                let activeId = '';
+
+                // Varre na ordem do menu: o item ativo é o ÚLTIMO cujo topo já passou do threshold
+                for (let i = 0; i < visibleLinks.length; i++) {
+                    const href = visibleLinks[i].getAttribute('href');
+                    if (!href || !href.startsWith('#')) continue;
+                    const targetEl = document.querySelector(href);
+                    if (!targetEl || targetEl.offsetParent === null) continue;
+
+                    const rect = targetEl.getBoundingClientRect();
+                    if (rect.top <= headerOffset) {
+                        activeId = href.substring(1);
+                    } else {
+                        // Como os elementos estão em ordem sequencial no DOM, se este topo ainda está abaixo do header,
+                        // os próximos também estarão abaixo
+                        break;
                     }
                 }
+
+                if (activeId) {
+                    setActiveLink(activeId);
+                } else if (visibleLinks.length > 0) {
+                    const firstHref = visibleLinks[0].getAttribute('href');
+                    if (firstHref && firstHref.startsWith('#')) {
+                        setActiveLink(firstHref.substring(1));
+                    }
+                }
+            }
+
+            // Uso de requestAnimationFrame para performance 60fps sem delay
+            let ticking = false;
+            window.addEventListener('scroll', function() {
+                if (!ticking) {
+                    window.requestAnimationFrame(function() {
+                        updateActiveNav();
+                        ticking = false;
+                    });
+                    ticking = true;
+                }
+            }, { passive: true });
+
+            window.addEventListener('load', updateActiveNav);
+            window.addEventListener('resize', updateActiveNav);
+
+            // Clique suave nos links da navegação com bloqueio temporário do scrollspy
+            document.querySelectorAll('.sidebar .nav-item a').forEach(link => {
+                link.addEventListener('click', function(e) {
+                    const targetId = this.getAttribute('href');
+                    if (targetId && targetId.startsWith('#')) {
+                        const targetEl = document.querySelector(targetId);
+                        if (targetEl) {
+                            e.preventDefault();
+                            isClickScrolling = true;
+                            clearTimeout(clickTimeout);
+
+                            setActiveLink(targetId.substring(1));
+
+                            const targetOffset = targetEl.getBoundingClientRect().top + window.scrollY - 80;
+                            window.scrollTo({
+                                top: Math.max(0, targetOffset),
+                                behavior: 'smooth'
+                            });
+
+                            // Atualiza URL sem pular a tela
+                            if (history.pushState) {
+                                history.pushState(null, null, targetId);
+                            } else {
+                                window.location.hash = targetId;
+                            }
+
+                            clickTimeout = setTimeout(function() {
+                                isClickScrolling = false;
+                                updateActiveNav();
+                            }, 800);
+                        }
+                    }
+                });
             });
-        });
+        })();
     </script>
 </body>
 </html>
