@@ -667,7 +667,7 @@
                     <li class="nav-item"><a href="#logs-em-tempo-real"><span class="nav-icon">📜</span> Logs de Execução em Tempo Real</a></li>
                     <li class="nav-item"><a href="#atualizacoes-remotas"><span class="nav-icon">🔄</span> Atualizações Remotas (Plugins/Temas/Core)</a></li>
                     <li class="nav-item"><a href="#remediacao-e-ia"><span class="nav-icon">🤖</span> Remediação & Fixes WP</a></li>
-                    <li class="nav-item"><a href="#gestao-plano-cliente"><span class="nav-icon">📦</span> Gestão do Plano & Consumo de IA</a></li>
+                    <li class="nav-item"><a href="#gestao-plano-cliente"><span class="nav-icon">📦</span> Gestão do Plano, Assinaturas & Add-ons</a></li>
                 </ul>
             </div>
 
@@ -678,6 +678,7 @@
                     <li class="nav-item admin-only"><a href="#gestao-de-usuarios"><span class="nav-icon">👥</span> Gestão de Usuários, Planos & Add-ons</a></li>
                     <li class="nav-item admin-only"><a href="#configuracao-planos-ia"><span class="nav-icon">⚙️</span> Catálogo de Planos & Motores de IA</a></li>
                     <li class="nav-item admin-only"><a href="#monitoramento-ia-global"><span class="nav-icon">💰</span> Monitoramento Geral de IA & Custos</a></li>
+                    <li class="nav-item admin-only"><a href="#configuracao-pagamentos-gateway"><span class="nav-icon">💳</span> Formas de Pagamento & Gateway Asaas</a></li>
                 </ul>
             </div>
 
@@ -2054,18 +2055,27 @@ location ~* /(wp-config\.php|readme\.html|license\.txt) {
 
             <!-- 5. Gestão do Plano & Consumo de IA (Visão do Cliente) -->
             <section id="gestao-plano-cliente" class="doc-section">
-                <h1>📦 Gestão do Plano & Consumo de Inteligência Artificial</h1>
-                <p>No <strong>Validar Segurança</strong>, o acesso aos recursos da plataforma é estruturado através de <strong>Planos & Pacotes</strong> desenhados para oferecer previsibilidade total de custos aos clientes. Cada conta possui um plano mensal ativo que contempla uma quantidade definida de websites monitorados e uma cota de tokens de Inteligência Artificial.</p>
+                <h1>📦 Gestão do Plano, Assinaturas & Add-ons</h1>
+                <p>No <strong>Validar Segurança</strong>, o acesso aos recursos da plataforma é estruturado através de <strong>Planos & Assinaturas</strong> desenhados para oferecer total autonomia, flexibilidade e previsibilidade de custos aos clientes. Cada conta possui uma assinatura mensal ativa com limites claros de websites monitorados e cota de tokens de Inteligência Artificial.</p>
 
-                <h2>1. Como Funciona o Plano do Cliente</h2>
-                <p>Ao contratar ou ativar sua conta, o cliente tem acesso aos recursos de forma consolidada:</p>
+                <h2>1. Estrutura do Plano & Ciclo de Assinatura</h2>
+                <p>Ao contratar um plano na plataforma, sua conta passa a contar com um ciclo de faturamento transparente:</p>
                 <ul>
                     <li><strong>Websites Contratados:</strong> Quantidade máxima de sites WordPress que podem ser cadastrados e monitorados simultaneamente (ex: 4 sites, 10 sites ou Ilimitado).</li>
                     <li><strong>Cota Mensal de Inteligência Artificial:</strong> Volume de tokens disponíveis a cada ciclo mensal para análises aprofundadas, geração de soluções sob medida e diagnósticos inteligentes (ex: 250.000, 500.000 ou 2.000.000 de tokens).</li>
                     <li><strong>Mensalidade Fixa e Previsível:</strong> O uso de IA dentro da cota contratada está 100% incluso na mensalidade. Não existem cobranças variáveis por requisição ou surpresas na fatura no final do mês.</li>
+                    <li><strong>Data da Próxima Cobrança & Renovação do Ciclo:</strong> Diretamente no card <em>Faturamento & Mensalidade</em>, você visualiza a data exata da próxima renovação da sua assinatura (ex: <code>Renovação em DD/MM/AAAA</code>), garantindo previsibilidade financeira completa.</li>
                 </ul>
 
-                <h2>2. Entendendo os Tokens de IA: Entrada (Prompt) vs Saída (Completion)</h2>
+                <h2>2. Contratação & Formas de Pagamento</h2>
+                <p>A contratação e renovação de planos é realizada de forma simplificada e segura através do gateway integrado:</p>
+                <ul>
+                    <li><strong>Cartão de Crédito (Recorrência Automática):</strong> Ativação imediata dos limites e renovação mensal automática com total comodidade.</li>
+                    <li><strong>Pix Instantâneo:</strong> Disponibilizado como alternativa conforme ativação pela administração da plataforma.</li>
+                    <li><strong>Validação Segura de E-mail:</strong> No momento da contratação, a plataforma valida se o e-mail informado já possui cadastro, evitando duplicidade de contas e garantindo que suas assinaturas fiquem sempre centralizadas.</li>
+                </ul>
+
+                <h2>3. Entendendo os Tokens de IA: Entrada (Prompt) vs Saída (Completion)</h2>
                 <p>Os modelos de inteligência artificial processam dados em unidades chamadas <strong>tokens</strong> (1 token equivale a aproximadamente 4 caracteres ou cerca de 0,75 palavra em português). Cada interação com a IA divide-se em duas etapas bem definidas:</p>
 
                 <div class="grade-grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); margin: 20px 0;">
@@ -2095,20 +2105,31 @@ location ~* /(wp-config\.php|readme\.html|license\.txt) {
                     <p>Tanto os tokens de entrada (instruções enviadas) quanto os de saída (respostas geradas) são somados e debitados da sua <strong>Cota Mensal de IA</strong>. No menu superior <strong>Gestão do Plano</strong>, você visualiza em tempo real a barra de progresso (ex: <code>45.000 / 250.000 tokens</code>) com a porcentagem utilizada no ciclo vigente.</p>
                 </div>
 
-                <h2>3. Sistema de Add-ons (Upgrades Sob Demanda)</h2>
-                <p>Se a sua carteira de sites crescer ou se você precisar de um volume maior de processamento de IA antes da virada do ciclo mensal, você não precisa ficar travado nem trocar de plano forçadamente. Você pode solicitar à administração a ativação de <strong>Add-ons</strong>:</p>
+                <h2>4. Contratação Autônoma de Add-ons & Cálculo Pró-rata</h2>
+                <p>Se a sua carteira de clientes expandir ou se você precisar de capacidade extra antes do fim do ciclo mensal, você tem autonomia total para contratar <strong>Add-ons</strong> a qualquer momento diretamente pelo modal de expansão:</p>
 
                 <ul>
-                    <li><strong>Sites Extras (+Websites):</strong> Adiciona capacidade para novos domínios ao seu plano base com acréscimo de um valor fixo mensal (ex: +2 sites por R$ 50,00/mês).</li>
-                    <li><strong>Cota Extra de IA (+Tokens):</strong> Adiciona um pacote extra de tokens ao seu limite mensal com acréscimo de um valor fixo mensal (ex: +250k tokens por R$ 40,00/mês).</li>
+                    <li><strong>Sites Extras (+Websites):</strong> Aumenta a capacidade de monitoramento do seu plano base (ex: +R$ 8,00 por site adicional).</li>
+                    <li><strong>Cota Extra de IA (+Tokens):</strong> Adiciona pacotes extras de tokens para remediação e código (ex: +250.000 tokens por pacote).</li>
                 </ul>
 
-                <p>O faturamento é sempre discriminado e transparente na tela <strong>Gestão do Plano</strong>:</p>
-                <div class="code-block">
-                    <pre style="color: #38bdf8;">Mensalidade Total = Plano Base (R$) + Sites Extras (R$) + IA Extra (R$)</pre>
+                <div class="callout callout-success">
+                    <div class="callout-title">✨ Faturamento Justo com Pró-rata Automático</div>
+                    <p>Ao adicionar sites ou pacotes no meio do ciclo mensal, você <strong>não paga a mensalidade cheia</strong> daquele add-on. A plataforma calcula automaticamente o valor proporcional (<em>pró-rata</em>) referente estritamente aos dias que restam até a sua próxima data de renovação. O valor integral mensal só será incorporado a partir da próxima fatura.</p>
                 </div>
 
-                <h2>4. Histórico Mensal & Auditoria de Consumo</h2>
+                <h2>5. Upgrade de Plano & Migração Imediata</h2>
+                <p>Caso sua operação exija limites superiores do plano base (ex: migrar do plano <em>Iniciante</em> para o plano <em>Profissional</em> ou <em>Full</em>), a mudança pode ser feita em 1 clique através do botão <strong>"Fazer Upgrade"</strong>. A ativação é imediata no gateway de pagamento e os novos limites de sites e cotas de IA ficam disponíveis instantaneamente.</p>
+
+                <h2>6. Cancelamento de Assinatura Sem Burocracia</h2>
+                <p>A qualquer momento, o cliente pode solicitar o cancelamento da assinatura diretamente na tela <strong>Gestão do Plano</strong>:</p>
+                <ul>
+                    <li><strong>Preservação Integral do Período Pago:</strong> Ao cancelar, seu acesso <strong>não é bloqueado imediatamente</strong>. Você continua com acesso pleno a todos os sites, auditorias e limites até a data final do ciclo vigente já quitado (<code>current_period_end</code>).</li>
+                    <li><strong>Sem Novas Cobranças:</strong> A cobrança recorrente no gateway é interrompida automaticamente, garantindo que nenhum novo lançamento seja gerado.</li>
+                    <li><strong>Reativação Simples:</strong> Caso decida reativar sua assinatura após o término do ciclo, basta acessar o painel e realizar uma nova contratação de plano.</li>
+                </ul>
+
+                <h2>7. Histórico Mensal & Auditoria de Consumo</h2>
                 <p>Na tela <strong>Gestão do Plano</strong>, você tem acesso ao <strong>Histórico Mensal de Consumo de IA</strong> organizado por competência (Janeiro, Fevereiro, Março...). A tabela apresenta com transparência:</p>
                 <ul>
                     <li><strong>Mês de Referência:</strong> Competência do ciclo de faturamento.</li>
@@ -2301,7 +2322,63 @@ location ~* /(wp-config\.php|readme\.html|license\.txt) {
                 </ol>
             </section>
 
-            <!-- 8. FAQ -->
+            <!-- 10. Formas de Pagamento & Gateway Asaas (Área Restrita Admin) -->
+            <section id="configuracao-pagamentos-gateway" class="doc-section admin-only">
+                <h1>💳 Formas de Pagamento Habilitadas & Gateway Asaas (Área Restrita Admin)</h1>
+                <p>Localizado no menu <em>Configurações Gerais &gt; Aba Pagamento</em>, este módulo é o centro de comando administrativo para a governança dos meios de pagamento e integração financeira da plataforma com o gateway Asaas.</p>
+
+                <h2>1. Controle Dinâmico de Formas de Pagamento</h2>
+                <p>O administrador dispõe de interruptores (<em>switches</em>) dedicados no card <strong>"Formas de Pagamento Habilitadas"</strong> para gerenciar a disponibilidade dos métodos de cobrança oferecidos aos clientes:</p>
+
+                <div class="grade-grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); margin: 20px 0;">
+                    <div class="grade-card" style="text-align: left; padding: 20px; background: rgba(30, 41, 59, 0.6); border-color: rgba(99, 102, 241, 0.3);">
+                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                            <span style="font-size: 1.4rem;">💳</span>
+                            <strong style="color: #818cf8; font-size: 1.05rem;">Cartão de Crédito</strong>
+                        </div>
+                        <p style="font-size: 0.88rem; color: #cbd5e1; margin: 0;">
+                            Habilita pagamentos com cobrança recorrente automática no gateway Asaas e ativação instantânea de limites após a confirmação pela operadora.
+                        </p>
+                    </div>
+
+                    <div class="grade-card" style="text-align: left; padding: 20px; background: rgba(30, 41, 59, 0.6); border-color: rgba(20, 184, 166, 0.3);">
+                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                            <span style="font-size: 1.4rem;">⚡</span>
+                            <strong style="color: #2dd4bf; font-size: 1.05rem;">Pix Instantâneo</strong>
+                        </div>
+                        <p style="font-size: 0.88rem; color: #cbd5e1; margin: 0;">
+                            Gera cobranças via QR Code dinâmico e código Pix Copia e Cola com conciliação automática via Webhook. Pode ser ativado ou desativado a qualquer momento.
+                        </p>
+                    </div>
+                </div>
+
+                <h2>2. Comportamento Adaptativo nos Formulários</h2>
+                <p>A alteração dessas chaves no painel reflete em tempo real e de forma transparente em todas as telas da plataforma (Landing Page, Checkout, Upgrade e Adição de Add-ons):</p>
+                <ul>
+                    <li><strong>Apenas 1 Método Habilitado (ex: Somente Cartão de Crédito):</strong> O seletor de métodos de pagamento é ocultado automaticamente nos modais, conduzindo o usuário diretamente ao preenchimento dos dados do método ativo sem etapas intermediárias.</li>
+                    <li><strong>Ambos os Métodos Habilitados (Cartão + Pix):</strong> Os modais exibem o seletor visual permitindo que o cliente escolha livremente sua preferência de pagamento.</li>
+                </ul>
+
+                <div class="callout callout-warning">
+                    <div class="callout-title">🛡️ Salvaguarda de Segurança Mandatória</div>
+                    <p>O sistema possui trava de integridade que <strong>impede desativar ambas as formas de pagamento ao mesmo tempo</strong>. Pelo menos um método deve permanecer obrigatoriamente ativo para garantir que os clientes sempre tenham uma forma válida de contratação e renovação.</p>
+                </div>
+
+                <div class="callout callout-info">
+                    <div class="callout-title">🔒 Validação Rígida em Nível de API (Backend)</div>
+                    <p>Além da adaptação visual da interface, os endpoints de backend (<code>/checkout/initiate</code>, <code>/subscriptions/upgrade</code> e <code>/subscriptions/addons</code>) validam o status dos métodos ativos no banco de dados. Caso uma requisição direta tente transacionar um método desativado, o servidor rejeita com status <strong>HTTP 400 Bad Request</strong>.</p>
+                </div>
+
+                <h2>3. Integração com Gateway Asaas</h2>
+                <p>Nesta mesma aba, o administrador configura a comunicação com o gateway:</p>
+                <ul>
+                    <li><strong>API Key (Token de Acesso):</strong> Chave de autenticação gerada no painel Asaas em <em>Configurações de Conta &gt; Integração &gt; Chaves de API</em>.</li>
+                    <li><strong>Modo Sandbox (Homologação):</strong> Chave alternadora que direciona as chamadas para o ambiente seguro de testes do Asaas (<code>sandbox.asaas.com</code>), permitindo testar cartões simulados e simulação de pagamentos sem custos reais.</li>
+                    <li><strong>Webhook de Notificação:</strong> Endpoint do sistema (<code>/api/webhooks/asaas</code>) responsável por receber notificações assíncronas do Asaas e processar instantaneamente confirmações de pagamento (<code>PAYMENT_CONFIRMED</code>, <code>PAYMENT_RECEIVED</code>) e avisos de inadimplência (<code>PAYMENT_OVERDUE</code>).</li>
+                </ul>
+            </section>
+
+            <!-- 11. FAQ -->
             <section id="faq-e-boas-praticas" class="doc-section">
                 <h1>❓ Central de Dúvidas, FAQ & Boas Práticas</h1>
                 
@@ -2331,6 +2408,18 @@ location ~* /(wp-config\.php|readme\.html|license\.txt) {
                 <h3>5. Por que devo aplicar as alterações do Guia do Servidor manualmente?</h3>
                 <p>Arquivos como <code>.htaccess</code>, <code>nginx.conf</code> e <code>php.ini</code> controlam a infraestrutura e o processo do servidor web. Por rígidos padrões de segurança da hospedagem, o WordPress não deve (e na maioria dos servidores não tem permissão para) alterar diretamente esses arquivos. Por essa razão, a plataforma gera a sintaxe exata e testada para você colar diretamente no painel cPanel, Plesk ou terminal SSH.</p>
 
+                <h3>6. Como funciona a renovação da assinatura e a data da próxima cobrança?</h3>
+                <p>As assinaturas operam em ciclos mensais de 30 dias com renovação automática no cartão de crédito. Diretamente na tela <strong>Gestão do Plano</strong>, no card <em>Faturamento & Mensalidade</em>, você pode conferir com total transparência a data exata da próxima cobrança e o valor consolidado da sua mensalidade.</p>
+
+                <h3>7. Como funciona o cálculo proporcional (pró-rata) ao contratar Add-ons de sites ou IA?</h3>
+                <p>Ao adicionar sites ou pacotes de IA no meio de um ciclo, o sistema calcula apenas os dias restantes até a sua data de renovação. Você paga somente por esse período fracionado no ato da ativação, e a partir do ciclo seguinte o novo valor integral é somado à sua fatura mensal regular.</p>
+
+                <h3>8. O que acontece ao solicitar o cancelamento da assinatura?</h3>
+                <p>O cancelamento pode ser feito a qualquer momento no painel. O seu acesso permanece <strong>100% ativo até o último dia do ciclo já pago</strong> (<code>current_period_end</code>). Nenhuma cobrança futura será realizada e, se desejar retornar mais tarde, basta reativar sua assinatura na plataforma.</p>
+
+                <h3>9. Quais são as formas de pagamento aceitas?</h3>
+                <p>A plataforma aceita pagamentos via Cartão de Crédito com processamento seguro e renovação automática, além de Pix Instantâneo conforme a disponibilidade definida pela administração.</p>
+
                 <div class="callout callout-info" style="margin-top:40px;">
                     <div class="callout-title">💬 Precisa de Ajuda Adicional?</div>
                     <p>Caso tenha dúvidas sobre a interpretação de algum diagnóstico de segurança, consulte a equipe de suporte ou o administrador da sua conta.</p>
@@ -2346,20 +2435,43 @@ location ~* /(wp-config\.php|readme\.html|license\.txt) {
         (function() {
             try {
                 let isAdmin = false;
-                const storedUser = localStorage.getItem('user');
-                if (storedUser) {
-                    const u = JSON.parse(storedUser);
-                    if (u && u.role === 'admin') {
-                        isAdmin = true;
+                const impersonated = localStorage.getItem('impersonated_user');
+                if (!impersonated) {
+                    const storedUser = localStorage.getItem('user');
+                    if (storedUser) {
+                        const u = JSON.parse(storedUser);
+                        if (u && u.role === 'admin') {
+                            isAdmin = true;
+                        }
                     }
                 }
                 if (isAdmin) {
                     document.body.classList.add('is-admin');
+                } else {
+                    // Proteção: Se não for admin e tentar acessar direto uma seção restrita via hash na URL
+                    const currentHash = window.location.hash;
+                    if (currentHash) {
+                        const targetSec = document.querySelector(currentHash);
+                        if (targetSec && targetSec.classList.contains('admin-only')) {
+                            window.location.hash = '#visao-geral';
+                        }
+                    }
                 }
             } catch (err) {
                 console.warn('Erro ao verificar sessão na documentação:', err);
             }
         })();
+
+        // Monitorar alteração de hash para impedir navegação direta a seções restritas por não-admins
+        window.addEventListener('hashchange', function() {
+            const isAdmin = document.body.classList.contains('is-admin');
+            if (!isAdmin && window.location.hash) {
+                const targetSec = document.querySelector(window.location.hash);
+                if (targetSec && targetSec.classList.contains('admin-only')) {
+                    window.location.hash = '#visao-geral';
+                }
+            }
+        });
 
         // Busca Dinâmica em Tempo Real
         document.getElementById('docSearch').addEventListener('input', function (e) {
