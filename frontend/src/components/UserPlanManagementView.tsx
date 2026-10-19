@@ -365,6 +365,7 @@ export function UserPlanManagementView({
   const pd = data?.plan_details;
   const sub = pd?.subscription || data?.subscription;
   const currentPlan = data?.available_plans.find((p) => String(p.id) === String(selectedPlanId || sub?.plan_id || pd?.plan_id));
+  const isCurrentPlanFree = Number(pd?.base_price ?? currentPlan?.price_monthly ?? 0) === 0 || currentPlan?.slug === 'free' || (pd?.plan_name || '').toLowerCase() === 'free';
 
   const allowCreditCard = data?.payment_methods ? data.payment_methods.credit_card : true;
   const allowPix = data?.payment_methods ? data.payment_methods.pix : false;
@@ -1172,9 +1173,9 @@ export function UserPlanManagementView({
               <div>
                 <Group gap="xs" align="center">
                   <Text fw={700} size="sm">
-                    {sub.gateway === 'internal'
+                    {isCurrentPlanFree
                       ? 'Plano Grátis / Teste'
-                      : `Assinatura Recorrente Asaas ${sub.payment_method === 'credit_card' ? '(Cartão de Crédito)' : sub.payment_method === 'pix' ? '(Pix)' : ''}`}
+                      : `Assinatura Recorrente ${sub.payment_method === 'credit_card' ? '(Cartão de Crédito)' : sub.payment_method === 'pix' ? '(Pix)' : ''}`}
                   </Text>
                   <Badge
                     size="sm"
@@ -1198,7 +1199,7 @@ export function UserPlanManagementView({
                 </Group>
                 <Text size="xs" c="dimmed" mt={2}>
                   {sub.status === 'active' ? (
-                    sub.gateway === 'internal' ? (
+                    isCurrentPlanFree ? (
                       <>
                         Plano de teste gratuito iniciado em <b>{planStartDateFmt}</b>. Permite diagnósticos de segurança com limites de teste.
                       </>
@@ -1221,7 +1222,7 @@ export function UserPlanManagementView({
             </Group>
 
             <Group gap="xs">
-              {sub.status === 'active' && sub.gateway !== 'internal' && (
+              {sub.status === 'active' && !isCurrentPlanFree && (
                 <Button
                   variant="outline"
                   color="red"
@@ -1232,7 +1233,7 @@ export function UserPlanManagementView({
                   Cancelar Assinatura
                 </Button>
               )}
-              {sub.status === 'active' && sub.gateway === 'internal' && (
+              {sub.status === 'active' && isCurrentPlanFree && (
                 <Button
                   variant="gradient"
                   gradient={{ from: '#1A7F86', to: '#118ab2' }}

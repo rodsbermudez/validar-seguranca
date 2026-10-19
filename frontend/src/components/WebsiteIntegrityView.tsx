@@ -45,6 +45,7 @@ import {
   IntegrityIssue,
 } from '../api';
 import { formatDateTime } from '../utils/date';
+import { extractErrorMessage } from '../utils/formatError';
 import { UpgradeGateBanner } from './UpgradeGateBanner';
 
 interface WebsiteIntegrityViewProps {
@@ -86,11 +87,7 @@ export const WebsiteIntegrityView: React.FC<WebsiteIntegrityViewProps> = ({
         setErrorMsg(res.message || 'Não foi possível carregar os dados de integridade.');
       }
     } catch (err: any) {
-      setErrorMsg(
-        err.response?.data?.messages?.error ||
-          err.response?.data?.message ||
-          'Falha ao conectar com o agente WordPress para verificar integridade.'
-      );
+      setErrorMsg(extractErrorMessage(err, 'Falha ao conectar com o agente WordPress para verificar integridade.'));
     } finally {
       setLoading(false);
     }
@@ -125,11 +122,7 @@ export const WebsiteIntegrityView: React.FC<WebsiteIntegrityViewProps> = ({
         setErrorMsg(res.message || 'Falha ao executar a varredura de integridade.');
       }
     } catch (err: any) {
-      setErrorMsg(
-        err.response?.data?.messages?.error ||
-          err.response?.data?.message ||
-          'Erro ao processar varredura de integridade no servidor.'
-      );
+      setErrorMsg(extractErrorMessage(err, 'Erro ao processar varredura de integridade no servidor.'));
     } finally {
       setScanning(false);
     }
@@ -153,11 +146,7 @@ export const WebsiteIntegrityView: React.FC<WebsiteIntegrityViewProps> = ({
         setErrorMsg(res.message || 'Falha ao atualizar status do arquivo.');
       }
     } catch (err: any) {
-      setErrorMsg(
-        err.response?.data?.messages?.error ||
-          err.response?.data?.message ||
-          'Erro ao comunicar com o servidor para atualizar status do arquivo.'
-      );
+      setErrorMsg(extractErrorMessage(err, 'Erro ao comunicar com o servidor para atualizar status do arquivo.'));
     } finally {
       setActionLoadingFile(null);
     }
@@ -185,11 +174,7 @@ export const WebsiteIntegrityView: React.FC<WebsiteIntegrityViewProps> = ({
         setErrorMsg(res.message || 'Falha ao excluir o arquivo no servidor.');
       }
     } catch (err: any) {
-      setErrorMsg(
-        err.response?.data?.messages?.error ||
-          err.response?.data?.message ||
-          'Erro ao comunicar com o servidor para excluir o arquivo.'
-      );
+      setErrorMsg(extractErrorMessage(err, 'Erro ao comunicar com o servidor para excluir o arquivo.'));
     } finally {
       setDeleting(false);
     }
@@ -217,11 +202,7 @@ export const WebsiteIntegrityView: React.FC<WebsiteIntegrityViewProps> = ({
         setErrorMsg(res.message || 'Falha ao restaurar o arquivo no servidor.');
       }
     } catch (err: any) {
-      setErrorMsg(
-        err.response?.data?.messages?.error ||
-          err.response?.data?.message ||
-          'Erro ao comunicar com o servidor para restaurar o arquivo original.'
-      );
+      setErrorMsg(extractErrorMessage(err, 'Erro ao comunicar com o servidor para restaurar o arquivo original.'));
     } finally {
       setRestoring(false);
     }

@@ -233,7 +233,7 @@ export default function App() {
               </Button>
 
               {isAdmin && !impersonatedUser && (
-                <Menu shadow="md" width={220} position="bottom-start">
+                <Menu shadow="md" width={220} position="bottom-start" returnFocus={false}>
                   <Menu.Target>
                     <Button
                       variant={
@@ -314,7 +314,7 @@ export default function App() {
                 Documentação
               </Button>
 
-              <Menu shadow="md" width={220} position="bottom-end">
+              <Menu shadow="md" width={220} position="bottom-end" returnFocus={false}>
                 <Menu.Target>
                   <Group gap="xs" style={{ cursor: 'pointer' }}>
                     <Avatar color="sitehub" radius="xl" size="sm">

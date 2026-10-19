@@ -498,18 +498,39 @@ class Subscriptions extends ResourceController
                 ]),
             ]);
 
-            // Atualiza a assinatura no Asaas com o novo valor integral para as próximas faturas
-            if (!empty($sub['gateway_subscription_id'])) {
-                $asaasService->updateSubscription($sub['gateway_subscription_id'], [
+            // Atualiza ou cria a assinatura recorrente no Asaas para os próximos ciclos
+            $isPrevInternal = empty($sub['gateway_subscription_id']) || 
+                              strpos($sub['gateway_subscription_id'], 'free_') === 0 || 
+                              strpos($sub['gateway_subscription_id'], 'sub_internal_') === 0 ||
+                              ($sub['gateway'] ?? '') === 'internal';
+
+            $gatewaySubId = $sub['gateway_subscription_id'] ?? null;
+            if (!$isPrevInternal && !empty($gatewaySubId)) {
+                $asaasService->updateSubscription($gatewaySubId, [
                     'value'                 => $newTotalAmount,
                     'description'           => "Assinatura Recorrente {$newPlan['name']} - Vexors",
                     'updatePendingPayments' => false,
                 ]);
+            } else {
+                $subRes = $asaasService->createSubscription(
+                    $asaasCustomerId,
+                    $newTotalAmount,
+                    "Assinatura Recorrente {$newPlan['name']} - Vexors",
+                    "sub_{$sub['id']}_usr_{$targetUserId}",
+                    date('Y-m-d', strtotime('+30 days')),
+                    'CREDIT_CARD',
+                    $creditCardPayload,
+                    $creditCardHolderInfo,
+                    $clientIp
+                );
+                $gatewaySubId = $subRes['subscription_id'] ?? ('sub_card_' . uniqid());
             }
 
             $subModel->update($sub['id'], [
-                'plan_id' => $newPlanId,
-                'price'   => $newTotalAmount,
+                'plan_id'                 => $newPlanId,
+                'price'                   => $newTotalAmount,
+                'gateway'                 => 'asaas',
+                'gateway_subscription_id' => $gatewaySubId,
             ]);
 
             UserPlanService::assignPlanToUser($targetUserId, $newPlanId, [

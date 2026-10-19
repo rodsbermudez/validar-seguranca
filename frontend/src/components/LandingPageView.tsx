@@ -1057,30 +1057,6 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                               Geração de Patches IA
                             </Text>
                           </Group>
-
-                          {/* Diferencial do Profissional */}
-                          {isFeatured && (
-                            <Group gap="xs" align="center" wrap="nowrap">
-                              <ThemeIcon size={20} radius="xl" color="secondary" variant="light">
-                                <IconCheck size={12} />
-                              </ThemeIcon>
-                              <Text size="xs" fw={600} c="secondary.3">
-                                Gestão de equipe & partilhas
-                              </Text>
-                            </Group>
-                          )}
-
-                          {/* Diferencial do Full */}
-                          {isFull && (
-                            <Group gap="xs" align="center" wrap="nowrap">
-                              <ThemeIcon size={20} radius="xl" color="royalGold" variant="light">
-                                <IconCheck size={12} />
-                              </ThemeIcon>
-                              <Text size="xs" fw={600} c="yellow.3">
-                                White-label & suporte VIP
-                              </Text>
-                            </Group>
-                          )}
                         </Stack>
                       </div>
 

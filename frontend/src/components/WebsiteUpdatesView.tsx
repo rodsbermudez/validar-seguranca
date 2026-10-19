@@ -27,6 +27,7 @@ import {
   IconLock,
 } from '@tabler/icons-react';
 import { api } from '../api';
+import { extractErrorMessage } from '../utils/formatError';
 import { UpgradeGateBanner } from './UpgradeGateBanner';
 
 interface PluginUpdateItem {
@@ -100,12 +101,7 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
       const payload = res.data?.data || res.data;
       setUpdatesData(payload);
     } catch (err: any) {
-      const msg =
-        err.response?.data?.messages?.error ||
-        err.response?.data?.message ||
-        err.message ||
-        'Falha ao consultar atualizações do agente WordPress.';
-      setErrorMsg(msg);
+      setErrorMsg(extractErrorMessage(err, 'Falha ao consultar atualizações do agente WordPress.'));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -132,12 +128,7 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
       setTimeout(() => setSuccessMsg(null), 5000);
       await fetchUpdates(true);
     } catch (err: any) {
-      const msg =
-        err.response?.data?.messages?.error ||
-        err.response?.data?.message ||
-        err.message ||
-        'Falha ao executar a atualização no WordPress.';
-      setErrorMsg(msg);
+      setErrorMsg(extractErrorMessage(err, 'Falha ao executar a atualização no WordPress.'));
     } finally {
       setUpdatingItem(null);
     }

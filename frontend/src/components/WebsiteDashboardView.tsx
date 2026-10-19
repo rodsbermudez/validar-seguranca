@@ -490,7 +490,7 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
             )}
 
             {/* Menu Dropdown Ferramentas */}
-            <Menu shadow="md" width={240} position="bottom-end">
+            <Menu shadow="md" width={240} position="bottom-end" returnFocus={false}>
               <Menu.Target>
                 <Button
                   variant="filled"

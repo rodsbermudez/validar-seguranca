@@ -393,7 +393,10 @@ class Websites extends ResourceController
 
         $decoded = json_decode($response, true);
         if (!is_array($decoded)) {
-            $cleanSnippet = trim(preg_replace('/\s+/', ' ', strip_tags($response)));
+            $rawStripped = strip_tags($response);
+            $decodedHtml = html_entity_decode($rawStripped, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            $cleanSnippet = trim(preg_replace('/\s+/', ' ', $decodedHtml));
+
             if ($statusCode === 406 || strpos($response, 'Not Acceptable') !== false || strpos($response, 'Mod_Security') !== false) {
                 return [
                     'status'  => 406,
@@ -402,10 +405,18 @@ class Websites extends ResourceController
                 ];
             }
 
+            if ($statusCode === 404) {
+                return [
+                    'status'  => 404,
+                    'success' => false,
+                    'message' => 'Endpoint do agente não encontrado no WordPress (HTTP 404). Verifique se o plugin vexors.app está instalado e ativo, e se os Links Permanentes (Permalinks) do WordPress estão salvos.',
+                ];
+            }
+
             return [
                 'status'  => $statusCode ?: 500,
                 'success' => false,
-                'message' => 'Resposta inválida do agente WordPress (HTTP ' . $statusCode . '): ' . substr($cleanSnippet, 0, 200),
+                'message' => 'Resposta inválida do agente WordPress (HTTP ' . $statusCode . '): ' . mb_substr($cleanSnippet, 0, 200, 'UTF-8'),
             ];
         }
 
@@ -445,6 +456,14 @@ class Websites extends ResourceController
                     return $lastRes;
                 }
             }
+        }
+
+        if ($lastRes && ($lastRes['status'] ?? 0) === 404) {
+            return [
+                'status'  => 404,
+                'success' => false,
+                'message' => 'Endpoint do agente não encontrado no WordPress (HTTP 404). Certifique-se de que o plugin vexors.app está instalado e ativo, e que a estrutura de Links Permanentes (Permalinks) do WordPress foi salva.',
+            ];
         }
 
         return $lastRes ?: [
