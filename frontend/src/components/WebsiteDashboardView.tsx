@@ -28,7 +28,6 @@ import {
   Menu,
 } from '@mantine/core';
 import {
-  IconArrowLeft,
   IconPlugConnected,
   IconPlugConnectedX,
   IconRadar,
@@ -452,14 +451,6 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
       <Paper p="md" radius="md" bg="dark.7" withBorder style={{ borderLeft: '4px solid #1A7F86' }}>
         <Group justify="space-between" align="center">
           <Group gap="md">
-            <Button
-              variant="subtle"
-              color="gray"
-              leftSection={<IconArrowLeft size={16} />}
-              onClick={onBack}
-            >
-              Voltar aos Sites
-            </Button>
             <div>
               <Group gap="xs" align="center">
                 <Title order={3}>{website.name}</Title>
