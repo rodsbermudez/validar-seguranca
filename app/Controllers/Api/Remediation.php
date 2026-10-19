@@ -160,13 +160,12 @@ class Remediation extends ResourceController
                 $zip->addFile($faviconPath, "{$pluginDirName}/assets/favicon.png");
             }
 
-            $logoPath = ROOTPATH . 'public/images/vexors-logo.svg';
-            if (file_exists($logoPath)) {
-                $zip->addFile($logoPath, "{$pluginDirName}/assets/vexors-logo.svg");
-                $zip->addFile($logoPath, "{$pluginDirName}/assets/logo-sitehub.svg");
-            } elseif (file_exists(ROOTPATH . 'public/images/logo-sitehub.svg')) {
-                $zip->addFile(ROOTPATH . 'public/images/logo-sitehub.svg', "{$pluginDirName}/assets/vexors-logo.svg");
-                $zip->addFile(ROOTPATH . 'public/images/logo-sitehub.svg', "{$pluginDirName}/assets/logo-sitehub.svg");
+            $logoDarkPath = ROOTPATH . 'public/images/vexors-logo-dark.svg';
+            if (file_exists($logoDarkPath)) {
+                $zip->addFile($logoDarkPath, "{$pluginDirName}/assets/vexors-logo-dark.svg");
+                $zip->addFile($logoDarkPath, "{$pluginDirName}/assets/vexors-logo.svg");
+            } elseif (file_exists(ROOTPATH . 'public/images/vexors-logo.svg')) {
+                $zip->addFile(ROOTPATH . 'public/images/vexors-logo.svg', "{$pluginDirName}/assets/vexors-logo.svg");
             }
 
             // Create Readme.txt
@@ -735,7 +734,7 @@ class Remediation extends ResourceController
         $code .= "            \$settings = \$new_settings;\n";
         $code .= "            \$notice = '<div class=\"notice notice-success is-dismissible\" style=\"margin: 15px 0 20px 0;\"><p><strong>Configurações de correções salvas com sucesso!</strong></p></div>';\n";
         $code .= "        }\n\n";
-        $code .= "        \$logo_url = plugins_url('assets/vexors-logo.svg', __FILE__);\n";
+        $code .= "        \$logo_url = file_exists(plugin_dir_path(__FILE__) . 'assets/vexors-logo-dark.svg') ? plugins_url('assets/vexors-logo-dark.svg', __FILE__) : plugins_url('assets/vexors-logo.svg', __FILE__);\n";
         $code .= "        echo '<div class=\"wrap\">';\n";
         $code .= "        echo '<h1 class=\"wp-heading-inline\" style=\"display:none;\">vexors.app - Fixes</h1>';\n";
         $code .= "        echo '<hr class=\"wp-header-end\" style=\"display:none;\" />';\n";
