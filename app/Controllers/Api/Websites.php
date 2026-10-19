@@ -524,6 +524,28 @@ class Websites extends ResourceController
             return $this->failAgentResponse($res, 'Falha ao buscar logs do agente');
         }
 
+        // Analisa e persiste logs fatais das últimas 48h
+        $body = $res['body'];
+        $allLogs = $body['logs'] ?? [];
+        $time48hAgo = time() - (48 * 3600);
+        $fatal48h = [];
+        foreach ($allLogs as $logItem) {
+            $lvl = strtolower($logItem['level'] ?? '');
+            if ($lvl === 'fatal' || stripos($logItem['raw_line'] ?? '', 'fatal error') !== false || stripos($logItem['raw_line'] ?? '', 'parse error') !== false) {
+                $logTime = !empty($logItem['timestamp']) ? strtotime($logItem['timestamp']) : null;
+                if ($logTime === false || $logTime === null || $logTime >= $time48hAgo) {
+                    $fatal48h[] = $logItem;
+                }
+            }
+        }
+        $logsSummary = [
+            'total_fatal_48h' => count($fatal48h),
+            'fatal_logs_48h'  => array_slice($fatal48h, 0, 20),
+            'has_logs_agent'  => true,
+            'logging_enabled' => !empty($body['logging_enabled']),
+        ];
+        $this->persistLogsCheck((int)$id, $logsSummary);
+
         return $this->respond($res['body']);
     }
 
@@ -594,6 +616,14 @@ class Websites extends ResourceController
             return $this->failAgentResponse($res, 'Falha ao limpar logs');
         }
 
+        // Reseta contador fatal no banco após limpar
+        $this->persistLogsCheck((int)$id, [
+            'total_fatal_48h' => 0,
+            'fatal_logs_48h'  => [],
+            'has_logs_agent'  => true,
+            'logging_enabled' => true,
+        ]);
+
         return $this->respond($res['body']);
     }
 
@@ -626,7 +656,30 @@ class Websites extends ResourceController
         $res = $this->makeAgentRequestWithFallback($website['url'], '/updates', 'GET', $website['agent_token']);
 
         if (empty($res['body']) || $res['status'] !== 200) {
+            if (!empty($website['updates_summary_json'])) {
+                $cachedSummary = json_decode($website['updates_summary_json'], true);
+                if (!empty($cachedSummary)) {
+                    return $this->respond([
+                        'status'  => 200,
+                        'success' => true,
+                        'cached'  => true,
+                        'data'    => [
+                            'summary' => $cachedSummary,
+                            'core'    => ['current_version' => '', 'new_version' => '', 'has_update' => false],
+                            'plugins' => [],
+                            'themes'  => [],
+                        ],
+                        'message' => 'Exibindo dados da última checagem salva (agente não respondeu no momento).',
+                    ]);
+                }
+            }
             return $this->failAgentResponse($res, 'Falha ao buscar atualizações do agente');
+        }
+
+        $body = $res['body'];
+        $data = $body['data'] ?? $body;
+        if (!empty($data) && is_array($data)) {
+            $this->persistUpdatesCheck((int)$id, $data);
         }
 
         return $this->respond($res['body']);
@@ -678,6 +731,11 @@ class Websites extends ResourceController
             return $this->failAgentResponse($res, 'Falha ao aplicar atualização');
         }
 
+        // Se após atualizar, o agente retornar novo resumo de pendências, persiste
+        if (!empty($res['body']['data']['summary'])) {
+            $this->persistUpdatesCheck((int)$id, $res['body']['data']);
+        }
+
         return $this->respond($res['body']);
     }
 
@@ -703,6 +761,43 @@ class Websites extends ResourceController
             'integrity_modified'        => isset($summary['modified']) ? (int)$summary['modified'] : 0,
             'integrity_suspicious'      => isset($summary['suspicious']) ? (int)$summary['suspicious'] : 0,
             'integrity_summary_json'    => json_encode($data, JSON_UNESCAPED_UNICODE),
+        ];
+
+        $websiteModel = new WebsiteModel();
+        $websiteModel->update($websiteId, $updateData);
+    }
+
+    /**
+     * Persiste o resumo da checagem de atualizações na tabela websites.
+     */
+    private function persistUpdatesCheck(int $websiteId, array $data): void
+    {
+        $summary = $data['summary'] ?? [];
+        $totalPending = isset($summary['total_pending']) ? (int)$summary['total_pending'] : 0;
+        $checkedAt = date('Y-m-d H:i:s');
+
+        $updateData = [
+            'last_updates_checked_at' => $checkedAt,
+            'updates_pending_count'   => $totalPending,
+            'updates_summary_json'    => json_encode($summary, JSON_UNESCAPED_UNICODE),
+        ];
+
+        $websiteModel = new WebsiteModel();
+        $websiteModel->update($websiteId, $updateData);
+    }
+
+    /**
+     * Persiste o resumo de logs/erros fatais na tabela websites.
+     */
+    private function persistLogsCheck(int $websiteId, array $logsSummary): void
+    {
+        $totalFatal = isset($logsSummary['total_fatal_48h']) ? (int)$logsSummary['total_fatal_48h'] : 0;
+        $checkedAt = date('Y-m-d H:i:s');
+
+        $updateData = [
+            'last_logs_checked_at' => $checkedAt,
+            'logs_fatal_count'     => $totalFatal,
+            'logs_summary_json'    => json_encode($logsSummary, JSON_UNESCAPED_UNICODE),
         ];
 
         $websiteModel = new WebsiteModel();
@@ -1206,6 +1301,12 @@ class Websites extends ResourceController
 
                 $logsSummary['total_fatal_48h'] = count($fatal48h);
                 $logsSummary['fatal_logs_48h']  = array_slice($fatal48h, 0, 20); // Top 20 fatal logs
+                $this->persistLogsCheck((int)$website['id'], $logsSummary);
+            } elseif (!empty($website['logs_summary_json'])) {
+                $cachedLogs = json_decode($website['logs_summary_json'], true);
+                if (!empty($cachedLogs)) {
+                    $logsSummary = $cachedLogs;
+                }
             }
 
             // B. Fetch Core Integrity
@@ -1223,6 +1324,41 @@ class Websites extends ResourceController
             $updatesRes = $this->makeAgentRequestWithFallback($website['url'], '/updates', 'GET', $token);
             if (!empty($updatesRes['body']) && $updatesRes['status'] === 200) {
                 $updatesData = $updatesRes['body']['data'] ?? $updatesRes['body'];
+                if (!empty($updatesData) && is_array($updatesData)) {
+                    $this->persistUpdatesCheck((int)$website['id'], $updatesData);
+                }
+            } elseif (!empty($website['updates_summary_json'])) {
+                $cachedSummary = json_decode($website['updates_summary_json'], true);
+                if (!empty($cachedSummary)) {
+                    $updatesData = [
+                        'summary' => $cachedSummary,
+                        'core'    => ['current_version' => '', 'new_version' => '', 'has_update' => false],
+                        'plugins' => [],
+                        'themes'  => [],
+                    ];
+                }
+            }
+        }
+
+        // Se o agente falhou ou o site não está conectado, usa cache salvo se disponível
+        if (empty($integrityData) && !empty($website['integrity_summary_json'])) {
+            $integrityData = json_decode($website['integrity_summary_json'], true);
+        }
+        if (empty($updatesData) && !empty($website['updates_summary_json'])) {
+            $cachedSummary = json_decode($website['updates_summary_json'], true);
+            if (!empty($cachedSummary)) {
+                $updatesData = [
+                    'summary' => $cachedSummary,
+                    'core'    => ['current_version' => '', 'new_version' => '', 'has_update' => false],
+                    'plugins' => [],
+                    'themes'  => [],
+                ];
+            }
+        }
+        if (empty($logsSummary['has_logs_agent']) && !empty($website['logs_summary_json'])) {
+            $cachedLogs = json_decode($website['logs_summary_json'], true);
+            if (!empty($cachedLogs)) {
+                $logsSummary = $cachedLogs;
             }
         }
 
@@ -1231,12 +1367,19 @@ class Websites extends ResourceController
             'success'    => true,
             'generated_at' => date('Y-m-d H:i:s'),
             'website'    => [
-                'id'           => $website['id'],
-                'name'         => $website['name'],
-                'url'          => $website['url'],
-                'environment'  => $website['environment'] ?? 'production',
-                'is_connected' => (int) ($website['is_connected'] ?? 0),
-                'connected_at' => $website['connected_at'] ?? null,
+                'id'                        => $website['id'],
+                'name'                      => $website['name'],
+                'url'                       => $website['url'],
+                'environment'               => $website['environment'] ?? 'production',
+                'is_connected'              => (int) ($website['is_connected'] ?? 0),
+                'connected_at'              => $website['connected_at'] ?? null,
+                'last_integrity_scanned_at' => $website['last_integrity_scanned_at'] ?? null,
+                'integrity_issues_count'    => $website['integrity_issues_count'] ?? null,
+                'integrity_is_secure'       => $website['integrity_is_secure'] ?? null,
+                'last_updates_checked_at'   => $website['last_updates_checked_at'] ?? null,
+                'updates_pending_count'     => $website['updates_pending_count'] ?? null,
+                'last_logs_checked_at'      => $website['last_logs_checked_at'] ?? null,
+                'logs_fatal_count'          => $website['logs_fatal_count'] ?? null,
             ],
             'data'       => [
                 'latest_scan' => $latestScan,

@@ -69,6 +69,8 @@ import {
   getWebsiteMaintenanceHistory,
   getAvailableMaintenanceMonths,
   getUserPlanDetails,
+  getDiagnosticSummary,
+  DiagnosticSummaryResponse,
 } from '../api';
 import { ScanReport } from './ScanReport';
 import { WebsiteLogsView } from './WebsiteLogsView';
@@ -177,6 +179,31 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
   useEffect(() => {
     fetchLatestScan();
   }, [fetchLatestScan]);
+
+  // Live diagnostic summary for the 4 tool cards
+  const [diagnosticData, setDiagnosticData] = useState<DiagnosticSummaryResponse['data'] | null>(null);
+
+  const fetchDiagnosticData = useCallback(async () => {
+    if (!isConnected) return;
+    try {
+      const res = await getDiagnosticSummary(website.id);
+      if (res?.data) {
+        setDiagnosticData(res.data);
+      }
+    } catch (e) {
+      // Fallback silently to DB data in website prop
+    }
+  }, [website.id, isConnected]);
+
+  useEffect(() => {
+    fetchDiagnosticData();
+  }, [fetchDiagnosticData]);
+
+  useEffect(() => {
+    if (activeTab === 'overview') {
+      fetchDiagnosticData();
+    }
+  }, [activeTab, fetchDiagnosticData]);
 
   const fetchMaintenanceHistory = async () => {
     setHistoryLoading(true);
@@ -865,125 +892,319 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
               </Grid>
             </Paper>
 
-            {/* Status Summary Cards (Módulos Ativos) */}
-            <Grid>
-              <Grid.Col span={{ base: 12, sm: 6, lg: 3 }}>
-                <Card padding="lg" radius="md" withBorder bg="dark.7" h="100%">
-                  <Group justify="space-between" mb="xs">
-                    <Text size="xs" fw={700} c="dimmed" tt="uppercase">
-                      Status da Conexão
-                    </Text>
-                    <ThemeIcon color={isConnected ? 'green' : 'gray'} variant="light" radius="xl">
-                      {isConnected ? <IconPlugConnected size={18} /> : <IconPlugConnectedX size={18} />}
-                    </ThemeIcon>
-                  </Group>
-                  <Text fw={700} size="md" mb={4}>
-                    {isConnected ? 'Agente Ativo' : 'Pendente de Conexão'}
-                  </Text>
-                  <Text size="xs" c="dimmed" mb="md">
-                    {isConnected
-                      ? 'O agente vexors.app está conectado e sincronizado com o SaaS.'
-                      : 'Baixe e ative o plugin no painel WordPress para liberar as funções.'}
-                  </Text>
-                  <Button
-                    variant="light"
-                    color={isConnected ? 'indigo' : 'teal'}
-                    size="xs"
-                    fullWidth
-                    onClick={() => setActiveTab('agent')}
-                  >
-                    {isConnected ? 'Ver Conexão' : 'Instalar Agente'}
-                  </Button>
-                </Card>
-              </Grid.Col>
+            {/* Status Summary Cards (Módulos Ativos / Error Report & Auditoria) */}
+            {(() => {
+              // 1. Conexão
+              const connDate = website.connected_at || website.created_at;
 
-              <Grid.Col span={{ base: 12, sm: 6, lg: 3 }}>
-                <Card padding="lg" radius="md" withBorder bg="dark.7" h="100%">
-                  <Group justify="space-between" mb="xs">
-                    <Text size="xs" fw={700} c="dimmed" tt="uppercase">
-                      Integridade do Core
-                    </Text>
-                    <ThemeIcon color="teal" variant="light" radius="xl">
-                      <IconFileCheck size={18} />
-                    </ThemeIcon>
-                  </Group>
-                  <Text fw={700} size="md" mb={4}>
-                    Checksums Oficiais
-                  </Text>
-                  <Text size="xs" c="dimmed" mb="md">
-                    Verifica se arquivos do core foram adulterados ou se há backdoors ocultos.
-                  </Text>
-                  <Button
-                    variant="light"
-                    color="teal"
-                    size="xs"
-                    fullWidth
-                    leftSection={<IconFileCheck size={14} />}
-                    onClick={() => setActiveTab('integrity')}
-                  >
-                    Verificar Integridade
-                  </Button>
-                </Card>
-              </Grid.Col>
+              // 2. Integridade
+              const integrityInfo = diagnosticData?.integrity;
+              const hasIntegrityScan = Boolean(website.last_integrity_scanned_at || integrityInfo?.scanned_at);
+              const integrityScanDate = integrityInfo?.scanned_at || website.last_integrity_scanned_at;
+              const integrityIssues = integrityInfo
+                ? (integrityInfo.summary?.active_issues ?? integrityInfo.summary?.issues_count ?? 0)
+                : Number(website.integrity_issues_count ?? 0);
+              const isIntegritySecure = integrityInfo
+                ? Boolean(integrityInfo.is_secure)
+                : (website.integrity_is_secure === 1 || integrityIssues === 0);
+              const integrityMod = integrityInfo?.summary?.modified ?? website.integrity_modified ?? 0;
+              const integritySusp = integrityInfo?.summary?.suspicious ?? website.integrity_suspicious ?? 0;
 
-              <Grid.Col span={{ base: 12, sm: 6, lg: 3 }}>
-                <Card padding="lg" radius="md" withBorder bg="dark.7" h="100%">
-                  <Group justify="space-between" mb="xs">
-                    <Text size="xs" fw={700} c="dimmed" tt="uppercase">
-                      Gestão de Atualizações
-                    </Text>
-                    <ThemeIcon color="blue" variant="light" radius="xl">
-                      <IconRefresh size={18} />
-                    </ThemeIcon>
-                  </Group>
-                  <Text fw={700} size="md" mb={4}>
-                    Plugins, Temas & Core
-                  </Text>
-                  <Text size="xs" c="dimmed" mb="md">
-                    Atualize itens remotamente em 1 clique com preservação de status ativo.
-                  </Text>
-                  <Button
-                    variant="light"
-                    color="blue"
-                    size="xs"
-                    fullWidth
-                    leftSection={<IconRefresh size={14} />}
-                    onClick={() => setActiveTab('updates')}
-                  >
-                    Gerenciar Atualizações
-                  </Button>
-                </Card>
-              </Grid.Col>
+              // 3. Atualizações
+              const updatesInfo = diagnosticData?.updates;
+              const hasUpdatesData = Boolean(
+                updatesInfo ||
+                website.last_updates_checked_at ||
+                (website.updates_pending_count !== null && website.updates_pending_count !== undefined)
+              );
+              const totalPending = updatesInfo
+                ? updatesInfo.summary.total_pending
+                : Number(website.updates_pending_count ?? 0);
+              const pendingPlugins = updatesInfo?.summary?.pending_plugins;
+              const pendingThemes = updatesInfo?.summary?.pending_themes;
+              const pendingCore = updatesInfo?.summary?.pending_core;
+              const updatesCheckedAt = website.last_updates_checked_at;
 
-              <Grid.Col span={{ base: 12, sm: 6, lg: 3 }}>
-                <Card padding="lg" radius="md" withBorder bg="dark.7" h="100%">
-                  <Group justify="space-between" mb="xs">
-                    <Text size="xs" fw={700} c="dimmed" tt="uppercase">
-                      Logs de Execução WP
-                    </Text>
-                    <ThemeIcon color="cyan" variant="light" radius="xl">
-                      <IconTerminal size={18} />
-                    </ThemeIcon>
-                  </Group>
-                  <Text fw={700} size="md" mb={4}>
-                    Logs em Tempo Real
-                  </Text>
-                  <Text size="xs" c="dimmed" mb="md">
-                    Consulte erros PHP, avisos do sistema e depuração gerados no site.
-                  </Text>
-                  <Button
-                    variant="light"
-                    color="cyan"
-                    size="xs"
-                    fullWidth
-                    leftSection={<IconTerminal size={14} />}
-                    onClick={() => setActiveTab('logs')}
-                  >
-                    Acessar Console
-                  </Button>
-                </Card>
-              </Grid.Col>
-            </Grid>
+              // 4. Error Report & Logs
+              const logsInfo = diagnosticData?.logs_48h;
+              const hasLogsData = Boolean(
+                logsInfo ||
+                website.last_logs_checked_at ||
+                (website.logs_fatal_count !== null && website.logs_fatal_count !== undefined)
+              );
+              const totalFatal = logsInfo
+                ? logsInfo.total_fatal_48h
+                : Number(website.logs_fatal_count ?? 0);
+              const logsCheckedAt = website.last_logs_checked_at;
+
+              return (
+                <Grid>
+                  {/* Card 1: Status da Conexão */}
+                  <Grid.Col span={{ base: 12, sm: 6, lg: 3 }}>
+                    <Card
+                      padding="md"
+                      radius="md"
+                      withBorder
+                      bg="dark.7"
+                      h="100%"
+                      style={{ display: 'flex', flexDirection: 'column' }}
+                    >
+                      <Group justify="space-between" mb="xs">
+                        <Text size="xs" fw={700} c="dimmed" tt="uppercase" lineClamp={1}>
+                          Status da Conexão
+                        </Text>
+                        <ThemeIcon color={isConnected ? 'green' : 'gray'} variant="light" radius="xl" size="md">
+                          {isConnected ? <IconPlugConnected size={18} /> : <IconPlugConnectedX size={18} />}
+                        </ThemeIcon>
+                      </Group>
+
+                      <Box style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                        <Group justify="space-between" align="center" gap="xs" mb={4} wrap="nowrap">
+                          <Text fw={700} size="sm" lineClamp={1}>
+                            {isConnected ? 'Agente Ativo' : 'Pendente de Conexão'}
+                          </Text>
+                          {isConnected && (
+                            <Badge size="xs" variant="light" color="teal" style={{ flexShrink: 0 }}>
+                              Sincronizado
+                            </Badge>
+                          )}
+                        </Group>
+                        <Text size="xs" c="dimmed" lineClamp={2} style={{ minHeight: 34 }} mb={4}>
+                          {isConnected
+                            ? 'O agente vexors.app está conectado e comunicando com o SaaS.'
+                            : 'Baixe e ative o plugin no painel WordPress para liberar as funções.'}
+                        </Text>
+                        <Text size="10px" c="dimmed" style={{ minHeight: 16 }} mb="xs">
+                          {isConnected && connDate ? `Sincronizado: ${formatDateTime(connDate)}` : ' '}
+                        </Text>
+                      </Box>
+
+                      <Button
+                        variant="light"
+                        color={isConnected ? 'indigo' : 'teal'}
+                        size="xs"
+                        fullWidth
+                        leftSection={isConnected ? <IconPlugConnected size={14} /> : <IconDownload size={14} />}
+                        onClick={() => setActiveTab('agent')}
+                        mt="auto"
+                      >
+                        {isConnected ? 'Ver Conexão' : 'Instalar Agente'}
+                      </Button>
+                    </Card>
+                  </Grid.Col>
+
+                  {/* Card 2: Integridade do Core */}
+                  <Grid.Col span={{ base: 12, sm: 6, lg: 3 }}>
+                    <Card
+                      padding="md"
+                      radius="md"
+                      withBorder
+                      bg="dark.7"
+                      h="100%"
+                      style={{ display: 'flex', flexDirection: 'column' }}
+                    >
+                      <Group justify="space-between" mb="xs">
+                        <Text size="xs" fw={700} c="dimmed" tt="uppercase" lineClamp={1}>
+                          Integridade do Core
+                        </Text>
+                        <ThemeIcon
+                          color={!hasIntegrityScan ? 'teal' : isIntegritySecure ? 'teal' : 'red'}
+                          variant="light"
+                          radius="xl"
+                          size="md"
+                        >
+                          <IconFileCheck size={18} />
+                        </ThemeIcon>
+                      </Group>
+
+                      <Box style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                        <Group justify="space-between" align="center" gap="xs" mb={4} wrap="nowrap">
+                          <Text fw={700} size="sm" lineClamp={1}>
+                            {!hasIntegrityScan
+                              ? 'Checksums Oficiais'
+                              : isIntegritySecure
+                              ? 'Core 100% Autêntico'
+                              : `${integrityIssues} Anomalia(s)`}
+                          </Text>
+                          {hasIntegrityScan && (
+                            <Badge
+                              size="xs"
+                              variant="light"
+                              color={isIntegritySecure ? 'teal' : 'red'}
+                              style={{ flexShrink: 0 }}
+                            >
+                              {isIntegritySecure ? '0 falhas' : 'Atenção'}
+                            </Badge>
+                          )}
+                        </Group>
+                        <Text size="xs" c="dimmed" lineClamp={2} style={{ minHeight: 34 }} mb={4}>
+                          {!hasIntegrityScan
+                            ? 'Verifica se arquivos do core foram adulterados ou se há backdoors ocultos.'
+                            : isIntegritySecure
+                            ? 'Todos os arquivos do core oficial do WordPress estão autênticos.'
+                            : `${integrityMod > 0 ? `${integrityMod} modificado(s)` : ''}${integritySusp > 0 ? `${integrityMod > 0 ? ', ' : ''}${integritySusp} suspeito(s)` : ''}${integrityMod === 0 && integritySusp === 0 ? 'Arquivos oficiais adulterados.' : ''}`}
+                        </Text>
+                        <Text size="10px" c="dimmed" style={{ minHeight: 16 }} mb="xs">
+                          {hasIntegrityScan && integrityScanDate ? `Último scan: ${formatDateTime(integrityScanDate)}` : ' '}
+                        </Text>
+                      </Box>
+
+                      <Button
+                        variant="light"
+                        color={hasIntegrityScan && !isIntegritySecure ? 'red' : 'teal'}
+                        size="xs"
+                        fullWidth
+                        leftSection={<IconFileCheck size={14} />}
+                        onClick={() => setActiveTab('integrity')}
+                        mt="auto"
+                      >
+                        {hasIntegrityScan ? 'Ver Integridade' : 'Verificar Integridade'}
+                      </Button>
+                    </Card>
+                  </Grid.Col>
+
+                  {/* Card 3: Gestão de Atualizações */}
+                  <Grid.Col span={{ base: 12, sm: 6, lg: 3 }}>
+                    <Card
+                      padding="md"
+                      radius="md"
+                      withBorder
+                      bg="dark.7"
+                      h="100%"
+                      style={{ display: 'flex', flexDirection: 'column' }}
+                    >
+                      <Group justify="space-between" mb="xs">
+                        <Text size="xs" fw={700} c="dimmed" tt="uppercase" lineClamp={1}>
+                          Gestão de Atualizações
+                        </Text>
+                        <ThemeIcon
+                          color={!hasUpdatesData ? 'blue' : totalPending === 0 ? 'teal' : 'yellow'}
+                          variant="light"
+                          radius="xl"
+                          size="md"
+                        >
+                          <IconRefresh size={18} />
+                        </ThemeIcon>
+                      </Group>
+
+                      <Box style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                        <Group justify="space-between" align="center" gap="xs" mb={4} wrap="nowrap">
+                          <Text fw={700} size="sm" lineClamp={1}>
+                            {!hasUpdatesData
+                              ? 'Plugins, Temas & Core'
+                              : totalPending === 0
+                              ? 'Tudo Atualizado'
+                              : `${totalPending} Pendente(s)`}
+                          </Text>
+                          {hasUpdatesData && (
+                            <Badge
+                              size="xs"
+                              variant="light"
+                              color={totalPending === 0 ? 'teal' : 'yellow'}
+                              style={{ flexShrink: 0 }}
+                            >
+                              {totalPending === 0 ? 'Em dia' : `${totalPending} item(ns)`}
+                            </Badge>
+                          )}
+                        </Group>
+                        <Text size="xs" c="dimmed" lineClamp={2} style={{ minHeight: 34 }} mb={4}>
+                          {!hasUpdatesData
+                            ? 'Atualize itens remotamente em 1 clique com preservação de status ativo.'
+                            : totalPending === 0
+                            ? 'WordPress Core, temas e plugins na versão mais recente disponível.'
+                            : `${pendingPlugins !== undefined ? `${pendingPlugins} plugin(s), ${pendingThemes || 0} tema(s)${pendingCore ? ', Core' : ''}` : `${totalPending} atualização(ões) pendente(s)`}.`}
+                        </Text>
+                        <Text size="10px" c="dimmed" style={{ minHeight: 16 }} mb="xs">
+                          {hasUpdatesData && updatesCheckedAt ? `Checado: ${formatDateTime(updatesCheckedAt)}` : hasUpdatesData ? 'Verificado recentemente' : ' '}
+                        </Text>
+                      </Box>
+
+                      <Button
+                        variant="light"
+                        color="blue"
+                        size="xs"
+                        fullWidth
+                        leftSection={<IconRefresh size={14} />}
+                        onClick={() => setActiveTab('updates')}
+                        mt="auto"
+                      >
+                        {hasUpdatesData ? 'Ver Atualizações' : 'Gerenciar Atualizações'}
+                      </Button>
+                    </Card>
+                  </Grid.Col>
+
+                  {/* Card 4: Error Report & Logs */}
+                  <Grid.Col span={{ base: 12, sm: 6, lg: 3 }}>
+                    <Card
+                      padding="md"
+                      radius="md"
+                      withBorder
+                      bg="dark.7"
+                      h="100%"
+                      style={{ display: 'flex', flexDirection: 'column' }}
+                    >
+                      <Group justify="space-between" mb="xs">
+                        <Text size="xs" fw={700} c="dimmed" tt="uppercase" lineClamp={1}>
+                          Error Report & Logs
+                        </Text>
+                        <ThemeIcon
+                          color={!hasLogsData ? 'cyan' : totalFatal === 0 ? 'teal' : 'red'}
+                          variant="light"
+                          radius="xl"
+                          size="md"
+                        >
+                          <IconTerminal size={18} />
+                        </ThemeIcon>
+                      </Group>
+
+                      <Box style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                        <Group justify="space-between" align="center" gap="xs" mb={4} wrap="nowrap">
+                          <Text fw={700} size="sm" lineClamp={1}>
+                            {!hasLogsData
+                              ? 'Logs em Tempo Real'
+                              : totalFatal === 0
+                              ? 'Sem Falhas Fatais'
+                              : `${totalFatal} Erro(s) Crítico(s)`}
+                          </Text>
+                          {hasLogsData && (
+                            <Badge
+                              size="xs"
+                              variant="light"
+                              color={totalFatal === 0 ? 'teal' : 'red'}
+                              style={{ flexShrink: 0 }}
+                            >
+                              {totalFatal === 0 ? 'Estável (48h)' : 'Alerta PHP'}
+                            </Badge>
+                          )}
+                        </Group>
+                        <Text size="xs" c="dimmed" lineClamp={2} style={{ minHeight: 34 }} mb={4}>
+                          {!hasLogsData
+                            ? 'Consulte erros PHP, avisos do sistema e depuração gerados no site.'
+                            : totalFatal === 0
+                            ? 'Nenhum erro fatal ou crash PHP registrado nas últimas 48 horas.'
+                            : `Detectadas ${totalFatal} falha(s) crítica(s) de execução PHP nas últimas 48h.`}
+                        </Text>
+                        <Text size="10px" c="dimmed" style={{ minHeight: 16 }} mb="xs">
+                          {hasLogsData && logsCheckedAt ? `Checado: ${formatDateTime(logsCheckedAt)}` : hasLogsData ? 'Monitoramento em tempo real' : ' '}
+                        </Text>
+                      </Box>
+
+                      <Button
+                        variant="light"
+                        color={hasLogsData && totalFatal > 0 ? 'red' : 'cyan'}
+                        size="xs"
+                        fullWidth
+                        leftSection={<IconTerminal size={14} />}
+                        onClick={() => setActiveTab('logs')}
+                        mt="auto"
+                      >
+                        {hasLogsData ? 'Ver Error Report' : 'Acessar Console'}
+                      </Button>
+                    </Card>
+                  </Grid.Col>
+                </Grid>
+              );
+            })()}
           </Stack>
         </Tabs.Panel>
 

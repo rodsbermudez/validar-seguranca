@@ -1138,139 +1138,6 @@ export function UserPlanManagementView({
         </Alert>
       )}
 
-      {/* Card / Alerta de Status da Assinatura */}
-      {sub && (
-        <Paper
-          p="md"
-          radius="md"
-          bg="dark.8"
-          withBorder
-          style={{
-            borderColor:
-              sub.status === 'active'
-                ? '#10b981'
-                : sub.status === 'canceled' && sub.is_period_active
-                ? '#f59e0b'
-                : '#ef4444',
-          }}
-        >
-          <Group justify="space-between" align="center" wrap="wrap" gap="md">
-            <Group gap="sm">
-              <ThemeIcon
-                size="lg"
-                radius="md"
-                color={
-                  sub.status === 'active'
-                    ? 'teal'
-                    : sub.status === 'canceled' && sub.is_period_active
-                    ? 'yellow'
-                    : 'red'
-                }
-                variant="light"
-              >
-                <IconCreditCard size={20} />
-              </ThemeIcon>
-              <div>
-                <Group gap="xs" align="center">
-                  <Text fw={700} size="sm">
-                    {isCurrentPlanFree
-                      ? 'Plano Grátis / Teste'
-                      : `Assinatura Recorrente ${sub.payment_method === 'credit_card' ? '(Cartão de Crédito)' : sub.payment_method === 'pix' ? '(Pix)' : ''}`}
-                  </Text>
-                  <Badge
-                    size="sm"
-                    variant="filled"
-                    color={
-                      sub.status === 'active'
-                        ? 'teal'
-                        : sub.status === 'canceled' && sub.is_period_active
-                        ? 'yellow'
-                        : 'red'
-                    }
-                  >
-                    {sub.status === 'active'
-                      ? 'ATIVA'
-                      : sub.status === 'canceled' && sub.is_period_active
-                      ? 'CANCELADA (ACESSO ATIVO)'
-                      : sub.status === 'canceled'
-                      ? 'CANCELADA (EXPIRADA)'
-                      : 'EXPIRADA'}
-                  </Badge>
-                </Group>
-                <Text size="xs" c="dimmed" mt={2}>
-                  {sub.status === 'active' ? (
-                    isCurrentPlanFree ? (
-                      <>
-                        Plano de teste gratuito iniciado em <b>{planStartDateFmt}</b>. Permite diagnósticos de segurança com limites de teste.
-                      </>
-                    ) : (
-                      <>
-                        Plano iniciado em <b>{planStartDateFmt}</b> (dia {renewalDayNumber}) • Próxima renovação em <b>{nextPaymentDateFmt}</b> (renovação mensal todo dia <b>{renewalDayNumber}</b> • {sub.days_remaining} dias restantes no ciclo).
-                      </>
-                    )
-                  ) : sub.status === 'canceled' && sub.is_period_active ? (
-                    <>
-                      Cancelada em {sub.canceled_at ? formatDateOnly(sub.canceled_at) : '—'}. Seu acesso permanece 100% liberado até <b>{nextPaymentDateFmt}</b> ({sub.days_remaining} dias restantes). Nenhuma nova cobrança será realizada.
-                    </>
-                  ) : (
-                    <>
-                      O período pago encerrou em {sub.current_period_end ? formatDateOnly(sub.current_period_end) : '—'}. O cadastro de novos sites e os recursos de IA estão bloqueados até uma nova contratação.
-                    </>
-                  )}
-                </Text>
-              </div>
-            </Group>
-
-            <Group gap="xs">
-              {sub.status === 'active' && !isCurrentPlanFree && (
-                <Button
-                  variant="outline"
-                  color="red"
-                  size="xs"
-                  leftSection={<IconX size={14} />}
-                  onClick={() => setCancelModalOpen(true)}
-                >
-                  Cancelar Assinatura
-                </Button>
-              )}
-              {sub.status === 'active' && isCurrentPlanFree && (
-                <Button
-                  variant="gradient"
-                  gradient={{ from: '#1A7F86', to: '#118ab2' }}
-                  size="xs"
-                  leftSection={<IconCrown size={14} />}
-                  onClick={() => {
-                    const paidPlan = data?.available_plans.find((p) => p.slug !== 'free' && Number(p.price_monthly) > 0);
-                    if (paidPlan) {
-                      setTargetUpgradePlanId(paidPlan.id);
-                      setCheckoutPlan(paidPlan);
-                      setRenewModalOpen(true);
-                    }
-                  }}
-                >
-                  Mudar para Plano Pago 🚀
-                </Button>
-              )}
-              {(sub.status === 'canceled' || sub.status === 'expired') && (
-                <Button
-                  variant="filled"
-                  color="indigo"
-                  size="xs"
-                  leftSection={<IconRefresh size={14} />}
-                  onClick={() => {
-                    setCheckoutPlan(currentPlan || null);
-                    setCheckoutExtraWebsites(pd?.extra_websites || 0);
-                    setCheckoutExtraAiPacks(Math.round((pd?.extra_ai_tokens || 0) / 1000000));
-                    setRenewModalOpen(true);
-                  }}
-                >
-                  {sub.is_period_active ? 'Reativar / Renovar Assinatura' : 'Contratar Novo Plano'}
-                </Button>
-              )}
-            </Group>
-          </Group>
-        </Paper>
-      )}
 
       {/* Se o plano expirou e não há sub explícito */}
       {!sub && pd?.is_subscription_expired && (
@@ -2116,6 +1983,140 @@ export function UserPlanManagementView({
           </>
         )}
       </Paper>
+
+      {/* Card / Alerta de Status da Assinatura */}
+      {sub && (
+        <Paper
+          p="md"
+          radius="md"
+          bg="dark.8"
+          withBorder
+          style={{
+            borderColor:
+              sub.status === 'active'
+                ? '#10b981'
+                : sub.status === 'canceled' && sub.is_period_active
+                ? '#f59e0b'
+                : '#ef4444',
+          }}
+        >
+          <Group justify="space-between" align="center" wrap="wrap" gap="md">
+            <Group gap="sm">
+              <ThemeIcon
+                size="lg"
+                radius="md"
+                color={
+                  sub.status === 'active'
+                    ? 'teal'
+                    : sub.status === 'canceled' && sub.is_period_active
+                    ? 'yellow'
+                    : 'red'
+                }
+                variant="light"
+              >
+                <IconCreditCard size={20} />
+              </ThemeIcon>
+              <div>
+                <Group gap="xs" align="center">
+                  <Text fw={700} size="sm">
+                    {isCurrentPlanFree
+                      ? 'Plano Grátis / Teste'
+                      : `Assinatura Recorrente ${sub.payment_method === 'credit_card' ? '(Cartão de Crédito)' : sub.payment_method === 'pix' ? '(Pix)' : ''}`}
+                  </Text>
+                  <Badge
+                    size="sm"
+                    variant="filled"
+                    color={
+                      sub.status === 'active'
+                        ? 'teal'
+                        : sub.status === 'canceled' && sub.is_period_active
+                        ? 'yellow'
+                        : 'red'
+                    }
+                  >
+                    {sub.status === 'active'
+                      ? 'ATIVA'
+                      : sub.status === 'canceled' && sub.is_period_active
+                      ? 'CANCELADA (ACESSO ATIVO)'
+                      : sub.status === 'canceled'
+                      ? 'CANCELADA (EXPIRADA)'
+                      : 'EXPIRADA'}
+                  </Badge>
+                </Group>
+                <Text size="xs" c="dimmed" mt={2}>
+                  {sub.status === 'active' ? (
+                    isCurrentPlanFree ? (
+                      <>
+                        Plano de teste gratuito iniciado em <b>{planStartDateFmt}</b>. Permite diagnósticos de segurança com limites de teste.
+                      </>
+                    ) : (
+                      <>
+                        Plano iniciado em <b>{planStartDateFmt}</b> (dia {renewalDayNumber}) • Próxima renovação em <b>{nextPaymentDateFmt}</b> (renovação mensal todo dia <b>{renewalDayNumber}</b> • {sub.days_remaining} dias restantes no ciclo).
+                      </>
+                    )
+                  ) : sub.status === 'canceled' && sub.is_period_active ? (
+                    <>
+                      Cancelada em {sub.canceled_at ? formatDateOnly(sub.canceled_at) : '—'}. Seu acesso permanece 100% liberado até <b>{nextPaymentDateFmt}</b> ({sub.days_remaining} dias restantes). Nenhuma nova cobrança será realizada.
+                    </>
+                  ) : (
+                    <>
+                      O período pago encerrou em {sub.current_period_end ? formatDateOnly(sub.current_period_end) : '—'}. O cadastro de novos sites e os recursos de IA estão bloqueados até uma nova contratação.
+                    </>
+                  )}
+                </Text>
+              </div>
+            </Group>
+
+            <Group gap="xs">
+              {sub.status === 'active' && !isCurrentPlanFree && (
+                <Button
+                  variant="outline"
+                  color="red"
+                  size="xs"
+                  leftSection={<IconX size={14} />}
+                  onClick={() => setCancelModalOpen(true)}
+                >
+                  Cancelar Assinatura
+                </Button>
+              )}
+              {sub.status === 'active' && isCurrentPlanFree && (
+                <Button
+                  variant="gradient"
+                  gradient={{ from: '#1A7F86', to: '#118ab2' }}
+                  size="xs"
+                  leftSection={<IconCrown size={14} />}
+                  onClick={() => {
+                    const paidPlan = data?.available_plans.find((p) => p.slug !== 'free' && Number(p.price_monthly) > 0);
+                    if (paidPlan) {
+                      setTargetUpgradePlanId(paidPlan.id);
+                      setCheckoutPlan(paidPlan);
+                      setRenewModalOpen(true);
+                    }
+                  }}
+                >
+                  Mudar para Plano Pago 🚀
+                </Button>
+              )}
+              {(sub.status === 'canceled' || sub.status === 'expired') && (
+                <Button
+                  variant="filled"
+                  color="indigo"
+                  size="xs"
+                  leftSection={<IconRefresh size={14} />}
+                  onClick={() => {
+                    setCheckoutPlan(currentPlan || null);
+                    setCheckoutExtraWebsites(pd?.extra_websites || 0);
+                    setCheckoutExtraAiPacks(Math.round((pd?.extra_ai_tokens || 0) / 1000000));
+                    setRenewModalOpen(true);
+                  }}
+                >
+                  {sub.is_period_active ? 'Reativar / Renovar Assinatura' : 'Contratar Novo Plano'}
+                </Button>
+              )}
+            </Group>
+          </Group>
+        </Paper>
+      )}
 
       {/* Modal de Confirmação de Cancelamento de Assinatura */}
       <Modal

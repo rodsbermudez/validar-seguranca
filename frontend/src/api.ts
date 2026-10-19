@@ -417,6 +417,21 @@ export interface Website {
   latest_grade?: string | null;
   latest_scanned_at?: string | null;
   maintenance?: MaintenanceStatus;
+  connected_at?: string | null;
+  last_integrity_scanned_at?: string | null;
+  integrity_issues_count?: number | null;
+  integrity_is_secure?: number | boolean | null;
+  integrity_total_checked?: number | null;
+  integrity_passed?: number | null;
+  integrity_modified?: number | null;
+  integrity_suspicious?: number | null;
+  integrity_summary_json?: string | null;
+  last_updates_checked_at?: string | null;
+  updates_pending_count?: number | null;
+  updates_summary_json?: string | null;
+  last_logs_checked_at?: string | null;
+  logs_fatal_count?: number | null;
+  logs_summary_json?: string | null;
 }
 
 export interface MaintenanceStatus {
