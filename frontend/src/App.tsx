@@ -191,18 +191,18 @@ export default function App() {
           <Group justify="space-between" h="100%">
             <Group gap="sm" style={{ cursor: 'pointer' }} onClick={() => { setSelectedWebsite(null); setViewMode('overview'); }}>
               <img
-                src="images/logo-Patropi.png"
+                src="images/logo-sutehub.svg"
                 onError={(e) => {
                   const target = e.currentTarget as HTMLImageElement;
                   if (target.dataset.tried === '1') {
-                    target.src = '/images/logo-Patropi.png';
+                    target.src = '/images/logo-sutehub.svg';
                     target.dataset.tried = '2';
                   } else if (!target.dataset.tried) {
-                    target.src = '/validar-seguranca/images/logo-Patropi.png';
+                    target.src = '/validar-seguranca/images/logo-sutehub.svg';
                     target.dataset.tried = '1';
                   }
                 }}
-                alt="Patropi Comunica"
+                alt="SiteHub"
                 style={{ height: 38, width: 'auto', objectFit: 'contain' }}
               />
             </Group>

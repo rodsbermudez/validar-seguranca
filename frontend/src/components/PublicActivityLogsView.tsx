@@ -155,18 +155,18 @@ export const PublicActivityLogsView: React.FC<PublicActivityLogsViewProps> = ({
           <Group justify="space-between" align="center">
             <Group gap="sm">
               <img
-                src="images/logo-Patropi.png"
+                src="images/logo-sutehub.svg"
                 onError={(e) => {
                   const target = e.currentTarget as HTMLImageElement;
                   if (target.dataset.tried === '1') {
-                    target.src = '/images/logo-Patropi.png';
+                    target.src = '/images/logo-sutehub.svg';
                     target.dataset.tried = '2';
                   } else {
                     target.dataset.tried = '1';
-                    target.src = './images/logo-Patropi.png';
+                    target.src = './images/logo-sutehub.svg';
                   }
                 }}
-                alt="Patropi Comunica"
+                alt="SiteHub"
                 style={{ height: 38, width: 'auto', display: 'block' }}
               />
             </Group>

@@ -296,7 +296,7 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
               <Group justify="space-between" align="center">
                 <img
                   src={PATROPI_LOGO_BASE64}
-                  alt="Patropi Comunica"
+                  alt="SiteHub"
                   style={{ height: 42, width: 'auto', objectFit: 'contain' }}
                 />
                 <Badge color="green" size="sm" variant="light">

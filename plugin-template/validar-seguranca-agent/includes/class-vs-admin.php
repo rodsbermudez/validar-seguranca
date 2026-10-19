@@ -206,7 +206,7 @@ class VS_Agent_Admin {
 
             <div style="display: flex; align-items: center; justify-content: space-between; margin: 15px 0; background: #fff; padding: 15px 20px; border-radius: 8px; border: 1px solid #e0e0e0; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
                 <div style="display: flex; align-items: center; gap: 15px;">
-                    <img src="<?php echo esc_url(VS_AGENT_URL . 'assets/logo-Patropi.png'); ?>" alt="Patropi Comunica" style="max-height: 42px; height: 42px; width: auto; object-fit: contain;" onerror="this.style.display='none';" />
+                    <img src="<?php echo esc_url(VS_AGENT_URL . 'assets/logo-sutehub.svg'); ?>" alt="SiteHub" style="max-height: 42px; height: 42px; width: auto; object-fit: contain;" onerror="this.style.display='none';" />
                     <div>
                         <h2 style="margin: 0; font-size: 20px; font-weight: 700; color: #1e293b;">WP Patropi - Diagnóstico</h2>
                         <p style="margin: 2px 0 0 0; font-size: 12px; color: #64748b;">Desenvolvido por <strong>Rodrigo Bermudez - Patropi Comunica</strong> (<a href="https://patropicomunica.com.br" target="_blank" style="color: #2563eb; text-decoration: none;">patropicomunica.com.br</a>)</p>
@@ -309,7 +309,7 @@ class VS_Agent_Admin {
 
             <div style="display: flex; align-items: center; justify-content: space-between; margin: 15px 0; background: #fff; padding: 15px 20px; border-radius: 8px; border: 1px solid #e0e0e0; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
                 <div style="display: flex; align-items: center; gap: 15px;">
-                    <img src="<?php echo esc_url(VS_AGENT_URL . 'assets/logo-Patropi.png'); ?>" alt="Patropi Comunica" style="max-height: 42px; height: 42px; width: auto; object-fit: contain;" onerror="this.style.display='none';" />
+                    <img src="<?php echo esc_url(VS_AGENT_URL . 'assets/logo-sutehub.svg'); ?>" alt="SiteHub" style="max-height: 42px; height: 42px; width: auto; object-fit: contain;" onerror="this.style.display='none';" />
                     <div>
                         <h2 style="margin: 0; font-size: 20px; font-weight: 700; color: #1e293b;">WP Patropi - Logs do WordPress</h2>
                         <p style="margin: 2px 0 0 0; font-size: 12px; color: #64748b;">Gerenciador e Visualizador de Erros em Arquivo</p>
