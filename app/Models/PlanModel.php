@@ -19,6 +19,7 @@ class PlanModel extends Model
         'max_websites',
         'ai_monthly_tokens',
         'price_monthly',
+        'tools_enabled',
         'is_active',
         'is_default',
         'sort_order',

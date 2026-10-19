@@ -34,6 +34,7 @@ class Plans extends ResourceController
             $p['max_websites'] = $p['max_websites'] !== null ? (int)$p['max_websites'] : null;
             $p['ai_monthly_tokens'] = (int)$p['ai_monthly_tokens'];
             $p['price_monthly'] = (float)$p['price_monthly'];
+            $p['tools_enabled'] = isset($p['tools_enabled']) ? (int)$p['tools_enabled'] : 1;
             $p['is_active'] = (int)$p['is_active'];
             $p['is_default'] = (int)$p['is_default'];
             $p['sort_order'] = (int)$p['sort_order'];
@@ -62,6 +63,7 @@ class Plans extends ResourceController
             $p['max_websites'] = $p['max_websites'] !== null ? (int)$p['max_websites'] : null;
             $p['ai_monthly_tokens'] = (int)$p['ai_monthly_tokens'];
             $p['price_monthly'] = (float)$p['price_monthly'];
+            $p['tools_enabled'] = isset($p['tools_enabled']) ? (int)$p['tools_enabled'] : 1;
             $p['is_active'] = (int)$p['is_active'];
             $p['is_default'] = (int)$p['is_default'];
             $p['sort_order'] = (int)$p['sort_order'];
@@ -127,6 +129,7 @@ class Plans extends ResourceController
             'max_websites'      => $maxWebsites,
             'ai_monthly_tokens' => $aiTokens,
             'price_monthly'     => $priceMonthly,
+            'tools_enabled'     => array_key_exists('tools_enabled', $json) ? (!empty($json['tools_enabled']) ? 1 : 0) : 1,
             'is_active'         => !empty($json['is_active']) ? 1 : 0,
             'is_default'        => $isDefault,
             'sort_order'        => (int)($json['sort_order'] ?? 0),
@@ -208,6 +211,10 @@ class Plans extends ResourceController
 
         if (isset($json['is_active'])) {
             $dataToUpdate['is_active'] = !empty($json['is_active']) ? 1 : 0;
+        }
+
+        if (array_key_exists('tools_enabled', $json)) {
+            $dataToUpdate['tools_enabled'] = !empty($json['tools_enabled']) ? 1 : 0;
         }
 
         if (isset($json['is_default'])) {

@@ -108,6 +108,66 @@ class Checkout extends ResourceController
             $user = $userModel->find($userId);
         }
 
+        // Caso Especial: Plano Gratuito (R$ 0,00)
+        if ($totalAmount <= 0.00) {
+            $subscriptionModel = new SubscriptionModel();
+            $existingActiveSubs = $subscriptionModel->where('user_id', $userId)
+                                                    ->where('status', 'active')
+                                                    ->findAll();
+            $asaasService = new AsaasService();
+            foreach ($existingActiveSubs as $prevSub) {
+                if (!empty($prevSub['gateway_subscription_id']) && ($prevSub['gateway'] ?? '') === 'asaas') {
+                    $asaasService->cancelSubscription($prevSub['gateway_subscription_id']);
+                }
+                $subscriptionModel->update($prevSub['id'], [
+                    'status'      => 'canceled',
+                    'canceled_at' => date('Y-m-d H:i:s'),
+                ]);
+            }
+
+            $subId = $subscriptionModel->insert([
+                'user_id'                 => $userId,
+                'plan_id'                 => $planId,
+                'status'                  => 'active',
+                'gateway'                 => 'internal',
+                'gateway_customer_id'     => null,
+                'gateway_subscription_id' => 'free_' . $userId . '_' . time(),
+                'billing_cycle'           => 'monthly',
+                'price'                   => 0.00,
+                'extra_websites'          => 0,
+                'extra_websites_price'    => 0.00,
+                'extra_ai_tokens'         => 0,
+                'extra_ai_tokens_price'   => 0.00,
+                'current_period_start'    => date('Y-m-d H:i:s'),
+                'current_period_end'      => date('Y-m-d H:i:s', strtotime('+1 year')),
+            ]);
+
+            UserPlanService::assignPlanToUser($userId, $planId, [
+                'extra_websites'        => 0,
+                'extra_websites_price'  => 0.00,
+                'extra_ai_tokens'       => 0,
+                'extra_ai_tokens_price' => 0.00,
+            ]);
+
+            $token = JWTAuth::generateToken($user);
+
+            return $this->respond([
+                'status'          => 200,
+                'success'         => true,
+                'activated'       => true,
+                'free_plan'       => true,
+                'subscription_id' => $subId,
+                'token'           => $token,
+                'user'            => [
+                    'id'    => $user['id'],
+                    'name'  => $user['name'],
+                    'email' => $user['email'],
+                    'role'  => $user['role'] ?? 'user',
+                ],
+                'message'         => 'Assinatura do plano gratuito ativada com sucesso! Bem-vindo ao Vexors.',
+            ]);
+        }
+
         // Integração Asaas
         $asaasService = new AsaasService();
 

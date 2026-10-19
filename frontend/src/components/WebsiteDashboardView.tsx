@@ -68,6 +68,7 @@ import {
   uncompleteWebsiteMaintenance,
   getWebsiteMaintenanceHistory,
   getAvailableMaintenanceMonths,
+  getUserPlanDetails,
 } from '../api';
 import { ScanReport } from './ScanReport';
 import { WebsiteLogsView } from './WebsiteLogsView';
@@ -82,6 +83,7 @@ interface WebsiteDashboardViewProps {
   onBack: () => void;
   onUpdateWebsite?: (updatedSite: Website) => void;
   onDeleteWebsite?: (siteId: string | number) => void;
+  onNavigateToPlans?: () => void;
   initialTab?: string;
 }
 
@@ -90,12 +92,35 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
   onBack,
   onUpdateWebsite,
   onDeleteWebsite,
+  onNavigateToPlans,
   initialTab,
 }) => {
   const [activeTab, setActiveTab] = useState<string | null>(initialTab || 'overview');
   const [viewingDiagnostic, setViewingDiagnostic] = useState<boolean>(false);
   const [downloading, setDownloading] = useState(false);
   const [copiedToken, setCopiedToken] = useState(false);
+  const [toolsEnabled, setToolsEnabled] = useState<boolean>(true);
+
+  useEffect(() => {
+    const checkTools = async () => {
+      try {
+        const storedUser = localStorage.getItem('user');
+        if (!storedUser) return;
+        const u = JSON.parse(storedUser);
+        if (u.role === 'admin') {
+          setToolsEnabled(true);
+          return;
+        }
+        const res = await getUserPlanDetails(u.id);
+        if (res?.plan_details) {
+          setToolsEnabled(res.plan_details.tools_enabled !== 0);
+        }
+      } catch (err) {
+        // default true
+      }
+    };
+    checkTools();
+  }, []);
 
   useEffect(() => {
     if (initialTab) {
@@ -964,12 +989,21 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
 
         {/* Tab 2: Audit & Security */}
         <Tabs.Panel value="audit" pt="md">
-          <ScanReport website={website} onBack={() => setActiveTab('overview')} />
+          <ScanReport
+            website={website}
+            onBack={() => setActiveTab('overview')}
+            toolsEnabled={toolsEnabled}
+            onNavigateToPlans={onNavigateToPlans}
+          />
         </Tabs.Panel>
 
         {/* Tab 3: Core Integrity */}
         <Tabs.Panel value="integrity" pt="md">
-          <WebsiteIntegrityView website={website} />
+          <WebsiteIntegrityView
+            website={website}
+            toolsEnabled={toolsEnabled}
+            onNavigateToPlans={onNavigateToPlans}
+          />
         </Tabs.Panel>
 
         {/* Tab: Activity Logs & Technical Notes */}
@@ -984,7 +1018,11 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
 
         {/* Tab 5: Remote Updates */}
         <Tabs.Panel value="updates" pt="md">
-          <WebsiteUpdatesView website={website} />
+          <WebsiteUpdatesView
+            website={website}
+            toolsEnabled={toolsEnabled}
+            onNavigateToPlans={onNavigateToPlans}
+          />
         </Tabs.Panel>
 
         {/* Tab 4: WP Agent Info */}

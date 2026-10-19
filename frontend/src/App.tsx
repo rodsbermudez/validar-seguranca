@@ -408,6 +408,11 @@ export default function App() {
                 setSelectedWebsite(null);
                 setViewMode('list');
               }}
+              onNavigateToPlans={() => {
+                setSelectedWebsite(null);
+                setSelectedAiUser(impersonatedUser || user);
+                setViewMode('user-ai-view');
+              }}
               onUpdateWebsite={(updated) => setSelectedWebsite(updated)}
             />
           ) : viewMode === 'list' ? (

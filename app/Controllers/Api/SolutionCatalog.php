@@ -6,6 +6,7 @@ use CodeIgniter\RESTful\ResourceController;
 use App\Models\SolutionCatalogModel;
 use App\Models\ScanHistoryModel;
 use App\Services\AIService;
+use App\Services\UserPlanService;
 
 class SolutionCatalog extends ResourceController
 {
@@ -102,6 +103,10 @@ class SolutionCatalog extends ResourceController
 
         $isAdmin = (($userData->role ?? 'user') === 'admin');
         $currentUserId = $userData->id ?? null;
+
+        if (!$isAdmin && !UserPlanService::canUserUseRemediationTools((int)$currentUserId)) {
+            return $this->failForbidden('A geração e uso de soluções inteligentes não estão disponíveis no seu plano atual. Faça o upgrade para um plano pago para desbloquear.');
+        }
 
         $json = $this->request->getJSON(true) ?: [];
         $checkId   = $json['check_id'] ?? null;

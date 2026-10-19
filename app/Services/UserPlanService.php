@@ -23,6 +23,7 @@ class UserPlanService
                 'plan'                       => null,
                 'plan_name'                  => 'Sem Plano',
                 'is_admin'                   => false,
+                'tools_enabled'              => 0,
                 'ai_enabled'                 => 0,
                 'base_max_websites'          => 0,
                 'extra_websites'             => 0,
@@ -230,6 +231,8 @@ class UserPlanService
                 ? 'Assinatura Expirada'
                 : ($plan ? $plan['name'] : 'Sem Plano'));
 
+        $toolsEnabled = $isAdmin ? 1 : ($isSubscriptionExpired ? 0 : ($plan ? (isset($plan['tools_enabled']) ? (int)$plan['tools_enabled'] : 1) : 0));
+
         return [
             'user_id'                   => (int)$user['id'],
             'user_name'                 => $user['name'],
@@ -238,6 +241,7 @@ class UserPlanService
             'plan_id'                   => $plan ? (int)$plan['id'] : null,
             'plan'                      => $plan,
             'plan_name'                 => $planName,
+            'tools_enabled'             => $toolsEnabled,
             'ai_enabled'                => $aiEnabled,
             'base_max_websites'         => $baseMaxWebsites,
             'extra_websites'            => $extraWebsites,
@@ -267,6 +271,16 @@ class UserPlanService
             'is_subscription_expired'   => $isSubscriptionExpired,
             'payment_methods'           => SettingsModel::getPaymentMethods(),
         ];
+    }
+
+    /**
+     * Valida se o usuário tem permissão para usar ferramentas ativas de remediação
+     * (Fixes, IA de código, restauração de integridade e updates pelo SaaS)
+     */
+    public static function canUserUseRemediationTools(int $userId): bool
+    {
+        $details = self::getUserPlanDetails($userId);
+        return (bool)($details['is_admin'] || !empty($details['tools_enabled']));
     }
 
     /**

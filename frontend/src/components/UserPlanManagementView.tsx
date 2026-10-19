@@ -1172,7 +1172,9 @@ export function UserPlanManagementView({
               <div>
                 <Group gap="xs" align="center">
                   <Text fw={700} size="sm">
-                    Assinatura Recorrente Asaas {sub.payment_method === 'credit_card' ? '(Cartão de Crédito)' : sub.payment_method === 'pix' ? '(Pix)' : ''}
+                    {sub.gateway === 'internal'
+                      ? 'Plano Grátis / Teste'
+                      : `Assinatura Recorrente Asaas ${sub.payment_method === 'credit_card' ? '(Cartão de Crédito)' : sub.payment_method === 'pix' ? '(Pix)' : ''}`}
                   </Text>
                   <Badge
                     size="sm"
@@ -1196,9 +1198,15 @@ export function UserPlanManagementView({
                 </Group>
                 <Text size="xs" c="dimmed" mt={2}>
                   {sub.status === 'active' ? (
-                    <>
-                      Plano iniciado em <b>{planStartDateFmt}</b> (dia {renewalDayNumber}) • Próxima renovação em <b>{nextPaymentDateFmt}</b> (renovação mensal todo dia <b>{renewalDayNumber}</b> • {sub.days_remaining} dias restantes no ciclo).
-                    </>
+                    sub.gateway === 'internal' ? (
+                      <>
+                        Plano de teste gratuito iniciado em <b>{planStartDateFmt}</b>. Permite diagnósticos de segurança com limites de teste.
+                      </>
+                    ) : (
+                      <>
+                        Plano iniciado em <b>{planStartDateFmt}</b> (dia {renewalDayNumber}) • Próxima renovação em <b>{nextPaymentDateFmt}</b> (renovação mensal todo dia <b>{renewalDayNumber}</b> • {sub.days_remaining} dias restantes no ciclo).
+                      </>
+                    )
                   ) : sub.status === 'canceled' && sub.is_period_active ? (
                     <>
                       Cancelada em {sub.canceled_at ? formatDateOnly(sub.canceled_at) : '—'}. Seu acesso permanece 100% liberado até <b>{nextPaymentDateFmt}</b> ({sub.days_remaining} dias restantes). Nenhuma nova cobrança será realizada.
@@ -1213,7 +1221,7 @@ export function UserPlanManagementView({
             </Group>
 
             <Group gap="xs">
-              {sub.status === 'active' && (
+              {sub.status === 'active' && sub.gateway !== 'internal' && (
                 <Button
                   variant="outline"
                   color="red"
@@ -1222,6 +1230,24 @@ export function UserPlanManagementView({
                   onClick={() => setCancelModalOpen(true)}
                 >
                   Cancelar Assinatura
+                </Button>
+              )}
+              {sub.status === 'active' && sub.gateway === 'internal' && (
+                <Button
+                  variant="gradient"
+                  gradient={{ from: '#1A7F86', to: '#118ab2' }}
+                  size="xs"
+                  leftSection={<IconCrown size={14} />}
+                  onClick={() => {
+                    const paidPlan = data?.available_plans.find((p) => p.slug !== 'free' && Number(p.price_monthly) > 0);
+                    if (paidPlan) {
+                      setTargetUpgradePlanId(paidPlan.id);
+                      setCheckoutPlan(paidPlan);
+                      setRenewModalOpen(true);
+                    }
+                  }}
+                >
+                  Mudar para Plano Pago 🚀
                 </Button>
               )}
               {(sub.status === 'canceled' || sub.status === 'expired') && (
@@ -1264,6 +1290,40 @@ export function UserPlanManagementView({
               }}
             >
               Contratar Novo Plano
+            </Button>
+          </Group>
+        </Alert>
+      )}
+
+      {/* Alerta de ferramentas bloqueadas no plano Free */}
+      {Number(pd?.tools_enabled) === 0 && (
+        <Alert
+          icon={<IconLock size={18} />}
+          color="orange"
+          variant="light"
+          title="Plano de Testes: Ferramentas de Correção Bloqueadas"
+          styles={{
+            root: { borderColor: 'rgba(237, 174, 73, 0.4)' },
+          }}
+        >
+          <Group justify="space-between" align="center" wrap="wrap" gap="sm">
+            <Text size="xs" maw={700}>
+              Você está no plano gratuito. As auditorias e diagnósticos funcionam normalmente, mas as ferramentas ativas de correção (plugin de fixes com IA, atualizações remotas pelo SaaS e restauração de arquivos) estão restritas aos planos pagos.
+            </Text>
+            <Button
+              size="xs"
+              variant="gradient"
+              gradient={{ from: '#1A7F86', to: '#118ab2' }}
+              onClick={() => {
+                const paidPlan = data?.available_plans.find((p) => p.slug !== 'free' && Number(p.price_monthly) > 0);
+                if (paidPlan) {
+                  setTargetUpgradePlanId(paidPlan.id);
+                  setCheckoutPlan(paidPlan);
+                  setRenewModalOpen(true);
+                }
+              }}
+            >
+              Liberar Ferramentas com Plano Pago 🚀
             </Button>
           </Group>
         </Alert>
@@ -2199,6 +2259,15 @@ export function UserPlanManagementView({
                           <Badge color="violet" size="xs" variant="outline">
                             {aiCapacity}
                           </Badge>
+                          {Number(p.tools_enabled) === 1 ? (
+                            <Badge color="teal" size="xs" variant="light">
+                              Ferramentas Ativas
+                            </Badge>
+                          ) : (
+                            <Badge color="orange" size="xs" variant="light">
+                              Apenas Diagnóstico
+                            </Badge>
+                          )}
                         </Group>
                       </div>
 

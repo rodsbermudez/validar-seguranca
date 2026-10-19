@@ -106,6 +106,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onBack, currentUserR
   const [planMaxWebsites, setPlanMaxWebsites] = useState<number>(4);
   const [planAiTokens, setPlanAiTokens] = useState<number>(250000);
   const [planPriceMonthly, setPlanPriceMonthly] = useState<number>(97);
+  const [planToolsEnabled, setPlanToolsEnabled] = useState<boolean>(true);
   const [planIsActive, setPlanIsActive] = useState<boolean>(true);
   const [planIsDefault, setPlanIsDefault] = useState<boolean>(false);
   const [planSortOrder, setPlanSortOrder] = useState<number>(1);
@@ -269,6 +270,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onBack, currentUserR
     setPlanMaxWebsites(4);
     setPlanAiTokens(250000);
     setPlanPriceMonthly(97);
+    setPlanToolsEnabled(true);
     setPlanIsActive(true);
     setPlanIsDefault(false);
     setPlanSortOrder(plans.length + 1);
@@ -285,6 +287,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onBack, currentUserR
     setPlanMaxWebsites(p.max_websites !== null ? Number(p.max_websites) : 10);
     setPlanAiTokens(Number(p.ai_monthly_tokens) || 250000);
     setPlanPriceMonthly(Number(p.price_monthly) || 0);
+    setPlanToolsEnabled(Number(p.tools_enabled ?? 1) === 1);
     setPlanIsActive(Number(p.is_active) === 1);
     setPlanIsDefault(Number(p.is_default) === 1);
     setPlanSortOrder(Number(p.sort_order) || 1);
@@ -313,6 +316,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onBack, currentUserR
         max_websites: planWebsitesUnlimited ? null : Number(planMaxWebsites),
         ai_monthly_tokens: Number(planAiTokens),
         price_monthly: Number(planPriceMonthly) || 0,
+        tools_enabled: planToolsEnabled ? 1 : 0,
         is_active: planIsActive ? 1 : 0,
         is_default: planIsDefault ? 1 : 0,
         sort_order: Number(planSortOrder) || 0,
@@ -495,6 +499,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onBack, currentUserR
                       <Table.Th>Plano</Table.Th>
                       <Table.Th>Websites Inclusos</Table.Th>
                       <Table.Th>Cota Mensal de IA</Table.Th>
+                      <Table.Th>Ferramentas</Table.Th>
                       <Table.Th>Valor Mensal</Table.Th>
                       <Table.Th>Status</Table.Th>
                       <Table.Th style={{ textAlign: 'right' }}>Ações</Table.Th>
@@ -536,6 +541,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onBack, currentUserR
                               {Number(p.ai_monthly_tokens).toLocaleString('pt-BR')} tokens
                             </Text>
                           </Group>
+                        </Table.Td>
+                        <Table.Td>
+                          {Number(p.tools_enabled ?? 1) === 1 ? (
+                            <Badge color="teal" variant="light" size="xs">
+                              Ativas
+                            </Badge>
+                          ) : (
+                            <Badge color="orange" variant="light" size="xs">
+                              Apenas Diagnóstico
+                            </Badge>
+                          )}
                         </Table.Td>
                         <Table.Td>
                           <Text size="sm" fw={700} c="teal.4">
@@ -1227,6 +1243,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onBack, currentUserR
               />
             </Grid.Col>
           </Grid>
+
+          <Card bg="dark.7" p="xs" radius="sm" withBorder style={{ borderColor: '#374151' }}>
+            <Switch
+              label="Ferramentas Ativas de Remediação (Fixes, Restauração e Atualizações)"
+              description="Quando desmarcado, os relatórios são exibidos mas as ferramentas de correção ficam restritas com card de upgrade."
+              checked={planToolsEnabled}
+              onChange={(e) => setPlanToolsEnabled(e.currentTarget.checked)}
+              color="teal"
+            />
+          </Card>
 
           <Group justify="space-between" mt="xs">
             <Switch

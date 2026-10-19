@@ -8,6 +8,7 @@ use App\Models\ScanHistoryModel;
 use App\Models\SolutionCatalogModel;
 use App\Services\AIService;
 use App\Services\BrandingService;
+use App\Services\UserPlanService;
 use ZipArchive;
 
 class Remediation extends ResourceController
@@ -73,6 +74,10 @@ class Remediation extends ResourceController
 
         if (!$websiteModel->canUserAccess((int)$scan['website_id'], $effectiveUserId, $isAdmin)) {
             return $this->failForbidden('Você não tem permissão para gerar plugins de remediação para este website.');
+        }
+
+        if (!$isAdmin && !UserPlanService::canUserUseRemediationTools((int)$effectiveUserId)) {
+            return $this->failForbidden('O seu plano atual não inclui a geração do plugin de correções automáticas e remediação por IA. Faça upgrade para um plano pago para desbloquear esta funcionalidade.');
         }
 
         $scanResults = json_decode($scan['scan_results_json'], true);

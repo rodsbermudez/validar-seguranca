@@ -333,8 +333,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       return;
     }
 
-    // Validate Credit Card fields if selected
-    if (paymentMethod === 'credit_card') {
+    // Validate Credit Card fields if selected and totalAmount > 0
+    if (totalAmount > 0 && paymentMethod === 'credit_card') {
       if (!cardHolder.trim()) {
         setError('Por favor, informe o nome do titular como impresso no cartão.');
         return;
@@ -408,7 +408,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         cpf_cnpj: cleanCpf,
         phone: phone.replace(/\D/g, ''),
         password: password || undefined,
-        billing_type: paymentMethod === 'credit_card' ? 'CREDIT_CARD' : 'PIX',
+        billing_type: totalAmount <= 0 ? 'FREE' : (paymentMethod === 'credit_card' ? 'CREDIT_CARD' : 'PIX'),
         extra_websites: extraWebsites,
         extra_websites_price: extraWebsitesPrice,
         extra_ai_tokens: extraAiTokens,
@@ -416,7 +416,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         is_new_signup: !currentUser,
       };
 
-      if (paymentMethod === 'credit_card') {
+      if (totalAmount > 0 && paymentMethod === 'credit_card') {
         const [monthStr, yearStrRaw] = cardExpiry.split('/');
         const yearStr = yearStrRaw.length === 2 ? `20${yearStrRaw}` : yearStrRaw;
         const cleanCep = postalCode.replace(/\D/g, '');
@@ -551,9 +551,9 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           </div>
           <div style={{ textAlign: 'right' }}>
             <Text size="xs" c="dimmed">Total Mensal</Text>
-            <Title order={3} c="indigo.4">
-              R$ {totalAmount.toFixed(2).replace('.', ',')}
-              <Text span size="xs" c="dimmed" fw={400}> /mês</Text>
+            <Title order={3} c={totalAmount <= 0 ? 'emerald.4' : 'indigo.4'}>
+              {totalAmount <= 0 ? 'Grátis' : `R$ ${totalAmount.toFixed(2).replace('.', ',')}`}
+              {totalAmount > 0 && <Text span size="xs" c="dimmed" fw={400}> /mês</Text>}
             </Title>
           </div>
         </Group>
@@ -576,46 +576,48 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       {step === 'form' && (
         <form onSubmit={handleStartPayment}>
           <Stack gap="md">
-            {/* Add-ons Opcionais */}
-            <Card p="sm" radius="md" bg="rgba(15, 23, 42, 0.6)" style={{ border: '1px dashed rgba(99, 102, 241, 0.3)' }}>
-              <Text size="xs" fw={700} c="indigo.3" mb="xs" style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Add-ons Extras Opcionais
-              </Text>
-              <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
-                <Box>
-                  <Text size="xs" fw={600} c="gray.3">
-                    Sites Extras (+R$ 8/site)
-                  </Text>
-                  <Text size="xs" c="dimmed" mb={4}>
-                    Aumente o limite de monitoramento
-                  </Text>
-                  <NumberInput
-                    min={0}
-                    max={100}
-                    value={extraWebsites}
-                    onChange={(val) => setExtraWebsites(Number(val) || 0)}
-                    placeholder="0 sites"
-                    size="xs"
-                  />
-                </Box>
-                <Box>
-                  <Text size="xs" fw={600} c="gray.3">
-                    Pacotes IA (+250k tokens / R$ 60)
-                  </Text>
-                  <Text size="xs" c="dimmed" mb={4}>
-                    Cota extra para remediação e código
-                  </Text>
-                  <NumberInput
-                    min={0}
-                    max={20}
-                    value={extraAiPacks}
-                    onChange={(val) => setExtraAiPacks(Number(val) || 0)}
-                    placeholder="0 pacotes"
-                    size="xs"
-                  />
-                </Box>
-              </SimpleGrid>
-            </Card>
+            {/* Add-ons Opcionais (apenas para planos com valor base > 0) */}
+            {basePrice > 0 && (
+              <Card p="sm" radius="md" bg="rgba(15, 23, 42, 0.6)" style={{ border: '1px dashed rgba(99, 102, 241, 0.3)' }}>
+                <Text size="xs" fw={700} c="indigo.3" mb="xs" style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Add-ons Extras Opcionais
+                </Text>
+                <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
+                  <Box>
+                    <Text size="xs" fw={600} c="gray.3">
+                      Sites Extras (+R$ 8/site)
+                    </Text>
+                    <Text size="xs" c="dimmed" mb={4}>
+                      Aumente o limite de monitoramento
+                    </Text>
+                    <NumberInput
+                      min={0}
+                      max={100}
+                      value={extraWebsites}
+                      onChange={(val) => setExtraWebsites(Number(val) || 0)}
+                      placeholder="0 sites"
+                      size="xs"
+                    />
+                  </Box>
+                  <Box>
+                    <Text size="xs" fw={600} c="gray.3">
+                      Pacotes IA (+250k tokens / R$ 60)
+                    </Text>
+                    <Text size="xs" c="dimmed" mb={4}>
+                      Cota extra para remediação e código
+                    </Text>
+                    <NumberInput
+                      min={0}
+                      max={20}
+                      value={extraAiPacks}
+                      onChange={(val) => setExtraAiPacks(Number(val) || 0)}
+                      placeholder="0 pacotes"
+                      size="xs"
+                    />
+                  </Box>
+                </SimpleGrid>
+              </Card>
+            )}
 
             <Divider label="Dados do Titular da Conta" labelPosition="center" color="dark.5" />
 
@@ -715,180 +717,202 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               />
             )}
 
-            <Divider label="Forma de Pagamento da Assinatura" labelPosition="center" color="dark.5" />
-
-            {allowCreditCard && allowPix && (
-              <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs">
-                <Paper
-                  p="sm"
-                  radius="md"
-                  onClick={() => setPaymentMethod('credit_card')}
-                  style={{
-                    cursor: 'pointer',
-                    background: paymentMethod === 'credit_card' ? 'rgba(26, 127, 134, 0.18)' : 'rgba(30, 41, 59, 0.5)',
-                    border: paymentMethod === 'credit_card' ? '2px solid #1A7F86' : '1px solid rgba(255, 255, 255, 0.08)',
-                    transition: 'all 0.2s ease',
-                  }}
-                >
-                  <Group justify="space-between" mb={4}>
-                    <Group gap="xs">
-                      <IconCreditCard size={18} color={paymentMethod === 'credit_card' ? '#1A7F86' : '#94a3b8'} />
-                      <Text size="sm" fw={700} c={paymentMethod === 'credit_card' ? 'white' : 'gray.4'}>
-                        Cartão de Crédito
-                      </Text>
-                    </Group>
-                    <Badge size="xs" color="sitehub" variant="light">Automático</Badge>
-                  </Group>
-                  <Text size="xs" c="dimmed">
-                    Cobrança recorrente mensal sem risco de interrupção.
-                  </Text>
-                </Paper>
-
-                <Paper
-                  p="sm"
-                  radius="md"
-                  onClick={() => setPaymentMethod('pix')}
-                  style={{
-                    cursor: 'pointer',
-                    background: paymentMethod === 'pix' ? 'rgba(6, 214, 160, 0.15)' : 'rgba(30, 41, 59, 0.5)',
-                    border: paymentMethod === 'pix' ? '2px solid #06d6a0' : '1px solid rgba(255, 255, 255, 0.08)',
-                    transition: 'all 0.2s ease',
-                  }}
-                >
-                  <Group justify="space-between" mb={4}>
-                    <Group gap="xs">
-                      <IconQrcode size={18} color={paymentMethod === 'pix' ? '#06d6a0' : '#94a3b8'} />
-                      <Text size="sm" fw={700} c={paymentMethod === 'pix' ? 'white' : 'gray.4'}>
-                        Pix Instantâneo
-                      </Text>
-                    </Group>
-                    <Badge size="xs" color="emerald" variant="light">QR Code</Badge>
-                  </Group>
-                  <Text size="xs" c="dimmed">
-                    Pagamento com QR Code instantâneo a cada renovação.
-                  </Text>
-                </Paper>
-              </SimpleGrid>
-            )}
-
-            {allowCreditCard && !allowPix && (
-              <Paper p="sm" radius="md" bg="rgba(26, 127, 134, 0.12)" style={{ border: '1px solid rgba(26, 127, 134, 0.35)' }}>
-                <Group justify="space-between">
-                  <Group gap="xs">
-                    <IconCreditCard size={18} color="#1A7F86" />
-                    <div>
-                      <Text size="sm" fw={700} c="white">
-                        Pagamento via Cartão de Crédito
-                      </Text>
-                      <Text size="xs" c="dimmed">
-                        Cobrança mensal recorrente com ativação imediata dos limites.
-                      </Text>
-                    </div>
-                  </Group>
-                  <Badge size="xs" color="sitehub" variant="light">Recorrência Automática</Badge>
+            {totalAmount <= 0 ? (
+              <Paper p="sm" radius="md" bg="rgba(6, 214, 160, 0.12)" style={{ border: '1px solid rgba(6, 214, 160, 0.35)' }}>
+                <Group gap="sm">
+                  <IconRocket size={22} color="#06d6a0" />
+                  <div>
+                    <Text size="sm" fw={700} c="white">
+                      Plano Gratuito — Acesso Imediato
+                    </Text>
+                    <Text size="xs" c="dimmed">
+                      Sem necessidade de cartão de crédito. Crie sua conta e comece a auditar seu WordPress agora mesmo.
+                    </Text>
+                  </div>
                 </Group>
               </Paper>
-            )}
+            ) : (
+              <>
+                <Divider label="Forma de Pagamento da Assinatura" labelPosition="center" color="dark.5" />
 
-            {!allowCreditCard && allowPix && (
-              <Paper p="sm" radius="md" bg="rgba(6, 214, 160, 0.1)" style={{ border: '1px solid rgba(6, 214, 160, 0.35)' }}>
-                <Group justify="space-between">
-                  <Group gap="xs">
-                    <IconQrcode size={18} color="#06d6a0" />
-                    <div>
-                      <Text size="sm" fw={700} c="white">
-                        Pagamento via Pix Instantâneo
-                      </Text>
+                {allowCreditCard && allowPix && (
+                  <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs">
+                    <Paper
+                      p="sm"
+                      radius="md"
+                      onClick={() => setPaymentMethod('credit_card')}
+                      style={{
+                        cursor: 'pointer',
+                        background: paymentMethod === 'credit_card' ? 'rgba(26, 127, 134, 0.18)' : 'rgba(30, 41, 59, 0.5)',
+                        border: paymentMethod === 'credit_card' ? '2px solid #1A7F86' : '1px solid rgba(255, 255, 255, 0.08)',
+                        transition: 'all 0.2s ease',
+                      }}
+                    >
+                      <Group justify="space-between" mb={4}>
+                        <Group gap="xs">
+                          <IconCreditCard size={18} color={paymentMethod === 'credit_card' ? '#1A7F86' : '#94a3b8'} />
+                          <Text size="sm" fw={700} c={paymentMethod === 'credit_card' ? 'white' : 'gray.4'}>
+                            Cartão de Crédito
+                          </Text>
+                        </Group>
+                        <Badge size="xs" color="sitehub" variant="light">Automático</Badge>
+                      </Group>
                       <Text size="xs" c="dimmed">
-                        Geração de QR Code e código Copia e Cola na próxima etapa.
+                        Cobrança recorrente mensal sem risco de interrupção.
                       </Text>
-                    </div>
-                  </Group>
-                  <Badge size="xs" color="emerald" variant="light">QR Code</Badge>
-                </Group>
-              </Paper>
-            )}
+                    </Paper>
 
-            {/* Campos de Cartão de Crédito */}
-            {paymentMethod === 'credit_card' && (
-              <Card p="sm" radius="md" bg="rgba(15, 23, 42, 0.6)" style={{ border: '1px solid rgba(26, 127, 134, 0.3)' }}>
-                <Stack gap="xs">
-                  <Text size="xs" fw={700} c="sitehub.4" style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                    Dados do Cartão de Crédito
-                  </Text>
-
-                  <TextInput
-                    label="Nome Impresso no Cartão"
-                    placeholder="Ex: CARLOS E SILVA"
-                    value={cardHolder}
-                    onChange={(e) => setCardHolder(e.target.value.toUpperCase())}
-                    required
-                  />
-
-                  <TextInput
-                    label="Número do Cartão"
-                    placeholder="0000 0000 0000 0000"
-                    value={cardNumber}
-                    onChange={(e) => handleCardNumberChange(e.target.value)}
-                    leftSection={<IconCreditCard size={16} />}
-                    required
-                  />
-
-                  <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs">
-                    <TextInput
-                      label="Validade (MM/AA)"
-                      placeholder="MM/AA"
-                      value={cardExpiry}
-                      onChange={(e) => handleCardExpiryChange(e.target.value)}
-                      maxLength={5}
-                      required
-                    />
-                    <TextInput
-                      label="Código de Segurança (CVV)"
-                      placeholder="123"
-                      value={cardCcv}
-                      onChange={(e) => handleCardCcvChange(e.target.value)}
-                      maxLength={4}
-                      leftSection={<IconLock size={16} />}
-                      required
-                      type="password"
-                    />
+                    <Paper
+                      p="sm"
+                      radius="md"
+                      onClick={() => setPaymentMethod('pix')}
+                      style={{
+                        cursor: 'pointer',
+                        background: paymentMethod === 'pix' ? 'rgba(6, 214, 160, 0.15)' : 'rgba(30, 41, 59, 0.5)',
+                        border: paymentMethod === 'pix' ? '2px solid #06d6a0' : '1px solid rgba(255, 255, 255, 0.08)',
+                        transition: 'all 0.2s ease',
+                      }}
+                    >
+                      <Group justify="space-between" mb={4}>
+                        <Group gap="xs">
+                          <IconQrcode size={18} color={paymentMethod === 'pix' ? '#06d6a0' : '#94a3b8'} />
+                          <Text size="sm" fw={700} c={paymentMethod === 'pix' ? 'white' : 'gray.4'}>
+                            Pix Instantâneo
+                          </Text>
+                        </Group>
+                        <Badge size="xs" color="emerald" variant="light">QR Code</Badge>
+                      </Group>
+                      <Text size="xs" c="dimmed">
+                        Pagamento com QR Code instantâneo a cada renovação.
+                      </Text>
+                    </Paper>
                   </SimpleGrid>
+                )}
 
-                  <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs">
-                    <TextInput
-                      label="CEP do Titular"
-                      placeholder="00000-000"
-                      value={postalCode}
-                      onChange={(e) => handlePostalCodeChange(e.target.value)}
-                      maxLength={9}
-                      leftSection={<IconMapPin size={16} />}
-                      required
-                    />
-                    <TextInput
-                      label="Número do Endereço"
-                      placeholder="Ex: 100 ou S/N"
-                      value={addressNumber}
-                      onChange={(e) => setAddressNumber(e.target.value)}
-                      required
-                    />
-                  </SimpleGrid>
-                </Stack>
-              </Card>
+                {allowCreditCard && !allowPix && (
+                  <Paper p="sm" radius="md" bg="rgba(26, 127, 134, 0.12)" style={{ border: '1px solid rgba(26, 127, 134, 0.35)' }}>
+                    <Group justify="space-between">
+                      <Group gap="xs">
+                        <IconCreditCard size={18} color="#1A7F86" />
+                        <div>
+                          <Text size="sm" fw={700} c="white">
+                            Pagamento via Cartão de Crédito
+                          </Text>
+                          <Text size="xs" c="dimmed">
+                            Cobrança mensal recorrente com ativação imediata dos limites.
+                          </Text>
+                        </div>
+                      </Group>
+                      <Badge size="xs" color="sitehub" variant="light">Recorrência Automática</Badge>
+                    </Group>
+                  </Paper>
+                )}
+
+                {!allowCreditCard && allowPix && (
+                  <Paper p="sm" radius="md" bg="rgba(6, 214, 160, 0.1)" style={{ border: '1px solid rgba(6, 214, 160, 0.35)' }}>
+                    <Group justify="space-between">
+                      <Group gap="xs">
+                        <IconQrcode size={18} color="#06d6a0" />
+                        <div>
+                          <Text size="sm" fw={700} c="white">
+                            Pagamento via Pix Instantâneo
+                          </Text>
+                          <Text size="xs" c="dimmed">
+                            Geração de QR Code e código Copia e Cola na próxima etapa.
+                          </Text>
+                        </div>
+                      </Group>
+                      <Badge size="xs" color="emerald" variant="light">QR Code</Badge>
+                    </Group>
+                  </Paper>
+                )}
+
+                {/* Campos de Cartão de Crédito */}
+                {paymentMethod === 'credit_card' && (
+                  <Card p="sm" radius="md" bg="rgba(15, 23, 42, 0.6)" style={{ border: '1px solid rgba(26, 127, 134, 0.3)' }}>
+                    <Stack gap="xs">
+                      <Text size="xs" fw={700} c="sitehub.4" style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        Dados do Cartão de Crédito
+                      </Text>
+
+                      <TextInput
+                        label="Nome Impresso no Cartão"
+                        placeholder="Ex: CARLOS E SILVA"
+                        value={cardHolder}
+                        onChange={(e) => setCardHolder(e.target.value.toUpperCase())}
+                        required
+                      />
+
+                      <TextInput
+                        label="Número do Cartão"
+                        placeholder="0000 0000 0000 0000"
+                        value={cardNumber}
+                        onChange={(e) => handleCardNumberChange(e.target.value)}
+                        leftSection={<IconCreditCard size={16} />}
+                        required
+                      />
+
+                      <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs">
+                        <TextInput
+                          label="Validade (MM/AA)"
+                          placeholder="MM/AA"
+                          value={cardExpiry}
+                          onChange={(e) => handleCardExpiryChange(e.target.value)}
+                          maxLength={5}
+                          required
+                        />
+                        <TextInput
+                          label="Código de Segurança (CVV)"
+                          placeholder="123"
+                          value={cardCcv}
+                          onChange={(e) => handleCardCcvChange(e.target.value)}
+                          maxLength={4}
+                          leftSection={<IconLock size={16} />}
+                          required
+                          type="password"
+                        />
+                      </SimpleGrid>
+
+                      <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs">
+                        <TextInput
+                          label="CEP do Titular"
+                          placeholder="00000-000"
+                          value={postalCode}
+                          onChange={(e) => handlePostalCodeChange(e.target.value)}
+                          maxLength={9}
+                          leftSection={<IconMapPin size={16} />}
+                          required
+                        />
+                        <TextInput
+                          label="Número do Endereço"
+                          placeholder="Ex: 100 ou S/N"
+                          value={addressNumber}
+                          onChange={(e) => setAddressNumber(e.target.value)}
+                          required
+                        />
+                      </SimpleGrid>
+                    </Stack>
+                  </Card>
+                )}
+              </>
             )}
 
             <Button
               type="submit"
               size="md"
-              color="sitehub"
+              color={totalAmount <= 0 ? 'emerald' : 'sitehub'}
               variant="gradient"
               gradient={
-                paymentMethod === 'credit_card'
+                totalAmount <= 0
+                  ? { from: '#06d6a0', to: '#118ab2' }
+                  : paymentMethod === 'credit_card'
                   ? { from: '#1A7F86', to: '#118ab2' }
                   : { from: '#1A7F86', to: '#06d6a0' }
               }
               leftSection={
-                paymentMethod === 'credit_card' ? (
+                totalAmount <= 0 ? (
+                  <IconRocket size={18} />
+                ) : paymentMethod === 'credit_card' ? (
                   <IconCreditCard size={18} />
                 ) : (
                   <IconQrcode size={18} />
@@ -898,13 +922,17 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               fullWidth
               mt="xs"
             >
-              {paymentMethod === 'credit_card'
+              {totalAmount <= 0
+                ? 'Começar Gratuitamente 🚀'
+                : paymentMethod === 'credit_card'
                 ? `Assinar no Cartão (R$ ${totalAmount.toFixed(2).replace('.', ',')}/mês)`
                 : `Gerar Pix para Pagamento (R$ ${totalAmount.toFixed(2).replace('.', ',')})`}
             </Button>
 
             <Text size="xs" c="dimmed" ta="center">
-              {paymentMethod === 'credit_card'
+              {totalAmount <= 0
+                ? '🔒 Ativação instantânea do plano gratuito. Nenhum dado bancário é solicitado.'
+                : paymentMethod === 'credit_card'
                 ? '🔒 Transação criptografada de ponta a ponta. Recorrência automática processada pelo Asaas.'
                 : '🔒 Pagamento seguro processado via gateway Asaas. Liberação automática via Pix.'}
             </Text>
@@ -1060,10 +1088,14 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
           <div style={{ textAlign: 'center' }}>
             <Title order={3} c="white">
-              Parabéns! Sua Assinatura está Ativa!
+              {totalAmount <= 0 ? 'Conta Criada com Sucesso!' : 'Parabéns! Sua Assinatura está Ativa!'}
             </Title>
             <Text size="sm" c="dimmed" mt={4} maw={420}>
-              O pagamento do <b>Plano {selectedPlan.name}</b> foi confirmado e todos os recursos de auditoria e IA já foram liberados para sua conta.
+              {totalAmount <= 0 ? (
+                <>Seu acesso ao <b>Plano {selectedPlan.name}</b> está liberado! Você já pode cadastrar seu primeiro site e realizar diagnósticos de segurança.</>
+              ) : (
+                <>O pagamento do <b>Plano {selectedPlan.name}</b> foi confirmado e todos os recursos de auditoria e IA já foram liberados para sua conta.</>
+              )}
             </Text>
           </div>
 
@@ -1075,12 +1107,16 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               </div>
               <div>
                 <Text size="xs" c="dimmed">Valor Mensal</Text>
-                <Text size="sm" fw={600} c="green.4">R$ {totalAmount.toFixed(2).replace('.', ',')}</Text>
+                <Text size="sm" fw={600} c="green.4">
+                  {totalAmount <= 0 ? 'Grátis (R$ 0,00)' : `R$ ${totalAmount.toFixed(2).replace('.', ',')}`}
+                </Text>
               </div>
               <div>
                 <Text size="xs" c="dimmed">Forma de Pagamento</Text>
                 <Text size="sm" fw={600} c="indigo.3">
-                  {checkoutData?.billing_type === 'CREDIT_CARD'
+                  {checkoutData?.free_plan || totalAmount <= 0
+                    ? 'Gratuito (Sem cobrança)'
+                    : checkoutData?.billing_type === 'CREDIT_CARD'
                     ? `Cartão •••• ${checkoutData.card_last4 || ''} (${checkoutData.card_brand || 'Crédito'})`
                     : 'Pix Instantâneo'}
                 </Text>

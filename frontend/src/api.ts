@@ -938,6 +938,7 @@ export interface Plan {
   max_websites: number | null; // null = Sites Ilimitados
   ai_monthly_tokens: number; // Teto estrito de tokens (sem ilimitado)
   price_monthly: number; // Valor da assinatura em R$
+  tools_enabled: number; // 1 = ferramentas ativas, 0 = apenas diagnóstico/free
   is_active: number;
   is_default: number;
   sort_order: number;
@@ -977,6 +978,7 @@ export interface UserPlanDetails {
   plan?: Plan | null;
   plan_name: string;
   ai_enabled: number;
+  tools_enabled?: number;
   base_max_websites: number | null;
   extra_websites: number;
   extra_websites_price: number;
@@ -1131,6 +1133,7 @@ export interface CheckoutInitiateResponse {
   success: boolean;
   billing_type?: 'PIX' | 'CREDIT_CARD';
   activated?: boolean;
+  free_plan?: boolean;
   transaction_id: number;
   subscription_id: number;
   gateway_transaction_id: string;

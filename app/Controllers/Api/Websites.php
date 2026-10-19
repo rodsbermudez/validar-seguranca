@@ -4,6 +4,7 @@ namespace App\Controllers\Api;
 
 use CodeIgniter\RESTful\ResourceController;
 use App\Models\WebsiteModel;
+use App\Services\UserPlanService;
 use ZipArchive;
 use RecursiveIteratorIterator;
 use RecursiveDirectoryIterator;
@@ -641,6 +642,10 @@ class Websites extends ResourceController
             return $this->failForbidden('Você não tem permissão para alterar este website.');
         }
 
+        if (!$isAdmin && !UserPlanService::canUserUseRemediationTools($effectiveUserId)) {
+            return $this->failForbidden('A aplicação remota de atualizações não está disponível no plano atual. Faça o upgrade para um plano pago para desbloquear.');
+        }
+
         if (empty($website['agent_token'])) {
             return $this->fail('Este website não possui token do agente configurado.', 400);
         }
@@ -814,6 +819,10 @@ class Websites extends ResourceController
             return $this->failForbidden('Você não tem permissão para alterar este website.');
         }
 
+        if (!$isAdmin && !UserPlanService::canUserUseRemediationTools($effectiveUserId)) {
+            return $this->failForbidden('As ações de resolução e exceção de integridade não estão disponíveis no seu plano atual. Faça o upgrade para um plano pago para desbloquear.');
+        }
+
         if (empty($website['agent_token'])) {
             return $this->fail('Este website não possui token do agente configurado.', 400);
         }
@@ -867,6 +876,10 @@ class Websites extends ResourceController
             return $this->failForbidden('Você não tem permissão para alterar este website.');
         }
 
+        if (!$isAdmin && !UserPlanService::canUserUseRemediationTools($effectiveUserId)) {
+            return $this->failForbidden('A exclusão de arquivos suspeitos não está disponível no seu plano atual. Faça o upgrade para um plano pago para desbloquear.');
+        }
+
         if (empty($website['agent_token'])) {
             return $this->fail('Este website não possui token do agente configurado.', 400);
         }
@@ -914,6 +927,10 @@ class Websites extends ResourceController
 
         if (!$websiteModel->canUserAccess((int)$id, $effectiveUserId, $isAdmin)) {
             return $this->failForbidden('Você não tem permissão para alterar este website.');
+        }
+
+        if (!$isAdmin && !UserPlanService::canUserUseRemediationTools($effectiveUserId)) {
+            return $this->failForbidden('A restauração automática de arquivos originais não está disponível no seu plano atual. Faça o upgrade para um plano pago para desbloquear.');
         }
 
         if (empty($website['agent_token'])) {

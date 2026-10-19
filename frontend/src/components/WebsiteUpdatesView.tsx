@@ -24,8 +24,10 @@ import {
   IconWorld,
   IconPlug,
   IconPalette,
+  IconLock,
 } from '@tabler/icons-react';
 import { api } from '../api';
+import { UpgradeGateBanner } from './UpgradeGateBanner';
 
 interface PluginUpdateItem {
   file: string;
@@ -68,9 +70,15 @@ interface UpdatesData {
 interface WebsiteUpdatesViewProps {
   website: { id: string | number; name: string; url: string };
   onBack?: () => void;
+  toolsEnabled?: boolean;
+  onNavigateToPlans?: () => void;
 }
 
-export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({ website }) => {
+export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
+  website,
+  toolsEnabled = true,
+  onNavigateToPlans,
+}) => {
   const [updatesData, setUpdatesData] = useState<UpdatesData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -261,6 +269,15 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({ website 
         </Paper>
       ) : (
         <Stack gap="lg">
+          {toolsEnabled === false && (
+            <UpgradeGateBanner
+              title="Aplicação Remota de Atualizações Bloqueada"
+              description="Seu plano atual permite auditar quais plugins, temas e versões do WordPress precisam de atualização, mas o disparo e aplicação automática via painel exigem um plano pago."
+              featureName="Atualizações Remotas"
+              onUpgradeClick={onNavigateToPlans}
+            />
+          )}
+
           {/* Summary Cards Row */}
           <Grid>
             <Grid.Col span={{ base: 12, md: 4 }}>
@@ -283,16 +300,29 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({ website 
                 </Text>
 
                 {updatesData.core.has_update ? (
-                  <Button
-                    size="xs"
-                    color="orange"
-                    fullWidth
-                    loading={updatingItem === 'core'}
-                    leftSection={<IconArrowUpCircle size={14} />}
-                    onClick={() => handleApplyUpdate('core', 'core')}
-                  >
-                    Atualizar para {updatesData.core.new_version}
-                  </Button>
+                  toolsEnabled === false ? (
+                    <Badge
+                      color="gray"
+                      variant="light"
+                      fullWidth
+                      leftSection={<IconLock size={12} />}
+                      style={{ cursor: onNavigateToPlans ? 'pointer' : 'default' }}
+                      onClick={onNavigateToPlans}
+                    >
+                      Atualização Bloqueada (Free)
+                    </Badge>
+                  ) : (
+                    <Button
+                      size="xs"
+                      color="orange"
+                      fullWidth
+                      loading={updatingItem === 'core'}
+                      leftSection={<IconArrowUpCircle size={14} />}
+                      onClick={() => handleApplyUpdate('core', 'core')}
+                    >
+                      Atualizar para {updatesData.core.new_version}
+                    </Button>
+                  )
                 ) : (
                   <Badge color="green" variant="light" fullWidth>
                     SISTEMA ATUALIZADO
@@ -374,15 +404,28 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({ website 
               </div>
 
               {pendingPlugins.length > 0 && (
-                <Button
-                  size="xs"
-                  color="blue"
-                  loading={updatingAllPlugins}
-                  leftSection={<IconArrowUpCircle size={14} />}
-                  onClick={handleUpdateAllPlugins}
-                >
-                  Atualizar Todos os Pendentes
-                </Button>
+                toolsEnabled === false ? (
+                  <Badge
+                    color="gray"
+                    variant="light"
+                    size="sm"
+                    leftSection={<IconLock size={12} />}
+                    style={{ cursor: onNavigateToPlans ? 'pointer' : 'default' }}
+                    onClick={onNavigateToPlans}
+                  >
+                    Atualização em Lote Bloqueada (Free)
+                  </Badge>
+                ) : (
+                  <Button
+                    size="xs"
+                    color="blue"
+                    loading={updatingAllPlugins}
+                    leftSection={<IconArrowUpCircle size={14} />}
+                    onClick={handleUpdateAllPlugins}
+                  >
+                    Atualizar Todos os Pendentes
+                  </Button>
+                )
               )}
             </Group>
 
@@ -443,16 +486,29 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({ website 
                       </Table.Td>
                       <Table.Td style={{ textAlign: 'right' }}>
                         {plugin.has_update ? (
-                          <Button
-                            size="xs"
-                            color="indigo"
-                            loading={updatingItem === plugin.file}
-                            disabled={updatingAllPlugins}
-                            leftSection={<IconArrowUpCircle size={14} />}
-                            onClick={() => handleApplyUpdate('plugin', plugin.file)}
-                          >
-                            Atualizar
-                          </Button>
+                          toolsEnabled === false ? (
+                            <Badge
+                              color="gray"
+                              variant="light"
+                              size="xs"
+                              leftSection={<IconLock size={10} />}
+                              style={{ cursor: onNavigateToPlans ? 'pointer' : 'default' }}
+                              onClick={onNavigateToPlans}
+                            >
+                              Bloqueado (Free)
+                            </Badge>
+                          ) : (
+                            <Button
+                              size="xs"
+                              color="indigo"
+                              loading={updatingItem === plugin.file}
+                              disabled={updatingAllPlugins}
+                              leftSection={<IconArrowUpCircle size={14} />}
+                              onClick={() => handleApplyUpdate('plugin', plugin.file)}
+                            >
+                              Atualizar
+                            </Button>
+                          )
                         ) : (
                           <Badge color="green" variant="subtle" size="xs">
                             Atualizado
@@ -515,15 +571,28 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({ website 
                       </Table.Td>
                       <Table.Td style={{ textAlign: 'right' }}>
                         {theme.has_update ? (
-                          <Button
-                            size="xs"
-                            color="indigo"
-                            loading={updatingItem === theme.slug}
-                            leftSection={<IconArrowUpCircle size={14} />}
-                            onClick={() => handleApplyUpdate('theme', theme.slug)}
-                          >
-                            Atualizar
-                          </Button>
+                          toolsEnabled === false ? (
+                            <Badge
+                              color="gray"
+                              variant="light"
+                              size="xs"
+                              leftSection={<IconLock size={10} />}
+                              style={{ cursor: onNavigateToPlans ? 'pointer' : 'default' }}
+                              onClick={onNavigateToPlans}
+                            >
+                              Bloqueado (Free)
+                            </Badge>
+                          ) : (
+                            <Button
+                              size="xs"
+                              color="indigo"
+                              loading={updatingItem === theme.slug}
+                              leftSection={<IconArrowUpCircle size={14} />}
+                              onClick={() => handleApplyUpdate('theme', theme.slug)}
+                            >
+                              Atualizar
+                            </Button>
+                          )
                         ) : (
                           <Badge color="green" variant="subtle" size="xs">
                             Atualizado

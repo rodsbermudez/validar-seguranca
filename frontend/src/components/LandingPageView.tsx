@@ -38,6 +38,8 @@ import {
   IconAlertCircle,
   IconLayoutDashboard,
   IconLayersLinked,
+  IconX,
+  IconRocket,
 } from '@tabler/icons-react';
 import { getPublicPlans, getDocsUrl, Plan, PaymentMethodsConfig, api } from '../api';
 import { CheckoutModal } from './CheckoutModal';
@@ -67,6 +69,19 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
   // Planos carregados dinamicamente do banco
   const [plans, setPlans] = useState<Plan[]>([
     {
+      id: 4,
+      name: 'Free',
+      slug: 'free',
+      description: 'Teste prático com diagnósticos de segurança para o seu site WordPress.',
+      max_websites: 1,
+      ai_monthly_tokens: 10000,
+      price_monthly: 0.0,
+      tools_enabled: 0,
+      is_active: 1,
+      is_default: 0,
+      sort_order: 0,
+    },
+    {
       id: 1,
       name: 'Iniciante',
       slug: 'iniciante',
@@ -74,6 +89,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
       max_websites: 4,
       ai_monthly_tokens: 250000,
       price_monthly: 97.0,
+      tools_enabled: 1,
       is_active: 1,
       is_default: 1,
       sort_order: 1,
@@ -86,6 +102,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
       max_websites: 10,
       ai_monthly_tokens: 500000,
       price_monthly: 197.0,
+      tools_enabled: 1,
       is_active: 1,
       is_default: 0,
       sort_order: 2,
@@ -98,6 +115,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
       max_websites: null,
       ai_monthly_tokens: 2000000,
       price_monthly: 397.0,
+      tools_enabled: 1,
       is_active: 1,
       is_default: 0,
       sort_order: 3,
@@ -799,15 +817,17 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
               <Loader color="sitehub" size="lg" />
             </Center>
           ) : (
-            <Grid gutter={30} align="stretch">
-              {plans.slice(0, 3).map((plan, index) => {
-                const isFeatured = plan.name.toLowerCase().includes('profissional') || index === 1;
+            <Grid gutter={20} align="stretch">
+              {plans.slice(0, 4).map((plan) => {
+                const isFree = Number(plan.price_monthly) === 0 || plan.slug === 'free';
+                const isFeatured = plan.name.toLowerCase().includes('profissional') || plan.slug === 'profissional';
+                const isFull = plan.slug === 'full' || plan.name.toLowerCase().includes('full');
                 const isUnlimitedSites = plan.max_websites === null || plan.max_websites === 0;
 
                 return (
-                  <Grid.Col span={{ base: 12, md: 4 }} key={plan.id}>
+                  <Grid.Col span={{ base: 12, sm: 6, lg: 3 }} key={plan.id}>
                     <Card
-                      p="xl"
+                      p="lg"
                       radius="lg"
                       bg={isFeatured ? '#0d252e' : '#0f172a'}
                       withBorder
@@ -817,15 +837,32 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                         display: 'flex',
                         flexDirection: 'column',
                         justifyContent: 'space-between',
-                        transform: isFeatured ? 'scale(1.03)' : undefined,
+                        transform: isFeatured ? 'scale(1.02)' : undefined,
                         zIndex: isFeatured ? 2 : 1,
+                        border: isFeatured ? '2px solid #ef476f' : '1px solid rgba(255, 255, 255, 0.08)',
                       }}
                     >
+                      {isFree && (
+                        <Badge
+                          color="gray"
+                          variant="light"
+                          size="sm"
+                          radius="sm"
+                          style={{
+                            position: 'absolute',
+                            top: 14,
+                            right: 14,
+                          }}
+                        >
+                          TESTE GRÁTIS
+                        </Badge>
+                      )}
+
                       {isFeatured && (
                         <Badge
                           color="secondary"
                           variant="filled"
-                          size="md"
+                          size="sm"
                           radius="sm"
                           style={{
                             position: 'absolute',
@@ -838,97 +875,226 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                         </Badge>
                       )}
 
+                      {isFull && (
+                        <Badge
+                          color="royalGold"
+                          variant="filled"
+                          size="sm"
+                          radius="sm"
+                          c="dark.9"
+                          style={{
+                            position: 'absolute',
+                            top: 14,
+                            right: 14,
+                            boxShadow: '0 4px 12px rgba(255, 209, 102, 0.4)',
+                          }}
+                        >
+                          👑 ILIMITADO
+                        </Badge>
+                      )}
+
                       <div>
-                        <Text fw={700} fz="xl" c={isFeatured ? '#06d6a0' : 'white'} mb={4}>
+                        <Text fw={700} fz="lg" c={isFeatured ? '#06d6a0' : 'white'} mb={4}>
                           {plan.name}
                         </Text>
-                        <Text size="xs" c="dimmed" mb="lg" style={{ minHeight: 36 }}>
-                          {plan.description || 'Plano de monitoramento e auditoria profissional.'}
+                        <Text size="xs" c="dimmed" mb="md" style={{ minHeight: 36 }}>
+                          {plan.description || (isFree ? 'Teste prático com diagnósticos de segurança.' : 'Monitoramento e remediação profissional.')}
                         </Text>
 
                         {/* Preço Mensal */}
-                        <Group align="baseline" gap={4} mb="lg">
-                          <Text fw={900} fz={36} c="#06d6a0">
-                            {Number(plan.price_monthly).toLocaleString('pt-BR', {
-                              style: 'currency',
-                              currency: 'BRL',
-                            })}
-                          </Text>
-                          <Text size="xs" c="dimmed">
-                            /mês
-                          </Text>
+                        <Group align="baseline" gap={4} mb="md">
+                          {isFree ? (
+                            <>
+                              <Text fw={900} fz={32} c="#06d6a0">
+                                Grátis
+                              </Text>
+                              <Text size="xs" c="dimmed">
+                                para sempre
+                              </Text>
+                            </>
+                          ) : (
+                            <>
+                              <Text fw={900} fz={32} c="#06d6a0">
+                                {Number(plan.price_monthly).toLocaleString('pt-BR', {
+                                  style: 'currency',
+                                  currency: 'BRL',
+                                })}
+                              </Text>
+                              <Text size="xs" c="dimmed">
+                                /mês
+                              </Text>
+                            </>
+                          )}
                         </Group>
 
-                        <Divider mb="lg" color="dark.6" />
+                        <Divider mb="md" color="dark.6" />
 
                         {/* Recursos do Plano */}
-                        <Stack gap="xs" mb="xl">
-                          <Group gap="xs" align="center">
+                        <Stack gap={8} mb="xl">
+                          {/* Websites */}
+                          <Group gap="xs" align="center" wrap="nowrap">
                             <ThemeIcon size={20} radius="xl" color="sitehub" variant="light">
                               <IconCheck size={12} />
                             </ThemeIcon>
-                            <Text size="sm" fw={600}>
+                            <Text size="xs" fw={600}>
                               {isUnlimitedSites ? (
                                 <span style={{ color: '#118ab2' }}>Websites Ilimitados</span>
                               ) : (
-                                `Até ${plan.max_websites} websites sob gestão`
+                                `${plan.max_websites} website${Number(plan.max_websites) > 1 ? 's' : ''} sob gestão`
                               )}
                             </Text>
                           </Group>
 
-                          <Group gap="xs" align="center">
+                          {/* IA Tokens */}
+                          <Group gap="xs" align="center" wrap="nowrap">
                             <ThemeIcon size={20} radius="xl" color="secondary" variant="light">
                               <IconCheck size={12} />
                             </ThemeIcon>
-                            <Text size="sm">
+                            <Text size="xs">
                               <strong>
                                 {Number(plan.ai_monthly_tokens).toLocaleString('pt-BR')}
                               </strong>{' '}
-                              tokens de IA mensais
+                              tokens IA/mês
                             </Text>
                           </Group>
 
-                          <Group gap="xs" align="center">
+                          {/* Auditorias */}
+                          <Group gap="xs" align="center" wrap="nowrap">
                             <ThemeIcon size={20} radius="xl" color="emerald" variant="light">
                               <IconCheck size={12} />
                             </ThemeIcon>
-                            <Text size="sm">Auditorias ilimitadas de 31+ testes</Text>
+                            <Text size="xs">Auditorias de 31+ testes</Text>
                           </Group>
 
-                          <Group gap="xs" align="center">
+                          {/* Plugin Agente */}
+                          <Group gap="xs" align="center" wrap="nowrap">
                             <ThemeIcon size={20} radius="xl" color="emerald" variant="light">
                               <IconCheck size={12} />
                             </ThemeIcon>
-                            <Text size="sm">Plugin Agente WordPress Oficial</Text>
+                            <Text size="xs">Plugin Agente WP Oficial</Text>
                           </Group>
 
-                          <Group gap="xs" align="center">
+                          {/* Integridade Core MD5 */}
+                          <Group gap="xs" align="center" wrap="nowrap">
                             <ThemeIcon size={20} radius="xl" color="emerald" variant="light">
                               <IconCheck size={12} />
                             </ThemeIcon>
-                            <Text size="sm">Integridade Criptográfica do Core MD5</Text>
+                            <Text size="xs">Integridade Core MD5</Text>
                           </Group>
 
-                          <Group gap="xs" align="center">
-                            <ThemeIcon size={20} radius="xl" color="emerald" variant="light">
-                              <IconCheck size={12} />
+                          {/* Plugin de Correções Automáticas */}
+                          <Group gap="xs" align="center" wrap="nowrap">
+                            <ThemeIcon
+                              size={20}
+                              radius="xl"
+                              color={isFree ? 'gray' : 'emerald'}
+                              variant={isFree ? 'outline' : 'light'}
+                            >
+                              {isFree ? <IconX size={12} color="#64748b" /> : <IconCheck size={12} />}
                             </ThemeIcon>
-                            <Text size="sm">Diário Técnico & Links Públicos</Text>
+                            <Text
+                              size="xs"
+                              c={isFree ? 'dimmed' : undefined}
+                              td={isFree ? 'line-through' : undefined}
+                            >
+                              Plugin de Correções (Fixes)
+                            </Text>
                           </Group>
+
+                          {/* Restauração de Arquivos */}
+                          <Group gap="xs" align="center" wrap="nowrap">
+                            <ThemeIcon
+                              size={20}
+                              radius="xl"
+                              color={isFree ? 'gray' : 'emerald'}
+                              variant={isFree ? 'outline' : 'light'}
+                            >
+                              {isFree ? <IconX size={12} color="#64748b" /> : <IconCheck size={12} />}
+                            </ThemeIcon>
+                            <Text
+                              size="xs"
+                              c={isFree ? 'dimmed' : undefined}
+                              td={isFree ? 'line-through' : undefined}
+                            >
+                              Restauração 1-click WP.org
+                            </Text>
+                          </Group>
+
+                          {/* Atualizações Remotas */}
+                          <Group gap="xs" align="center" wrap="nowrap">
+                            <ThemeIcon
+                              size={20}
+                              radius="xl"
+                              color={isFree ? 'gray' : 'emerald'}
+                              variant={isFree ? 'outline' : 'light'}
+                            >
+                              {isFree ? <IconX size={12} color="#64748b" /> : <IconCheck size={12} />}
+                            </ThemeIcon>
+                            <Text
+                              size="xs"
+                              c={isFree ? 'dimmed' : undefined}
+                              td={isFree ? 'line-through' : undefined}
+                            >
+                              Atualizações pelo SaaS
+                            </Text>
+                          </Group>
+
+                          {/* Soluções com IA */}
+                          <Group gap="xs" align="center" wrap="nowrap">
+                            <ThemeIcon
+                              size={20}
+                              radius="xl"
+                              color={isFree ? 'gray' : 'emerald'}
+                              variant={isFree ? 'outline' : 'light'}
+                            >
+                              {isFree ? <IconX size={12} color="#64748b" /> : <IconCheck size={12} />}
+                            </ThemeIcon>
+                            <Text
+                              size="xs"
+                              c={isFree ? 'dimmed' : undefined}
+                              td={isFree ? 'line-through' : undefined}
+                            >
+                              Geração de Patches IA
+                            </Text>
+                          </Group>
+
+                          {/* Diferencial do Profissional */}
+                          {isFeatured && (
+                            <Group gap="xs" align="center" wrap="nowrap">
+                              <ThemeIcon size={20} radius="xl" color="secondary" variant="light">
+                                <IconCheck size={12} />
+                              </ThemeIcon>
+                              <Text size="xs" fw={600} c="secondary.3">
+                                Gestão de equipe & partilhas
+                              </Text>
+                            </Group>
+                          )}
+
+                          {/* Diferencial do Full */}
+                          {isFull && (
+                            <Group gap="xs" align="center" wrap="nowrap">
+                              <ThemeIcon size={20} radius="xl" color="royalGold" variant="light">
+                                <IconCheck size={12} />
+                              </ThemeIcon>
+                              <Text size="xs" fw={600} c="yellow.3">
+                                White-label & suporte VIP
+                              </Text>
+                            </Group>
+                          )}
                         </Stack>
                       </div>
 
                       <Button
-                        size="md"
+                        size="sm"
                         radius="md"
-                        variant={isFeatured ? 'gradient' : 'light'}
+                        variant={isFeatured ? 'gradient' : (isFree ? 'outline' : 'light')}
                         gradient={isFeatured ? { from: '#1A7F86', to: '#118ab2' } : undefined}
-                        color="sitehub"
+                        color={isFree ? 'emerald' : 'sitehub'}
                         fullWidth
-                        rightSection={<IconArrowRight size={16} />}
+                        rightSection={isFree ? <IconRocket size={16} /> : <IconArrowRight size={16} />}
                         onClick={() => handleSelectPlan(plan)}
                       >
-                        Contratar {plan.name}
+                        {isFree ? 'Começar Grátis 🚀' : `Assinar ${plan.name}`}
                       </Button>
                     </Card>
                   </Grid.Col>

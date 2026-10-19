@@ -39,16 +39,25 @@ import {
   IconPlug,
   IconPrinter,
   IconRefresh,
+  IconLock,
 } from '@tabler/icons-react';
 import { api, getWebsiteFixes, toggleWebsiteFix, WebsiteFixesResponse } from '../api';
 import { formatDateTime } from '../utils/date';
+import { UpgradeGateBanner } from './UpgradeGateBanner';
 
 interface ScanReportProps {
   website: { id: string | number; name: string; url: string };
   onBack?: () => void;
+  toolsEnabled?: boolean;
+  onNavigateToPlans?: () => void;
 }
 
-export const ScanReport: React.FC<ScanReportProps> = ({ website, onBack: _onBack }) => {
+export const ScanReport: React.FC<ScanReportProps> = ({
+  website,
+  onBack: _onBack,
+  toolsEnabled = true,
+  onNavigateToPlans,
+}) => {
   const [scanResult, setScanResult] = useState<any | null>(null);
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -641,46 +650,55 @@ export const ScanReport: React.FC<ScanReportProps> = ({ website, onBack: _onBack
       ) : (
         <Stack gap="lg">
           {/* Action Bar for Remediation & AI */}
-          <Paper p="md" radius="md" bg="dark.7" style={{ border: '1px solid #373A40' }}>
-            <Group justify="space-between" align="center">
-              <div>
-                <Text size="sm" fw={700} c="indigo.3">
-                  🛡️ Remediação e Correção Automatizada por IA
-                </Text>
-                <Text size="xs" c="dimmed">
-                  Gere um plugin customizado de correção para sanar as falhas elegíveis deste site.
-                </Text>
-              </div>
+          {toolsEnabled === false ? (
+            <UpgradeGateBanner
+              title="Plugin de Correções Automáticas & Patches"
+              description="O download do plugin exclusivo de remediação (vexors-fixes) e a aplicação automatizada de correções estão disponíveis nos Planos Pagos. Faça o upgrade para baixar um pacote adaptado às falhas deste site."
+              featureName="Plugin de Remediação"
+              onUpgradeClick={onNavigateToPlans}
+            />
+          ) : (
+            <Paper p="md" radius="md" bg="dark.7" style={{ border: '1px solid #373A40' }}>
+              <Group justify="space-between" align="center">
+                <div>
+                  <Text size="sm" fw={700} c="indigo.3">
+                    🛡️ Remediação e Correção Automatizada por IA
+                  </Text>
+                  <Text size="xs" c="dimmed">
+                    Gere um plugin customizado de correção para sanar as falhas elegíveis deste site.
+                  </Text>
+                </div>
 
-              <Group gap="xs">
-                <Button
-                  color="orange"
-                  variant="filled"
-                  leftSection={<IconServer size={18} />}
-                  onClick={() => {
-                    setServerGuideModalOpen(true);
-                    if (!serverGuideHtml) {
-                      handleFetchServerGuide();
-                    }
-                  }}
-                >
-                  📄 Guia do Servidor / Ações Manuais ({serverFixableList.length})
-                </Button>
+                <Group gap="xs">
+                  <Button
+                    color="orange"
+                    variant="filled"
+                    leftSection={<IconServer size={18} />}
+                    onClick={() => {
+                      setServerGuideModalOpen(true);
+                      if (!serverGuideHtml) {
+                        handleFetchServerGuide();
+                      }
+                    }}
+                  >
+                    📄 Guia do Servidor / Ações Manuais ({serverFixableList.length})
+                  </Button>
 
-                <Button
-                  color="teal"
-                  variant="filled"
-                  leftSection={<IconShieldPlus size={18} />}
-                  onClick={() => {
-                    setRemediationError(null);
-                    setRemediationModalOpen(true);
-                  }}
-                >
-                  🛡️ Gerar Plugin de Correção Customizado
-                </Button>
+                  <Button
+                    color="teal"
+                    variant="filled"
+                    leftSection={<IconShieldPlus size={18} />}
+                    onClick={() => {
+                      setRemediationError(null);
+                      setRemediationModalOpen(true);
+                    }}
+                  >
+                    🛡️ Gerar Plugin de Correção Customizado
+                  </Button>
+                </Group>
               </Group>
-            </Group>
-          </Paper>
+            </Paper>
+          )}
 
           {/* Summary Dashboard Header */}
           <Paper p="lg" radius="md" bg="dark.8" withBorder>
@@ -823,31 +841,66 @@ export const ScanReport: React.FC<ScanReportProps> = ({ website, onBack: _onBack
 
                                 {/* Solution Catalog Info Card if Available */}
                                 {sol && (
-                                  <Paper p="xs" mt="xs" bg="dark.8" radius="xs" style={{ borderLeft: '3px solid #4C6EF5' }}>
-                                    <Text size="xs" fw={700} c="indigo.3">
-                                      💡 Solução Recomendada: {sol.solution_title}
-                                    </Text>
-                                    <Text size="xs" c="gray.3" mt={2} style={{ whitespace: 'pre-line' }}>
-                                      {sol.solution_instructions}
-                                    </Text>
-                                  </Paper>
+                                  toolsEnabled === false ? (
+                                    <Paper p="xs" mt="xs" bg="dark.8" radius="xs" style={{ borderLeft: '3px solid #f59e0b' }}>
+                                      <Group justify="space-between" align="center" mb={2}>
+                                        <Group gap="xs">
+                                          <IconLock size={14} color="#f59e0b" />
+                                          <Text size="xs" fw={700} c="yellow.4">
+                                            💡 Solução Recomendada (Exclusiva Planos Pagos)
+                                          </Text>
+                                        </Group>
+                                        {onNavigateToPlans && (
+                                          <Button size="compact-xs" variant="light" color="sitehub" onClick={onNavigateToPlans}>
+                                            Ver Planos 🚀
+                                          </Button>
+                                        )}
+                                      </Group>
+                                      <Text size="xs" c="dimmed" style={{ filter: 'blur(3px)', userSelect: 'none' }}>
+                                        {sol.solution_instructions ? sol.solution_instructions.slice(0, 120) : 'Passo a passo detalhado e scripts de correção automática.'}
+                                      </Text>
+                                    </Paper>
+                                  ) : (
+                                    <Paper p="xs" mt="xs" bg="dark.8" radius="xs" style={{ borderLeft: '3px solid #4C6EF5' }}>
+                                      <Text size="xs" fw={700} c="indigo.3">
+                                        💡 Solução Recomendada: {sol.solution_title}
+                                      </Text>
+                                      <Text size="xs" c="gray.3" mt={2} style={{ whitespace: 'pre-line' }}>
+                                        {sol.solution_instructions}
+                                      </Text>
+                                    </Paper>
+                                  )
                                 )}
                               </div>
 
-                              {/* Action Button for Single Check AI Generation: only if failed AND no solution exists in catalog */}
+                              {/* Action Button for Single Check AI Generation */}
                               {isFailed && !catalogSolutions[checkId] && (
-                                <Tooltip label="Gerar solução específica com IA (consome cota de tokens)">
-                                  <Button
-                                    size="xs"
-                                    variant="light"
-                                    color="violet"
-                                    leftSection={<IconSparkles size={12} />}
-                                    loading={generatingCheckId === checkId}
-                                    onClick={() => handleGenerateSingleSolution(check)}
-                                  >
-                                    Gerar Solução (IA)
-                                  </Button>
-                                </Tooltip>
+                                toolsEnabled === false ? (
+                                  <Tooltip label="Geração de solução com IA exclusiva para planos pagos.">
+                                    <Button
+                                      size="xs"
+                                      variant="subtle"
+                                      color="gray"
+                                      leftSection={<IconLock size={12} />}
+                                      onClick={onNavigateToPlans}
+                                    >
+                                      Gerar Solução (Free)
+                                    </Button>
+                                  </Tooltip>
+                                ) : (
+                                  <Tooltip label="Gerar solução específica com IA (consome cota de tokens)">
+                                    <Button
+                                      size="xs"
+                                      variant="light"
+                                      color="violet"
+                                      leftSection={<IconSparkles size={12} />}
+                                      loading={generatingCheckId === checkId}
+                                      onClick={() => handleGenerateSingleSolution(check)}
+                                    >
+                                      Gerar Solução (IA)
+                                    </Button>
+                                  </Tooltip>
+                                )
                               )}
                             </Group>
                           </Paper>

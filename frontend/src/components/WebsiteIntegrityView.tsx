@@ -33,6 +33,7 @@ import {
   IconRestore,
   IconTrash,
   IconDownload,
+  IconLock,
 } from '@tabler/icons-react';
 import {
   getWebsiteIntegrity,
@@ -44,12 +45,19 @@ import {
   IntegrityIssue,
 } from '../api';
 import { formatDateTime } from '../utils/date';
+import { UpgradeGateBanner } from './UpgradeGateBanner';
 
 interface WebsiteIntegrityViewProps {
   website: { id: string | number; name: string; url: string; environment?: string };
+  toolsEnabled?: boolean;
+  onNavigateToPlans?: () => void;
 }
 
-export const WebsiteIntegrityView: React.FC<WebsiteIntegrityViewProps> = ({ website }) => {
+export const WebsiteIntegrityView: React.FC<WebsiteIntegrityViewProps> = ({
+  website,
+  toolsEnabled = true,
+  onNavigateToPlans,
+}) => {
   const [loading, setLoading] = useState<boolean>(true);
   const [scanning, setScanning] = useState<boolean>(false);
   const [actionLoadingFile, setActionLoadingFile] = useState<string | null>(null);
@@ -320,6 +328,15 @@ export const WebsiteIntegrityView: React.FC<WebsiteIntegrityViewProps> = ({ webs
         </Center>
       ) : scanData ? (
         <>
+          {toolsEnabled === false && (
+            <UpgradeGateBanner
+              title="Ações de Restauração e Exclusão Bloqueadas"
+              description="Seu plano atual permite visualizar o diagnóstico completo e todas as anomalias de arquivos, mas a restauração automática do core oficial do WordPress e a exclusão de arquivos suspeitos exigem um plano pago."
+              featureName="Restauração de Arquivos"
+              onUpgradeClick={onNavigateToPlans}
+            />
+          )}
+
           {/* Status Hero Card */}
           {scanData.is_secure ? (
             <Paper
@@ -646,55 +663,70 @@ export const WebsiteIntegrityView: React.FC<WebsiteIntegrityViewProps> = ({ webs
                         </Table.Td>
 
                         <Table.Td style={{ minWidth: 200 }}>
-                          <Group gap={6} wrap="nowrap">
-                            {canRestore && (
-                              <Button
+                          {toolsEnabled === false ? (
+                            <Tooltip label="Ações ativas bloqueadas no plano Free. Faça upgrade para restaurar ou excluir arquivos com 1 clique.">
+                              <Badge
+                                color="gray"
                                 variant="light"
-                                color="blue"
-                                size="xs"
-                                leftSection={<IconDownload size={14} />}
-                                onClick={() => handleOpenRestoreModal(issue.file)}
+                                size="sm"
+                                leftSection={<IconLock size={12} />}
+                                style={{ cursor: onNavigateToPlans ? 'pointer' : 'default' }}
+                                onClick={onNavigateToPlans}
                               >
-                                Restaurar Original
-                              </Button>
-                            )}
+                                Bloqueado (Free)
+                              </Badge>
+                            </Tooltip>
+                          ) : (
+                            <Group gap={6} wrap="nowrap">
+                              {canRestore && (
+                                <Button
+                                  variant="light"
+                                  color="blue"
+                                  size="xs"
+                                  leftSection={<IconDownload size={14} />}
+                                  onClick={() => handleOpenRestoreModal(issue.file)}
+                                >
+                                  Restaurar Original
+                                </Button>
+                              )}
 
-                            {isIgnored ? (
-                              <Button
-                                variant="subtle"
-                                color="yellow"
-                                size="xs"
-                                loading={isToggling}
-                                leftSection={<IconRestore size={14} />}
-                                onClick={() => handleToggleIgnore(issue.file, true)}
-                              >
-                                Reativar
-                              </Button>
-                            ) : (
-                              <Button
-                                variant="light"
-                                color="teal"
-                                size="xs"
-                                loading={isToggling}
-                                leftSection={<IconCheck size={14} />}
-                                onClick={() => handleToggleIgnore(issue.file, false)}
-                              >
-                                Ignorar
-                              </Button>
-                            )}
+                              {isIgnored ? (
+                                <Button
+                                  variant="subtle"
+                                  color="yellow"
+                                  size="xs"
+                                  loading={isToggling}
+                                  leftSection={<IconRestore size={14} />}
+                                  onClick={() => handleToggleIgnore(issue.file, true)}
+                                >
+                                  Reativar
+                                </Button>
+                              ) : (
+                                <Button
+                                  variant="light"
+                                  color="teal"
+                                  size="xs"
+                                  loading={isToggling}
+                                  leftSection={<IconCheck size={14} />}
+                                  onClick={() => handleToggleIgnore(issue.file, false)}
+                                >
+                                  Ignorar
+                                </Button>
+                              )}
 
-                            {canDelete && (
-                              <Button
-                                variant="subtle"
-                                color="red"
-                                size="xs"
-                                leftSection={<IconTrash size={14} />}
-                                onClick={() => handleOpenDeleteModal(issue.file)}
-                              >
-                                Excluir
-                              </Button>
-                            )}
-                          </Group>
+                              {canDelete && (
+                                <Button
+                                  variant="subtle"
+                                  color="red"
+                                  size="xs"
+                                  leftSection={<IconTrash size={14} />}
+                                  onClick={() => handleOpenDeleteModal(issue.file)}
+                                >
+                                  Excluir
+                                </Button>
+                              )}
+                            </Group>
+                          )}
                         </Table.Td>
                       </Table.Tr>
                     );
