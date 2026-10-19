@@ -636,7 +636,7 @@
     <!-- Header Navigation -->
     <header>
         <a href="<?= base_url('docs') ?>" class="brand">
-            <img src="<?= base_url('images/logo-sutehub.svg') ?>" alt="Logo SiteHub" style="height: 38px; width: auto; max-width: 220px; object-fit: contain;">
+            <img src="<?= base_url('images/logo-sitehub.svg') ?>" alt="Logo SiteHub" style="height: 38px; width: auto; max-width: 220px; object-fit: contain;">
             <span class="brand-badge">Documentação</span>
             <span id="adminBadgeIndicator" class="admin-badge-indicator">👑 Visão Administrador</span>
         </a>

@@ -160,9 +160,11 @@ class Remediation extends ResourceController
                 $zip->addFile($faviconPath, "{$pluginDirName}/assets/favicon.png");
             }
 
-            $logoPath = ROOTPATH . 'public/images/logo-sutehub.svg';
+            $logoPath = ROOTPATH . 'public/images/logo-sitehub.svg';
             if (file_exists($logoPath)) {
-                $zip->addFile($logoPath, "{$pluginDirName}/assets/logo-sutehub.svg");
+                $zip->addFile($logoPath, "{$pluginDirName}/assets/logo-sitehub.svg");
+            } elseif (file_exists(ROOTPATH . 'public/images/logo-sutehub.svg')) {
+                $zip->addFile(ROOTPATH . 'public/images/logo-sutehub.svg', "{$pluginDirName}/assets/logo-sitehub.svg");
             } elseif (file_exists(ROOTPATH . 'public/images/logo-Patropi.png')) {
                 $zip->addFile(ROOTPATH . 'public/images/logo-Patropi.png', "{$pluginDirName}/assets/logo-Patropi.png");
             }
@@ -723,7 +725,7 @@ class Remediation extends ResourceController
         $code .= "            \$settings = \$new_settings;\n";
         $code .= "            \$notice = '<div class=\"notice notice-success is-dismissible\" style=\"margin: 15px 0 20px 0;\"><p><strong>Configurações de correções salvas com sucesso!</strong></p></div>';\n";
         $code .= "        }\n\n";
-        $code .= "        \$logo_url = plugins_url('assets/logo-sutehub.svg', __FILE__);\n";
+        $code .= "        \$logo_url = plugins_url('assets/logo-sitehub.svg', __FILE__);\n";
         $code .= "        echo '<div class=\"wrap\">';\n";
         $code .= "        echo '<h1 class=\"wp-heading-inline\" style=\"display:none;\">WP Patropi - Fixes</h1>';\n";
         $code .= "        echo '<hr class=\"wp-header-end\" style=\"display:none;\" />';\n";

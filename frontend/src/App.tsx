@@ -191,14 +191,14 @@ export default function App() {
           <Group justify="space-between" h="100%">
             <Group gap="sm" style={{ cursor: 'pointer' }} onClick={() => { setSelectedWebsite(null); setViewMode('overview'); }}>
               <img
-                src="images/logo-sutehub.svg"
+                src="images/logo-sitehub.svg"
                 onError={(e) => {
                   const target = e.currentTarget as HTMLImageElement;
                   if (target.dataset.tried === '1') {
-                    target.src = '/images/logo-sutehub.svg';
+                    target.src = '/images/logo-sitehub.svg';
                     target.dataset.tried = '2';
                   } else if (!target.dataset.tried) {
-                    target.src = '/validar-seguranca/images/logo-sutehub.svg';
+                    target.src = '/validar-seguranca/images/logo-sitehub.svg';
                     target.dataset.tried = '1';
                   }
                 }}

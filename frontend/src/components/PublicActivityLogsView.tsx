@@ -155,15 +155,15 @@ export const PublicActivityLogsView: React.FC<PublicActivityLogsViewProps> = ({
           <Group justify="space-between" align="center">
             <Group gap="sm">
               <img
-                src="images/logo-sutehub.svg"
+                src="images/logo-sitehub.svg"
                 onError={(e) => {
                   const target = e.currentTarget as HTMLImageElement;
                   if (target.dataset.tried === '1') {
-                    target.src = '/images/logo-sutehub.svg';
+                    target.src = '/images/logo-sitehub.svg';
                     target.dataset.tried = '2';
                   } else {
                     target.dataset.tried = '1';
-                    target.src = './images/logo-sutehub.svg';
+                    target.src = './images/logo-sitehub.svg';
                   }
                 }}
                 alt="SiteHub"

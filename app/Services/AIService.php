@@ -238,7 +238,7 @@ class AIService
             "     }, 20);\n" .
             "5. NO TOPO DA PÁGINA ADMIN DO PLUGIN:\n" .
             "   - Inclua no início de <div class=\"wrap\"> as tags '<h1 class=\"wp-heading-inline\" style=\"display:none;\">WP Patropi - Fixes</h1><hr class=\"wp-header-end\" style=\"display:none;\" />' para que avisos do WordPress fiquem acima do card.\n" .
-            "   - Exiba um cabeçalho estilizado contendo a logo em '<img src=\"' . esc_url(plugins_url('assets/logo-sutehub.svg', __FILE__)) . '\" style=\"max-height:42px;height:42px;width:auto;object-fit:contain;\" />' e o título <h2>WP Patropi - Fixes</h2> com o crédito 'Desenvolvido por {$authorName} ({$authorUri})'.\n" .
+            "   - Exiba um cabeçalho estilizado contendo a logo em '<img src=\"' . esc_url(plugins_url('assets/logo-sitehub.svg', __FILE__)) . '\" style=\"max-height:42px;height:42px;width:auto;object-fit:contain;\" />' e o título <h2>WP Patropi - Fixes</h2> com o crédito 'Desenvolvido por {$authorName} ({$authorUri})'.\n" .
             "   - Registre as correções na função 'vs_get_registered_fixes()' retornando array de cada check_id com title e description.\n" .
             "   - Crie as funções 'vs_get_fixes_settings()', 'vs_is_fix_active(\$check_id)' e 'vs_set_fix_status(\$check_id, \$enabled)'.\n" .
             "   - Cada regra de correção fornecida deve ser envolvida condicionalmente por 'if (vs_is_fix_active(\$check_id)) { ... }' para permitir ligar e desligar individualmente.\n" .

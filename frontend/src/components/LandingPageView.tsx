@@ -187,14 +187,14 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
             {/* Logo */}
             <Group gap="sm" style={{ cursor: 'pointer' }} onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
               <img
-                src="images/logo-sutehub.svg"
+                src="images/logo-sitehub.svg"
                 onError={(e) => {
                   const target = e.currentTarget as HTMLImageElement;
                   if (target.dataset.tried === '1') {
-                    target.src = '/images/logo-sutehub.svg';
+                    target.src = '/images/logo-sitehub.svg';
                     target.dataset.tried = '2';
                   } else if (!target.dataset.tried) {
-                    target.src = '/validar-seguranca/images/logo-sutehub.svg';
+                    target.src = '/validar-seguranca/images/logo-sitehub.svg';
                     target.dataset.tried = '1';
                   }
                 }}
@@ -1053,14 +1053,14 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
           <Group justify="space-between" align="center" wrap="wrap" gap="md">
             <Group gap="sm">
               <img
-                src="images/logo-sutehub.svg"
+                src="images/logo-sitehub.svg"
                 onError={(e) => {
                   const target = e.currentTarget as HTMLImageElement;
                   if (target.dataset.tried === '1') {
-                    target.src = '/images/logo-sutehub.svg';
+                    target.src = '/images/logo-sitehub.svg';
                     target.dataset.tried = '2';
                   } else if (!target.dataset.tried) {
-                    target.src = '/validar-seguranca/images/logo-sutehub.svg';
+                    target.src = '/validar-seguranca/images/logo-sitehub.svg';
                     target.dataset.tried = '1';
                   }
                 }}
