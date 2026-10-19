@@ -14,6 +14,8 @@ class VS_Agent_Admin {
 
     public function admin_head_styles() {
         echo '<style>
+            #adminmenu .toplevel_page_vexors-app .wp-menu-image img,
+            #adminmenu #toplevel_page_vexors-app .wp-menu-image img,
             #adminmenu .toplevel_page_wp-patropi .wp-menu-image img,
             #adminmenu #toplevel_page_wp-patropi .wp-menu-image img {
                 max-width: 20px !important;
@@ -62,13 +64,13 @@ class VS_Agent_Admin {
     }
 
     public function add_admin_menu() {
-        $parent_slug = 'wp-patropi';
+        $parent_slug = 'vexors-app';
         $icon = VS_AGENT_URL . 'assets/favicon.png';
 
         if (empty($GLOBALS['admin_page_hooks'][$parent_slug])) {
             add_menu_page(
-                'Vexors',
-                'Vexors',
+                'vexors.app',
+                'vexors.app',
                 'manage_options',
                 $parent_slug,
                 array($this, 'render_admin_page'),
@@ -77,10 +79,39 @@ class VS_Agent_Admin {
             );
         }
 
+        // Submenu: Diagnóstico (mesmo slug do menu principal)
+        add_submenu_page(
+            $parent_slug,
+            'Diagnóstico',
+            'Diagnóstico',
+            'manage_options',
+            $parent_slug,
+            array($this, 'render_admin_page')
+        );
+
+        // Submenu: Logs
         add_submenu_page(
             $parent_slug,
             'Logs',
             'Logs',
+            'manage_options',
+            'vexors-logs',
+            array($this, 'render_logs_page')
+        );
+
+        // Retrocompatibilidade para URLs antigas
+        add_submenu_page(
+            null,
+            'vexors.app',
+            'vexors.app',
+            'manage_options',
+            'wp-patropi',
+            array($this, 'render_admin_page')
+        );
+        add_submenu_page(
+            null,
+            'vexors.app Logs',
+            'vexors.app Logs',
             'manage_options',
             'wp-patropi-logs',
             array($this, 'render_logs_page')
@@ -123,7 +154,7 @@ class VS_Agent_Admin {
 
                 if (isset($data['status']) && ($data['status'] == 200 || $data['status'] == 201)) {
                     update_option('vs_is_connected', 1);
-                    add_settings_error('vs_messages', 'vs_msg', 'Site e ponte reconectados com sucesso ao painel Validar Segurança!', 'updated');
+                    add_settings_error('vs_messages', 'vs_msg', 'Site e ponte reconectados com sucesso ao painel vexors.app!', 'updated');
                 } else {
                     $err_msg = isset($data['messages']['error']) ? $data['messages']['error'] : (isset($data['error']) ? $data['error'] : 'Falha no pareamento com o SaaS.');
                     add_settings_error('vs_messages', 'vs_err', 'Erro na conexão: ' . $err_msg, 'error');
@@ -165,7 +196,7 @@ class VS_Agent_Admin {
                     $data = json_decode($body, true);
                     if (isset($data['status']) && ($data['status'] == 200 || $data['status'] == 201)) {
                         update_option('vs_is_connected', 1);
-                        add_settings_error('vs_messages', 'vs_msg', 'Credenciais salvas e conexão com o Validar Segurança estabelecida com sucesso!', 'updated');
+                        add_settings_error('vs_messages', 'vs_msg', 'Credenciais salvas e conexão com o vexors.app estabelecida com sucesso!', 'updated');
                         return;
                     }
                 }
@@ -199,17 +230,17 @@ class VS_Agent_Admin {
         $is_connected = get_option('vs_is_connected', 0);
         ?>
         <div class="wrap">
-            <h1 class="wp-heading-inline" style="display:none;">Vexors - Diagnóstico</h1>
+            <h1 class="wp-heading-inline" style="display:none;">vexors.app - Diagnóstico</h1>
             <hr class="wp-header-end" style="display:none;" />
 
             <?php settings_errors('vs_messages'); ?>
 
             <div style="display: flex; align-items: center; justify-content: space-between; margin: 15px 0; background: #fff; padding: 15px 20px; border-radius: 8px; border: 1px solid #e0e0e0; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
                 <div style="display: flex; align-items: center; gap: 15px;">
-                    <img src="<?php echo esc_url(VS_AGENT_URL . 'assets/vexors-logo.svg'); ?>" alt="Vexors" style="max-height: 42px; height: 42px; width: auto; object-fit: contain;" onerror="this.style.display='none';" />
+                    <img src="<?php echo esc_url(VS_AGENT_URL . 'assets/vexors-logo.svg'); ?>" alt="vexors.app" style="max-height: 42px; height: 42px; width: auto; object-fit: contain;" onerror="this.style.display='none';" />
                     <div>
-                        <h2 style="margin: 0; font-size: 20px; font-weight: 700; color: #1e293b;">Vexors - Diagnóstico</h2>
-                        <p style="margin: 2px 0 0 0; font-size: 12px; color: #64748b;">Desenvolvido por <strong>Vexores</strong> (<a href="https://vexors.app" target="_blank" style="color: #2563eb; text-decoration: none;">vexors.app</a>)</p>
+                        <h2 style="margin: 0; font-size: 20px; font-weight: 700; color: #1e293b;">vexors.app - Diagnóstico</h2>
+                        <p style="margin: 2px 0 0 0; font-size: 12px; color: #64748b;">Desenvolvido por <strong>vexors.app</strong> (<a href="https://vexors.app" target="_blank" style="color: #2563eb; text-decoration: none;">vexors.app</a>)</p>
                     </div>
                 </div>
             </div>
@@ -220,9 +251,9 @@ class VS_Agent_Admin {
                 <?php if ($is_connected) : ?>
                     <div style="display: flex; align-items: center; gap: 10px; color: #2e7d32; font-weight: bold; font-size: 16px; margin-bottom: 15px;">
                         <span class="dashicons dashicons-yes-alt" style="font-size: 24px; width: 24px; height: 24px;"></span>
-                        Site Conectado ao Painel Validar Segurança!
+                        Site Conectado ao Painel vexors.app!
                     </div>
-                    <p>O seu site está pareado e pronto para responder às auditorias automáticas solicitadas via painel SaaS.</p>
+                    <p>O seu site está pareado e pronto para responder às auditorias automáticas solicitadas via painel vexors.app.</p>
                     
                     <form method="post" action="" style="margin-top: 15px;">
                         <?php wp_nonce_field('vs_connect_nonce'); ?>
@@ -237,14 +268,14 @@ class VS_Agent_Admin {
                         <span class="dashicons dashicons-warning" style="font-size: 24px; width: 24px; height: 24px;"></span>
                         Site Não Conectado
                     </div>
-                    <p>Clique no botão abaixo para autorizar o pareamento automático deste site com a sua conta no Validar Segurança.</p>
+                    <p>Clique no botão abaixo para autorizar o pareamento automático deste site com a sua conta no vexors.app.</p>
                     
                     <form method="post" action="">
                         <?php wp_nonce_field('vs_connect_nonce'); ?>
                         <input type="hidden" name="vs_action" value="connect_saas" />
-                        <button type="submit" class="button button-primary button-large" style="background: #3f51b5; border-color: #3f51b5; display: inline-flex; align-items: center; gap: 6px;">
+                        <button type="submit" class="button button-primary button-large" style="background: #1A7F86; border-color: #1A7F86; display: inline-flex; align-items: center; gap: 6px;">
                             <span class="dashicons dashicons-admin-links" style="font-size: 18px; width: 18px; height: 18px; margin-top: 1px;"></span>
-                            Conectar Agora com Validar Segurança
+                            Conectar Agora com vexors.app
                         </button>
                     </form>
                 <?php endif; ?>
@@ -264,7 +295,7 @@ class VS_Agent_Admin {
                                 <th scope="row" style="width: 140px; padding: 10px 0;"><label for="vs_site_id">ID do Site no SaaS</label></th>
                                 <td style="padding: 10px 0;">
                                     <input type="number" id="vs_site_id" name="vs_site_id" value="<?php echo esc_attr($site_id); ?>" class="regular-text" style="width: 120px;" required />
-                                    <p class="description">Identificador único do site no painel Validar Segurança.</p>
+                                    <p class="description">Identificador único do site no painel vexors.app.</p>
                                 </td>
                             </tr>
                             <tr>
@@ -278,7 +309,7 @@ class VS_Agent_Admin {
                                 <th scope="row" style="padding: 10px 0;"><label for="vs_saas_url">URL do Painel SaaS</label></th>
                                 <td style="padding: 10px 0;">
                                     <input type="url" id="vs_saas_url" name="vs_saas_url" value="<?php echo esc_url($saas_url); ?>" class="large-text" required />
-                                    <p class="description">Endereço da plataforma (ex: <code>http://localhost/validar-seguranca</code> ou sua URL de produção).</p>
+                                    <p class="description">Endereço da plataforma (ex: <code>https://vexors.app</code> ou sua URL de produção).</p>
                                 </td>
                             </tr>
                         </tbody>
@@ -302,16 +333,16 @@ class VS_Agent_Admin {
         $total_logs      = count($logs);
         ?>
         <div class="wrap">
-            <h1 class="wp-heading-inline" style="display:none;">Vexors - Logs</h1>
+            <h1 class="wp-heading-inline" style="display:none;">vexors.app - Logs</h1>
             <hr class="wp-header-end" style="display:none;" />
 
             <?php settings_errors('vs_messages'); ?>
 
             <div style="display: flex; align-items: center; justify-content: space-between; margin: 15px 0; background: #fff; padding: 15px 20px; border-radius: 8px; border: 1px solid #e0e0e0; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
                 <div style="display: flex; align-items: center; gap: 15px;">
-                    <img src="<?php echo esc_url(VS_AGENT_URL . 'assets/vexors-logo.svg'); ?>" alt="Vexors" style="max-height: 42px; height: 42px; width: auto; object-fit: contain;" onerror="this.style.display='none';" />
+                    <img src="<?php echo esc_url(VS_AGENT_URL . 'assets/vexors-logo.svg'); ?>" alt="vexors.app" style="max-height: 42px; height: 42px; width: auto; object-fit: contain;" onerror="this.style.display='none';" />
                     <div>
-                        <h2 style="margin: 0; font-size: 20px; font-weight: 700; color: #1e293b;">Vexors - Logs do WordPress</h2>
+                        <h2 style="margin: 0; font-size: 20px; font-weight: 700; color: #1e293b;">vexors.app - Logs do WordPress</h2>
                         <p style="margin: 2px 0 0 0; font-size: 12px; color: #64748b;">Gerenciador e Visualizador de Erros em Arquivo</p>
                     </div>
                 </div>
@@ -323,7 +354,7 @@ class VS_Agent_Admin {
                     <div>
                         <h3 style="margin: 0 0 5px 0; font-size: 16px; color: #1e293b;">Ativar Log do WordPress em Arquivo</h3>
                         <p style="margin: 0; font-size: 13px; color: #64748b;">
-                            Quando ativado, armazena avisos e erros em <code>wp-content/uploads/wp-patropi-logs/debug.log</code> e esconde erros de exibição na tela.
+                            Quando ativado, armazena avisos e erros em <code>wp-content/uploads/vexors-logs/debug.log</code> e esconde erros de exibição na tela.
                         </p>
                     </div>
                     <form method="post" action="" style="margin: 0;">
@@ -356,7 +387,7 @@ class VS_Agent_Admin {
                     );
                     foreach ($filters as $key => $label) :
                         $active = ($current_filter === $key);
-                        $url    = add_query_arg(array('page' => 'wp-patropi-logs', 'filter_level' => $key), admin_url('admin.php'));
+                        $url    = add_query_arg(array('page' => 'vexors-logs', 'filter_level' => $key), admin_url('admin.php'));
                         ?>
                         <a href="<?php echo esc_url($url); ?>" class="button <?php echo $active ? 'button-primary' : 'button-secondary'; ?>" style="font-size: 12px; height: 28px; line-height: 26px; padding: 0 10px;">
                             <?php echo esc_html($label); ?>

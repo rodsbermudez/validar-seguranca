@@ -9,9 +9,21 @@ class VS_Agent_Logger {
     private static $log_dir = null;
     private static $log_file = null;
 
+    private static function setup_log_paths() {
+        if (null === self::$log_dir) {
+            $new_dir = WP_CONTENT_DIR . '/uploads/vexors-logs';
+            $old_dir = WP_CONTENT_DIR . '/uploads/wp-patropi-logs';
+            if (!file_exists($new_dir) && file_exists($old_dir . '/debug.log')) {
+                self::$log_dir = $old_dir;
+            } else {
+                self::$log_dir = $new_dir;
+            }
+            self::$log_file = self::$log_dir . '/debug.log';
+        }
+    }
+
     public static function init() {
-        self::$log_dir  = WP_CONTENT_DIR . '/uploads/wp-patropi-logs';
-        self::$log_file = self::$log_dir . '/debug.log';
+        self::setup_log_paths();
 
         if (get_option('vs_logging_enabled', 0)) {
             self::enable_error_logging();
@@ -19,10 +31,7 @@ class VS_Agent_Logger {
     }
 
     public static function enable_error_logging() {
-        if (null === self::$log_dir) {
-            self::$log_dir  = WP_CONTENT_DIR . '/uploads/wp-patropi-logs';
-            self::$log_file = self::$log_dir . '/debug.log';
-        }
+        self::setup_log_paths();
 
         if (!file_exists(self::$log_dir)) {
             wp_mkdir_p(self::$log_dir);
@@ -96,10 +105,7 @@ class VS_Agent_Logger {
     }
 
     public static function get_log_file_path() {
-        if (null === self::$log_file) {
-            self::$log_dir  = WP_CONTENT_DIR . '/uploads/wp-patropi-logs';
-            self::$log_file = self::$log_dir . '/debug.log';
-        }
+        self::setup_log_paths();
         return self::$log_file;
     }
 

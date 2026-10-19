@@ -209,40 +209,41 @@ class AIService
             "REQUISITOS OBRIGATÓRIOS DO PLUGIN:\n" .
             "1. Comece OBRIGATORIAMENTE com o cabeçalho padrão de Plugin do WordPress:\n" .
             "   /*\n" .
-            "    * Plugin Name: Vexors - Fixes - {$siteHost}\n" .
-            "    * Plugin URI: {$authorUri}\n" .
-            "    * Description: Plugin customizado de remediação de segurança gerado pela plataforma Vexors.\n" .
-            "    * Version: 1.0.0\n" .
-            "    * Author: {$authorName}\n" .
-            "    * Author URI: {$authorUri}\n" .
-            "    * Text Domain: wp-patropi-fixes\n" .
+            "    * Plugin Name: vexors.app - Fixes - {$siteHost}\n" .
+            "    * Plugin URI: https://vexors.app\n" .
+            "    * Description: Plugin customizado de remediação e blindagem de segurança gerado pela plataforma vexors.app.\n" .
+            "    * Version: 1.0.1\n" .
+            "    * Author: vexors.app\n" .
+            "    * Author URI: https://vexors.app\n" .
+            "    * Text Domain: vexors-fixes\n" .
             "    */\n" .
             "2. Verifique 'if (!defined(\"ABSPATH\")) exit;' no topo por segurança.\n" .
             "3. REGRA CRÍTICA PARA LINK DE CONFIGURAÇÕES NA LISTA DE PLUGINS (plugins.php):\n" .
-            "   - Adicione o filtro 'plugin_action_links_' . plugin_basename(__FILE__) adicionando o link 'Configurações' direcionando para 'admin.php?page=wp-patropi-fixes'.\n" .
+            "   - Adicione o filtro 'plugin_action_links_' . plugin_basename(__FILE__) adicionando o link 'Configurações' direcionando para 'admin.php?page=vexors-fixes'.\n" .
             "4. REGRA CRÍTICA PARA ESTRUTURA DE MENU NO WP ADMIN:\n" .
-            "   - O menu principal deve se chamar 'Vexors' (slug: 'wp-patropi') com a posição 80 e ícone carregado de 'plugins_url(\"assets/favicon.png\", __FILE__)'.\n" .
+            "   - O menu principal deve se chamar 'vexors.app' (slug: 'vexors-app') com a posição 80 e ícone carregado de 'plugins_url(\"assets/favicon.png\", __FILE__)'.\n" .
             "   - Adicione via 'admin_head' o CSS para limitar a imagem do ícone do menu a 20x20px:\n" .
             "     add_action('admin_head', function() {\n" .
-            "         echo '<style>#adminmenu .toplevel_page_wp-patropi .wp-menu-image img, #adminmenu #toplevel_page_wp-patropi .wp-menu-image img { max-width: 20px !important; max-height: 20px !important; width: 20px !important; height: 20px !important; padding: 3px 0 0 0 !important; object-fit: contain !important; }</style>';\n" .
+            "         echo '<style>#adminmenu .toplevel_page_vexors-app .wp-menu-image img, #adminmenu #toplevel_page_vexors-app .wp-menu-image img, #adminmenu .toplevel_page_wp-patropi .wp-menu-image img, #adminmenu #toplevel_page_wp-patropi .wp-menu-image img { max-width: 20px !important; max-height: 20px !important; width: 20px !important; height: 20px !important; padding: 3px 0 0 0 !important; object-fit: contain !important; }</style>';\n" .
             "     });\n" .
-            "   - Adicione a tela do plugin como subitem do menu 'Vexors' chamado 'Fixes' (slug: 'wp-patropi-fixes'):\n" .
+            "   - Adicione a tela do plugin como subitem do menu 'vexors.app' chamado 'Fixes' (slug: 'vexors-fixes'):\n" .
             "   - Exemplo de código do menu:\n" .
             "     add_action('admin_menu', function() {\n" .
-            "         \$parent_slug = 'wp-patropi';\n" .
+            "         \$parent_slug = 'vexors-app';\n" .
             "         \$icon_url    = plugins_url('assets/favicon.png', __FILE__);\n" .
             "         if (empty(\$GLOBALS['admin_page_hooks'][\$parent_slug])) {\n" .
-            "             add_menu_page('Vexors', 'Vexors', 'manage_options', \$parent_slug, 'vs_render_remediation_admin_page', \$icon_url, 80);\n" .
+            "             add_menu_page('vexors.app', 'vexors.app', 'manage_options', \$parent_slug, 'vs_render_remediation_admin_page', \$icon_url, 80);\n" .
             "         }\n" .
-            "         add_submenu_page(\$parent_slug, 'Fixes', 'Fixes', 'manage_options', 'wp-patropi-fixes', 'vs_render_remediation_admin_page');\n" .
+            "         add_submenu_page(\$parent_slug, 'Fixes', 'Fixes', 'manage_options', 'vexors-fixes', 'vs_render_remediation_admin_page');\n" .
+            "         add_submenu_page(null, 'vexors.app Fixes', 'vexors.app Fixes', 'manage_options', 'wp-patropi-fixes', 'vs_render_remediation_admin_page');\n" .
             "     }, 20);\n" .
             "5. NO TOPO DA PÁGINA ADMIN DO PLUGIN:\n" .
-            "   - Inclua no início de <div class=\"wrap\"> as tags '<h1 class=\"wp-heading-inline\" style=\"display:none;\">Vexors - Fixes</h1><hr class=\"wp-header-end\" style=\"display:none;\" />' para que avisos do WordPress fiquem acima do card.\n" .
-            "   - Exiba um cabeçalho estilizado contendo a logo em '<img src=\"' . esc_url(plugins_url('assets/vexors-logo.svg', __FILE__)) . '\" style=\"max-height:42px;height:42px;width:auto;object-fit:contain;\" />' e o título <h2>Vexors - Fixes</h2> com o crédito 'Desenvolvido por {$authorName} ({$authorUri})'.\n" .
+            "   - Inclua no início de <div class=\"wrap\"> as tags '<h1 class=\"wp-heading-inline\" style=\"display:none;\">vexors.app - Fixes</h1><hr class=\"wp-header-end\" style=\"display:none;\" />' para que avisos do WordPress fiquem acima do card.\n" .
+            "   - Exiba um cabeçalho estilizado contendo a logo em '<img src=\"' . esc_url(plugins_url('assets/vexors-logo.svg', __FILE__)) . '\" style=\"max-height:42px;height:42px;width:auto;object-fit:contain;\" />' e o título <h2>vexors.app - Fixes</h2> com o crédito 'Desenvolvido por vexors.app (https://vexors.app)'.\n" .
             "   - Registre as correções na função 'vs_get_registered_fixes()' retornando array de cada check_id com title e description.\n" .
             "   - Crie as funções 'vs_get_fixes_settings()', 'vs_is_fix_active(\$check_id)' e 'vs_set_fix_status(\$check_id, \$enabled)'.\n" .
             "   - Cada regra de correção fornecida deve ser envolvida condicionalmente por 'if (vs_is_fix_active(\$check_id)) { ... }' para permitir ligar e desligar individualmente.\n" .
-            "   - Registre no hook 'rest_api_init' as rotas '/fixes' e '/fixes/toggle' (sob os namespaces 'wp-patropi/v1' e 'validar-seguranca/v1') para permitir que o SaaS consulte e alterne as correções via REST API.\n" .
+            "   - Registre no hook 'rest_api_init' as rotas '/fixes' e '/fixes/toggle' (sob os namespaces 'vexors-fixes/v1', 'vexors/v1', 'wp-patropi/v1' e 'validar-seguranca/v1') para permitir que o SaaS consulte e alterne as correções via REST API.\n" .
             "   - Exiba a tabela formatada com switches/checkboxes e botão salvar para ativar/desativar cada correção individualmente.\n" .
             "6. REGRAS PARA EVITAR TELA EM BRANCO E ERROS FATAL PHP:\n" .
             "   - NÃO chame funções do WordPress como home_url() ou wp_redirect() no topo puro do arquivo PHP, pois elas ainda não foram carregadas pelo WordPress e causarão Fatal Error.\n" .

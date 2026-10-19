@@ -151,8 +151,8 @@ class Remediation extends ResourceController
                 return $this->failServerError('Não foi possível criar o arquivo ZIP de remediação.');
             }
 
-            $pluginDirName = 'wp-patropi-fixes';
-            $zip->addFromString("{$pluginDirName}/wp-patropi-fixes.php", $pluginCode);
+            $pluginDirName = 'vexors-fixes';
+            $zip->addFromString("{$pluginDirName}/vexors-fixes.php", $pluginCode);
 
             // Add asset images to ZIP
             $faviconPath = ROOTPATH . 'public/favicon.png';
@@ -171,7 +171,7 @@ class Remediation extends ResourceController
 
             // Create Readme.txt
             $readmeText = "====================================================\n" .
-                "VEXORS - PLUGIN CUSTOMIZADO DE REMEDIAÇÃO\n" .
+                "VEXORS.APP - PLUGIN CUSTOMIZADO DE REMEDIAÇÃO\n" .
                 "====================================================\n\n" .
                 "Website Alvo: {$website['url']}\n" .
                 "Data de Geração: " . date('Y-m-d H:i:s') . "\n\n" .
@@ -194,7 +194,7 @@ class Remediation extends ResourceController
                 "2. Vá em 'Plugins' > 'Adicionar Novo' > 'Enviar Plugin'.\n" .
                 "3. Selecione este arquivo ZIP e clique em 'Instalar Agora'.\n" .
                 "4. Clique em 'Ativar Plugin'.\n\n" .
-                "Após a ativação, re-execute a varredura na plataforma Vexors para confirmar o sanamento das falhas.\n";
+                "Após a ativação, re-execute a varredura na plataforma vexors.app para confirmar o sanamento das falhas.\n";
 
             $zip->addFromString("{$pluginDirName}/readme.txt", $readmeText);
             $zip->close();
@@ -467,7 +467,10 @@ class Remediation extends ResourceController
         // Helper functions for status
         $code .= "if (!function_exists('vs_get_fixes_settings')) {\n";
         $code .= "    function vs_get_fixes_settings() {\n";
-        $code .= "        \$settings = get_option('wp_patropi_fixes_settings', null);\n";
+        $code .= "        \$settings = get_option('vexors_fixes_settings', null);\n";
+        $code .= "        if (\$settings === null) {\n";
+        $code .= "            \$settings = get_option('wp_patropi_fixes_settings', null);\n";
+        $code .= "        }\n";
         $code .= "        if (\$settings === null) {\n";
         $code .= "            \$settings = get_option('vs_patropi_fixes_settings', array());\n";
         $code .= "        }\n";
@@ -489,6 +492,7 @@ class Remediation extends ResourceController
         $code .= "    function vs_set_fix_status(\$check_id, \$enabled) {\n";
         $code .= "        \$settings = vs_get_fixes_settings();\n";
         $code .= "        \$settings[\$check_id] = (bool) \$enabled;\n";
+        $code .= "        update_option('vexors_fixes_settings', \$settings);\n";
         $code .= "        update_option('wp_patropi_fixes_settings', \$settings);\n";
         $code .= "        update_option('vs_patropi_fixes_settings', \$settings);\n";
         $code .= "        return true;\n";
@@ -498,6 +502,9 @@ class Remediation extends ResourceController
         // Multi-source token extraction
         $code .= "if (!function_exists('vs_fixes_get_token_from_request')) {\n";
         $code .= "    function vs_fixes_get_token_from_request(\$request = null) {\n";
+        $code .= "        if (!empty(\$_SERVER['HTTP_X_VEXORS_TOKEN'])) {\n";
+        $code .= "            return trim(\$_SERVER['HTTP_X_VEXORS_TOKEN']);\n";
+        $code .= "        }\n";
         $code .= "        if (!empty(\$_SERVER['HTTP_X_VALIDAR_SEGURANCA_TOKEN'])) {\n";
         $code .= "            return trim(\$_SERVER['HTTP_X_VALIDAR_SEGURANCA_TOKEN']);\n";
         $code .= "        }\n";
@@ -526,6 +533,7 @@ class Remediation extends ResourceController
         $code .= "        if (function_exists('getallheaders')) {\n";
         $code .= "            \$headers = getallheaders();\n";
         $code .= "            foreach (\$headers as \$k => \$v) {\n";
+        $code .= "                if (strtolower(\$k) === 'x-vexors-token') return trim(\$v);\n";
         $code .= "                if (strtolower(\$k) === 'x-validar-seguranca-token') return trim(\$v);\n";
         $code .= "            }\n";
         $code .= "        }\n";
@@ -574,9 +582,9 @@ class Remediation extends ResourceController
         $code .= "    return \$result;\n";
         $code .= "}, 99);\n\n";
 
-        // Register routes under wp-patropi/v1 and validar-seguranca/v1
+        // Register routes under vexors-fixes/v1, vexors/v1, wp-patropi/v1 and validar-seguranca/v1
         $code .= "add_action('rest_api_init', function() {\n";
-        $code .= "    \$namespaces = array('wp-patropi/v1', 'validar-seguranca/v1');\n";
+        $code .= "    \$namespaces = array('vexors-fixes/v1', 'vexors/v1', 'wp-patropi/v1', 'validar-seguranca/v1');\n";
         $code .= "    foreach (\$namespaces as \$ns) {\n";
         $code .= "        register_rest_route(\$ns, '/fixes', array(\n";
         $code .= "            'methods'             => array('GET', 'POST'),\n";
@@ -655,13 +663,13 @@ class Remediation extends ResourceController
 
         $code = "<?php\n";
         $code .= "/**\n";
-        $code .= " * Plugin Name: Vexors - Fixes - {$siteHost}\n";
-        $code .= " * Plugin URI: {$authorUri}\n";
-        $code .= " * Description: Plugin customizado de remediação de segurança gerado pela plataforma Vexors.\n";
+        $code .= " * Plugin Name: vexors.app - Fixes - {$siteHost}\n";
+        $code .= " * Plugin URI: https://vexors.app\n";
+        $code .= " * Description: Plugin customizado de remediação e blindagem de segurança gerado pela plataforma vexors.app.\n";
         $code .= " * Version: 1.0.1\n";
-        $code .= " * Author: {$authorName}\n";
-        $code .= " * Author URI: {$authorUri}\n";
-        $code .= " * Text Domain: wp-patropi-fixes\n";
+        $code .= " * Author: vexors.app\n";
+        $code .= " * Author URI: https://vexors.app\n";
+        $code .= " * Text Domain: vexors-fixes\n";
         $code .= " */\n\n";
         $code .= "if (!defined('ABSPATH')) {\n    exit;\n}\n\n";
 
@@ -670,7 +678,7 @@ class Remediation extends ResourceController
 
         $code .= "// --- LINK DE CONFIGURAÇÕES NA TELA DE PLUGINS ---\n";
         $code .= "add_filter('plugin_action_links_' . plugin_basename(__FILE__), function(\$links) {\n";
-        $code .= "    \$settings_link = '<a href=\"' . esc_url(admin_url('admin.php?page=wp-patropi-fixes')) . '\">Configurações</a>';\n";
+        $code .= "    \$settings_link = '<a href=\"' . esc_url(admin_url('admin.php?page=vexors-fixes')) . '\">Configurações</a>';\n";
         $code .= "    array_unshift(\$links, \$settings_link);\n";
         $code .= "    return \$links;\n";
         $code .= "});\n\n";
@@ -696,16 +704,17 @@ class Remediation extends ResourceController
         // Admin interface
         $code .= "// --- INTERFACE DE CONFIGURAÇÃO NO PAINEL WP ADMIN ---\n";
         $code .= "add_action('admin_head', function() {\n";
-        $code .= "    echo '<style>#adminmenu .toplevel_page_wp-patropi .wp-menu-image img, #adminmenu #toplevel_page_wp-patropi .wp-menu-image img { max-width: 20px !important; max-height: 20px !important; width: 20px !important; height: 20px !important; padding: 3px 0 0 0 !important; object-fit: contain !important; box-sizing: border-box !important; }</style>';\n";
+        $code .= "    echo '<style>#adminmenu .toplevel_page_vexors-app .wp-menu-image img, #adminmenu #toplevel_page_vexors-app .wp-menu-image img, #adminmenu .toplevel_page_wp-patropi .wp-menu-image img, #adminmenu #toplevel_page_wp-patropi .wp-menu-image img { max-width: 20px !important; max-height: 20px !important; width: 20px !important; height: 20px !important; padding: 3px 0 0 0 !important; object-fit: contain !important; box-sizing: border-box !important; }</style>';\n";
         $code .= "});\n\n";
 
         $code .= "add_action('admin_menu', function() {\n";
-        $code .= "    \$parent_slug = 'wp-patropi';\n";
+        $code .= "    \$parent_slug = 'vexors-app';\n";
         $code .= "    \$icon_url    = plugins_url('assets/favicon.png', __FILE__);\n";
         $code .= "    if (empty(\$GLOBALS['admin_page_hooks'][\$parent_slug])) {\n";
-        $code .= "        add_menu_page('Vexors', 'Vexors', 'manage_options', \$parent_slug, 'vs_render_remediation_admin_page', \$icon_url, 80);\n";
+        $code .= "        add_menu_page('vexors.app', 'vexors.app', 'manage_options', \$parent_slug, 'vs_render_remediation_admin_page', \$icon_url, 80);\n";
         $code .= "    }\n";
-        $code .= "    add_submenu_page(\$parent_slug, 'Fixes', 'Fixes', 'manage_options', 'wp-patropi-fixes', 'vs_render_remediation_admin_page');\n";
+        $code .= "    add_submenu_page(\$parent_slug, 'Fixes', 'Fixes', 'manage_options', 'vexors-fixes', 'vs_render_remediation_admin_page');\n";
+        $code .= "    add_submenu_page(null, 'vexors.app Fixes', 'vexors.app Fixes', 'manage_options', 'wp-patropi-fixes', 'vs_render_remediation_admin_page');\n";
         $code .= "}, 20);\n\n";
 
         $code .= "if (!function_exists('vs_render_remediation_admin_page')) {\n";
@@ -721,21 +730,22 @@ class Remediation extends ResourceController
         $code .= "            foreach (\$fixes as \$check_id => \$info) {\n";
         $code .= "                \$new_settings[\$check_id] = isset(\$_POST['vs_fix_' . \$check_id]);\n";
         $code .= "            }\n";
+        $code .= "            update_option('vexors_fixes_settings', \$new_settings);\n";
         $code .= "            update_option('wp_patropi_fixes_settings', \$new_settings);\n";
         $code .= "            \$settings = \$new_settings;\n";
         $code .= "            \$notice = '<div class=\"notice notice-success is-dismissible\" style=\"margin: 15px 0 20px 0;\"><p><strong>Configurações de correções salvas com sucesso!</strong></p></div>';\n";
         $code .= "        }\n\n";
         $code .= "        \$logo_url = plugins_url('assets/vexors-logo.svg', __FILE__);\n";
         $code .= "        echo '<div class=\"wrap\">';\n";
-        $code .= "        echo '<h1 class=\"wp-heading-inline\" style=\"display:none;\">Vexors - Fixes</h1>';\n";
+        $code .= "        echo '<h1 class=\"wp-heading-inline\" style=\"display:none;\">vexors.app - Fixes</h1>';\n";
         $code .= "        echo '<hr class=\"wp-header-end\" style=\"display:none;\" />';\n";
         $code .= "        if (\$notice) echo \$notice;\n";
         $code .= "        echo '<div style=\"display: flex; align-items: center; justify-content: space-between; margin: 15px 0; background: #fff; padding: 15px 20px; border-radius: 8px; border: 1px solid #e0e0e0; box-shadow: 0 1px 3px rgba(0,0,0,0.05);\">';\n";
         $code .= "        echo '  <div style=\"display: flex; align-items: center; gap: 15px;\">';\n";
-        $code .= "        echo '    <img src=\"' . esc_url(\$logo_url) . '\" alt=\"Vexors\" style=\"max-height: 42px; height: 42px; width: auto; object-fit: contain;\" onerror=\"this.style.display=\\'none\\';\" />';\n";
+        $code .= "        echo '    <img src=\"' . esc_url(\$logo_url) . '\" alt=\"vexors.app\" style=\"max-height: 42px; height: 42px; width: auto; object-fit: contain;\" onerror=\"this.style.display=\\'none\\';\" />';\n";
         $code .= "        echo '    <div>';\n";
-        $code .= "        echo '      <h2 style=\"margin: 0; font-size: 20px; font-weight: 700; color: #1e293b;\">Vexors - Fixes</h2>';\n";
-        $code .= "        echo '      <p style=\"margin: 2px 0 0 0; font-size: 12px; color: #64748b;\">Desenvolvido por <strong>{$authorName}</strong> (<a href=\"{$authorUri}\" target=\"_blank\" style=\"color: #2563eb; text-decoration: none;\">vexors.app</a>)</p>';\n";
+        $code .= "        echo '      <h2 style=\"margin: 0; font-size: 20px; font-weight: 700; color: #1e293b;\">vexors.app - Fixes</h2>';\n";
+        $code .= "        echo '      <p style=\"margin: 2px 0 0 0; font-size: 12px; color: #64748b;\">Desenvolvido por <strong>vexors.app</strong> (<a href=\"https://vexors.app\" target=\"_blank\" style=\"color: #1A7F86; text-decoration: none;\">vexors.app</a>)</p>';\n";
         $code .= "        echo '    </div>';\n";
         $code .= "        echo '  </div>';\n";
         $code .= "        echo '</div>';\n";
@@ -760,7 +770,7 @@ class Remediation extends ResourceController
         $code .= "            echo '</tr>';\n";
         $code .= "        }\n";
         $code .= "        echo '</tbody></table>';\n";
-        $code .= "        echo '<p style=\"margin-top:20px;\"><input type=\"submit\" class=\"button button-primary\" value=\"Salvar Alterações\" style=\"padding:6px 20px;height:auto;font-size:14px;background:#2563eb;border-color:#2563eb;\" /></p>';\n";
+        $code .= "        echo '<p style=\"margin-top:20px;\"><input type=\"submit\" class=\"button button-primary\" value=\"Salvar Alterações\" style=\"padding:6px 20px;height:auto;font-size:14px;background:#1A7F86;border-color:#1A7F86;\" /></p>';\n";
         $code .= "        echo '</form></div>';\n";
         $code .= "    }\n";
         $code .= "}\n";

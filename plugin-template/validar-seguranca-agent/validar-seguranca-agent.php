@@ -1,13 +1,13 @@
 <?php
 /**
- * Plugin Name: Vexors - Diagnóstico
+ * Plugin Name: vexors.app - Diagnóstico
  * Plugin URI: https://vexors.app
- * Description: Plugin Agente para diagnóstico interno profundo de segurança em sites WordPress.
+ * Description: Plugin Agente vexors.app para diagnóstico interno profundo de segurança em sites WordPress.
  * Version: 1.0.0
- * Author: Vexores
+ * Author: vexors.app
  * Author URI: https://vexors.app
  * License: GPLv2 or later
- * Text Domain: wp-patropi-diagnostico
+ * Text Domain: vexors-diagnostico
  */
 
 if (!defined('ABSPATH')) {
@@ -20,7 +20,7 @@ define('VS_AGENT_URL', plugin_dir_url(__FILE__));
 
 // Settings link on Plugins list page (plugins.php)
 add_filter('plugin_action_links_' . plugin_basename(__FILE__), function ($links) {
-    $settings_link = '<a href="' . esc_url(admin_url('admin.php?page=wp-patropi')) . '">' . __('Configurações', 'wp-patropi-diagnostico') . '</a>';
+    $settings_link = '<a href="' . esc_url(admin_url('admin.php?page=vexors-app')) . '">' . __('Configurações', 'vexors-diagnostico') . '</a>';
     array_unshift($links, $settings_link);
     return $links;
 });
@@ -96,4 +96,7 @@ class Validar_Seguranca_Agent {
 }
 
 // Initialize
+if (!class_exists('Vexors_Agent')) {
+    class_alias('Validar_Seguranca_Agent', 'Vexors_Agent');
+}
 Validar_Seguranca_Agent::get_instance();

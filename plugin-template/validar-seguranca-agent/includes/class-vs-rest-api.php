@@ -12,7 +12,7 @@ class VS_Agent_REST_API {
     }
 
     public function register_routes() {
-        $namespaces = array('wp-patropi/v1', 'validar-seguranca/v1');
+        $namespaces = array('vexors/v1', 'wp-patropi/v1', 'validar-seguranca/v1');
 
         foreach ($namespaces as $ns) {
             register_rest_route($ns, '/internal-audit', array(
@@ -98,8 +98,11 @@ class VS_Agent_REST_API {
     public function bypass_auth_for_agent($result) {
         $route = isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '';
         if (
+            strpos($route, '/vexors/v1/') !== false ||
             strpos($route, '/wp-patropi/v1/') !== false ||
             strpos($route, '/validar-seguranca/v1/') !== false ||
+            strpos($route, 'rest_route=%2Fvexors') !== false ||
+            strpos($route, 'rest_route=/vexors') !== false ||
             strpos($route, 'rest_route=%2Fwp-patropi') !== false ||
             strpos($route, 'rest_route=/wp-patropi') !== false ||
             strpos($route, 'rest_route=%2Fvalidar-seguranca') !== false ||
@@ -118,7 +121,10 @@ class VS_Agent_REST_API {
     }
 
     private function get_token_from_request($request = null) {
-        // 1. Header X-Validar-Seguranca-Token
+        // 1. Header X-Vexors-Token or X-Validar-Seguranca-Token
+        if (isset($_SERVER['HTTP_X_VEXORS_TOKEN']) && !empty($_SERVER['HTTP_X_VEXORS_TOKEN'])) {
+            return trim($_SERVER['HTTP_X_VEXORS_TOKEN']);
+        }
         if (isset($_SERVER['HTTP_X_VALIDAR_SEGURANCA_TOKEN']) && !empty($_SERVER['HTTP_X_VALIDAR_SEGURANCA_TOKEN'])) {
             return trim($_SERVER['HTTP_X_VALIDAR_SEGURANCA_TOKEN']);
         }
@@ -362,14 +368,21 @@ class VS_Agent_REST_API {
             $installed = true;
             $active    = true;
         } else {
-            $plugin_file = 'wp-patropi-fixes/wp-patropi-fixes.php';
-            $full_path   = WP_PLUGIN_DIR . '/' . $plugin_file;
-            if (file_exists($full_path)) {
-                $installed = true;
-                $active    = is_plugin_active($plugin_file);
-                @include_once $full_path;
-            } else {
-                $matches = glob(WP_PLUGIN_DIR . '/*fixes*/wp-patropi-fixes*.php');
+            $candidate_files = array(
+                'vexors-fixes/vexors-fixes.php',
+                'wp-patropi-fixes/wp-patropi-fixes.php',
+            );
+            foreach ($candidate_files as $plugin_file) {
+                $full_path = WP_PLUGIN_DIR . '/' . $plugin_file;
+                if (file_exists($full_path)) {
+                    $installed = true;
+                    $active    = is_plugin_active($plugin_file);
+                    @include_once $full_path;
+                    break;
+                }
+            }
+            if (!$installed) {
+                $matches = glob(WP_PLUGIN_DIR . '/*fixes*/*.php');
                 if (!empty($matches)) {
                     foreach ($matches as $match) {
                         @include_once $match;
@@ -387,7 +400,7 @@ class VS_Agent_REST_API {
             $registered = vs_get_registered_fixes();
             $settings   = function_exists('vs_get_fixes_settings')
                 ? vs_get_fixes_settings()
-                : (get_option('wp_patropi_fixes_settings', null) ?: (array) get_option('vs_patropi_fixes_settings', array()));
+                : (get_option('vexors_fixes_settings', null) ?: (get_option('wp_patropi_fixes_settings', null) ?: (array) get_option('vs_patropi_fixes_settings', array())));
             $items      = array();
 
             foreach ($registered as $check_id => $data) {
@@ -447,12 +460,21 @@ class VS_Agent_REST_API {
         $enabled_bool = filter_var($enabled, FILTER_VALIDATE_BOOLEAN);
 
         if (!function_exists('vs_set_fix_status')) {
-            $plugin_file = 'wp-patropi-fixes/wp-patropi-fixes.php';
-            $full_path   = WP_PLUGIN_DIR . '/' . $plugin_file;
-            if (file_exists($full_path)) {
-                @include_once $full_path;
-            } else {
-                $matches = glob(WP_PLUGIN_DIR . '/*fixes*/wp-patropi-fixes*.php');
+            $candidate_files = array(
+                'vexors-fixes/vexors-fixes.php',
+                'wp-patropi-fixes/wp-patropi-fixes.php',
+            );
+            foreach ($candidate_files as $plugin_file) {
+                $full_path = WP_PLUGIN_DIR . '/' . $plugin_file;
+                if (file_exists($full_path)) {
+                    @include_once $full_path;
+                    if (function_exists('vs_set_fix_status')) {
+                        break;
+                    }
+                }
+            }
+            if (!function_exists('vs_set_fix_status')) {
+                $matches = glob(WP_PLUGIN_DIR . '/*fixes*/*.php');
                 if (!empty($matches)) {
                     foreach ($matches as $match) {
                         @include_once $match;
@@ -467,8 +489,9 @@ class VS_Agent_REST_API {
         if (function_exists('vs_set_fix_status')) {
             vs_set_fix_status($check_id, $enabled_bool);
         } else {
-            $settings = (array) get_option('wp_patropi_fixes_settings', array());
+            $settings = (array) (get_option('vexors_fixes_settings', null) ?: get_option('wp_patropi_fixes_settings', array()));
             $settings[$check_id] = $enabled_bool;
+            update_option('vexors_fixes_settings', $settings);
             update_option('wp_patropi_fixes_settings', $settings);
             update_option('vs_patropi_fixes_settings', $settings);
         }

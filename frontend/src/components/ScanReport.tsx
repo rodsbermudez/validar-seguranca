@@ -181,7 +181,7 @@ export const ScanReport: React.FC<ScanReportProps> = ({ website, onBack: _onBack
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `validar-seguranca-agent-${website.name.replace(/\s+/g, '_').toLowerCase()}.zip`);
+      link.setAttribute('download', `vexors-diagnostico-${website.name.replace(/\s+/g, '_').toLowerCase()}.zip`);
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -232,7 +232,7 @@ export const ScanReport: React.FC<ScanReportProps> = ({ website, onBack: _onBack
       const link = document.createElement('a');
       link.href = url;
       const siteHost = website.url.replace(/^https?:\/\//, '').replace(/[\/\?#].*$/, '');
-      link.setAttribute('download', `validar-seguranca-fix-${siteHost}.zip`);
+      link.setAttribute('download', `vexors-fixes-${siteHost}.zip`);
       document.body.appendChild(link);
       link.click();
       link.remove();

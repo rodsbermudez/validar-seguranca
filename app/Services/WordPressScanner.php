@@ -71,6 +71,7 @@ class WordPressScanner
     {
         $headers = [
             'Authorization: Bearer ' . $agentToken,
+            'X-Vexors-Token: ' . $agentToken,
             'X-Validar-Seguranca-Token: ' . $agentToken,
             'Content-Type: application/json',
             'Accept: application/json, text/plain, */*',
@@ -80,8 +81,12 @@ class WordPressScanner
 
         $tokenParam = 'vs_token=' . urlencode($agentToken);
 
-        // Routes to attempt in order: primary with vs_token, plain permalinks, legacy routes
+        // Routes to attempt in order: vexors primary, wp-patropi fallback, legacy routes
         $routes = [
+            '/wp-json/vexors/v1/internal-audit?' . $tokenParam,
+            '/?rest_route=/vexors/v1/internal-audit&' . $tokenParam,
+            '/wp-json/vexors/v1/internal-audit',
+            '/?rest_route=/vexors/v1/internal-audit',
             '/wp-json/wp-patropi/v1/internal-audit?' . $tokenParam,
             '/?rest_route=/wp-patropi/v1/internal-audit&' . $tokenParam,
             '/wp-json/wp-patropi/v1/internal-audit',

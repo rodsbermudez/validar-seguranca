@@ -857,7 +857,7 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
                   </Text>
                   <Text size="xs" c="dimmed" mb="md">
                     {isConnected
-                      ? 'O agente Vexors está conectado e sincronizado com o SaaS.'
+                      ? 'O agente vexors.app está conectado e sincronizado com o SaaS.'
                       : 'Baixe e ative o plugin no painel WordPress para liberar as funções.'}
                   </Text>
                   <Button
@@ -991,10 +991,10 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
         <Tabs.Panel value="agent" pt="md">
           <Paper p="lg" radius="md" withBorder bg="dark.7">
             <Title order={4} mb="xs">
-              Conexão com o Plugin Vexors Agent
+              Conexão com o Plugin vexors.app - Diagnóstico
             </Title>
             <Text size="sm" c="dimmed" mb="lg">
-              O plugin agente é responsável por integrar seu WordPress ao SaaS Vexors com autenticação criptografada via tokens.
+              O plugin agente é responsável por integrar seu WordPress ao SaaS vexors.app com autenticação criptografada via tokens.
             </Text>
 
             <Grid>
@@ -1034,7 +1034,7 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
                     Credenciais de Conexão Manual
                   </Text>
                   <Text size="xs" c="dimmed" mb="sm">
-                    Caso tenha reinstalado o plugin ou queira configurar diretamente no painel do WordPress em <b>Vexors &gt; Diagnóstico</b>:
+                    Caso tenha reinstalado o plugin ou queira configurar diretamente no painel do WordPress em <b>vexors.app &gt; Diagnóstico</b>:
                   </Text>
                   
                   <Stack gap="xs" mb="md">
@@ -1069,7 +1069,7 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
                   <Alert icon={<IconAlertCircle size={16} />} title="Status da Integração" color={isConnected ? 'green' : 'yellow'}>
                     {isConnected
                       ? 'Tudo certo! O agente respondeu perfeitamente ao teste de handshake.'
-                      : 'O agente ainda não foi detectado com este token. Cole as credenciais acima em Vexors > Diagnóstico no seu WordPress e clique em "Salvar Configurações e Conectar".'}
+                      : 'O agente ainda não foi detectado com este token. Cole as credenciais acima em vexors.app > Diagnóstico no seu WordPress e clique em "Salvar Configurações e Conectar".'}
                   </Alert>
                 </Paper>
               </Grid.Col>

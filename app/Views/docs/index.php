@@ -1816,22 +1816,22 @@
 
             <!-- 4. Plugin Agente WordPress -->
             <section id="plugin-agente" class="doc-section">
-                <h1>🔌 Plugin Agente WordPress (Vexors Agent)</h1>
-                <p>O <strong>Vexors Agent</strong> é o plugin companheiro que conecta a plataforma diretamente ao WordPress para coletar informações internas e permitir a aplicação de correções.</p>
+                <h1>🔌 Plugin Agente WordPress (vexors.app - Diagnóstico)</h1>
+                <p>O <strong>vexors.app - Diagnóstico</strong> é o plugin companheiro que conecta a plataforma diretamente ao WordPress para coletar informações internas e permitir a aplicação de correções.</p>
 
                 <h2>Como Instalar e Conectar o Agente</h2>
                 <ol>
-                    <li>Na listagem de websites da plataforma, clique em <strong>"Baixar Agente WP"</strong> para obter o arquivo <code>validar-seguranca-agent.zip</code>.</li>
+                    <li>Na listagem de websites da plataforma, clique em <strong>"Baixar Agente WP"</strong> para obter o arquivo <code>vexors-diagnostico-[slug].zip</code>.</li>
                     <li>No WordPress do cliente, vá em <code>Plugins > Adicionar Novo > Enviar Plugin</code> e ative o plugin.</li>
                     <li>Copie o <strong>Token de Conexão Único</strong> gerado na plataforma para o site desejado.</li>
-                    <li>No WordPress, acesse a tela do plugin <strong>Vexors > Diagnóstico</strong> e cole o token para concluir a conexão.</li>
+                    <li>No WordPress, acesse a tela do plugin <strong>vexors.app > Diagnóstico</strong> e cole o token para concluir a conexão.</li>
                 </ol>
 
                 <h2>Botão de Reconexão e Refazer Ponte</h2>
                 <p>Caso o token seja alterado na plataforma ou a conexão entre a aplicação WordPress e o painel seja interrompida, o plugin conta com o botão <strong>"⚡ Testar Reconexão com a Plataforma"</strong>. Ele permite reiniciar o handshake de autenticação de forma simples e direta, sem a necessidade de reinstalar o plugin.</p>
 
                 <h2>Configuração Manual de Credenciais no WP-Admin</h2>
-                <p>Caso você reinstale o plugin manualmente ou queira conferir se o token salvo coincide com o painel SaaS, a página <strong>Vexors > Diagnóstico</strong> no WordPress disponibiliza campos editáveis para:</p>
+                <p>Caso você reinstale o plugin manualmente ou queira conferir se o token salvo coincide com o painel SaaS, a página <strong>vexors.app > Diagnóstico</strong> no WordPress disponibiliza campos editáveis para:</p>
                 <ul>
                     <li><strong>ID do Site no SaaS:</strong> Identificador numérico do site no banco da plataforma.</li>
                     <li><strong>Token do Agente:</strong> Chave de segurança exclusiva de comunicação.</li>
@@ -1903,7 +1903,7 @@
 
                 <div class="callout callout-info">
                     <div class="callout-title">🔒 Armazenamento Seguro dos Logs</div>
-                    <p>Os logs são armazenados no diretório <code>wp-content/uploads/wp-patropi-logs/debug.log</code> protegido por arquivo <code>.htaccess</code> interno que bloqueia o download direto de navegadores não autorizados.</p>
+                    <p>Os logs são armazenados no diretório <code>wp-content/uploads/vexors-logs/debug.log</code> protegido por arquivo <code>.htaccess</code> interno que bloqueia o download direto de navegadores não autorizados.</p>
                 </div>
             </section>
 
@@ -1976,12 +1976,12 @@
                 <h1>🤖 Remediação Híbrida, Plugin de Fixes & Inteligência Artificial</h1>
                 <p>Nem todas as falhas de segurança podem ser tratadas da mesma forma. O <strong>Vexors</strong> adota uma metodologia estruturada dividida entre correções automatizáveis no nível do código WordPress e orientações de infraestrutura para o servidor web:</p>
 
-                <h2>1. Plugin Dedicado de Correções: Vexors Fixes (`wp-patropi-fixes`)</h2>
-                <p>Para falhas relativas à aplicação WordPress (ocultação de versão, proteção contra enumeração de autores, cabeçalhos de segurança via PHP, bloqueio de sitemaps sensíveis e arquivos de documentação), a plataforma gera o plugin exclusivo <strong>Vexors Fixes</strong>.</p>
+                <h2>1. Plugin Dedicado de Correções: vexors.app - Fixes (`vexors-fixes`)</h2>
+                <p>Para falhas relativas à aplicação WordPress (ocultação de versão, proteção contra enumeração de autores, cabeçalhos de segurança via PHP, bloqueio de sitemaps sensíveis e arquivos de documentação), a plataforma gera o plugin exclusivo <strong>vexors.app - Fixes</strong>.</p>
 
                 <div class="callout callout-success">
                     <div class="callout-title">⚡ Arquitetura 100% Autônoma e Desacoplada</div>
-                    <p>O <code>wp-patropi-fixes</code> não depende da existência prévia do plugin agente de diagnóstico. Ele opera com infraestrutura própria de endpoints REST API (<code>/wp-json/wp-patropi-fixes/v1/status</code> e <code>/wp-json/wp-patropi-fixes/v1/toggle</code>), permitindo instalar, monitorar e alternar correções de forma independente e isolada.</p>
+                    <p>O <code>vexors-fixes</code> não depende da existência prévia do plugin agente de diagnóstico. Ele opera com infraestrutura própria de endpoints REST API (<code>/wp-json/vexors-fixes/v1/status</code> e <code>/wp-json/vexors-fixes/v1/toggle</code>, com retrocompatibilidade para versões anteriores), permitindo instalar, monitorar e alternar correções de forma independente e isolada.</p>
                 </div>
 
                 <h3>Destaques de Engenharia do Plugin de Fixes:</h3>
@@ -1989,16 +1989,16 @@
                     <li><strong>Token e ID Embutidos no Código:</strong> Na geração do plugin, a plataforma injeta automaticamente as constantes PHP <code>VS_FIXES_SITE_TOKEN</code> e <code>VS_FIXES_SITE_ID</code> personalizadas para o site. Isso elimina a necessidade de configurações manuais ou inserção de chaves no wp-admin: basta instalar e ativar.</li>
                     <li><strong>Geração Determinística Nativa (Padrão):</strong> Por padrão, o plugin é compilado utilizando modelos canônicos estritamente validados e testados. A geração ocorre em menos de 1 segundo, sem risco de alucinações de código, erros de sintaxe ou dependência de limites de tokens de APIs externas. A geração com IA (Kimi K2.7 Code) continua disponível como recurso avançado no processamento em lote.</li>
                     <li><strong>Self-Healing (Auto-Recuperação de Credenciais):</strong> Ao carregar, o plugin verifica se a opção <code>vs_agent_token</code> existe em <code>wp_options</code>. Se estiver ausente ou desatualizada, ela é automaticamente sincronizada com o token legítimo embutido, reparando a comunicação com a plataforma silenciosamente.</li>
-                    <li><strong>Resiliência a WAF, ModSecurity e Proxies Reversos:</strong> Provedores de hospedagem com ModSecurity, Cloudflare ou Apache FastCGI frequentemente removem cabeçalhos HTTP como <code>Authorization: Bearer</code> ou <code>X-Validar-Seguranca-Token</code>. O plugin possui suporte a autenticação multi-origem com fallback inteligente por query parameters (<code>?vs_token=</code> e <code>?agent_token=</code>).</li>
+                    <li><strong>Resiliência a WAF, ModSecurity e Proxies Reversos:</strong> Provedores de hospedagem com ModSecurity, Cloudflare ou Apache FastCGI frequentemente removem cabeçalhos HTTP como <code>Authorization: Bearer</code>, <code>X-Vexors-Token</code> ou <code>X-Validar-Seguranca-Token</code>. O plugin possui suporte a autenticação multi-origem com fallback inteligente por query parameters (<code>?vs_token=</code> e <code>?agent_token=</code>).</li>
                     <li><strong>Prioridade Máxima em Filtros de Autenticação REST:</strong> O plugin registra seu validador no hook <code>rest_authentication_errors</code> com prioridade <code>99</code>. Isso garante que requisições autorizadas do SaaS não sejam bloqueadas por plugins de segurança de terceiros (como Wordfence, iThemes Security ou plugins de membership).</li>
                 </ul>
 
                 <h2>2. Gestão Granular de Proteções (Chaves Seletoras / Toggles)</h2>
-                <p>Diferente de soluções que ativam tudo de forma engessada, o <strong>Vexors Fixes</strong> permite ativar ou desativar individualmente cada proteção aplicada, sem precisar desinstalar o plugin ou editar arquivos PHP.</p>
+                <p>Diferente de soluções que ativam tudo de forma engessada, o <strong>vexors.app - Fixes</strong> permite ativar ou desativar individualmente cada proteção aplicada, sem precisar desinstalar o plugin ou editar arquivos PHP.</p>
 
                 <h3>Como Funciona no WordPress do Cliente (Painel WP-Admin):</h3>
                 <ol>
-                    <li>Acesse o menu lateral <strong>Vexors Fixes</strong> no wp-admin do cliente.</li>
+                    <li>Acesse o menu lateral <strong>vexors.app &gt; Fixes</strong> no wp-admin do cliente.</li>
                     <li>Visualize a tabela completa de proteções instaladas, incluindo título, código do teste e descrição técnica detalhada de cada uma.</li>
                     <li>Utilize a chave seletora (*Toggle Switch*) ao lado de cada item para alternar entre <span style="color:#10b981; font-weight:bold;">Ativo</span> e <span style="color:#94a3b8; font-weight:bold;">Inativo</span>. A alteração é gravada instantaneamente via AJAX na opção <code>vs_fixes_active_options</code> do banco de dados.</li>
                 </ol>
@@ -2396,10 +2396,10 @@ location ~* /(wp-config\.php|readme\.html|license\.txt) {
                 <h3>1. O plugin de correção Vexors Fixes pode quebrar meu site?</h3>
                 <p>Os patches gerados aplicam rotinas seguras e padronizadas recomendadas pela OWASP. Além disso, a nova arquitetura do <strong>Vexors Fixes</strong> conta com <strong>gestão granular de proteções</strong>: caso qualquer regra específica entre em conflito com formulários ou plugins de terceiros, você não precisa desativar todo o plugin — basta desligar apenas a proteção conflitante diretamente no menu <code>Vexors Fixes</code> do WordPress ou remotamente pelo painel do SaaS.</p>
 
-                <h3>2. O painel informa "Plugin Vexors Fixes não detectado ou inativo". Como proceder?</h3>
-                <p>Essa mensagem indica que o SaaS não obteve resposta com status HTTP 200 na rota <code>/wp-json/wp-patropi-fixes/v1/status</code>. Siga este checklist para resolução rápida:</p>
+                <h3>2. O painel informa "Plugin vexors.app - Fixes não detectado ou inativo". Como proceder?</h3>
+                <p>Essa mensagem indica que o SaaS não obteve resposta com status HTTP 200 na rota <code>/wp-json/vexors-fixes/v1/status</code>. Siga este checklist para resolução rápida:</p>
                 <ol>
-                    <li>Certifique-se de que o plugin <strong>Vexors Fixes</strong> está instalado e ativo no WordPress.</li>
+                    <li>Certifique-se de que o plugin <strong>vexors.app - Fixes</strong> está instalado e ativo no WordPress.</li>
                     <li>Verifique se você gerou o plugin recentemente. As versões anteriores não continham as rotas de toggle e token embutido. Basta clicar em <strong>"✨ Gerar Soluções em Lote"</strong> no SaaS, baixar o novo ZIP gerado e fazer o upload no WordPress substituindo o anterior.</li>
                     <li>O plugin mais recente já contém token do site embutido no código PHP (<code>VS_FIXES_SITE_TOKEN</code>) e suporte automático a bypass de WAF/ModSecurity com query param (<code>?vs_token=</code>), permitindo conexão mesmo em hospedagens que descartam cabeçalhos HTTP.</li>
                 </ol>
@@ -2407,12 +2407,12 @@ location ~* /(wp-config\.php|readme\.html|license\.txt) {
                 <h3>3. Qual a diferença entre o Plugin Agente e o Plugin de Fixes?</h3>
                 <p>Eles desempenham papéis complementares e agora são 100% independentes:</p>
                 <ul>
-                    <li><strong>Plugin Agente (wp-patropi-agent):</strong> É o módulo de <em>diagnóstico e telemetria</em>. Ele audita o banco de dados interno, inspeciona integridade dos arquivos do core do WordPress, monitora logs de erro do PHP em tempo real e orquestra atualizações remotas de temas e plugins.</li>
-                    <li><strong>Plugin de Fixes (wp-patropi-fixes):</strong> É o módulo de <em>blindagem ativa (hardening)</em>. Ele aplica em tempo de execução os filtros de segurança que bloqueiam enumeração de usuários, removem versão exposta, desativam sitemaps sensíveis e protegem arquivos de documentação, com controle liga/desliga para cada regra.</li>
+                    <li><strong>Plugin Agente (vexors-diagnostico):</strong> É o plugin <strong>vexors.app - Diagnóstico</strong>, módulo de <em>diagnóstico e telemetria</em>. Ele audita o banco de dados interno, inspeciona integridade dos arquivos do core do WordPress, monitora logs de erro do PHP em tempo real e orquestra atualizações remotas de temas e plugins.</li>
+                    <li><strong>Plugin de Fixes (vexors-fixes):</strong> É o plugin <strong>vexors.app - Fixes</strong>, módulo de <em>blindagem ativa (hardening)</em>. Ele aplica em tempo de execução os filtros de segurança que bloqueiam enumeração de usuários, removem versão exposta, desativam sitemaps sensíveis e protegem arquivos de documentação, com controle liga/desliga para cada regra.</li>
                 </ul>
 
                 <h3>4. O que fazer se a conexão com o Agente WordPress falhar?</h3>
-                <p>Acesse o painel do WordPress em <strong>Vexors > Diagnóstico</strong> e utilize o botão <strong>"⚡ Testar Reconexão com a Plataforma"</strong>. Verifique se o Token do Agente salvo coincide com o token exibido na plataforma. Caso o servidor utilize firewall rígido, certifique-se de que a rota <code>/wp-json/wp-patropi/v1/</code> está acessível externamente.</p>
+                <p>Acesse o painel do WordPress em <strong>vexors.app > Diagnóstico</strong> e utilize o botão <strong>"⚡ Testar Reconexão com a Plataforma"</strong>. Verifique se o Token do Agente salvo coincide com o token exibido na plataforma. Caso o servidor utilize firewall rígido, certifique-se de que a rota <code>/wp-json/vexors/v1/</code> está acessível externamente.</p>
 
                 <h3>5. Por que devo aplicar as alterações do Guia do Servidor manualmente?</h3>
                 <p>Arquivos como <code>.htaccess</code>, <code>nginx.conf</code> e <code>php.ini</code> controlam a infraestrutura e o processo do servidor web. Por rígidos padrões de segurança da hospedagem, o WordPress não deve (e na maioria dos servidores não tem permissão para) alterar diretamente esses arquivos. Por essa razão, a plataforma gera a sintaxe exata e testada para você colar diretamente no painel cPanel, Plesk ou terminal SSH.</p>

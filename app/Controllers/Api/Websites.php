@@ -224,7 +224,7 @@ class Websites extends ResourceController
         }
 
         // Create temp zip file
-        $tempZip = WRITEPATH . 'uploads/validar-seguranca-agent-' . $id . '.zip';
+        $tempZip = WRITEPATH . 'uploads/vexors-agent-' . $id . '.zip';
         if (file_exists($tempZip)) {
             unlink($tempZip);
         }
@@ -243,7 +243,7 @@ class Websites extends ResourceController
         foreach ($files as $file) {
             if (!$file->isDir()) {
                 $filePath = $file->getRealPath();
-                $relativePath = 'wp-patropi-diagnostico/' . substr($filePath, strlen($templatePath));
+                $relativePath = 'vexors-diagnostico/' . substr($filePath, strlen($templatePath));
                 $zip->addFile($filePath, $relativePath);
             }
         }
@@ -255,13 +255,13 @@ class Websites extends ResourceController
             'saas_url'    => $this->getSaasUrl(),
         ], JSON_PRETTY_PRINT);
 
-        $zip->addFromString('wp-patropi-diagnostico/config.json', $configContent);
+        $zip->addFromString('vexors-diagnostico/config.json', $configContent);
         $zip->close();
 
         // Stream zip download
         $siteHost = parse_url($website['url'], PHP_URL_HOST) ?: str_replace(' ', '_', strtolower($website['name']));
         $siteSlug = preg_replace('/[^a-zA-Z0-9_\-]/', '-', $siteHost);
-        return $this->response->download($tempZip, null)->setFileName("wp-patropi-diagnostico-{$siteSlug}.zip");
+        return $this->response->download($tempZip, null)->setFileName("vexors-diagnostico-{$siteSlug}.zip");
     }
 
     public function connect()
@@ -344,6 +344,7 @@ class Websites extends ResourceController
 
         $headers = [
             'Authorization: Bearer ' . $token,
+            'X-Vexors-Token: ' . $token,
             'X-Validar-Seguranca-Token: ' . $token,
             'Accept: application/json, text/plain, */*',
             'Accept-Language: pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
@@ -417,6 +418,10 @@ class Websites extends ResourceController
     {
         $baseUrlClean = rtrim($baseUrl, '/');
         $routes = [
+            $baseUrlClean . '/wp-json/vexors/v1' . $endpointPath,
+            $baseUrlClean . '/?rest_route=/vexors/v1' . $endpointPath,
+            $baseUrlClean . '/wp-json/vexors-fixes/v1' . $endpointPath,
+            $baseUrlClean . '/?rest_route=/vexors-fixes/v1' . $endpointPath,
             $baseUrlClean . '/wp-json/wp-patropi/v1' . $endpointPath,
             $baseUrlClean . '/?rest_route=/wp-patropi/v1' . $endpointPath,
             $baseUrlClean . '/wp-json/validar-seguranca/v1' . $endpointPath,
@@ -444,7 +449,7 @@ class Websites extends ResourceController
         return $lastRes ?: [
             'status'  => 404,
             'success' => false,
-            'message' => 'Não foi possível se comunicar com o agente WordPress. Certifique-se de que a versão mais recente do plugin WP Patropi Agent está instalada e ativada no site.',
+            'message' => 'Não foi possível se comunicar com o agente WordPress. Certifique-se de que a versão mais recente do plugin vexors.app - Diagnóstico está instalada e ativada no site.',
         ];
     }
 
@@ -964,10 +969,10 @@ class Websites extends ResourceController
             $agentStatus = (int) ($res['status'] ?? 500);
             $msg = $res['message'] ?? ($res['body']['message'] ?? '');
             if ($agentStatus === 401 || strpos($msg, 'Token de acesso incorreto') !== false || strpos($msg, 'vs_unauthorized') !== false) {
-                return $this->fail('Token de autenticação incorreto no WordPress. Baixe novamente o plugin WP Patropi Fixes gerado no painel para este site (o token já vem embutido), ou cole o Token em WP Patropi > Diagnóstico no seu WordPress.', 502);
+                return $this->fail('Token de autenticação incorreto no WordPress. Baixe novamente o plugin vexors.app - Fixes gerado no painel para este site (o token já vem embutido), ou cole o Token em vexors.app > Diagnóstico no seu WordPress.', 502);
             }
             if ($agentStatus === 404 || strpos($msg, 'rest_no_route') !== false) {
-                return $this->fail('Plugin WP Patropi Fixes não detectado ou rotas REST não registradas. Baixe o plugin de correções customizado pelo botão acima e ative-o no WordPress.', 502);
+                return $this->fail('Plugin vexors.app - Fixes não detectado ou rotas REST não registradas. Baixe o plugin de correções customizado pelo botão acima e ative-o no WordPress.', 502);
             }
             return $this->failAgentResponse($res, 'Falha ao buscar configurações de correções do agente');
         }
@@ -1017,7 +1022,7 @@ class Websites extends ResourceController
             $agentStatus = (int) ($res['status'] ?? 500);
             $msg = $res['message'] ?? ($res['body']['message'] ?? '');
             if ($agentStatus === 401 || strpos($msg, 'Token de acesso incorreto') !== false || strpos($msg, 'vs_unauthorized') !== false) {
-                return $this->fail('Token de autenticação incorreto no WordPress. Baixe novamente o plugin WP Patropi Fixes gerado no painel para este site, ou configure o Token em WP Patropi > Diagnóstico no painel.', 502);
+                return $this->fail('Token de autenticação incorreto no WordPress. Baixe novamente o plugin vexors.app - Fixes gerado no painel para este site, ou configure o Token em vexors.app > Diagnóstico no painel.', 502);
             }
             return $this->failAgentResponse($res, 'Falha ao alterar status da correção no agente');
         }
