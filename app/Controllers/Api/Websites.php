@@ -295,7 +295,7 @@ class Websites extends ResourceController
 
         return $this->respond([
             'status'  => 200,
-            'message' => 'Site conectado com sucesso ao Validar Segurança!',
+            'message' => 'Site conectado com sucesso ao Vexors!',
             'data'    => [
                 'site_id'      => $siteId,
                 'is_connected' => 1,

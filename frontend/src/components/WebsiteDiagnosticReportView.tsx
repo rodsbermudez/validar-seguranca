@@ -35,7 +35,7 @@ import {
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import { getDiagnosticSummary, DiagnosticSummaryResponse } from '../api';
-import { PATROPI_LOGO_BASE64 } from '../assets/logoBase64';
+import { VEXORS_LOGO_BASE64 } from '../assets/logoBase64';
 import { formatDateTime } from '../utils/date';
 
 interface WebsiteDiagnosticReportViewProps {
@@ -295,12 +295,12 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
             <div id="pdf-report-logo" style={{ display: 'none', marginBottom: 20 }}>
               <Group justify="space-between" align="center">
                 <img
-                  src={PATROPI_LOGO_BASE64}
-                  alt="SiteHub"
+                  src={VEXORS_LOGO_BASE64}
+                  alt="Vexors"
                   style={{ height: 42, width: 'auto', objectFit: 'contain' }}
                 />
                 <Badge color="green" size="sm" variant="light">
-                  Validar Segurança Platform
+                  Vexors Platform
                 </Badge>
               </Group>
               <Divider my="sm" color="dark.5" />
@@ -325,7 +325,7 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
                   {formatDateTime(report?.generated_at || new Date())}
                 </Text>
                 <Badge color="green" size="sm" variant="outline" mt={4}>
-                  Validar Segurança Platform
+                  Vexors Platform
                 </Badge>
               </div>
             </Group>
@@ -863,10 +863,10 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
             <Divider my="md" style={{ borderColor: '#475569' }} />
             <Group justify="space-between" align="center" pt="xs">
               <Text size="xs" c="dimmed" className="print-text-muted">
-                Relatório de diagnóstico gerado de forma automatizada por <b>Validar Segurança</b>.
+                Relatório de diagnóstico gerado de forma automatizada por <b>Vexors</b>.
               </Text>
               <Text size="xs" c="dimmed" className="print-text-muted">
-                Patropi Comunica — Auditoria & Hardening para WordPress
+                Vexores — Auditoria & Hardening para WordPress
               </Text>
             </Group>
           </Paper>

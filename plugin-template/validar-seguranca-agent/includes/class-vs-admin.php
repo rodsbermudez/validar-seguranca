@@ -67,8 +67,8 @@ class VS_Agent_Admin {
 
         if (empty($GLOBALS['admin_page_hooks'][$parent_slug])) {
             add_menu_page(
-                'WP Patropi',
-                'WP Patropi',
+                'Vexors',
+                'Vexors',
                 'manage_options',
                 $parent_slug,
                 array($this, 'render_admin_page'),
@@ -199,17 +199,17 @@ class VS_Agent_Admin {
         $is_connected = get_option('vs_is_connected', 0);
         ?>
         <div class="wrap">
-            <h1 class="wp-heading-inline" style="display:none;">WP Patropi - Diagnóstico</h1>
+            <h1 class="wp-heading-inline" style="display:none;">Vexors - Diagnóstico</h1>
             <hr class="wp-header-end" style="display:none;" />
 
             <?php settings_errors('vs_messages'); ?>
 
             <div style="display: flex; align-items: center; justify-content: space-between; margin: 15px 0; background: #fff; padding: 15px 20px; border-radius: 8px; border: 1px solid #e0e0e0; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
                 <div style="display: flex; align-items: center; gap: 15px;">
-                    <img src="<?php echo esc_url(VS_AGENT_URL . 'assets/logo-sitehub.svg'); ?>" alt="SiteHub" style="max-height: 42px; height: 42px; width: auto; object-fit: contain;" onerror="this.style.display='none';" />
+                    <img src="<?php echo esc_url(VS_AGENT_URL . 'assets/vexors-logo.svg'); ?>" alt="Vexors" style="max-height: 42px; height: 42px; width: auto; object-fit: contain;" onerror="this.style.display='none';" />
                     <div>
-                        <h2 style="margin: 0; font-size: 20px; font-weight: 700; color: #1e293b;">WP Patropi - Diagnóstico</h2>
-                        <p style="margin: 2px 0 0 0; font-size: 12px; color: #64748b;">Desenvolvido por <strong>Rodrigo Bermudez - Patropi Comunica</strong> (<a href="https://patropicomunica.com.br" target="_blank" style="color: #2563eb; text-decoration: none;">patropicomunica.com.br</a>)</p>
+                        <h2 style="margin: 0; font-size: 20px; font-weight: 700; color: #1e293b;">Vexors - Diagnóstico</h2>
+                        <p style="margin: 2px 0 0 0; font-size: 12px; color: #64748b;">Desenvolvido por <strong>Vexores</strong> (<a href="https://vexors.app" target="_blank" style="color: #2563eb; text-decoration: none;">vexors.app</a>)</p>
                     </div>
                 </div>
             </div>
@@ -302,16 +302,16 @@ class VS_Agent_Admin {
         $total_logs      = count($logs);
         ?>
         <div class="wrap">
-            <h1 class="wp-heading-inline" style="display:none;">WP Patropi - Logs</h1>
+            <h1 class="wp-heading-inline" style="display:none;">Vexors - Logs</h1>
             <hr class="wp-header-end" style="display:none;" />
 
             <?php settings_errors('vs_messages'); ?>
 
             <div style="display: flex; align-items: center; justify-content: space-between; margin: 15px 0; background: #fff; padding: 15px 20px; border-radius: 8px; border: 1px solid #e0e0e0; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
                 <div style="display: flex; align-items: center; gap: 15px;">
-                    <img src="<?php echo esc_url(VS_AGENT_URL . 'assets/logo-sitehub.svg'); ?>" alt="SiteHub" style="max-height: 42px; height: 42px; width: auto; object-fit: contain;" onerror="this.style.display='none';" />
+                    <img src="<?php echo esc_url(VS_AGENT_URL . 'assets/vexors-logo.svg'); ?>" alt="Vexors" style="max-height: 42px; height: 42px; width: auto; object-fit: contain;" onerror="this.style.display='none';" />
                     <div>
-                        <h2 style="margin: 0; font-size: 20px; font-weight: 700; color: #1e293b;">WP Patropi - Logs do WordPress</h2>
+                        <h2 style="margin: 0; font-size: 20px; font-weight: 700; color: #1e293b;">Vexors - Logs do WordPress</h2>
                         <p style="margin: 2px 0 0 0; font-size: 12px; color: #64748b;">Gerenciador e Visualizador de Erros em Arquivo</p>
                     </div>
                 </div>

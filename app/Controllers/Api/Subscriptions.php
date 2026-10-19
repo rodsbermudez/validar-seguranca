@@ -350,7 +350,7 @@ class Subscriptions extends ResourceController
             if ($sub && !empty($sub['gateway_subscription_id'])) {
                 $asaasService->updateSubscription($sub['gateway_subscription_id'], [
                     'value'                 => $newTotalAmount,
-                    'description'           => "Assinatura Recorrente {$newPlan['name']} - Validar Seguranca",
+                    'description'           => "Assinatura Recorrente {$newPlan['name']} - Vexors",
                     'updatePendingPayments' => true,
                 ]);
                 $subModel->update($sub['id'], [
@@ -502,7 +502,7 @@ class Subscriptions extends ResourceController
             if (!empty($sub['gateway_subscription_id'])) {
                 $asaasService->updateSubscription($sub['gateway_subscription_id'], [
                     'value'                 => $newTotalAmount,
-                    'description'           => "Assinatura Recorrente {$newPlan['name']} - Validar Seguranca",
+                    'description'           => "Assinatura Recorrente {$newPlan['name']} - Vexors",
                     'updatePendingPayments' => false,
                 ]);
             }
@@ -683,7 +683,7 @@ class Subscriptions extends ResourceController
             if ($sub && !empty($sub['gateway_subscription_id'])) {
                 $asaasService->updateSubscription($sub['gateway_subscription_id'], [
                     'value'                 => $newTotalAmount,
-                    'description'           => "Assinatura Recorrente {$plan['name']} - Validar Seguranca",
+                    'description'           => "Assinatura Recorrente {$plan['name']} - Vexors",
                     'updatePendingPayments' => true,
                 ]);
 
@@ -840,7 +840,7 @@ class Subscriptions extends ResourceController
             if (!empty($sub['gateway_subscription_id'])) {
                 $asaasService->updateSubscription($sub['gateway_subscription_id'], [
                     'value'                 => $newTotalAmount,
-                    'description'           => "Assinatura Recorrente {$plan['name']} - Validar Seguranca",
+                    'description'           => "Assinatura Recorrente {$plan['name']} - Vexors",
                     'updatePendingPayments' => false,
                 ]);
             }
@@ -988,7 +988,7 @@ class Subscriptions extends ResourceController
         if ($sub && !empty($sub['gateway_subscription_id'])) {
             $asaasService->updateSubscription($sub['gateway_subscription_id'], [
                 'value'                 => $newTotalAmount,
-                'description'           => "Assinatura Recorrente {$plan['name']} - Validar Seguranca",
+                'description'           => "Assinatura Recorrente {$plan['name']} - Vexors",
                 'updatePendingPayments' => false,
             ]);
 

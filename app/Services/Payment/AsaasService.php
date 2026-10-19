@@ -263,7 +263,7 @@ class AsaasService
     {
         if (!$this->isConfigured() || str_starts_with($paymentId, 'pay_sim_')) {
             // Gera chave e QR Code simulados para teste visual
-            $mockCopyPaste = '00020101021226830014br.gov.bcb.pix2561pix.asaas.com/qr/v2/' . $paymentId . '5204000053039865802BR5925Validar Seguranca Saas6009Sao Paulo62070503***6304ABCD';
+            $mockCopyPaste = '00020101021226830014br.gov.bcb.pix2561pix.asaas.com/qr/v2/' . $paymentId . '5204000053039865802BR5911Vexors Saas6009Sao Paulo62070503***6304ABCD';
             
             // SVG QR Code simplificado convertido para base64
             $svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200"><rect width="200" height="200" fill="#ffffff"/><rect x="20" y="20" width="40" height="40" fill="#000000"/><rect x="140" y="20" width="40" height="40" fill="#000000"/><rect x="20" y="140" width="40" height="40" fill="#000000"/><rect x="70" y="70" width="60" height="60" fill="#4f46e5"/><text x="100" y="105" font-family="sans-serif" font-size="12" fill="#ffffff" text-anchor="middle" font-weight="bold">PIX ASAAS</text><text x="100" y="185" font-family="sans-serif" font-size="10" fill="#666666" text-anchor="middle">Modo Homologação</text></svg>';

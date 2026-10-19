@@ -311,14 +311,14 @@ export const WebsiteLogsView: React.FC<WebsiteLogsViewProps> = ({ website, onBac
               </Text>
               <Stack gap={4}>
                 <Text size="xs">
-                  1. Certifique-se de que o plugin <b>WP Patropi Agent</b> está instalado e ativado no WordPress do site (
+                  1. Certifique-se de que o plugin <b>Vexors Agent</b> está instalado e ativado no WordPress do site (
                   <Text component="a" href={website.url} target="_blank" rel="noopener noreferrer" c="blue.4">
                     {website.url}
                   </Text>
                   ).
                 </Text>
                 <Text size="xs">
-                  2. Acesse o painel do seu WordPress em <b>WP Patropi</b> e clique no botão de <b>Reconectar / Re-sincronizar</b> para restaurar a chave da ponte.
+                  2. Acesse o painel do seu WordPress em <b>Vexors</b> e clique no botão de <b>Reconectar / Re-sincronizar</b> para restaurar a chave da ponte.
                 </Text>
                 <Text size="xs">
                   3. Em caso de <b>Erro 404</b> (como acima), acesse no painel do WordPress em <b>Configurações &gt; Links Permanentes</b> e clique em <b>"Salvar Alterações"</b> para redefinir as rotas da REST API.

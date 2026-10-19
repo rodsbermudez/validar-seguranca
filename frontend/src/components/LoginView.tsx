@@ -53,7 +53,7 @@ export const LoginView: React.FC<LoginModalProps> = ({ onLoginSuccess }) => {
       </Group>
 
       <Title ta="center" order={2} fw={700}>
-        Validar Segurança
+        Vexors
       </Title>
       <Text c="dimmed" size="sm" ta="center" mt={5} mb={30}>
         Painel de Auditoria e Segurança WordPress

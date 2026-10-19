@@ -7,6 +7,18 @@ import './index.css';
 
 const theme = createTheme({
   colors: {
+    vexors: [
+      '#e8f2f3',
+      '#c6dfe1',
+      '#98c5c9',
+      '#6aacb0',
+      '#43969c',
+      '#2c8990',
+      '#1a7f86', // Cor Primária Vexors
+      '#166c72',
+      '#12565b',
+      '#0c3d40',
+    ],
     sitehub: [
       '#e8f2f3',
       '#c6dfe1',
@@ -14,7 +26,7 @@ const theme = createTheme({
       '#6aacb0',
       '#43969c',
       '#2c8990',
-      '#1a7f86', // Cor Primária SiteHub
+      '#1a7f86',
       '#166c72',
       '#12565b',
       '#0c3d40',

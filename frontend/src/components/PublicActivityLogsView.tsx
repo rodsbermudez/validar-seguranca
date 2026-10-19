@@ -141,7 +141,7 @@ export const PublicActivityLogsView: React.FC<PublicActivityLogsViewProps> = ({
 
   return (
     <Box bg="dark.9" style={{ minHeight: '100vh' }}>
-      {/* Cabeçalho Minimalista: Somente a Logo da Patropi */}
+      {/* Cabeçalho Minimalista: Somente a Logo da Vexors */}
       <Box
         component="header"
         bg="dark.8"
@@ -155,18 +155,18 @@ export const PublicActivityLogsView: React.FC<PublicActivityLogsViewProps> = ({
           <Group justify="space-between" align="center">
             <Group gap="sm">
               <img
-                src="images/logo-sitehub.svg"
+                src="images/vexors-logo.svg"
                 onError={(e) => {
                   const target = e.currentTarget as HTMLImageElement;
                   if (target.dataset.tried === '1') {
-                    target.src = '/images/logo-sitehub.svg';
+                    target.src = '/images/vexors-logo.svg';
                     target.dataset.tried = '2';
                   } else {
                     target.dataset.tried = '1';
-                    target.src = './images/logo-sitehub.svg';
+                    target.src = './images/vexors-logo.svg';
                   }
                 }}
-                alt="SiteHub"
+                alt="Vexors"
                 style={{ height: 38, width: 'auto', display: 'block' }}
               />
             </Group>

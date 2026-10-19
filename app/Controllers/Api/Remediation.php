@@ -137,7 +137,7 @@ class Remediation extends ResourceController
             // Package into ZIP
             $siteHost = parse_url($website['url'], PHP_URL_HOST) ?: 'site';
             $siteSlug = preg_replace('/[^a-zA-Z0-9_\-]/', '-', $siteHost);
-            $zipFilename = "wp-patropi-fixes-{$siteSlug}.zip";
+            $zipFilename = "vexors-fixes-{$siteSlug}.zip";
 
             $tempDir = WRITEPATH . 'uploads/temp_remediation/';
             if (!is_dir($tempDir)) {
@@ -160,18 +160,18 @@ class Remediation extends ResourceController
                 $zip->addFile($faviconPath, "{$pluginDirName}/assets/favicon.png");
             }
 
-            $logoPath = ROOTPATH . 'public/images/logo-sitehub.svg';
+            $logoPath = ROOTPATH . 'public/images/vexors-logo.svg';
             if (file_exists($logoPath)) {
+                $zip->addFile($logoPath, "{$pluginDirName}/assets/vexors-logo.svg");
                 $zip->addFile($logoPath, "{$pluginDirName}/assets/logo-sitehub.svg");
-            } elseif (file_exists(ROOTPATH . 'public/images/logo-sutehub.svg')) {
-                $zip->addFile(ROOTPATH . 'public/images/logo-sutehub.svg', "{$pluginDirName}/assets/logo-sitehub.svg");
-            } elseif (file_exists(ROOTPATH . 'public/images/logo-Patropi.png')) {
-                $zip->addFile(ROOTPATH . 'public/images/logo-Patropi.png', "{$pluginDirName}/assets/logo-Patropi.png");
+            } elseif (file_exists(ROOTPATH . 'public/images/logo-sitehub.svg')) {
+                $zip->addFile(ROOTPATH . 'public/images/logo-sitehub.svg', "{$pluginDirName}/assets/vexors-logo.svg");
+                $zip->addFile(ROOTPATH . 'public/images/logo-sitehub.svg', "{$pluginDirName}/assets/logo-sitehub.svg");
             }
 
             // Create Readme.txt
             $readmeText = "====================================================\n" .
-                "VALIDAR SEGURANÇA - PLUGIN CUSTOMIZADO DE REMEDIAÇÃO\n" .
+                "VEXORS - PLUGIN CUSTOMIZADO DE REMEDIAÇÃO\n" .
                 "====================================================\n\n" .
                 "Website Alvo: {$website['url']}\n" .
                 "Data de Geração: " . date('Y-m-d H:i:s') . "\n\n" .
@@ -194,7 +194,7 @@ class Remediation extends ResourceController
                 "2. Vá em 'Plugins' > 'Adicionar Novo' > 'Enviar Plugin'.\n" .
                 "3. Selecione este arquivo ZIP e clique em 'Instalar Agora'.\n" .
                 "4. Clique em 'Ativar Plugin'.\n\n" .
-                "Após a ativação, re-execute a varredura na plataforma Validar Segurança para confirmar o sanamento das falhas.\n";
+                "Após a ativação, re-execute a varredura na plataforma Vexors para confirmar o sanamento das falhas.\n";
 
             $zip->addFromString("{$pluginDirName}/readme.txt", $readmeText);
             $zip->close();
@@ -655,9 +655,9 @@ class Remediation extends ResourceController
 
         $code = "<?php\n";
         $code .= "/**\n";
-        $code .= " * Plugin Name: WP Patropi - Fixes - {$siteHost}\n";
+        $code .= " * Plugin Name: Vexors - Fixes - {$siteHost}\n";
         $code .= " * Plugin URI: {$authorUri}\n";
-        $code .= " * Description: Plugin customizado de remediação de segurança gerado pela plataforma Validar Segurança.\n";
+        $code .= " * Description: Plugin customizado de remediação de segurança gerado pela plataforma Vexors.\n";
         $code .= " * Version: 1.0.1\n";
         $code .= " * Author: {$authorName}\n";
         $code .= " * Author URI: {$authorUri}\n";
@@ -703,7 +703,7 @@ class Remediation extends ResourceController
         $code .= "    \$parent_slug = 'wp-patropi';\n";
         $code .= "    \$icon_url    = plugins_url('assets/favicon.png', __FILE__);\n";
         $code .= "    if (empty(\$GLOBALS['admin_page_hooks'][\$parent_slug])) {\n";
-        $code .= "        add_menu_page('WP Patropi', 'WP Patropi', 'manage_options', \$parent_slug, 'vs_render_remediation_admin_page', \$icon_url, 80);\n";
+        $code .= "        add_menu_page('Vexors', 'Vexors', 'manage_options', \$parent_slug, 'vs_render_remediation_admin_page', \$icon_url, 80);\n";
         $code .= "    }\n";
         $code .= "    add_submenu_page(\$parent_slug, 'Fixes', 'Fixes', 'manage_options', 'wp-patropi-fixes', 'vs_render_remediation_admin_page');\n";
         $code .= "}, 20);\n\n";
@@ -725,17 +725,17 @@ class Remediation extends ResourceController
         $code .= "            \$settings = \$new_settings;\n";
         $code .= "            \$notice = '<div class=\"notice notice-success is-dismissible\" style=\"margin: 15px 0 20px 0;\"><p><strong>Configurações de correções salvas com sucesso!</strong></p></div>';\n";
         $code .= "        }\n\n";
-        $code .= "        \$logo_url = plugins_url('assets/logo-sitehub.svg', __FILE__);\n";
+        $code .= "        \$logo_url = plugins_url('assets/vexors-logo.svg', __FILE__);\n";
         $code .= "        echo '<div class=\"wrap\">';\n";
-        $code .= "        echo '<h1 class=\"wp-heading-inline\" style=\"display:none;\">WP Patropi - Fixes</h1>';\n";
+        $code .= "        echo '<h1 class=\"wp-heading-inline\" style=\"display:none;\">Vexors - Fixes</h1>';\n";
         $code .= "        echo '<hr class=\"wp-header-end\" style=\"display:none;\" />';\n";
         $code .= "        if (\$notice) echo \$notice;\n";
         $code .= "        echo '<div style=\"display: flex; align-items: center; justify-content: space-between; margin: 15px 0; background: #fff; padding: 15px 20px; border-radius: 8px; border: 1px solid #e0e0e0; box-shadow: 0 1px 3px rgba(0,0,0,0.05);\">';\n";
         $code .= "        echo '  <div style=\"display: flex; align-items: center; gap: 15px;\">';\n";
-        $code .= "        echo '    <img src=\"' . esc_url(\$logo_url) . '\" alt=\"SiteHub\" style=\"max-height: 42px; height: 42px; width: auto; object-fit: contain;\" onerror=\"this.style.display=\\'none\\';\" />';\n";
+        $code .= "        echo '    <img src=\"' . esc_url(\$logo_url) . '\" alt=\"Vexors\" style=\"max-height: 42px; height: 42px; width: auto; object-fit: contain;\" onerror=\"this.style.display=\\'none\\';\" />';\n";
         $code .= "        echo '    <div>';\n";
-        $code .= "        echo '      <h2 style=\"margin: 0; font-size: 20px; font-weight: 700; color: #1e293b;\">WP Patropi - Fixes</h2>';\n";
-        $code .= "        echo '      <p style=\"margin: 2px 0 0 0; font-size: 12px; color: #64748b;\">Desenvolvido por <strong>{$authorName}</strong> (<a href=\"{$authorUri}\" target=\"_blank\" style=\"color: #2563eb; text-decoration: none;\">patropicomunica.com.br</a>)</p>';\n";
+        $code .= "        echo '      <h2 style=\"margin: 0; font-size: 20px; font-weight: 700; color: #1e293b;\">Vexors - Fixes</h2>';\n";
+        $code .= "        echo '      <p style=\"margin: 2px 0 0 0; font-size: 12px; color: #64748b;\">Desenvolvido por <strong>{$authorName}</strong> (<a href=\"{$authorUri}\" target=\"_blank\" style=\"color: #2563eb; text-decoration: none;\">vexors.app</a>)</p>';\n";
         $code .= "        echo '    </div>';\n";
         $code .= "        echo '  </div>';\n";
         $code .= "        echo '</div>';\n";

@@ -75,7 +75,7 @@ export const ScanReport: React.FC<ScanReportProps> = ({ website, onBack: _onBack
   const [serverGuideHtml, setServerGuideHtml] = useState<string | null>(null);
   const [serverGuideError, setServerGuideError] = useState<string | null>(null);
 
-  // WP Patropi Fixes State
+  // Vexors Fixes State
   const [fixesData, setFixesData] = useState<WebsiteFixesResponse | null>(null);
   const [fixesLoading, setFixesLoading] = useState(false);
   const [fixesError, setFixesError] = useState<string | null>(null);
@@ -406,7 +406,7 @@ export const ScanReport: React.FC<ScanReportProps> = ({ website, onBack: _onBack
             <div>
               <Group gap="xs" align="center">
                 <Text size="sm" fw={700} c="white">
-                  🛡️ Correções do WordPress (Plugin WP Patropi Fixes)
+                  🛡️ Correções do WordPress (Plugin Vexors Fixes)
                 </Text>
                 {fixesData?.installed && fixesData.fixes.length > 0 && (
                   <Badge color="teal" variant="light" size="xs">
@@ -441,7 +441,7 @@ export const ScanReport: React.FC<ScanReportProps> = ({ website, onBack: _onBack
           <Center p="xl">
             <Stack align="center" gap="xs">
               <Loader size="sm" color="teal" />
-              <Text size="xs" c="dimmed">Consultando plugin WP Patropi Fixes no WordPress...</Text>
+              <Text size="xs" c="dimmed">Consultando plugin Vexors Fixes no WordPress...</Text>
             </Stack>
           </Center>
         ) : fixesData?.installed && fixesData.fixes.length > 0 ? (
@@ -526,7 +526,7 @@ export const ScanReport: React.FC<ScanReportProps> = ({ website, onBack: _onBack
               {fixesError}
             </Text>
             <Text size="xs" mt={8} c="yellow.2">
-              💡 <strong>Como resolver:</strong> Certifique-se de que a nova versão do plugin <strong>WP Patropi Fixes</strong> (ou do <strong>WP Patropi Diagnóstico</strong>) está instalada e ativa no WordPress do site. Novos plugins de correção gerados já incluem comunicação direta com o SaaS.
+              💡 <strong>Como resolver:</strong> Certifique-se de que a nova versão do plugin <strong>Vexors Fixes</strong> (ou do <strong>Vexors Diagnóstico</strong>) está instalada e ativa no WordPress do site. Novos plugins de correção gerados já incluem comunicação direta com o SaaS.
             </Text>
           </Alert>
         ) : (
@@ -537,10 +537,10 @@ export const ScanReport: React.FC<ScanReportProps> = ({ website, onBack: _onBack
             radius="md"
           >
             <Text size="sm" fw={600}>
-              Plugin WP Patropi Fixes não detectado ou inativo
+              Plugin Vexors Fixes não detectado ou inativo
             </Text>
             <Text size="xs" mt={4}>
-              Para gerenciar as correções e habilitar/desabilitar proteções em tempo real, gere o plugin customizado pelo botão acima ou ative o plugin <strong>WP Patropi Fixes</strong> no WordPress do cliente.
+              Para gerenciar as correções e habilitar/desabilitar proteções em tempo real, gere o plugin customizado pelo botão acima ou ative o plugin <strong>Vexors Fixes</strong> no WordPress do cliente.
             </Text>
           </Alert>
         )}
@@ -738,7 +738,7 @@ export const ScanReport: React.FC<ScanReportProps> = ({ website, onBack: _onBack
             </Grid>
           </Paper>
 
-          {/* Plugin WP Patropi Fixes Management */}
+          {/* Plugin Vexors Fixes Management */}
           {renderFixesCard()}
 
           {/* Categorized Security Checks Accordion */}

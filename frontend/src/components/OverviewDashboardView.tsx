@@ -361,7 +361,7 @@ export const OverviewDashboardView: React.FC<OverviewDashboardViewProps> = ({
             </ThemeIcon>
           </Center>
           <Title order={3} mb="xs">
-            Bem-vindo ao Validar Segurança!
+            Bem-vindo ao Vexors!
           </Title>
           <Text size="sm" c="dimmed" style={{ maxWidth: 540, margin: '0 auto' }} mb="lg">
             Você ainda não possui nenhum website cadastrado nesta conta. Cadastre seu primeiro site WordPress para iniciar auditorias de segurança, monitorar a integridade dos arquivos e gerenciar o cronograma de manutenções.

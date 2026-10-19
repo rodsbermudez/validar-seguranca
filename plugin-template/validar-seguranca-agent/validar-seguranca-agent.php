@@ -1,11 +1,11 @@
 <?php
 /**
- * Plugin Name: WP Patropi - Diagnóstico
- * Plugin URI: https://patropicomunica.com.br
+ * Plugin Name: Vexors - Diagnóstico
+ * Plugin URI: https://vexors.app
  * Description: Plugin Agente para diagnóstico interno profundo de segurança em sites WordPress.
  * Version: 1.0.0
- * Author: Rodrigo Bermudez - Patropi Comunica
- * Author URI: https://patropicomunica.com.br
+ * Author: Vexores
+ * Author URI: https://vexors.app
  * License: GPLv2 or later
  * Text Domain: wp-patropi-diagnostico
  */

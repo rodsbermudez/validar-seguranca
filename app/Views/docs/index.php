@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Documentação & Guia de Uso — Validar Segurança</title>
+    <title>Documentação & Guia de Uso — Vexors</title>
     <link rel="icon" type="image/png" href="<?= base_url('favicon.png') ?>">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -636,7 +636,7 @@
     <!-- Header Navigation -->
     <header>
         <a href="<?= base_url('docs') ?>" class="brand">
-            <img src="<?= base_url('images/logo-sitehub.svg') ?>" alt="Logo SiteHub" style="height: 38px; width: auto; max-width: 220px; object-fit: contain;">
+            <img src="<?= base_url('images/vexors-logo.svg') ?>" alt="Vexors" style="height: 38px; width: auto; max-width: 220px; object-fit: contain;">
             <span class="brand-badge">Documentação</span>
             <span id="adminBadgeIndicator" class="admin-badge-indicator">👑 Visão Administrador</span>
         </a>
@@ -705,9 +705,9 @@
             <!-- 1. Visão Geral -->
             <section id="visao-geral" class="doc-section">
                 <h1>🚀 Visão Geral da Plataforma</h1>
-                <p>O <strong>Validar Segurança</strong> é uma plataforma avançada de auditoria, diagnóstico contínuo e remediação inteligente de segurança voltada para aplicações <strong>WordPress</strong>.</p>
+                <p>O <strong>Vexors</strong> é uma plataforma avançada de auditoria, diagnóstico contínuo e remediação inteligente de segurança voltada para aplicações <strong>WordPress</strong>.</p>
                 
-                <p>A plataforma adota uma <strong>arquitetura híbrida de proteção</strong>, unindo varreduras externas não invasivas com a coleta interna promovida pelo <strong>Plugin Agente Patropi</strong> instalado diretamente na aplicação WordPress.</p>
+                <p>A plataforma adota uma <strong>arquitetura híbrida de proteção</strong>, unindo varreduras externas não invasivas com a coleta interna promovida pelo <strong>Plugin Agente Vexors</strong> instalado diretamente na aplicação WordPress.</p>
 
                 <div class="callout callout-info">
                     <div class="callout-title">💡 Como Funciona a Proteção Híbrida?</div>
@@ -720,7 +720,7 @@
                     <li><strong>Triagem Automática:</strong> Separação entre falhas que podem ser corrigidas por plugin e falhas que exigem configurações no servidor web.</li>
                     <li><strong>Remediação com IA:</strong> Geração automatizada de plugins PHP sob medida e guias de servidor detalhados alimentados pelo modelo <code>Kimi K2.7 Code</code> via OpenCode Zen API.</li>
                     <li><strong>Logs de Atividades & Diário Técnico:</strong> Linha do tempo unificada com manutenções e intervenções avulsas, suporte a código e links clicáveis.</li>
-                    <li><strong>Link Público para Clientes:</strong> Compartilhamento direto com o cliente em modo somente leitura com identidade visual da Patropi.</li>
+                    <li><strong>Link Público para Clientes:</strong> Compartilhamento direto com o cliente em modo somente leitura com identidade visual da Vexors.</li>
                 </ul>
 
                 <h2>Navegação e Menus da Plataforma</h2>
@@ -810,7 +810,7 @@
             <!-- 3. Auditoria de Segurança -->
             <section id="auditoria-de-seguranca" class="doc-section">
                 <h1>🛡️ Auditoria & Varreduras de Segurança</h1>
-                <p>O módulo de auditoria executa varreduras automatizadas e profundas combinando <strong>análise perimetral externa não-invasiva</strong> com <strong>auditoria interna conectada</strong> (via plugin WP Patropi Agent). São mais de <strong>30 checagens automatizadas</strong> cobrindo todo o espectro de segurança do ecossistema WordPress.</p>
+                <p>O módulo de auditoria executa varreduras automatizadas e profundas combinando <strong>análise perimetral externa não-invasiva</strong> com <strong>auditoria interna conectada</strong> (via plugin Vexors Agent). São mais de <strong>30 checagens automatizadas</strong> cobrindo todo o espectro de segurança do ecossistema WordPress.</p>
                 
                 <div class="callout callout-info">
                     <div class="callout-title">📋 Por que ter esta lista em mãos?</div>
@@ -1114,7 +1114,7 @@
                         </div>
                         <div class="test-meta-box">
                             <div class="test-meta-title test-meta-fix">🛠️ Como Corrigir</div>
-                            Pode ser ativado com <strong>1 clique pelo Plugin WP Patropi Fixes</strong> (toggle "Strict-Transport-Security") ou adicionando a diretiva de cabeçalho no <code>.htaccess</code> conforme indicado no Guia do Servidor.
+                            Pode ser ativado com <strong>1 clique pelo Plugin Vexors Fixes</strong> (toggle "Strict-Transport-Security") ou adicionando a diretiva de cabeçalho no <code>.htaccess</code> conforme indicado no Guia do Servidor.
                         </div>
                     </div>
                 </div>
@@ -1421,7 +1421,7 @@
                         </div>
                         <div class="test-meta-box">
                             <div class="test-meta-title test-meta-fix">🛠️ Como Corrigir</div>
-                            Ativar a proteção com <strong>1 clique no Plugin WP Patropi Fixes</strong> (toggle "Enumeração de Usuários via REST API"), que restringe a listagem de usuários apenas para chamadas autenticadas retornando HTTP 401.
+                            Ativar a proteção com <strong>1 clique no Plugin Vexors Fixes</strong> (toggle "Enumeração de Usuários via REST API"), que restringe a listagem de usuários apenas para chamadas autenticadas retornando HTTP 401.
                         </div>
                     </div>
                 </div>
@@ -1444,7 +1444,7 @@
                         </div>
                         <div class="test-meta-box">
                             <div class="test-meta-title test-meta-fix">🛠️ Como Corrigir</div>
-                            Habilitar o Fix de 1 clique no <strong>Plugin WP Patropi Fixes</strong> (toggle "Redirecionamento de Consultas de Autor"), que intercepta qualquer requisição por <code>?author=N</code> e a redireciona com HTTP 301 para a página inicial (<code>/</code>).
+                            Habilitar o Fix de 1 clique no <strong>Plugin Vexors Fixes</strong> (toggle "Redirecionamento de Consultas de Autor"), que intercepta qualquer requisição por <code>?author=N</code> e a redireciona com HTTP 301 para a página inicial (<code>/</code>).
                         </div>
                     </div>
                 </div>
@@ -1467,7 +1467,7 @@
                         </div>
                         <div class="test-meta-box">
                             <div class="test-meta-title test-meta-fix">🛠️ Como Corrigir</div>
-                            Ativar o toggle correspondente no <strong>Plugin WP Patropi Fixes</strong>, que desativa os provedores de autores nos plugins Yoast SEO, Rank Math e no core do WordPress, bloqueando essas rotas com status HTTP 404.
+                            Ativar o toggle correspondente no <strong>Plugin Vexors Fixes</strong>, que desativa os provedores de autores nos plugins Yoast SEO, Rank Math e no core do WordPress, bloqueando essas rotas com status HTTP 404.
                         </div>
                     </div>
                 </div>
@@ -1490,7 +1490,7 @@
                         </div>
                         <div class="test-meta-box">
                             <div class="test-meta-title test-meta-fix">🛠️ Como Corrigir</div>
-                            Desativar com 1 clique no <strong>Plugin WP Patropi Fixes</strong> (toggle "Desativação Completa do XML-RPC") ou bloquear requisições para <code>xmlrpc.php</code> retornando HTTP 403 Forbidden no <code>.htaccess</code> / Nginx.
+                            Desativar com 1 clique no <strong>Plugin Vexors Fixes</strong> (toggle "Desativação Completa do XML-RPC") ou bloquear requisições para <code>xmlrpc.php</code> retornando HTTP 403 Forbidden no <code>.htaccess</code> / Nginx.
                         </div>
                     </div>
                 </div>
@@ -1540,7 +1540,7 @@
                         </div>
                         <div class="test-meta-box">
                             <div class="test-meta-title test-meta-fix">🛠️ Como Corrigir</div>
-                            Habilitar a proteção no <strong>Plugin WP Patropi Fixes</strong> (toggle "Ocultar Versões e Proteger Readme") para remover a ação <code>wp_generator</code> do cabeçalho HTML.
+                            Habilitar a proteção no <strong>Plugin Vexors Fixes</strong> (toggle "Ocultar Versões e Proteger Readme") para remover a ação <code>wp_generator</code> do cabeçalho HTML.
                         </div>
                     </div>
                 </div>
@@ -1563,14 +1563,14 @@
                         </div>
                         <div class="test-meta-box">
                             <div class="test-meta-title test-meta-fix">🛠️ Como Corrigir</div>
-                            Ativar no <strong>Plugin WP Patropi Fixes</strong> o toggle correspondente, que remove os argumentos <code>?ver=</code> de scripts/estilos e bloqueia o acesso a arquivos <code>readme.txt</code> e <code>license.txt</code> dos plugins.
+                            Ativar no <strong>Plugin Vexors Fixes</strong> o toggle correspondente, que remove os argumentos <code>?ver=</code> de scripts/estilos e bloqueia o acesso a arquivos <code>readme.txt</code> e <code>license.txt</code> dos plugins.
                         </div>
                     </div>
                 </div>
 
                 <!-- 5. Agente Interno -->
                 <h2 id="testes-agente">🔌 5. Auditoria Interna do Agente WordPress</h2>
-                <p>Testes de alta precisão executados a partir do banco de dados e arquivos internos do WordPress através da ponte criptografada com o plugin <strong>WP Patropi Agent</strong>.</p>
+                <p>Testes de alta precisão executados a partir do banco de dados e arquivos internos do WordPress através da ponte criptografada com o plugin <strong>Vexors Agent</strong>.</p>
 
                 <div class="test-card">
                     <div class="test-card-header">
@@ -1816,22 +1816,22 @@
 
             <!-- 4. Plugin Agente WordPress -->
             <section id="plugin-agente" class="doc-section">
-                <h1>🔌 Plugin Agente WordPress (Patropi Agent)</h1>
-                <p>O <strong>Validar Segurança Agent</strong> é o plugin companheiro que conecta a plataforma diretamente ao WordPress para coletar informações internas e permitir a aplicação de correções.</p>
+                <h1>🔌 Plugin Agente WordPress (Vexors Agent)</h1>
+                <p>O <strong>Vexors Agent</strong> é o plugin companheiro que conecta a plataforma diretamente ao WordPress para coletar informações internas e permitir a aplicação de correções.</p>
 
                 <h2>Como Instalar e Conectar o Agente</h2>
                 <ol>
                     <li>Na listagem de websites da plataforma, clique em <strong>"Baixar Agente WP"</strong> para obter o arquivo <code>validar-seguranca-agent.zip</code>.</li>
                     <li>No WordPress do cliente, vá em <code>Plugins > Adicionar Novo > Enviar Plugin</code> e ative o plugin.</li>
                     <li>Copie o <strong>Token de Conexão Único</strong> gerado na plataforma para o site desejado.</li>
-                    <li>No WordPress, acesse a tela do plugin <strong>WP Patropi > Diagnóstico</strong> e cole o token para concluir a conexão.</li>
+                    <li>No WordPress, acesse a tela do plugin <strong>Vexors > Diagnóstico</strong> e cole o token para concluir a conexão.</li>
                 </ol>
 
                 <h2>Botão de Reconexão e Refazer Ponte</h2>
                 <p>Caso o token seja alterado na plataforma ou a conexão entre a aplicação WordPress e o painel seja interrompida, o plugin conta com o botão <strong>"⚡ Testar Reconexão com a Plataforma"</strong>. Ele permite reiniciar o handshake de autenticação de forma simples e direta, sem a necessidade de reinstalar o plugin.</p>
 
                 <h2>Configuração Manual de Credenciais no WP-Admin</h2>
-                <p>Caso você reinstale o plugin manualmente ou queira conferir se o token salvo coincide com o painel SaaS, a página <strong>WP Patropi > Diagnóstico</strong> no WordPress disponibiliza campos editáveis para:</p>
+                <p>Caso você reinstale o plugin manualmente ou queira conferir se o token salvo coincide com o painel SaaS, a página <strong>Vexors > Diagnóstico</strong> no WordPress disponibiliza campos editáveis para:</p>
                 <ul>
                     <li><strong>ID do Site no SaaS:</strong> Identificador numérico do site no banco da plataforma.</li>
                     <li><strong>Token do Agente:</strong> Chave de segurança exclusiva de comunicação.</li>
@@ -1964,7 +1964,7 @@
 
                 <h2>Características da Visão do Cliente</h2>
                 <ul>
-                    <li><strong>Identidade Visual Patropi Comunica:</strong> O cabeçalho da visualização pública é minimalista e limpo, contendo exclusivamente a logomarca da Patropi Comunica, garantindo profissionalismo e foco no conteúdo.</li>
+                    <li><strong>Identidade Visual Vexores:</strong> O cabeçalho da visualização pública é minimalista e limpo, contendo exclusivamente a logomarca da Vexors, garantindo profissionalismo e foco no conteúdo.</li>
                     <li><strong>Modo Estrito de Leitura (Sem Edição):</strong> O cliente pode navegar, pesquisar palavras-chave e filtrar por categoria, mas não possui permissão para editar, excluir ou criar novas notas.</li>
                     <li><strong>Segurança via Token Criptográfico:</strong> O acesso é liberado por meio de um token aleatório de 64 caracteres hexadecimais (<code>public_log_token</code>), sem expor IDs internos do banco de dados.</li>
                     <li><strong>Regeneração Instantânea:</strong> No painel do site, ao clicar em <strong>"Link para Cliente"</strong>, você pode copiar a URL pública ou regenerar o token a qualquer momento caso queira revogar acessos antigos.</li>
@@ -1974,10 +1974,10 @@
             <!-- 8. Remediação Híbrida & Plugin de Fixes -->
             <section id="remediacao-e-ia" class="doc-section">
                 <h1>🤖 Remediação Híbrida, Plugin de Fixes & Inteligência Artificial</h1>
-                <p>Nem todas as falhas de segurança podem ser tratadas da mesma forma. O <strong>Validar Segurança</strong> adota uma metodologia estruturada dividida entre correções automatizáveis no nível do código WordPress e orientações de infraestrutura para o servidor web:</p>
+                <p>Nem todas as falhas de segurança podem ser tratadas da mesma forma. O <strong>Vexors</strong> adota uma metodologia estruturada dividida entre correções automatizáveis no nível do código WordPress e orientações de infraestrutura para o servidor web:</p>
 
-                <h2>1. Plugin Dedicado de Correções: WP Patropi Fixes (`wp-patropi-fixes`)</h2>
-                <p>Para falhas relativas à aplicação WordPress (ocultação de versão, proteção contra enumeração de autores, cabeçalhos de segurança via PHP, bloqueio de sitemaps sensíveis e arquivos de documentação), a plataforma gera o plugin exclusivo <strong>WP Patropi Fixes</strong>.</p>
+                <h2>1. Plugin Dedicado de Correções: Vexors Fixes (`wp-patropi-fixes`)</h2>
+                <p>Para falhas relativas à aplicação WordPress (ocultação de versão, proteção contra enumeração de autores, cabeçalhos de segurança via PHP, bloqueio de sitemaps sensíveis e arquivos de documentação), a plataforma gera o plugin exclusivo <strong>Vexors Fixes</strong>.</p>
 
                 <div class="callout callout-success">
                     <div class="callout-title">⚡ Arquitetura 100% Autônoma e Desacoplada</div>
@@ -1994,19 +1994,19 @@
                 </ul>
 
                 <h2>2. Gestão Granular de Proteções (Chaves Seletoras / Toggles)</h2>
-                <p>Diferente de soluções que ativam tudo de forma engessada, o <strong>WP Patropi Fixes</strong> permite ativar ou desativar individualmente cada proteção aplicada, sem precisar desinstalar o plugin ou editar arquivos PHP.</p>
+                <p>Diferente de soluções que ativam tudo de forma engessada, o <strong>Vexors Fixes</strong> permite ativar ou desativar individualmente cada proteção aplicada, sem precisar desinstalar o plugin ou editar arquivos PHP.</p>
 
                 <h3>Como Funciona no WordPress do Cliente (Painel WP-Admin):</h3>
                 <ol>
-                    <li>Acesse o menu lateral <strong>WP Patropi Fixes</strong> no wp-admin do cliente.</li>
+                    <li>Acesse o menu lateral <strong>Vexors Fixes</strong> no wp-admin do cliente.</li>
                     <li>Visualize a tabela completa de proteções instaladas, incluindo título, código do teste e descrição técnica detalhada de cada uma.</li>
                     <li>Utilize a chave seletora (*Toggle Switch*) ao lado de cada item para alternar entre <span style="color:#10b981; font-weight:bold;">Ativo</span> e <span style="color:#94a3b8; font-weight:bold;">Inativo</span>. A alteração é gravada instantaneamente via AJAX na opção <code>vs_fixes_active_options</code> do banco de dados.</li>
                 </ol>
 
-                <h3>Como Funciona Remotamente no SaaS (Painel Validar Segurança):</h3>
+                <h3>Como Funciona Remotamente no SaaS (Painel Vexors):</h3>
                 <ol>
                     <li>Acesse o site na plataforma e clique na aba <strong>Auditoria e Segurança</strong>.</li>
-                    <li>Role até a seção <strong>"Proteções Ativas (WP Patropi Fixes)"</strong>.</li>
+                    <li>Role até a seção <strong>"Proteções Ativas (Vexors Fixes)"</strong>.</li>
                     <li>Se o plugin estiver ativo no WordPress, a lista de proteções será exibida com seus respectivos status em tempo real.</li>
                     <li>Clique no toggle de qualquer proteção para habilitá-la ou desabilitá-la remotamente. O SaaS comunica-se via REST API autenticada com o WordPress do cliente, persistindo o estado imediatamente.</li>
                 </ol>
@@ -2065,7 +2065,7 @@ location ~* /(wp-config\.php|readme\.html|license\.txt) {
             <!-- 5. Gestão do Plano & Consumo de IA (Visão do Cliente) -->
             <section id="gestao-plano-cliente" class="doc-section">
                 <h1>📦 Gestão do Plano, Assinaturas & Add-ons</h1>
-                <p>No <strong>Validar Segurança</strong>, o acesso aos recursos da plataforma é estruturado através de <strong>Planos & Assinaturas</strong> desenhados para oferecer total autonomia, flexibilidade e previsibilidade de custos aos clientes. Cada conta possui uma assinatura mensal ativa com limites claros de websites monitorados e cota de tokens de Inteligência Artificial.</p>
+                <p>No <strong>Vexors</strong>, o acesso aos recursos da plataforma é estruturado através de <strong>Planos & Assinaturas</strong> desenhados para oferecer total autonomia, flexibilidade e previsibilidade de custos aos clientes. Cada conta possui uma assinatura mensal ativa com limites claros de websites monitorados e cota de tokens de Inteligência Artificial.</p>
 
                 <h2>1. Estrutura do Plano & Ciclo de Assinatura</h2>
                 <p>Ao contratar um plano na plataforma, sua conta passa a contar com um ciclo de faturamento transparente:</p>
@@ -2309,7 +2309,7 @@ location ~* /(wp-config\.php|readme\.html|license\.txt) {
                 <p>Disponível exclusivamente para Administradores no menu <em>Configurações &gt; Uso Geral da IA</em>, esta área atua como o centro de comando financeiro e de governança de inteligência artificial de toda a plataforma.</p>
 
                 <h2>Fórmula de Precificação Ponderada (Auditoria Real)</h2>
-                <p>Diferente de sistemas que utilizam médias imprecisas, o <strong>Validar Segurança</strong> calcula o custo real de cada requisição aplicando a precificação diferenciada entre leitura e escrita de dados:</p>
+                <p>Diferente de sistemas que utilizam médias imprecisas, o <strong>Vexors</strong> calcula o custo real de cada requisição aplicando a precificação diferenciada entre leitura e escrita de dados:</p>
                 <div class="code-block">
                     <pre style="color: #10b981;">Custo Real (R$) = (Tokens Prompt / 1.000 × Preço Entrada) + (Tokens Completion / 1.000 × Preço Saída)</pre>
                 </div>
@@ -2393,13 +2393,13 @@ location ~* /(wp-config\.php|readme\.html|license\.txt) {
                 
                 <h2>Perguntas Frequentes</h2>
 
-                <h3>1. O plugin de correção WP Patropi Fixes pode quebrar meu site?</h3>
-                <p>Os patches gerados aplicam rotinas seguras e padronizadas recomendadas pela OWASP. Além disso, a nova arquitetura do <strong>WP Patropi Fixes</strong> conta com <strong>gestão granular de proteções</strong>: caso qualquer regra específica entre em conflito com formulários ou plugins de terceiros, você não precisa desativar todo o plugin — basta desligar apenas a proteção conflitante diretamente no menu <code>WP Patropi Fixes</code> do WordPress ou remotamente pelo painel do SaaS.</p>
+                <h3>1. O plugin de correção Vexors Fixes pode quebrar meu site?</h3>
+                <p>Os patches gerados aplicam rotinas seguras e padronizadas recomendadas pela OWASP. Além disso, a nova arquitetura do <strong>Vexors Fixes</strong> conta com <strong>gestão granular de proteções</strong>: caso qualquer regra específica entre em conflito com formulários ou plugins de terceiros, você não precisa desativar todo o plugin — basta desligar apenas a proteção conflitante diretamente no menu <code>Vexors Fixes</code> do WordPress ou remotamente pelo painel do SaaS.</p>
 
-                <h3>2. O painel informa "Plugin WP Patropi Fixes não detectado ou inativo". Como proceder?</h3>
+                <h3>2. O painel informa "Plugin Vexors Fixes não detectado ou inativo". Como proceder?</h3>
                 <p>Essa mensagem indica que o SaaS não obteve resposta com status HTTP 200 na rota <code>/wp-json/wp-patropi-fixes/v1/status</code>. Siga este checklist para resolução rápida:</p>
                 <ol>
-                    <li>Certifique-se de que o plugin <strong>WP Patropi Fixes</strong> está instalado e ativo no WordPress.</li>
+                    <li>Certifique-se de que o plugin <strong>Vexors Fixes</strong> está instalado e ativo no WordPress.</li>
                     <li>Verifique se você gerou o plugin recentemente. As versões anteriores não continham as rotas de toggle e token embutido. Basta clicar em <strong>"✨ Gerar Soluções em Lote"</strong> no SaaS, baixar o novo ZIP gerado e fazer o upload no WordPress substituindo o anterior.</li>
                     <li>O plugin mais recente já contém token do site embutido no código PHP (<code>VS_FIXES_SITE_TOKEN</code>) e suporte automático a bypass de WAF/ModSecurity com query param (<code>?vs_token=</code>), permitindo conexão mesmo em hospedagens que descartam cabeçalhos HTTP.</li>
                 </ol>
@@ -2412,7 +2412,7 @@ location ~* /(wp-config\.php|readme\.html|license\.txt) {
                 </ul>
 
                 <h3>4. O que fazer se a conexão com o Agente WordPress falhar?</h3>
-                <p>Acesse o painel do WordPress em <strong>WP Patropi > Diagnóstico</strong> e utilize o botão <strong>"⚡ Testar Reconexão com a Plataforma"</strong>. Verifique se o Token do Agente salvo coincide com o token exibido na plataforma. Caso o servidor utilize firewall rígido, certifique-se de que a rota <code>/wp-json/wp-patropi/v1/</code> está acessível externamente.</p>
+                <p>Acesse o painel do WordPress em <strong>Vexors > Diagnóstico</strong> e utilize o botão <strong>"⚡ Testar Reconexão com a Plataforma"</strong>. Verifique se o Token do Agente salvo coincide com o token exibido na plataforma. Caso o servidor utilize firewall rígido, certifique-se de que a rota <code>/wp-json/wp-patropi/v1/</code> está acessível externamente.</p>
 
                 <h3>5. Por que devo aplicar as alterações do Guia do Servidor manualmente?</h3>
                 <p>Arquivos como <code>.htaccess</code>, <code>nginx.conf</code> e <code>php.ini</code> controlam a infraestrutura e o processo do servidor web. Por rígidos padrões de segurança da hospedagem, o WordPress não deve (e na maioria dos servidores não tem permissão para) alterar diretamente esses arquivos. Por essa razão, a plataforma gera a sintaxe exata e testada para você colar diretamente no painel cPanel, Plesk ou terminal SSH.</p>
@@ -2435,6 +2435,10 @@ location ~* /(wp-config\.php|readme\.html|license\.txt) {
                 </div>
             </section>
 
+
+                <footer style="margin-top: 60px; padding: 24px 0; border-top: 1px solid var(--border-color); text-align: center; font-size: 13px; color: var(--text-muted);">
+                    © <?= date('Y') ?> vexors.app . Todos os direitos reservados.
+                </footer>
         </main>
     </div>
 
@@ -2520,7 +2524,7 @@ location ~* /(wp-config\.php|readme\.html|license\.txt) {
 
         // Copiar Lista Completa dos Testes de Segurança (Formato WhatsApp / Word)
         function copyTestsListWhatsApp(btn) {
-            const checklistText = `🛡️ *VALIDAR SEGURANÇA — CHECKLIST COMPLETO DE AUDITORIA WORDPRESS*
+            const checklistText = `🛡️ *VEXORS — CHECKLIST COMPLETO DE AUDITORIA WORDPRESS*
 Relação oficial de testes e checagens de vulnerabilidades executadas pela plataforma (Total: 31 testes):
 
 🌐 *1. INFRAESTRUTURA & CABEÇALHOS HTTP*
@@ -2566,7 +2570,7 @@ Relação oficial de testes e checagens de vulnerabilidades executadas pela plat
 💎 *6. INTEGRIDADE CRIPTOGRÁFICA DO CORE*
 • *Checksums Oficiais WordPress.org* [Crítica] — Compara hashes criptográficos MD5 de todos os arquivos do core com o repositório oficial, detectando códigos adulterados, backdoors e malwares injetados.
 
-_Checklist oficial gerado pela plataforma Validar Segurança._`;
+_Checklist oficial gerado pela plataforma Vexors._`;
 
             const iconSpan = btn.querySelector('.btn-copy-icon');
             const textSpan = btn.querySelector('.btn-copy-text');

@@ -169,7 +169,7 @@ class Checkout extends ResourceController
             'extra_ai_tokens_price'   => $extraAiTokensPrice,
         ]);
 
-        $description = "Assinatura Recorrente {$plan['name']} - Validar Seguranca";
+        $description = "Assinatura Recorrente {$plan['name']} - Vexors";
         $extRef = "sub_{$subId}_usr_{$userId}";
 
         if ($billingType === 'CREDIT_CARD') {

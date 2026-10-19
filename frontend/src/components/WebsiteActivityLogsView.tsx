@@ -727,7 +727,7 @@ export const WebsiteActivityLogsView: React.FC<WebsiteActivityLogsViewProps> = (
       >
         <Stack gap="md">
           <Text size="sm" c="dimmed">
-            Envie este link para seu cliente acompanhar o diário de atividades e as manutenções deste site. O cliente verá apenas o logo da Patropi no topo e poderá pesquisar e filtrar os registros, sem permissão para editar ou cadastrar novas entradas.
+            Envie este link para seu cliente acompanhar o diário de atividades e as manutenções deste site. O cliente verá apenas o logo da Vexors no topo e poderá pesquisar e filtrar os registros, sem permissão para editar ou cadastrar novas entradas.
           </Text>
 
           {shareLoading ? (

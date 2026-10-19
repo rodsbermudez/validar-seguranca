@@ -187,18 +187,18 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
             {/* Logo */}
             <Group gap="sm" style={{ cursor: 'pointer' }} onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
               <img
-                src="images/logo-sitehub.svg"
+                src="images/vexors-logo.svg"
                 onError={(e) => {
                   const target = e.currentTarget as HTMLImageElement;
                   if (target.dataset.tried === '1') {
-                    target.src = '/images/logo-sitehub.svg';
+                    target.src = '/images/vexors-logo.svg';
                     target.dataset.tried = '2';
                   } else if (!target.dataset.tried) {
-                    target.src = '/validar-seguranca/images/logo-sitehub.svg';
+                    target.src = '/validar-seguranca/images/vexors-logo.svg';
                     target.dataset.tried = '1';
                   }
                 }}
-                alt="SiteHub"
+                alt="Vexors"
                 style={{ height: 42, width: 'auto', objectFit: 'contain' }}
               />
             </Group>
@@ -517,7 +517,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
           <Center mb={40}>
             <Stack align="center" gap="xs">
               <Badge color="sitehub" variant="light" size="md">
-                O DIFERENCIAL SITEHUB
+                O DIFERENCIAL VEXORS
               </Badge>
               <Title order={2} ta="center" fz={{ base: 26, sm: 34 }}>
                 Por que Ferramentas Comuns Falham na Segurança WordPress?
@@ -573,7 +573,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
               </Stack>
             </Card>
 
-            {/* Card Positivo: Validar Segurança */}
+            {/* Card Positivo: Vexors */}
             <Card
               p="xl"
               radius="md"
@@ -590,7 +590,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                   <IconShieldCheck size={22} />
                 </ThemeIcon>
                 <Title order={3} fz="lg" c="#34d399">
-                  Plataforma Validar Segurança
+                  Plataforma Vexors
                 </Title>
               </Group>
               <Stack gap="sm">
@@ -986,7 +986,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
           <Accordion variant="separated" radius="md">
             <Accordion.Item value="item-1" bg="#111827" style={{ borderColor: 'rgba(255, 255, 255, 0.08)' }}>
               <Accordion.Control icon={<IconHelpCircle size={18} color="#38bdf8" />}>
-                O plugin de remediação WP Patropi Fixes pode quebrar meu site?
+                O plugin de remediação Vexors Fixes pode quebrar meu site?
               </Accordion.Control>
               <Accordion.Panel>
                 <Text size="sm" c="dimmed" lh={1.6}>
@@ -1053,22 +1053,22 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
           <Group justify="space-between" align="center" wrap="wrap" gap="md">
             <Group gap="sm">
               <img
-                src="images/logo-sitehub.svg"
+                src="images/vexors-logo.svg"
                 onError={(e) => {
                   const target = e.currentTarget as HTMLImageElement;
                   if (target.dataset.tried === '1') {
-                    target.src = '/images/logo-sitehub.svg';
+                    target.src = '/images/vexors-logo.svg';
                     target.dataset.tried = '2';
                   } else if (!target.dataset.tried) {
-                    target.src = '/validar-seguranca/images/logo-sitehub.svg';
+                    target.src = '/validar-seguranca/images/vexors-logo.svg';
                     target.dataset.tried = '1';
                   }
                 }}
-                alt="SiteHub"
+                alt="Vexors"
                 style={{ height: 32, width: 'auto', objectFit: 'contain' }}
               />
               <Text size="xs" c="dimmed">
-                © {new Date().getFullYear()} Validar Segurança • Patropi Comunica. Todos os direitos reservados.
+                © {new Date().getFullYear()} vexors.app . Todos os direitos reservados.
               </Text>
             </Group>
 
@@ -1151,7 +1151,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
             </Button>
 
             <Text size="xs" c="dimmed" ta="center">
-              Dúvidas ou recuperação de acesso? Entre em contato com o suporte da SiteHub.
+              Dúvidas ou recuperação de acesso? Entre em contato com o suporte da Vexors.
             </Text>
           </Stack>
         </form>

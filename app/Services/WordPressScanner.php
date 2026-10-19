@@ -110,7 +110,7 @@ class WordPressScanner
             $httpCode = $res['http_code'] ?? 0;
             return [
                 'category_name' => 'Auditoria Interna do Agente WordPress',
-                'status_error'  => 'Não foi possível se comunicar com a REST API do plugin agente (HTTP ' . $httpCode . '). Certifique-se de que a versão mais recente do plugin WP Patropi Agent está instalada e ativada no site.',
+                'status_error'  => 'Não foi possível se comunicar com a REST API do plugin agente (HTTP ' . $httpCode . '). Certifique-se de que a versão mais recente do plugin Vexors Agent está instalada e ativada no site.',
                 'checks'        => [],
             ];
         }

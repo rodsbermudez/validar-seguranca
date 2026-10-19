@@ -253,7 +253,7 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({ website 
             Não foi possível carregar o estado das atualizações.
           </Text>
           <Text size="xs" c="dimmed" mb="md">
-            Verifique se o agente WP Patropi está ativo no site ({website.url}).
+            Verifique se o agente Vexors está ativo no site ({website.url}).
           </Text>
           <Button variant="light" color="indigo" size="xs" onClick={() => fetchUpdates(true)}>
             Tentar Novamente

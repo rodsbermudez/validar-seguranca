@@ -664,7 +664,7 @@ export function GlobalAiMonitoringView({
                         <Table.Tr key={w.id}>
                           <Table.Td>
                             <Group gap="xs">
-                              <ThemeIcon color="patropi" variant="light" size="sm">
+                              <ThemeIcon color="vexors" variant="light" size="sm">
                                 <IconWorld size={14} />
                               </ThemeIcon>
                               <div>

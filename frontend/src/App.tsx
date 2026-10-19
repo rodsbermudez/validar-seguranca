@@ -191,18 +191,18 @@ export default function App() {
           <Group justify="space-between" h="100%">
             <Group gap="sm" style={{ cursor: 'pointer' }} onClick={() => { setSelectedWebsite(null); setViewMode('overview'); }}>
               <img
-                src="images/logo-sitehub.svg"
+                src="images/vexors-logo.svg"
                 onError={(e) => {
                   const target = e.currentTarget as HTMLImageElement;
                   if (target.dataset.tried === '1') {
-                    target.src = '/images/logo-sitehub.svg';
+                    target.src = '/images/vexors-logo.svg';
                     target.dataset.tried = '2';
                   } else if (!target.dataset.tried) {
-                    target.src = '/validar-seguranca/images/logo-sitehub.svg';
+                    target.src = '/validar-seguranca/images/vexors-logo.svg';
                     target.dataset.tried = '1';
                   }
                 }}
-                alt="SiteHub"
+                alt="Vexors"
                 style={{ height: 38, width: 'auto', objectFit: 'contain' }}
               />
             </Group>

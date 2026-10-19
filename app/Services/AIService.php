@@ -205,13 +205,13 @@ class AIService
         $authorUri      = BrandingService::AUTHOR_URI;
 
         $systemPrompt = "Você é um Desenvolvedor WordPress Sênior e Especialista em Segurança.\n" .
-            "Sua tarefa é compor um Plugin WordPress completo, robusto, limpo e profissional chamado 'WP Patropi - Fixes - {$siteHost}'.\n\n" .
+            "Sua tarefa é compor um Plugin WordPress completo, robusto, limpo e profissional chamado 'Vexors - Fixes - {$siteHost}'.\n\n" .
             "REQUISITOS OBRIGATÓRIOS DO PLUGIN:\n" .
             "1. Comece OBRIGATORIAMENTE com o cabeçalho padrão de Plugin do WordPress:\n" .
             "   /*\n" .
-            "    * Plugin Name: WP Patropi - Fixes - {$siteHost}\n" .
+            "    * Plugin Name: Vexors - Fixes - {$siteHost}\n" .
             "    * Plugin URI: {$authorUri}\n" .
-            "    * Description: Plugin customizado de remediação de segurança gerado pela plataforma Validar Segurança.\n" .
+            "    * Description: Plugin customizado de remediação de segurança gerado pela plataforma Vexors.\n" .
             "    * Version: 1.0.0\n" .
             "    * Author: {$authorName}\n" .
             "    * Author URI: {$authorUri}\n" .
@@ -221,24 +221,24 @@ class AIService
             "3. REGRA CRÍTICA PARA LINK DE CONFIGURAÇÕES NA LISTA DE PLUGINS (plugins.php):\n" .
             "   - Adicione o filtro 'plugin_action_links_' . plugin_basename(__FILE__) adicionando o link 'Configurações' direcionando para 'admin.php?page=wp-patropi-fixes'.\n" .
             "4. REGRA CRÍTICA PARA ESTRUTURA DE MENU NO WP ADMIN:\n" .
-            "   - O menu principal deve se chamar 'WP Patropi' (slug: 'wp-patropi') com a posição 80 e ícone carregado de 'plugins_url(\"assets/favicon.png\", __FILE__)'.\n" .
+            "   - O menu principal deve se chamar 'Vexors' (slug: 'wp-patropi') com a posição 80 e ícone carregado de 'plugins_url(\"assets/favicon.png\", __FILE__)'.\n" .
             "   - Adicione via 'admin_head' o CSS para limitar a imagem do ícone do menu a 20x20px:\n" .
             "     add_action('admin_head', function() {\n" .
             "         echo '<style>#adminmenu .toplevel_page_wp-patropi .wp-menu-image img, #adminmenu #toplevel_page_wp-patropi .wp-menu-image img { max-width: 20px !important; max-height: 20px !important; width: 20px !important; height: 20px !important; padding: 3px 0 0 0 !important; object-fit: contain !important; }</style>';\n" .
             "     });\n" .
-            "   - Adicione a tela do plugin como subitem do menu 'WP Patropi' chamado 'Fixes' (slug: 'wp-patropi-fixes'):\n" .
+            "   - Adicione a tela do plugin como subitem do menu 'Vexors' chamado 'Fixes' (slug: 'wp-patropi-fixes'):\n" .
             "   - Exemplo de código do menu:\n" .
             "     add_action('admin_menu', function() {\n" .
             "         \$parent_slug = 'wp-patropi';\n" .
             "         \$icon_url    = plugins_url('assets/favicon.png', __FILE__);\n" .
             "         if (empty(\$GLOBALS['admin_page_hooks'][\$parent_slug])) {\n" .
-            "             add_menu_page('WP Patropi', 'WP Patropi', 'manage_options', \$parent_slug, 'vs_render_remediation_admin_page', \$icon_url, 80);\n" .
+            "             add_menu_page('Vexors', 'Vexors', 'manage_options', \$parent_slug, 'vs_render_remediation_admin_page', \$icon_url, 80);\n" .
             "         }\n" .
             "         add_submenu_page(\$parent_slug, 'Fixes', 'Fixes', 'manage_options', 'wp-patropi-fixes', 'vs_render_remediation_admin_page');\n" .
             "     }, 20);\n" .
             "5. NO TOPO DA PÁGINA ADMIN DO PLUGIN:\n" .
-            "   - Inclua no início de <div class=\"wrap\"> as tags '<h1 class=\"wp-heading-inline\" style=\"display:none;\">WP Patropi - Fixes</h1><hr class=\"wp-header-end\" style=\"display:none;\" />' para que avisos do WordPress fiquem acima do card.\n" .
-            "   - Exiba um cabeçalho estilizado contendo a logo em '<img src=\"' . esc_url(plugins_url('assets/logo-sitehub.svg', __FILE__)) . '\" style=\"max-height:42px;height:42px;width:auto;object-fit:contain;\" />' e o título <h2>WP Patropi - Fixes</h2> com o crédito 'Desenvolvido por {$authorName} ({$authorUri})'.\n" .
+            "   - Inclua no início de <div class=\"wrap\"> as tags '<h1 class=\"wp-heading-inline\" style=\"display:none;\">Vexors - Fixes</h1><hr class=\"wp-header-end\" style=\"display:none;\" />' para que avisos do WordPress fiquem acima do card.\n" .
+            "   - Exiba um cabeçalho estilizado contendo a logo em '<img src=\"' . esc_url(plugins_url('assets/vexors-logo.svg', __FILE__)) . '\" style=\"max-height:42px;height:42px;width:auto;object-fit:contain;\" />' e o título <h2>Vexors - Fixes</h2> com o crédito 'Desenvolvido por {$authorName} ({$authorUri})'.\n" .
             "   - Registre as correções na função 'vs_get_registered_fixes()' retornando array de cada check_id com title e description.\n" .
             "   - Crie as funções 'vs_get_fixes_settings()', 'vs_is_fix_active(\$check_id)' e 'vs_set_fix_status(\$check_id, \$enabled)'.\n" .
             "   - Cada regra de correção fornecida deve ser envolvida condicionalmente por 'if (vs_is_fix_active(\$check_id)) { ... }' para permitir ligar e desligar individualmente.\n" .
@@ -271,7 +271,7 @@ class AIService
             "8. GARANTA que o código seja 100% livre de erros de sintaxe PHP. NÃO utilize tags de abertura <?php adicionais dentro de funções ou trechos mal formatados.\n" .
             "9. Responda APENAS com o código PHP completo do plugin (começando com '<?php'). NÃO adicione textos de introdução ou cercas markdown de blocos de código.";
 
-        $userPrompt = "Gere o código do plugin 'Validar Segurança Fix' para o site {$websiteUrl} contendo as seguintes correções de segurança:\n\n" .
+        $userPrompt = "Gere o código do plugin 'Vexors Fix' para o site {$websiteUrl} contendo as seguintes correções de segurança:\n\n" .
             $fixesSummary;
 
         if (!empty(trim($customPrompt))) {

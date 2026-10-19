@@ -4,8 +4,8 @@ namespace App\Services;
 
 class BrandingService
 {
-    public const AUTHOR_NAME = 'Rodrigo Bermudez - Patropi Comunica';
-    public const AUTHOR_URI  = 'https://patropicomunica.com.br';
+    public const AUTHOR_NAME = 'Vexores';
+    public const AUTHOR_URI  = 'https://vexors.app';
 
     public static function getFaviconDataUri(): string
     {
@@ -20,6 +20,10 @@ class BrandingService
     public static function getLogoDataUri(): string
     {
         $baseDir = defined('ROOTPATH') ? ROOTPATH : dirname(__DIR__, 2) . '/';
+        $pathVexors = $baseDir . 'public/images/vexors-logo.svg';
+        if (file_exists($pathVexors)) {
+            return 'data:image/svg+xml;base64,' . base64_encode(file_get_contents($pathVexors));
+        }
         $pathSvg = $baseDir . 'public/images/logo-sitehub.svg';
         if (file_exists($pathSvg)) {
             return 'data:image/svg+xml;base64,' . base64_encode(file_get_contents($pathSvg));
