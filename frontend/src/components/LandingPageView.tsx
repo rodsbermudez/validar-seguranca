@@ -262,7 +262,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
               {currentUser ? (
                 <Button
                   variant="gradient"
-                  gradient={{ from: 'indigo', to: 'cyan' }}
+                  gradient={{ from: '#1A7F86', to: '#118ab2' }}
                   size="sm"
                   leftSection={<IconLayoutDashboard size={16} />}
                   onClick={onGoToDashboard}
@@ -281,7 +281,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                   </Button>
                   <Button
                     variant="gradient"
-                    gradient={{ from: '#236baa', to: '#4f46e5' }}
+                    gradient={{ from: '#1A7F86', to: '#118ab2' }}
                     size="sm"
                     onClick={() => scrollToSection('planos')}
                   >
@@ -300,7 +300,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
         style={{
           position: 'relative',
           background:
-            'radial-gradient(circle at 50% 10%, rgba(99, 102, 241, 0.18) 0%, rgba(14, 165, 233, 0.05) 35%, transparent 70%)',
+            'radial-gradient(circle at 50% 10%, rgba(26, 127, 134, 0.22) 0%, rgba(17, 138, 178, 0.08) 35%, transparent 70%)',
         }}
       >
         <Container size="xl">
@@ -310,11 +310,11 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
               <Badge
                 size="lg"
                 radius="xl"
-                color="indigo"
+                color="sitehub"
                 variant="light"
                 mb="md"
                 leftSection={<span className="pulse-green" style={{ marginRight: 4 }} />}
-                style={{ border: '1px solid rgba(99, 102, 241, 0.4)' }}
+                style={{ border: '1px solid rgba(26, 127, 134, 0.45)' }}
               >
                 PROTEÇÃO HÍBRIDA & REMEDIAÇÃO COM IA PARA WORDPRESS
               </Badge>
@@ -332,7 +332,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                   component="span"
                   inherit
                   variant="gradient"
-                  gradient={{ from: '#38bdf8', to: '#818cf8' }}
+                  gradient={{ from: '#06d6a0', to: '#1A7F86' }}
                 >
                   Remediação com Inteligência Artificial
                 </Text>
@@ -347,10 +347,10 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                   size="md"
                   radius="md"
                   variant="gradient"
-                  gradient={{ from: '#236baa', to: '#4f46e5' }}
+                  gradient={{ from: '#1A7F86', to: '#118ab2' }}
                   rightSection={<IconArrowRight size={18} />}
                   onClick={() => scrollToSection('planos')}
-                  style={{ boxShadow: '0 8px 24px rgba(79, 70, 229, 0.35)' }}
+                  style={{ boxShadow: '0 8px 24px rgba(26, 127, 134, 0.35)' }}
                 >
                   Conhecer os Planos
                 </Button>
@@ -369,7 +369,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
               {/* Indicadores Rápidos de Confiança */}
               <Group gap="xl" mt={40} pt={20} style={{ borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
                 <div>
-                  <Text fw={800} fz={22} c="#38bdf8">
+                  <Text fw={800} fz={22} c="#118ab2">
                     31+
                   </Text>
                   <Text size="xs" c="dimmed">
@@ -378,7 +378,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                 </div>
                 <Divider orientation="vertical" />
                 <div>
-                  <Text fw={800} fz={22} c="#10b981">
+                  <Text fw={800} fz={22} c="#06d6a0">
                     100%
                   </Text>
                   <Text size="xs" c="dimmed">
@@ -387,7 +387,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                 </div>
                 <Divider orientation="vertical" />
                 <div>
-                  <Text fw={800} fz={22} c="#a855f7">
+                  <Text fw={800} fz={22} c="#ffd166">
                     Kimi K2.7
                   </Text>
                   <Text size="xs" c="dimmed">
@@ -405,8 +405,8 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                 bg="#0f172a"
                 withBorder
                 style={{
-                  borderColor: 'rgba(99, 102, 241, 0.35)',
-                  boxShadow: '0 20px 50px rgba(0, 0, 0, 0.6), 0 0 30px rgba(99, 102, 241, 0.15)',
+                  borderColor: 'rgba(26, 127, 134, 0.4)',
+                  boxShadow: '0 20px 50px rgba(0, 0, 0, 0.6), 0 0 30px rgba(26, 127, 134, 0.18)',
                   position: 'relative',
                   overflow: 'hidden',
                 }}
@@ -414,29 +414,29 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                 {/* Linha de janela macOS */}
                 <Group justify="space-between" mb="md" pb="xs" style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.08)' }}>
                   <Group gap={6}>
-                    <Box w={10} h={10} style={{ borderRadius: '50%', backgroundColor: '#ef4444' }} />
-                    <Box w={10} h={10} style={{ borderRadius: '50%', backgroundColor: '#f59e0b' }} />
-                    <Box w={10} h={10} style={{ borderRadius: '50%', backgroundColor: '#10b981' }} />
+                    <Box w={10} h={10} style={{ borderRadius: '50%', backgroundColor: '#d1495b' }} />
+                    <Box w={10} h={10} style={{ borderRadius: '50%', backgroundColor: '#ffd166' }} />
+                    <Box w={10} h={10} style={{ borderRadius: '50%', backgroundColor: '#06d6a0' }} />
                     <Text size="xs" c="dimmed" ml={6}>
                       auditoria_wp.live
                     </Text>
                   </Group>
-                  <Badge size="xs" color="green" variant="light" leftSection={<span className="pulse-green" />}>
+                  <Badge size="xs" color="emerald" variant="light" leftSection={<span className="pulse-green" />}>
                     AGENTE WP CONECTADO
                   </Badge>
                 </Group>
 
                 {/* Card do Score A+ */}
-                <Card p="md" radius="md" bg="#1e293b" mb="sm" withBorder style={{ borderColor: 'rgba(56, 189, 248, 0.2)' }}>
+                <Card p="md" radius="md" bg="#1e293b" mb="sm" withBorder style={{ borderColor: 'rgba(26, 127, 134, 0.3)' }}>
                   <Group justify="space-between" align="center">
                     <div>
                       <Text size="xs" c="dimmed" fw={600} tt="uppercase">
                         Índice Geral de Segurança
                       </Text>
-                      <Text fw={900} fz={32} c="#10b981">
+                      <Text fw={900} fz={32} c="#06d6a0">
                         98 <span style={{ fontSize: 16, color: '#94a3b8', fontWeight: 500 }}>/ 100 pts</span>
                       </Text>
-                      <Text size="xs" c="#34d399">
+                      <Text size="xs" c="#06d6a0">
                         ● Grau Máximo A+ Atingido
                       </Text>
                     </div>
@@ -445,16 +445,16 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                       p={12}
                       style={{
                         borderRadius: '50%',
-                        border: '3px solid #10b981',
+                        border: '3px solid #06d6a0',
                         width: 72,
                         h: 72,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        backgroundColor: 'rgba(6, 214, 160, 0.1)',
                       }}
                     >
-                      <Text fw={900} fz={26} c="#10b981">
+                      <Text fw={900} fz={26} c="#06d6a0">
                         A+
                       </Text>
                     </Box>
@@ -466,12 +466,12 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                   <Paper p="xs" radius="sm" bg="rgba(2, 6, 23, 0.6)" withBorder style={{ borderColor: 'rgba(255, 255, 255, 0.05)' }}>
                     <Group justify="space-between">
                       <Group gap={6}>
-                        <IconShieldCheck size={16} color="#38bdf8" />
+                        <IconShieldCheck size={16} color="#118ab2" />
                         <Text size="xs" fw={600}>
                           Hashes Oficiais WordPress.org
                         </Text>
                       </Group>
-                      <Badge color="green" size="xs" variant="filled">
+                      <Badge color="emerald" size="xs" variant="filled">
                         100% Íntegro
                       </Badge>
                     </Group>
@@ -480,12 +480,12 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                   <Paper p="xs" radius="sm" bg="rgba(2, 6, 23, 0.6)" withBorder style={{ borderColor: 'rgba(255, 255, 255, 0.05)' }}>
                     <Group justify="space-between">
                       <Group gap={6}>
-                        <IconLock size={16} color="#818cf8" />
+                        <IconLock size={16} color="#1A7F86" />
                         <Text size="xs" fw={600}>
                           Enumeração REST API & XML-RPC
                         </Text>
                       </Group>
-                      <Badge color="blue" size="xs" variant="filled">
+                      <Badge color="sitehub" size="xs" variant="filled">
                         Blindado
                       </Badge>
                     </Group>
@@ -494,12 +494,12 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                   <Paper p="xs" radius="sm" bg="rgba(2, 6, 23, 0.6)" withBorder style={{ borderColor: 'rgba(255, 255, 255, 0.05)' }}>
                     <Group justify="space-between">
                       <Group gap={6}>
-                        <IconSparkles size={16} color="#f59e0b" />
+                        <IconSparkles size={16} color="#ffd166" />
                         <Text size="xs" fw={600}>
                           Patches Gerados por IA
                         </Text>
                       </Group>
-                      <Badge color="yellow" size="xs" variant="filled">
+                      <Badge color="royalGold" size="xs" variant="filled">
                         Ativos c/ Granularidade
                       </Badge>
                     </Group>
@@ -516,8 +516,8 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
         <Container size="xl">
           <Center mb={40}>
             <Stack align="center" gap="xs">
-              <Badge color="cyan" variant="light" size="md">
-                O DIFERENCIAL PATROPI
+              <Badge color="sitehub" variant="light" size="md">
+                O DIFERENCIAL SITEHUB
               </Badge>
               <Title order={2} ta="center" fz={{ base: 26, sm: 34 }}>
                 Por que Ferramentas Comuns Falham na Segurança WordPress?
@@ -629,7 +629,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
         <Container size="xl">
           <Center mb={50}>
             <Stack align="center" gap="xs">
-              <Badge color="indigo" variant="light" size="md">
+              <Badge color="sitehub" variant="light" size="md">
                 RECURSOS TECNOLÓGICOS
               </Badge>
               <Title order={2} ta="center" fz={{ base: 26, sm: 34 }}>
@@ -644,7 +644,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
           <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing={24}>
             {/* 1. Auditoria de 31+ Testes */}
             <Card p="lg" radius="md" bg="#0f172a" withBorder className="landing-card-glow" style={{ borderColor: 'rgba(255, 255, 255, 0.08)' }}>
-              <ThemeIcon size={46} radius="md" color="indigo" variant="light" mb="md">
+              <ThemeIcon size={46} radius="md" color="sitehub" variant="light" mb="md">
                 <IconShieldCheck size={24} />
               </ThemeIcon>
               <Title order={3} fz="md" mb="xs">
@@ -657,7 +657,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
 
             {/* 2. Integridade do Core */}
             <Card p="lg" radius="md" bg="#0f172a" withBorder className="landing-card-glow" style={{ borderColor: 'rgba(255, 255, 255, 0.08)' }}>
-              <ThemeIcon size={46} radius="md" color="teal" variant="light" mb="md">
+              <ThemeIcon size={46} radius="md" color="emerald" variant="light" mb="md">
                 <IconCode size={24} />
               </ThemeIcon>
               <Title order={3} fz="md" mb="xs">
@@ -670,7 +670,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
 
             {/* 3. Remediação com IA */}
             <Card p="lg" radius="md" bg="#0f172a" withBorder className="landing-card-glow" style={{ borderColor: 'rgba(255, 255, 255, 0.08)' }}>
-              <ThemeIcon size={46} radius="md" color="yellow" variant="light" mb="md">
+              <ThemeIcon size={46} radius="md" color="royalGold" variant="light" mb="md">
                 <IconBrain size={24} />
               </ThemeIcon>
               <Title order={3} fz="md" mb="xs">
@@ -683,20 +683,20 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
 
             {/* 4. Granularidade Sem Quebras */}
             <Card p="lg" radius="md" bg="#0f172a" withBorder className="landing-card-glow" style={{ borderColor: 'rgba(255, 255, 255, 0.08)' }}>
-              <ThemeIcon size={46} radius="md" color="cyan" variant="light" mb="md">
+              <ThemeIcon size={46} radius="md" color="secondary" variant="light" mb="md">
                 <IconLayersLinked size={24} />
               </ThemeIcon>
               <Title order={3} fz="md" mb="xs">
                 Controle Granular Liga/Desliga
               </Title>
               <Text size="xs" c="dimmed" lh={1.6}>
-                O plugin <strong>WP Patropi Fixes</strong> conta com interruptor individual para cada proteção. Se uma regra conflitar com outro plugin, basta desligá-la em 1 clique.
+                O plugin <strong>WP Fixes</strong> conta com interruptor individual para cada proteção. Se uma regra conflitar com outro plugin, basta desligá-la em 1 clique.
               </Text>
             </Card>
 
             {/* 5. Diário Técnico & Manutenções */}
             <Card p="lg" radius="md" bg="#0f172a" withBorder className="landing-card-glow" style={{ borderColor: 'rgba(255, 255, 255, 0.08)' }}>
-              <ThemeIcon size={46} radius="md" color="violet" variant="light" mb="md">
+              <ThemeIcon size={46} radius="md" color="balticBlue" variant="light" mb="md">
                 <IconNotes size={24} />
               </ThemeIcon>
               <Title order={3} fz="md" mb="xs">
@@ -709,7 +709,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
 
             {/* 6. Link Público para Clientes */}
             <Card p="lg" radius="md" bg="#0f172a" withBorder className="landing-card-glow" style={{ borderColor: 'rgba(255, 255, 255, 0.08)' }}>
-              <ThemeIcon size={46} radius="md" color="blue" variant="light" mb="md">
+              <ThemeIcon size={46} radius="md" color="oceanBlue" variant="light" mb="md">
                 <IconWorld size={24} />
               </ThemeIcon>
               <Title order={3} fz="md" mb="xs">
@@ -728,7 +728,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
         <Container size="lg">
           <Center mb={50}>
             <Stack align="center" gap="xs">
-              <Badge color="teal" variant="light" size="md">
+              <Badge color="emerald" variant="light" size="md">
                 PASSO A PASSO
               </Badge>
               <Title order={2} ta="center" fz={{ base: 26, sm: 34 }}>
@@ -739,7 +739,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
 
           <SimpleGrid cols={{ base: 1, md: 3 }} spacing={30}>
             <Paper p="xl" radius="md" bg="#111827" withBorder style={{ borderColor: 'rgba(255, 255, 255, 0.08)', position: 'relative' }}>
-              <Badge color="indigo" size="xl" radius="xl" mb="md">
+              <Badge color="sitehub" size="xl" radius="xl" mb="md">
                 Passo 1
               </Badge>
               <Title order={4} mb="xs">
@@ -751,7 +751,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
             </Paper>
 
             <Paper p="xl" radius="md" bg="#111827" withBorder style={{ borderColor: 'rgba(255, 255, 255, 0.08)', position: 'relative' }}>
-              <Badge color="cyan" size="xl" radius="xl" mb="md">
+              <Badge color="oceanBlue" size="xl" radius="xl" mb="md">
                 Passo 2
               </Badge>
               <Title order={4} mb="xs">
@@ -782,7 +782,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
         <Container size="xl">
           <Center mb={50}>
             <Stack align="center" gap="xs">
-              <Badge color="indigo" variant="gradient" gradient={{ from: 'indigo', to: 'cyan' }} size="lg">
+              <Badge color="sitehub" variant="gradient" gradient={{ from: '#1A7F86', to: '#118ab2' }} size="lg">
                 TABELA DE PLANOS & PACOTES
               </Badge>
               <Title order={2} ta="center" fz={{ base: 28, sm: 38 }}>
@@ -796,7 +796,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
 
           {loadingPlans ? (
             <Center py={40}>
-              <Loader color="indigo" size="lg" />
+              <Loader color="sitehub" size="lg" />
             </Center>
           ) : (
             <Grid gutter={30} align="stretch">
@@ -809,7 +809,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                     <Card
                       p="xl"
                       radius="lg"
-                      bg={isFeatured ? '#171e33' : '#0f172a'}
+                      bg={isFeatured ? '#0d252e' : '#0f172a'}
                       withBorder
                       h="100%"
                       className={isFeatured ? 'landing-card-featured' : 'landing-card-glow'}
@@ -823,7 +823,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                     >
                       {isFeatured && (
                         <Badge
-                          color="indigo"
+                          color="secondary"
                           variant="filled"
                           size="md"
                           radius="sm"
@@ -831,7 +831,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                             position: 'absolute',
                             top: 14,
                             right: 14,
-                            boxShadow: '0 4px 12px rgba(79, 70, 229, 0.4)',
+                            boxShadow: '0 4px 12px rgba(239, 71, 111, 0.4)',
                           }}
                         >
                           ⭐ MAIS POPULAR
@@ -839,7 +839,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                       )}
 
                       <div>
-                        <Text fw={700} fz="xl" c={isFeatured ? '#818cf8' : 'white'} mb={4}>
+                        <Text fw={700} fz="xl" c={isFeatured ? '#06d6a0' : 'white'} mb={4}>
                           {plan.name}
                         </Text>
                         <Text size="xs" c="dimmed" mb="lg" style={{ minHeight: 36 }}>
@@ -848,7 +848,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
 
                         {/* Preço Mensal */}
                         <Group align="baseline" gap={4} mb="lg">
-                          <Text fw={900} fz={36} c="#38bdf8">
+                          <Text fw={900} fz={36} c="#06d6a0">
                             {Number(plan.price_monthly).toLocaleString('pt-BR', {
                               style: 'currency',
                               currency: 'BRL',
@@ -864,12 +864,12 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                         {/* Recursos do Plano */}
                         <Stack gap="xs" mb="xl">
                           <Group gap="xs" align="center">
-                            <ThemeIcon size={20} radius="xl" color="indigo" variant="light">
+                            <ThemeIcon size={20} radius="xl" color="sitehub" variant="light">
                               <IconCheck size={12} />
                             </ThemeIcon>
                             <Text size="sm" fw={600}>
                               {isUnlimitedSites ? (
-                                <span style={{ color: '#38bdf8' }}>Websites Ilimitados</span>
+                                <span style={{ color: '#118ab2' }}>Websites Ilimitados</span>
                               ) : (
                                 `Até ${plan.max_websites} websites sob gestão`
                               )}
@@ -877,7 +877,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                           </Group>
 
                           <Group gap="xs" align="center">
-                            <ThemeIcon size={20} radius="xl" color="teal" variant="light">
+                            <ThemeIcon size={20} radius="xl" color="secondary" variant="light">
                               <IconCheck size={12} />
                             </ThemeIcon>
                             <Text size="sm">
@@ -889,28 +889,28 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                           </Group>
 
                           <Group gap="xs" align="center">
-                            <ThemeIcon size={20} radius="xl" color="green" variant="light">
+                            <ThemeIcon size={20} radius="xl" color="emerald" variant="light">
                               <IconCheck size={12} />
                             </ThemeIcon>
                             <Text size="sm">Auditorias ilimitadas de 31+ testes</Text>
                           </Group>
 
                           <Group gap="xs" align="center">
-                            <ThemeIcon size={20} radius="xl" color="green" variant="light">
+                            <ThemeIcon size={20} radius="xl" color="emerald" variant="light">
                               <IconCheck size={12} />
                             </ThemeIcon>
                             <Text size="sm">Plugin Agente WordPress Oficial</Text>
                           </Group>
 
                           <Group gap="xs" align="center">
-                            <ThemeIcon size={20} radius="xl" color="green" variant="light">
+                            <ThemeIcon size={20} radius="xl" color="emerald" variant="light">
                               <IconCheck size={12} />
                             </ThemeIcon>
                             <Text size="sm">Integridade Criptográfica do Core MD5</Text>
                           </Group>
 
                           <Group gap="xs" align="center">
-                            <ThemeIcon size={20} radius="xl" color="green" variant="light">
+                            <ThemeIcon size={20} radius="xl" color="emerald" variant="light">
                               <IconCheck size={12} />
                             </ThemeIcon>
                             <Text size="sm">Diário Técnico & Links Públicos</Text>
@@ -922,8 +922,8 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                         size="md"
                         radius="md"
                         variant={isFeatured ? 'gradient' : 'light'}
-                        gradient={isFeatured ? { from: '#236baa', to: '#4f46e5' } : undefined}
-                        color="indigo"
+                        gradient={isFeatured ? { from: '#1A7F86', to: '#118ab2' } : undefined}
+                        color="sitehub"
                         fullWidth
                         rightSection={<IconArrowRight size={16} />}
                         onClick={() => handleSelectPlan(plan)}
@@ -944,11 +944,11 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
             mt={40}
             bg="#111827"
             withBorder
-            style={{ borderColor: 'rgba(99, 102, 241, 0.3)' }}
+            style={{ borderColor: 'rgba(26, 127, 134, 0.35)' }}
           >
             <Group justify="space-between" align="center" wrap="wrap" gap="md">
               <Group gap="md">
-                <ThemeIcon size={44} radius="md" color="indigo" variant="light">
+                <ThemeIcon size={44} radius="md" color="royalGold" variant="light">
                   <IconSparkles size={24} />
                 </ThemeIcon>
                 <div>
@@ -961,7 +961,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                 </div>
               </Group>
 
-              <Badge color="indigo" variant="light" size="lg">
+              <Badge color="sitehub" variant="light" size="lg">
                 Faturamento Transparente & Sem Surpresas
               </Badge>
             </Group>
@@ -1093,7 +1093,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
         onClose={() => setLoginModalOpen(false)}
         title={
           <Group gap="xs">
-            <ThemeIcon color="indigo" variant="light" size="md" radius="md">
+            <ThemeIcon color="sitehub" variant="light" size="md" radius="md">
               <IconLock size={18} />
             </ThemeIcon>
             <Text fw={700} size="md">
@@ -1107,7 +1107,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
         styles={{
           content: {
             backgroundColor: '#0f172a',
-            border: '1px solid rgba(99, 102, 241, 0.3)',
+            border: '1px solid rgba(26, 127, 134, 0.35)',
           },
           header: {
             backgroundColor: '#0f172a',
@@ -1118,7 +1118,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
         <form onSubmit={handleLoginSubmit}>
           <Stack gap="md" mt="xs">
             {loginError && (
-              <Alert icon={<IconAlertCircle size={16} />} color="red" variant="filled">
+              <Alert icon={<IconAlertCircle size={16} />} color="amaranth" variant="filled">
                 {loginError}
               </Alert>
             )}
@@ -1142,7 +1142,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
             <Button
               type="submit"
               variant="gradient"
-              gradient={{ from: '#236baa', to: '#4f46e5' }}
+              gradient={{ from: '#1A7F86', to: '#118ab2' }}
               fullWidth
               mt="xs"
               loading={loginLoading}
@@ -1151,7 +1151,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
             </Button>
 
             <Text size="xs" c="dimmed" ta="center">
-              Dúvidas ou recuperação de acesso? Entre em contato com o suporte da Patropi.
+              Dúvidas ou recuperação de acesso? Entre em contato com o suporte da SiteHub.
             </Text>
           </Stack>
         </form>

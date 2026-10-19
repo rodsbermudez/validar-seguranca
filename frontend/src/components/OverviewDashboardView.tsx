@@ -267,7 +267,7 @@ export const OverviewDashboardView: React.FC<OverviewDashboardViewProps> = ({
   return (
     <Stack gap="lg">
       {/* Header Banner */}
-      <Paper p="md" radius="md" bg="dark.7" withBorder style={{ borderLeft: '4px solid #4c6ef5' }}>
+      <Paper p="md" radius="md" bg="dark.7" withBorder style={{ borderLeft: '4px solid #1A7F86' }}>
         <Group justify="space-between" align="center" wrap="wrap" gap="md">
           <div>
             <Title order={3}>Painel de monitoramento</Title>
@@ -289,7 +289,7 @@ export const OverviewDashboardView: React.FC<OverviewDashboardViewProps> = ({
             </Button>
             <Button
               variant="filled"
-              color="indigo"
+              color="sitehub"
               size="xs"
               leftSection={<IconWorld size={14} />}
               onClick={onNavigateToWebsites}
@@ -575,23 +575,23 @@ export const OverviewDashboardView: React.FC<OverviewDashboardViewProps> = ({
           style={{
             borderLeft: `4px solid ${
               aiPercent > 90 || websitesPercent >= 100
-                ? '#ef4444'
+                ? '#d1495b'
                 : aiPercent > 70 || websitesPercent >= 80
-                ? '#eab308'
-                : '#6366f1'
+                ? '#ffd166'
+                : '#1A7F86'
             }`,
           }}
         >
           <Group justify="space-between" align="center" mb="sm" wrap="wrap" gap="sm">
             <Group gap="xs">
-              <ThemeIcon color="indigo" variant="light" size="md" radius="md">
+              <ThemeIcon color="sitehub" variant="light" size="md" radius="md">
                 <IconPackage size={18} />
               </ThemeIcon>
               <div>
                 <Group gap="xs" align="center">
                   <Text fw={700} size="sm">
                     Meu Plano:{' '}
-                    <span style={{ color: '#818cf8' }}>
+                    <span style={{ color: '#1A7F86' }}>
                       {planDetails?.plan_name || 'Iniciante'}
                     </span>
                   </Text>

@@ -159,11 +159,11 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
   const totalChecks = scanSummary?.total_checks ?? ((scanSummary?.passed ?? 0) + (scanSummary?.failed ?? 0) + (scanSummary?.warnings ?? 0));
 
   const getScoreColor = (sc: number) => {
-    if (sc >= 90) return 'teal';
-    if (sc >= 75) return 'blue';
-    if (sc >= 60) return 'yellow';
-    if (sc >= 40) return 'orange';
-    return 'red';
+    if (sc >= 90) return 'emerald';
+    if (sc >= 75) return 'oceanBlue';
+    if (sc >= 60) return 'royalGold';
+    if (sc >= 40) return 'honeyBronze';
+    return 'amaranth';
   };
 
   const rawScanDate = latestScan?.scanned_at || latestScan?.executed_at;
@@ -553,9 +553,9 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
                   </Table>
                 </div>
               ) : (
-                <Paper p="md" radius="sm" bg="rgba(43, 138, 62, 0.1)" withBorder style={{ borderColor: '#2b8a3e' }}>
+                <Paper p="md" radius="sm" bg="rgba(6, 214, 160, 0.1)" withBorder style={{ borderColor: '#06d6a0' }}>
                   <Group gap="sm">
-                    <ThemeIcon color="green" radius="xl" size="md">
+                    <ThemeIcon color="emerald" radius="xl" size="md">
                       <IconCheck size={18} />
                     </ThemeIcon>
                     <div>
@@ -686,9 +686,9 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
                       </Table>
                     </div>
                   ) : (
-                    <Paper p="md" radius="sm" bg="rgba(43, 138, 62, 0.1)" withBorder style={{ borderColor: '#2b8a3e' }}>
+                    <Paper p="md" radius="sm" bg="rgba(6, 214, 160, 0.1)" withBorder style={{ borderColor: '#06d6a0' }}>
                       <Group gap="sm">
-                        <ThemeIcon color="green" radius="xl" size="md">
+                        <ThemeIcon color="emerald" radius="xl" size="md">
                           <IconCheck size={18} />
                         </ThemeIcon>
                         <div>
@@ -754,7 +754,7 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
                           <Text size="xs" c="dimmed" className="print-text-muted">
                             Versão Instalada: <b>{updates.core.current_version}</b>
                             {coreHasUpdate && (
-                              <span> | Nova versão disponível no WordPress.org: <b style={{ color: '#ff922b' }}>{updates.core.new_version}</b></span>
+                              <span> | Nova versão disponível no WordPress.org: <b style={{ color: '#edae49' }}>{updates.core.new_version}</b></span>
                             )}
                           </Text>
                         </div>
@@ -835,9 +835,9 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
                       </Table>
                     </div>
                   ) : (
-                    <Paper p="md" radius="sm" bg="rgba(43, 138, 62, 0.1)" withBorder style={{ borderColor: '#2b8a3e' }}>
+                    <Paper p="md" radius="sm" bg="rgba(6, 214, 160, 0.1)" withBorder style={{ borderColor: '#06d6a0' }}>
                       <Group gap="sm">
-                        <ThemeIcon color="green" radius="xl" size="md">
+                        <ThemeIcon color="emerald" radius="xl" size="md">
                           <IconCheck size={18} />
                         </ThemeIcon>
                         <div>

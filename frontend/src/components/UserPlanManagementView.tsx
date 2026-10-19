@@ -1056,7 +1056,7 @@ export function UserPlanManagementView({
                     'Gestão do Plano'
                   ) : (
                     <>
-                      Gestão do Plano: <span style={{ color: '#818cf8' }}>{initialUser.name}</span>
+                      Gestão do Plano: <span style={{ color: '#1A7F86' }}>{initialUser.name}</span>
                     </>
                   )}
                 </Title>
@@ -1376,7 +1376,7 @@ export function UserPlanManagementView({
             <Group gap="xs" grow>
               <Button
                 size="xs"
-                color="indigo"
+                color="sitehub"
                 variant="light"
                 leftSection={<IconCrown size={14} />}
                 onClick={handleOpenUpgradeModal}
@@ -1385,7 +1385,7 @@ export function UserPlanManagementView({
               </Button>
               <Button
                 size="xs"
-                color="teal"
+                color="secondary"
                 variant="light"
                 leftSection={<IconSparkles size={14} />}
                 onClick={handleOpenAddonsModal}

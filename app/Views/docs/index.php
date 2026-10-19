@@ -18,15 +18,24 @@
             --border-subtle: #222222;
             --text-main: #f8fafc;
             --text-muted: #94a3b8;
-            --text-dim: #79c1a8;
-            --primary: #236baa;
-            --primary-hover: #1b5385;
-            --accent-pink: #ec1c66;
-            --accent-teal: #79c1a8;
-            --accent-orange: #ec1c66;
-            --accent-green: #79c1a8;
-            --accent-red: #ef4444;
-            --accent-purple: #ec1c66;
+            --text-dim: #06d6a0;
+            --primary: #1A7F86;
+            --primary-hover: #166c72;
+            --secondary: #ef476f;
+            --accent-pink: #ef476f;
+            --accent-teal: #00798c;
+            --accent-gold: #ffd166;
+            --accent-emerald: #06d6a0;
+            --accent-ocean: #118ab2;
+            --accent-darkteal: #073b4c;
+            --accent-honey: #edae49;
+            --accent-amaranth: #d1495b;
+            --accent-baltic: #30638e;
+            --accent-yale: #003d5b;
+            --accent-orange: #edae49;
+            --accent-green: #06d6a0;
+            --accent-red: #d1495b;
+            --accent-purple: #ef476f;
             --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
             --font-mono: 'JetBrains Mono', monospace;
         }
@@ -73,23 +82,23 @@
         .brand-logo {
             width: 34px;
             height: 34px;
-            background: linear-gradient(135deg, #0284c7, #f97316);
+            background: linear-gradient(135deg, #1A7F86, #118ab2);
             border-radius: 8px;
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 1.1rem;
             color: #fff;
-            box-shadow: 0 2px 10px rgba(56, 189, 248, 0.25);
+            box-shadow: 0 2px 10px rgba(26, 127, 134, 0.3);
         }
 
         .brand-badge {
-            background: #1e293b;
-            color: var(--primary);
+            background: #073b4c;
+            color: #06d6a0;
             font-size: 0.75rem;
             padding: 2px 8px;
             border-radius: 9999px;
-            border: 1px solid rgba(56, 189, 248, 0.3);
+            border: 1px solid rgba(6, 214, 160, 0.35);
             margin-left: 6px;
         }
 
@@ -118,7 +127,7 @@
 
         .search-box input:focus {
             border-color: var(--primary);
-            box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
+            box-shadow: 0 0 0 2px rgba(26, 127, 134, 0.25);
         }
 
         .search-icon {
@@ -132,7 +141,7 @@
         }
 
         .btn-app {
-            background: linear-gradient(135deg, #236baa, #ec1c66);
+            background: linear-gradient(135deg, #1A7F86, #ef476f);
             color: #fff;
             text-decoration: none;
             padding: 8px 16px;
@@ -518,9 +527,9 @@
             display: inline-flex;
             align-items: center;
             gap: 8px;
-            background: #236baa;
+            background: var(--primary);
             color: #ffffff;
-            border: 1px solid #1b5385;
+            border: 1px solid var(--primary-hover);
             padding: 8px 16px;
             border-radius: 6px;
             font-size: 0.85rem;
@@ -530,9 +539,9 @@
             box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
         }
         .btn-copy-list:hover {
-            background: #1b5385;
+            background: var(--primary-hover);
             transform: translateY(-1px);
-            box-shadow: 0 4px 10px rgba(35, 107, 170, 0.35);
+            box-shadow: 0 4px 10px rgba(26, 127, 134, 0.35);
         }
         .btn-copy-list:active {
             transform: translateY(0);
@@ -1929,12 +1938,12 @@
                 <h2>Categorias Pré-definidas</h2>
                 <p>Cada nota técnica pode ser classificada em categorias visuais que facilitam a filtragem e localização de históricos:</p>
                 <ul>
-                    <li><span class="badge" style="background:#236baa; color:#fff; padding:2px 8px; border-radius:4px; font-size:0.8rem; font-weight:600;">Geral</span> — Notas operacionais e registros rotineiros.</li>
-                    <li><span class="badge" style="background:#ef4444; color:#fff; padding:2px 8px; border-radius:4px; font-size:0.8rem; font-weight:600;">Segurança</span> — Aplicação de patches, mitigação de vulnerabilidades e bloqueios de IP.</li>
-                    <li><span class="badge" style="background:#10b981; color:#fff; padding:2px 8px; border-radius:4px; font-size:0.8rem; font-weight:600;">Otimização</span> — Ajustes de performance, cache e Core Web Vitals.</li>
-                    <li><span class="badge" style="background:#8b5cf6; color:#fff; padding:2px 8px; border-radius:4px; font-size:0.8rem; font-weight:600;">Servidor</span> — Configurações de DNS, PHP, Apache/Nginx ou banco de dados.</li>
-                    <li><span class="badge" style="background:#f97316; color:#fff; padding:2px 8px; border-radius:4px; font-size:0.8rem; font-weight:600;">Correção de Bug</span> — Resolução de erros 500, incompatibilidades de plugins ou conflitos de código.</li>
-                    <li><span class="badge" style="background:#ec1c66; color:#fff; padding:2px 8px; border-radius:4px; font-size:0.8rem; font-weight:600;">Ajustes de Layout</span> — Modificações em CSS, temas filhos e ajustes visuais solicitados.</li>
+                    <li><span class="badge" style="background:#1A7F86; color:#fff; padding:2px 8px; border-radius:4px; font-size:0.8rem; font-weight:600;">Geral</span> — Notas operacionais e registros rotineiros.</li>
+                    <li><span class="badge" style="background:#d1495b; color:#fff; padding:2px 8px; border-radius:4px; font-size:0.8rem; font-weight:600;">Segurança</span> — Aplicação de patches, mitigação de vulnerabilidades e bloqueios de IP.</li>
+                    <li><span class="badge" style="background:#06d6a0; color:#fff; padding:2px 8px; border-radius:4px; font-size:0.8rem; font-weight:600;">Otimização</span> — Ajustes de performance, cache e Core Web Vitals.</li>
+                    <li><span class="badge" style="background:#30638e; color:#fff; padding:2px 8px; border-radius:4px; font-size:0.8rem; font-weight:600;">Servidor</span> — Configurações de DNS, PHP, Apache/Nginx ou banco de dados.</li>
+                    <li><span class="badge" style="background:#edae49; color:#fff; padding:2px 8px; border-radius:4px; font-size:0.8rem; font-weight:600;">Correção de Bug</span> — Resolução de erros 500, incompatibilidades de plugins ou conflitos de código.</li>
+                    <li><span class="badge" style="background:#ef476f; color:#fff; padding:2px 8px; border-radius:4px; font-size:0.8rem; font-weight:600;">Ajustes de Layout</span> — Modificações em CSS, temas filhos e ajustes visuais solicitados.</li>
                 </ul>
 
                 <h2>Formatação Rica com Suporte a Código e Links</h2>

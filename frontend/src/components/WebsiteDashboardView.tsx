@@ -208,11 +208,11 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
   };
 
   const getScoreColor = (score: number) => {
-    if (score >= 90) return 'teal';
-    if (score >= 75) return 'blue';
-    if (score >= 60) return 'yellow';
-    if (score >= 40) return 'orange';
-    return 'red';
+    if (score >= 90) return 'emerald';
+    if (score >= 75) return 'oceanBlue';
+    if (score >= 60) return 'royalGold';
+    if (score >= 40) return 'honeyBronze';
+    return 'amaranth';
   };
 
   const handleDownloadPlugin = async () => {
@@ -397,7 +397,7 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
   return (
     <Stack gap="md">
       {/* Top Banner Header */}
-      <Paper p="md" radius="md" bg="dark.7" withBorder style={{ borderLeft: '4px solid #4c6ef5' }}>
+      <Paper p="md" radius="md" bg="dark.7" withBorder style={{ borderLeft: '4px solid #1A7F86' }}>
         <Group justify="space-between" align="center">
           <Group gap="md">
             <Button
@@ -541,13 +541,13 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
 
                 <Menu.Label c="dimmed">Ações & Relatórios</Menu.Label>
                 <Menu.Item
-                  leftSection={<IconFileText size={16} color="#4c6ef5" />}
+                  leftSection={<IconFileText size={16} color="#1A7F86" />}
                   onClick={() => setViewingDiagnostic(true)}
                 >
                   Relatório Diagnóstico
                 </Menu.Item>
                 <Menu.Item
-                  leftSection={<IconDownload size={16} color="#20c997" />}
+                  leftSection={<IconDownload size={16} color="#06d6a0" />}
                   onClick={handleDownloadPlugin}
                   disabled={downloading}
                 >
@@ -662,7 +662,7 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
             </Paper>
 
             {/* Card do Ciclo de Manutenção Preventiva do Mês */}
-            <Paper p="lg" radius="md" bg="dark.8" withBorder style={{ borderLeft: '4px solid #12b886' }}>
+            <Paper p="lg" radius="md" bg="dark.8" withBorder style={{ borderLeft: '4px solid #06d6a0' }}>
               <Group justify="space-between" mb="sm" wrap="wrap" gap="md">
                 <Group gap="xs">
                   <ThemeIcon color="teal" variant="light" radius="xl">

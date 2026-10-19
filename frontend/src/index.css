@@ -1,3 +1,17 @@
+:root {
+  --sitehub-primary: #1A7F86;
+  --sitehub-secondary: #ef476f;
+  --sitehub-gold: #ffd166;
+  --sitehub-emerald: #06d6a0;
+  --sitehub-ocean: #118ab2;
+  --sitehub-darkteal: #073b4c;
+  --sitehub-honey: #edae49;
+  --sitehub-amaranth: #d1495b;
+  --sitehub-teal: #00798c;
+  --sitehub-baltic: #30638e;
+  --sitehub-yale: #003d5b;
+}
+
 html, body, #root {
   width: 100%;
   height: 100%;
@@ -38,7 +52,7 @@ body {
 .server-guide-content h1,
 .server-guide-content h2,
 .server-guide-content h3 {
-  color: #fb923c !important; /* Orange 400 */
+  color: #edae49 !important; /* Honey Bronze */
   margin-top: 1.5rem !important;
   margin-bottom: 0.75rem !important;
   font-weight: 700 !important;
@@ -48,7 +62,7 @@ body {
 
 .server-guide-content h4,
 .server-guide-content h5 {
-  color: #38bdf8 !important; /* Sky 400 */
+  color: #118ab2 !important; /* Ocean Blue */
   margin-top: 1.25rem !important;
   margin-bottom: 0.5rem !important;
   font-weight: 600 !important;
@@ -84,9 +98,9 @@ body {
 .server-guide-content div[style*="background: #f"],
 .server-guide-content div[style*="background: white"],
 .server-guide-content div[style*="background-color: white"] {
-  background-color: rgba(239, 68, 68, 0.12) !important;
-  border: 1px solid rgba(239, 68, 68, 0.35) !important;
-  border-left: 4px solid #ef4444 !important;
+  background-color: rgba(209, 73, 91, 0.12) !important;
+  border: 1px solid rgba(209, 73, 91, 0.35) !important;
+  border-left: 4px solid #d1495b !important;
   border-radius: 6px !important;
   padding: 12px 16px !important;
   margin: 14px 0 !important;
@@ -117,7 +131,7 @@ body {
 
 .server-guide-content pre code {
   background-color: transparent !important;
-  color: #4ade80 !important; /* Green code font */
+  color: #06d6a0 !important; /* Emerald code font */
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
   font-size: 13px !important;
   padding: 0 !important;
@@ -126,7 +140,7 @@ body {
 
 .server-guide-content :not(pre) > code {
   background-color: #27272a !important;
-  color: #38bdf8 !important;
+  color: #118ab2 !important;
   padding: 2px 6px !important;
   border-radius: 4px !important;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
@@ -149,9 +163,9 @@ html {
 }
 
 @keyframes pulseDot {
-  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
-  70% { transform: scale(1); box-shadow: 0 0 0 7px rgba(16, 185, 129, 0); }
-  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(6, 214, 160, 0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 7px rgba(6, 214, 160, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(6, 214, 160, 0); }
 }
 
 .pulse-green {
@@ -159,7 +173,7 @@ html {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background-color: #10b981;
+  background-color: #06d6a0;
   animation: pulseDot 2s infinite ease-in-out;
   vertical-align: middle;
 }
@@ -170,19 +184,19 @@ html {
 
 .landing-card-glow:hover {
   transform: translateY(-4px);
-  box-shadow: 0 14px 34px -10px rgba(99, 102, 241, 0.35);
-  border-color: rgba(99, 102, 241, 0.5) !important;
+  box-shadow: 0 14px 34px -10px rgba(26, 127, 134, 0.35);
+  border-color: rgba(26, 127, 134, 0.5) !important;
 }
 
 .landing-card-featured {
   position: relative;
-  border: 1px solid rgba(99, 102, 241, 0.55) !important;
-  box-shadow: 0 12px 35px rgba(79, 70, 229, 0.25), 0 0 20px rgba(99, 102, 241, 0.15);
+  border: 1px solid rgba(239, 71, 111, 0.55) !important;
+  box-shadow: 0 12px 35px rgba(239, 71, 111, 0.25), 0 0 20px rgba(26, 127, 134, 0.2);
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .landing-card-featured:hover {
   transform: scale(1.04) translateY(-4px) !important;
-  box-shadow: 0 18px 45px rgba(79, 70, 229, 0.38), 0 0 28px rgba(99, 102, 241, 0.25);
+  box-shadow: 0 18px 45px rgba(239, 71, 111, 0.38), 0 0 28px rgba(26, 127, 134, 0.3);
 }
 

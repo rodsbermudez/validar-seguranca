@@ -204,7 +204,7 @@ export const PublicActivityLogsView: React.FC<PublicActivityLogsViewProps> = ({
         ) : (
           <Stack gap="lg">
             {/* Top Banner com Info do Site e Filtros */}
-            <Paper p="lg" radius="md" bg="dark.8" withBorder style={{ borderLeft: '4px solid #4c6ef5' }}>
+            <Paper p="lg" radius="md" bg="dark.8" withBorder style={{ borderLeft: '4px solid #1A7F86' }}>
               <Group justify="space-between" align="flex-start" wrap="wrap" gap="md">
                 <div>
                   <Group gap="xs" align="center">
@@ -213,7 +213,7 @@ export const PublicActivityLogsView: React.FC<PublicActivityLogsViewProps> = ({
                     </Title>
                     {website?.environment && (
                       <Badge
-                        color={website.environment === 'production' ? 'red' : 'teal'}
+                        color={website.environment === 'production' ? 'amaranth' : 'emerald'}
                         variant="light"
                         size="sm"
                       >
@@ -228,7 +228,7 @@ export const PublicActivityLogsView: React.FC<PublicActivityLogsViewProps> = ({
                       target="_blank"
                       rel="noopener noreferrer"
                       size="sm"
-                      c="blue.4"
+                      c="oceanBlue.4"
                       mt={4}
                       style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
                     >
@@ -246,7 +246,7 @@ export const PublicActivityLogsView: React.FC<PublicActivityLogsViewProps> = ({
                 </div>
 
                 <Group gap="xs">
-                  <Badge color="indigo" variant="light" size="lg">
+                  <Badge color="sitehub" variant="light" size="lg">
                     {activities.length} {activities.length === 1 ? 'registro' : 'registros'}
                   </Badge>
                   <Button
@@ -336,19 +336,19 @@ export const PublicActivityLogsView: React.FC<PublicActivityLogsViewProps> = ({
                       withBorder
                       style={{
                         borderLeft: isMaintenance
-                          ? '4px solid #22b8cf'
+                          ? '4px solid #118ab2'
                           : `4px solid ${
                               catMeta.color === 'red'
-                                ? '#fa5252'
+                                ? '#d1495b'
                                 : catMeta.color === 'teal'
-                                ? '#20c997'
+                                ? '#06d6a0'
                                 : catMeta.color === 'orange'
-                                ? '#fd7e14'
+                                ? '#edae49'
                                 : catMeta.color === 'grape'
-                                ? '#cc5de8'
+                                ? '#ef476f'
                                 : catMeta.color === 'cyan'
-                                ? '#15aabf'
-                                : '#5c7cfa'
+                                ? '#00798c'
+                                : '#1A7F86'
                             }`,
                       }}
                     >
@@ -357,7 +357,7 @@ export const PublicActivityLogsView: React.FC<PublicActivityLogsViewProps> = ({
                           <Group gap="xs" wrap="wrap" align="center">
                             {isMaintenance ? (
                               <Badge
-                                color="cyan"
+                                color="oceanBlue"
                                 variant="filled"
                                 size="sm"
                                 leftSection={<IconCalendarCheck size={12} />}
@@ -367,7 +367,7 @@ export const PublicActivityLogsView: React.FC<PublicActivityLogsViewProps> = ({
                             ) : (
                               <>
                                 <Badge
-                                  color="indigo"
+                                  color="sitehub"
                                   variant="light"
                                   size="sm"
                                   leftSection={<IconNote size={12} />}

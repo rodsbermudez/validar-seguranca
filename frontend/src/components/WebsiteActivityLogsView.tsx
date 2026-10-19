@@ -444,19 +444,19 @@ export const WebsiteActivityLogsView: React.FC<WebsiteActivityLogsViewProps> = (
                 withBorder
                 style={{
                   borderLeft: isMaintenance
-                    ? '4px solid #22b8cf'
+                    ? '4px solid #118ab2'
                     : `4px solid ${
                         catMeta.color === 'red'
-                          ? '#fa5252'
+                          ? '#d1495b'
                           : catMeta.color === 'teal'
-                          ? '#20c997'
+                          ? '#06d6a0'
                           : catMeta.color === 'orange'
-                          ? '#fd7e14'
+                          ? '#edae49'
                           : catMeta.color === 'grape'
-                          ? '#cc5de8'
+                          ? '#ef476f'
                           : catMeta.color === 'cyan'
-                          ? '#15aabf'
-                          : '#5c7cfa'
+                          ? '#00798c'
+                          : '#1A7F86'
                       }`,
                 }}
               >

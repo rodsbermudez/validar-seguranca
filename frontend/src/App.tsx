@@ -210,7 +210,7 @@ export default function App() {
             <Group gap="sm" wrap="nowrap">
               <Button
                 variant={viewMode === 'overview' ? 'light' : 'subtle'}
-                color="patropi"
+                color="sitehub"
                 leftSection={<IconLayoutDashboard size={16} />}
                 onClick={() => {
                   setSelectedWebsite(null);
@@ -222,7 +222,7 @@ export default function App() {
 
               <Button
                 variant={viewMode === 'list' || (viewMode === 'dashboard' && !selectedWebsite) ? 'light' : 'subtle'}
-                color="patropi"
+                color="sitehub"
                 leftSection={<IconWorld size={16} />}
                 onClick={() => {
                   setSelectedWebsite(null);
@@ -241,7 +241,7 @@ export default function App() {
                           ? 'light'
                           : 'subtle'
                       }
-                      color="indigo"
+                      color="sitehub"
                       leftSection={<IconSettings size={16} />}
                       rightSection={<IconChevronDown size={14} />}
                     >
@@ -251,7 +251,7 @@ export default function App() {
 
                   <Menu.Dropdown>
                     <Menu.Item
-                      leftSection={<IconSettings size={16} color="var(--mantine-color-indigo-6)" />}
+                      leftSection={<IconSettings size={16} color="var(--mantine-color-sitehub-6)" />}
                       onClick={() => {
                         setSelectedWebsite(null);
                         setViewMode('settings');
@@ -260,7 +260,7 @@ export default function App() {
                       Gerais
                     </Menu.Item>
                     <Menu.Item
-                      leftSection={<IconUsers size={16} color="var(--mantine-color-teal-6)" />}
+                      leftSection={<IconUsers size={16} color="var(--mantine-color-emerald-6)" />}
                       onClick={() => {
                         setSelectedWebsite(null);
                         setViewMode('users');
@@ -269,7 +269,7 @@ export default function App() {
                       Usuários
                     </Menu.Item>
                     <Menu.Item
-                      leftSection={<IconBook size={16} color="var(--mantine-color-pink-6)" />}
+                      leftSection={<IconBook size={16} color="var(--mantine-color-secondary-6)" />}
                       onClick={() => {
                         setSelectedWebsite(null);
                         setViewMode('solutions');
@@ -278,7 +278,7 @@ export default function App() {
                       Catálogo de Soluções
                     </Menu.Item>
                     <Menu.Item
-                      leftSection={<IconBrain size={16} color="var(--mantine-color-violet-6)" />}
+                      leftSection={<IconBrain size={16} color="var(--mantine-color-oceanBlue-6)" />}
                       onClick={() => {
                         setSelectedWebsite(null);
                         setViewMode('ai-monitoring');
@@ -292,7 +292,7 @@ export default function App() {
 
               <Button
                 variant={viewMode === 'user-ai-view' ? 'light' : 'subtle'}
-                color="indigo"
+                color="sitehub"
                 leftSection={<IconPackage size={16} />}
                 onClick={() => {
                   setSelectedWebsite(null);
@@ -317,7 +317,7 @@ export default function App() {
               <Menu shadow="md" width={220} position="bottom-end">
                 <Menu.Target>
                   <Group gap="xs" style={{ cursor: 'pointer' }}>
-                    <Avatar color="indigo" radius="xl" size="sm">
+                    <Avatar color="sitehub" radius="xl" size="sm">
                       {user.name ? user.name.charAt(0).toUpperCase() : <IconUser size={16} />}
                     </Avatar>
                     <div>
@@ -325,7 +325,7 @@ export default function App() {
                         <Text size="sm" fw={600}>
                           {impersonatedUser ? impersonatedUser.name : user.name}
                         </Text>
-                        <Badge size="xs" color={isAdmin ? 'indigo' : 'gray'}>
+                        <Badge size="xs" color={isAdmin ? 'sitehub' : 'gray'}>
                           {impersonatedUser ? 'VISUALIZANDO' : isAdmin ? 'ADMIN' : 'USUÁRIO'}
                         </Badge>
                       </Group>

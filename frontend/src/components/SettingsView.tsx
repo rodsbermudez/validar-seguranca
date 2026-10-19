@@ -872,16 +872,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onBack, currentUserR
                 <Paper
                   p="md"
                   radius="md"
-                  bg={enableCreditCard ? 'rgba(99, 102, 241, 0.08)' : 'dark.7'}
+                  bg={enableCreditCard ? 'rgba(26, 127, 134, 0.12)' : 'dark.7'}
                   withBorder
                   style={{
-                    borderColor: enableCreditCard ? '#6366f1' : '#4b5563',
+                    borderColor: enableCreditCard ? '#1A7F86' : '#4b5563',
                     transition: 'all 0.2s ease',
                   }}
                 >
                   <Group justify="space-between" align="flex-start" mb="xs">
                     <Group gap="xs">
-                      <ThemeIcon color="indigo" variant={enableCreditCard ? 'filled' : 'light'} size="md">
+                      <ThemeIcon color="sitehub" variant={enableCreditCard ? 'filled' : 'light'} size="md">
                         <IconCreditCard size={18} />
                       </ThemeIcon>
                       <div>
@@ -907,7 +907,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onBack, currentUserR
                         setPaymentMethodsMsg(null);
                         setEnableCreditCard(checked);
                       }}
-                      color="indigo"
+                      color="sitehub"
                       size="md"
                     />
                   </Group>
@@ -920,16 +920,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onBack, currentUserR
                 <Paper
                   p="md"
                   radius="md"
-                  bg={enablePix ? 'rgba(20, 184, 166, 0.08)' : 'dark.7'}
+                  bg={enablePix ? 'rgba(6, 214, 160, 0.12)' : 'dark.7'}
                   withBorder
                   style={{
-                    borderColor: enablePix ? '#14b8a6' : '#4b5563',
+                    borderColor: enablePix ? '#06d6a0' : '#4b5563',
                     transition: 'all 0.2s ease',
                   }}
                 >
                   <Group justify="space-between" align="flex-start" mb="xs">
                     <Group gap="xs">
-                      <ThemeIcon color="teal" variant={enablePix ? 'filled' : 'light'} size="md">
+                      <ThemeIcon color="emerald" variant={enablePix ? 'filled' : 'light'} size="md">
                         <IconQrcode size={18} />
                       </ThemeIcon>
                       <div>
@@ -955,7 +955,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onBack, currentUserR
                         setPaymentMethodsMsg(null);
                         setEnablePix(checked);
                       }}
-                      color="teal"
+                      color="emerald"
                       size="md"
                     />
                   </Group>

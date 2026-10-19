@@ -725,19 +725,19 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   onClick={() => setPaymentMethod('credit_card')}
                   style={{
                     cursor: 'pointer',
-                    background: paymentMethod === 'credit_card' ? 'rgba(99, 102, 241, 0.15)' : 'rgba(30, 41, 59, 0.5)',
-                    border: paymentMethod === 'credit_card' ? '2px solid #6366f1' : '1px solid rgba(255, 255, 255, 0.08)',
+                    background: paymentMethod === 'credit_card' ? 'rgba(26, 127, 134, 0.18)' : 'rgba(30, 41, 59, 0.5)',
+                    border: paymentMethod === 'credit_card' ? '2px solid #1A7F86' : '1px solid rgba(255, 255, 255, 0.08)',
                     transition: 'all 0.2s ease',
                   }}
                 >
                   <Group justify="space-between" mb={4}>
                     <Group gap="xs">
-                      <IconCreditCard size={18} color={paymentMethod === 'credit_card' ? '#818cf8' : '#94a3b8'} />
+                      <IconCreditCard size={18} color={paymentMethod === 'credit_card' ? '#1A7F86' : '#94a3b8'} />
                       <Text size="sm" fw={700} c={paymentMethod === 'credit_card' ? 'white' : 'gray.4'}>
                         Cartão de Crédito
                       </Text>
                     </Group>
-                    <Badge size="xs" color="indigo" variant="light">Automático</Badge>
+                    <Badge size="xs" color="sitehub" variant="light">Automático</Badge>
                   </Group>
                   <Text size="xs" c="dimmed">
                     Cobrança recorrente mensal sem risco de interrupção.
@@ -750,19 +750,19 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   onClick={() => setPaymentMethod('pix')}
                   style={{
                     cursor: 'pointer',
-                    background: paymentMethod === 'pix' ? 'rgba(99, 102, 241, 0.15)' : 'rgba(30, 41, 59, 0.5)',
-                    border: paymentMethod === 'pix' ? '2px solid #6366f1' : '1px solid rgba(255, 255, 255, 0.08)',
+                    background: paymentMethod === 'pix' ? 'rgba(6, 214, 160, 0.15)' : 'rgba(30, 41, 59, 0.5)',
+                    border: paymentMethod === 'pix' ? '2px solid #06d6a0' : '1px solid rgba(255, 255, 255, 0.08)',
                     transition: 'all 0.2s ease',
                   }}
                 >
                   <Group justify="space-between" mb={4}>
                     <Group gap="xs">
-                      <IconQrcode size={18} color={paymentMethod === 'pix' ? '#818cf8' : '#94a3b8'} />
+                      <IconQrcode size={18} color={paymentMethod === 'pix' ? '#06d6a0' : '#94a3b8'} />
                       <Text size="sm" fw={700} c={paymentMethod === 'pix' ? 'white' : 'gray.4'}>
                         Pix Instantâneo
                       </Text>
                     </Group>
-                    <Badge size="xs" color="teal" variant="light">QR Code</Badge>
+                    <Badge size="xs" color="emerald" variant="light">QR Code</Badge>
                   </Group>
                   <Text size="xs" c="dimmed">
                     Pagamento com QR Code instantâneo a cada renovação.
@@ -772,10 +772,10 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             )}
 
             {allowCreditCard && !allowPix && (
-              <Paper p="sm" radius="md" bg="rgba(99, 102, 241, 0.1)" style={{ border: '1px solid rgba(99, 102, 241, 0.3)' }}>
+              <Paper p="sm" radius="md" bg="rgba(26, 127, 134, 0.12)" style={{ border: '1px solid rgba(26, 127, 134, 0.35)' }}>
                 <Group justify="space-between">
                   <Group gap="xs">
-                    <IconCreditCard size={18} color="#818cf8" />
+                    <IconCreditCard size={18} color="#1A7F86" />
                     <div>
                       <Text size="sm" fw={700} c="white">
                         Pagamento via Cartão de Crédito
@@ -785,16 +785,16 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       </Text>
                     </div>
                   </Group>
-                  <Badge size="xs" color="indigo" variant="light">Recorrência Automática</Badge>
+                  <Badge size="xs" color="sitehub" variant="light">Recorrência Automática</Badge>
                 </Group>
               </Paper>
             )}
 
             {!allowCreditCard && allowPix && (
-              <Paper p="sm" radius="md" bg="rgba(20, 184, 166, 0.1)" style={{ border: '1px solid rgba(20, 184, 166, 0.3)' }}>
+              <Paper p="sm" radius="md" bg="rgba(6, 214, 160, 0.1)" style={{ border: '1px solid rgba(6, 214, 160, 0.35)' }}>
                 <Group justify="space-between">
                   <Group gap="xs">
-                    <IconQrcode size={18} color="#2dd4bf" />
+                    <IconQrcode size={18} color="#06d6a0" />
                     <div>
                       <Text size="sm" fw={700} c="white">
                         Pagamento via Pix Instantâneo
@@ -804,16 +804,16 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       </Text>
                     </div>
                   </Group>
-                  <Badge size="xs" color="teal" variant="light">QR Code</Badge>
+                  <Badge size="xs" color="emerald" variant="light">QR Code</Badge>
                 </Group>
               </Paper>
             )}
 
             {/* Campos de Cartão de Crédito */}
             {paymentMethod === 'credit_card' && (
-              <Card p="sm" radius="md" bg="rgba(15, 23, 42, 0.6)" style={{ border: '1px solid rgba(99, 102, 241, 0.25)' }}>
+              <Card p="sm" radius="md" bg="rgba(15, 23, 42, 0.6)" style={{ border: '1px solid rgba(26, 127, 134, 0.3)' }}>
                 <Stack gap="xs">
-                  <Text size="xs" fw={700} c="indigo.3" style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  <Text size="xs" fw={700} c="sitehub.4" style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                     Dados do Cartão de Crédito
                   </Text>
 
@@ -880,12 +880,12 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             <Button
               type="submit"
               size="md"
-              color="indigo"
+              color="sitehub"
               variant="gradient"
               gradient={
                 paymentMethod === 'credit_card'
-                  ? { from: 'indigo.6', to: 'violet.6' }
-                  : { from: 'indigo.6', to: 'blue.6' }
+                  ? { from: '#1A7F86', to: '#118ab2' }
+                  : { from: '#1A7F86', to: '#06d6a0' }
               }
               leftSection={
                 paymentMethod === 'credit_card' ? (
@@ -915,7 +915,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       {/* PASSO 2: PIX QR CODE & COPIA E COLA */}
       {step === 'pix' && checkoutData && (
         <Stack gap="md" align="center">
-          <Badge size="lg" color="green" variant="light" leftSection={<span className="pulse-green" />}>
+          <Badge size="lg" color="emerald" variant="light" leftSection={<span className="pulse-green" />}>
             Aguardando Pagamento Pix
           </Badge>
 
@@ -971,7 +971,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               <CopyButton value={checkoutData.pix_copy_paste || ''} timeout={2500}>
                 {({ copied, copy }) => (
                   <Button
-                    color={copied ? 'teal' : 'indigo'}
+                    color={copied ? 'emerald' : 'sitehub'}
                     variant={copied ? 'filled' : 'light'}
                     onClick={copy}
                     leftSection={copied ? <IconCheck size={16} /> : <IconCopy size={16} />}
@@ -987,7 +987,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           <Paper p="sm" radius="md" bg="rgba(30, 41, 59, 0.4)" w="100%" style={{ border: '1px solid rgba(255, 255, 255, 0.05)' }}>
             <Group justify="space-between" align="center">
               <Group gap="xs">
-                {isVerifying ? <Loader size="xs" color="indigo" /> : <IconCheck size={14} color="#22c55e" />}
+                {isVerifying ? <Loader size="xs" color="sitehub" /> : <IconCheck size={14} color="#06d6a0" />}
                 <Text size="xs" c="gray.3">
                   {isVerifying ? 'Monitorando liquidação bancária em tempo real...' : 'Aguardando liquidação do Pix...'}
                 </Text>
