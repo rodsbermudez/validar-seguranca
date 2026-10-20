@@ -53,6 +53,7 @@ import {
   IconTools,
   IconChevronDown,
   IconNotes,
+  IconAlertTriangle,
 } from '@tabler/icons-react';
 import {
   api,
@@ -304,9 +305,17 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
     setFormError(null);
     setFormSuccess(null);
 
+    let formattedUrl = url.trim();
+    if (formattedUrl && !/^https?:\/\//i.test(formattedUrl)) {
+      formattedUrl = 'https://' + formattedUrl;
+    }
+    formattedUrl = formattedUrl.replace(/\/+$/, '');
+
+    const isUrlModified = formattedUrl !== website.url.replace(/\/+$/, '');
+
     const payload = {
-      name,
-      url,
+      name: name.trim(),
+      url: formattedUrl,
       environment,
       maintenance_day: maintenanceDay === '' || maintenanceDay === null ? null : Number(maintenanceDay),
     };
@@ -314,11 +323,17 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
     try {
       const response = await api.put(`/websites/${website.id}`, payload);
       const updated = response.data?.data || { ...website, ...payload };
-      setFormSuccess('Dados do website atualizados com sucesso!');
+      if (isUrlModified) {
+        setFormSuccess(
+          'Website atualizado com sucesso! Como a URL foi modificada, baixe novamente o plugin agente na aba Visão Geral e reinstale no WordPress para restabelecer a comunicação segura.'
+        );
+      } else {
+        setFormSuccess('Dados do website atualizados com sucesso!');
+      }
       if (onUpdateWebsite) {
         onUpdateWebsite(updated);
       }
-      setTimeout(() => setFormSuccess(null), 4000);
+      setTimeout(() => setFormSuccess(null), 8000);
     } catch (err: any) {
       setFormError(
         err.response?.data?.messages?.error ||
@@ -1361,7 +1376,16 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
               )}
 
               <form onSubmit={handleSaveSettings}>
-                <Stack gap="md" style={{ maxWidth: 600 }}>
+                <Stack gap="md" style={{ maxWidth: 650 }}>
+                  <Alert
+                    icon={<IconAlertTriangle size={18} />}
+                    color="orange"
+                    variant="light"
+                    title="Atenção à alteração de URL"
+                  >
+                    Se você alterar a <b>URL do site</b>, o plugin agente WordPress precisará ser <b>gerado e baixado novamente</b> nesta plataforma e reinstalado no seu WordPress para restabelecer a comunicação segura e os tokens de integração.
+                  </Alert>
+
                   <TextInput
                     label="Nome do Site"
                     placeholder="Ex: Blog Principal"
@@ -1371,13 +1395,24 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
                     onChange={(e) => setName(e.currentTarget.value)}
                   />
                   <TextInput
-                    label="URL do WordPress"
-                    placeholder="http://localhost/wordpress"
+                    label="URL da Página Inicial do WordPress (com HTTPS://)"
+                    description="Informe a URL da página inicial com https:// (Exemplo: https://seusite.com.br). O protocolo seguro HTTPS é obrigatório para funcionamento e comunicação com o agente."
+                    placeholder="https://seusite.com.br"
                     required
                     disabled={!isSiteOwner}
                     value={url}
                     onChange={(e) => setUrl(e.currentTarget.value)}
                   />
+
+                  {url.trim() !== '' && url.trim().replace(/\/+$/, '') !== website.url.replace(/\/+$/, '') && (
+                    <Alert
+                      icon={<IconAlertTriangle size={16} />}
+                      color="yellow"
+                      variant="filled"
+                    >
+                      Atenção: A URL informada é diferente da URL cadastrada (<code>{website.url}</code>). Ao salvar as alterações, a comunicação com o plugin instalado será pausada e você deverá ir até a aba <b>Visão Geral</b> para baixar o novo pacote do plugin e reinstalá-lo.
+                    </Alert>
+                  )}
                   <Select
                     label="Ambiente"
                     disabled={!isSiteOwner}

@@ -27,6 +27,9 @@ import {
   IconLayoutDashboard,
   IconUsers,
   IconDoorExit,
+  IconAlertTriangle,
+  IconInfoCircle,
+  IconDownload,
 } from '@tabler/icons-react';
 import { api, Website } from '../api';
 
@@ -43,6 +46,8 @@ export const WebsitesList: React.FC<WebsitesListProps> = ({ onSelectWebsite }) =
   const [editingWebsite, setEditingWebsite] = useState<Website | null>(null);
   const [formLoading, setFormLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [downloadingId, setDownloadingId] = useState<number | string | null>(null);
 
   // Form State
   const [name, setName] = useState('');
@@ -86,14 +91,49 @@ export const WebsitesList: React.FC<WebsitesListProps> = ({ onSelectWebsite }) =
     setModalOpen(true);
   };
 
+  const handleDownloadPlugin = async (site: Website) => {
+    setDownloadingId(site.id);
+    try {
+      const response = await api.get(`/websites/${site.id}/download-plugin`, {
+        responseType: 'blob',
+      });
+      const blobUrl = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      const siteHost = site.url
+        ? site.url.replace(/^https?:\/\//, '').replace(/\/.*$/, '')
+        : site.name.replace(/\s+/g, '-').toLowerCase();
+      const siteSlug = siteHost.replace(/[^a-zA-Z0-9_\-]/g, '-');
+      link.setAttribute('download', `vexors-diagnostico-${siteSlug}.zip`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (err: any) {
+      alert('Erro ao baixar o plugin agente do WordPress.');
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormLoading(true);
     setError(null);
 
+    let formattedUrl = url.trim();
+    if (formattedUrl && !/^https?:\/\//i.test(formattedUrl)) {
+      formattedUrl = 'https://' + formattedUrl;
+    }
+    // Remove trailing slash
+    formattedUrl = formattedUrl.replace(/\/+$/, '');
+
+    const isUrlModified = editingWebsite
+      ? formattedUrl !== editingWebsite.url.replace(/\/+$/, '')
+      : false;
+
     const payload = {
-      name,
-      url,
+      name: name.trim(),
+      url: formattedUrl,
       environment,
       maintenance_day: maintenanceDay === '' || maintenanceDay === null ? null : Number(maintenanceDay),
     };
@@ -101,6 +141,11 @@ export const WebsitesList: React.FC<WebsitesListProps> = ({ onSelectWebsite }) =
     try {
       if (editingWebsite) {
         await api.put(`/websites/${editingWebsite.id}`, payload);
+        if (isUrlModified) {
+          setNotice(
+            `A URL do website "${name}" foi alterada com sucesso! O plugin agente de segurança precisará ser gerado e baixado novamente para restabelecer a conexão no WordPress com o novo endereço.`
+          );
+        }
       } else {
         await api.post('/websites', payload);
       }
@@ -161,6 +206,20 @@ export const WebsitesList: React.FC<WebsitesListProps> = ({ onSelectWebsite }) =
           Novo Website
         </Button>
       </Group>
+
+      {notice && (
+        <Alert
+          icon={<IconAlertTriangle size={18} />}
+          color="orange"
+          variant="light"
+          mb="md"
+          onClose={() => setNotice(null)}
+          withCloseButton
+          title="Atenção: Reinstalação de Plugin Necessária"
+        >
+          {notice}
+        </Alert>
+      )}
 
       {error && (
         <Alert icon={<IconAlertCircle size={16} />} color="red" mb="md" onClose={() => setError(null)} withCloseButton>
@@ -280,6 +339,16 @@ export const WebsitesList: React.FC<WebsitesListProps> = ({ onSelectWebsite }) =
                       </Button>
                       {isOwner ? (
                         <>
+                          <Tooltip label="Baixar Plugin Agente WP (.zip)">
+                            <ActionIcon
+                              color="teal"
+                              variant="subtle"
+                              loading={downloadingId === site.id}
+                              onClick={() => handleDownloadPlugin(site)}
+                            >
+                              <IconDownload size={16} />
+                            </ActionIcon>
+                          </Tooltip>
                           <Tooltip label="Editar Configurações">
                             <ActionIcon color="blue" variant="subtle" onClick={() => handleOpenEditModal(site)}>
                               <IconPencil size={16} />
@@ -313,8 +382,31 @@ export const WebsitesList: React.FC<WebsitesListProps> = ({ onSelectWebsite }) =
         onClose={() => setModalOpen(false)}
         title={editingWebsite ? 'Editar Alvo WordPress' : 'Cadastrar Novo Alvo WordPress'}
         centered
+        size="lg"
       >
         <form onSubmit={handleSubmit}>
+          {!editingWebsite ? (
+            <Alert
+              icon={<IconInfoCircle size={18} />}
+              color="blue"
+              variant="light"
+              mb="md"
+              title="Endereço da Página Inicial (Obrigatório HTTPS)"
+            >
+              Para que os diagnósticos e a comunicação com o agente funcionem perfeitamente, informe a <b>URL da página inicial</b> do site iniciando com <b>https://</b> (ex: <code>https://seusite.com.br</code>). O protocolo seguro HTTPS é obrigatório. Não use links com <code>http://</code> nem informe subpáginas ou painel administrativo (como <code>/wp-admin</code>).
+            </Alert>
+          ) : (
+            <Alert
+              icon={<IconAlertTriangle size={18} />}
+              color="orange"
+              variant="light"
+              mb="md"
+              title="Atenção à alteração de URL"
+            >
+              Se a <b>URL do site for alterada</b>, o plugin agente de segurança precisará ser <b>gerado e baixado novamente</b> nesta plataforma e reinstalado no seu WordPress para restabelecer a comunicação e o token de segurança.
+            </Alert>
+          )}
+
           <TextInput
             label="Nome do Site"
             placeholder="Ex: Blog Principal"
@@ -322,14 +414,28 @@ export const WebsitesList: React.FC<WebsitesListProps> = ({ onSelectWebsite }) =
             value={name}
             onChange={(e) => setName(e.currentTarget.value)}
           />
+
           <TextInput
-            label="URL do WordPress"
-            placeholder="http://localhost/wordpress"
+            label="URL da Página Inicial do WordPress (com HTTPS://)"
+            description="Informe a URL da página inicial com https:// (Exemplo: https://seusite.com.br). O protocolo seguro HTTPS é obrigatório para funcionamento e comunicação com o agente."
+            placeholder="https://seusite.com.br"
             required
             mt="md"
             value={url}
             onChange={(e) => setUrl(e.currentTarget.value)}
           />
+
+          {editingWebsite && url.trim() !== '' && url.trim().replace(/\/+$/, '') !== editingWebsite.url.replace(/\/+$/, '') && (
+            <Alert
+              icon={<IconAlertTriangle size={16} />}
+              color="yellow"
+              variant="filled"
+              mt="xs"
+            >
+              Você está alterando a URL original (<code>{editingWebsite.url}</code>) para <code>{url.trim().replace(/\/+$/, '')}</code>. Ao salvar, a comunicação com o plugin instalado será interrompida e você precisará baixar e reinstalar o novo plugin no novo endereço.
+            </Alert>
+          )}
+
           <Select
             label="Ambiente"
             data={[

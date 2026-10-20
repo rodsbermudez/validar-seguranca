@@ -54,10 +54,10 @@ class Websites extends ResourceController
         // Validate URL format
         if (!filter_var($url, FILTER_VALIDATE_URL)) {
             if (!preg_match('/^https?:\/\//i', $url)) {
-                $url = 'http://' . $url;
+                $url = 'https://' . $url;
             }
             if (!filter_var($url, FILTER_VALIDATE_URL)) {
-                return $this->fail('A URL informada é inválida.', 400);
+                return $this->fail('A URL informada é inválida. Certifique-se de informar a URL da página inicial com https:// (ex: https://seusite.com.br).', 400);
             }
         }
 
@@ -130,10 +130,10 @@ class Websites extends ResourceController
 
         if (!filter_var($url, FILTER_VALIDATE_URL)) {
             if (!preg_match('/^https?:\/\//i', $url)) {
-                $url = 'http://' . $url;
+                $url = 'https://' . $url;
             }
             if (!filter_var($url, FILTER_VALIDATE_URL)) {
-                return $this->fail('A URL informada é inválida.', 400);
+                return $this->fail('A URL informada é inválida. Certifique-se de informar a URL da página inicial com https:// (ex: https://seusite.com.br).', 400);
             }
         }
 
@@ -144,19 +144,34 @@ class Websites extends ResourceController
             $maintenanceDay = null;
         }
 
-        $websiteModel->update($id, [
+        $cleanUrl = rtrim($url, '/');
+        $urlChanged = (rtrim($website['url'], '/') !== $cleanUrl);
+
+        $updateData = [
             'name'            => $name,
-            'url'             => rtrim($url, '/'),
+            'url'             => $cleanUrl,
             'environment'     => $environment,
             'maintenance_day' => $maintenanceDay,
-        ]);
+        ];
+
+        if ($urlChanged) {
+            // Se a URL mudou, desconectamos o agente para forçar a reinstalação / validação do plugin na nova URL
+            $updateData['is_connected'] = 0;
+        }
+
+        $websiteModel->update($id, $updateData);
 
         $updatedWebsite = $websiteModel->find($id);
 
+        $message = $urlChanged
+            ? 'Website atualizado com sucesso. Como a URL foi alterada, o plugin agente do WordPress precisará ser baixado e instalado novamente no seu WordPress.'
+            : 'Website atualizado com sucesso.';
+
         return $this->respond([
-            'status'  => 200,
-            'message' => 'Website atualizado com sucesso.',
-            'data'    => $updatedWebsite,
+            'status'      => 200,
+            'message'     => $message,
+            'url_changed' => $urlChanged,
+            'data'        => $updatedWebsite,
         ]);
     }
 
