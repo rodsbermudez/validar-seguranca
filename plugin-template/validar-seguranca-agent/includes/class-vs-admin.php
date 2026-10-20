@@ -14,6 +14,15 @@ class VS_Agent_Admin {
 
     public function admin_head_styles() {
         echo '<style>
+            /* Menu Icon Centering */
+            #adminmenu .toplevel_page_vexors-app .wp-menu-image,
+            #adminmenu #toplevel_page_vexors-app .wp-menu-image,
+            #adminmenu .toplevel_page_wp-patropi .wp-menu-image,
+            #adminmenu #toplevel_page_wp-patropi .wp-menu-image {
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+            }
             #adminmenu .toplevel_page_vexors-app .wp-menu-image img,
             #adminmenu #toplevel_page_vexors-app .wp-menu-image img,
             #adminmenu .toplevel_page_wp-patropi .wp-menu-image img,
@@ -22,10 +31,74 @@ class VS_Agent_Admin {
                 max-height: 20px !important;
                 width: 20px !important;
                 height: 20px !important;
-                padding: 3px 0 0 0 !important;
+                padding: 0 !important;
+                margin: auto !important;
                 object-fit: contain !important;
                 box-sizing: border-box !important;
+                opacity: 0.85 !important;
             }
+            #adminmenu .toplevel_page_vexors-app:hover .wp-menu-image img,
+            #adminmenu #toplevel_page_vexors-app:hover .wp-menu-image img,
+            #adminmenu .toplevel_page_vexors-app.current .wp-menu-image img,
+            #adminmenu #toplevel_page_vexors-app.current:hover .wp-menu-image img,
+            #adminmenu .toplevel_page_vexors-app.wp-has-current-submenu .wp-menu-image img,
+            #adminmenu #toplevel_page_vexors-app.wp-has-current-submenu:hover .wp-menu-image img {
+                opacity: 1 !important;
+            }
+
+            /* Buttons with Dashicons inside Vexors plugin */
+            .vs-btn-with-icon {
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                gap: 8px !important;
+                height: 34px !important;
+                min-height: 34px !important;
+                line-height: 1 !important;
+                padding: 0 14px !important;
+                vertical-align: middle !important;
+                box-sizing: border-box !important;
+                font-weight: 500 !important;
+            }
+            .vs-btn-with-icon.button-large {
+                height: 38px !important;
+                min-height: 38px !important;
+                padding: 0 18px !important;
+            }
+            .vs-btn-with-icon .dashicons,
+            .wp-core-ui .button.vs-btn-with-icon .dashicons,
+            .wp-core-ui .button-secondary.vs-btn-with-icon .dashicons,
+            .wp-core-ui .button-primary.vs-btn-with-icon .dashicons {
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                width: 18px !important;
+                height: 18px !important;
+                font-size: 18px !important;
+                line-height: 1 !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                vertical-align: middle !important;
+            }
+            .vs-btn-with-icon .dashicons:before,
+            .wp-core-ui .button.vs-btn-with-icon .dashicons:before,
+            .wp-core-ui .button-secondary.vs-btn-with-icon .dashicons:before,
+            .wp-core-ui .button-primary.vs-btn-with-icon .dashicons:before {
+                display: inline-block !important;
+                width: 18px !important;
+                height: 18px !important;
+                font-size: 18px !important;
+                line-height: 18px !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                text-align: center !important;
+                vertical-align: top !important;
+            }
+            .vs-btn-with-icon span:not(.dashicons) {
+                display: inline-block !important;
+                line-height: 1.2 !important;
+            }
+
             .vs-toggle-switch {
                 position: relative;
                 display: inline-block;
@@ -250,32 +323,32 @@ class VS_Agent_Admin {
                 
                 <?php if ($is_connected) : ?>
                     <div style="display: flex; align-items: center; gap: 10px; color: #2e7d32; font-weight: bold; font-size: 16px; margin-bottom: 15px;">
-                        <span class="dashicons dashicons-yes-alt" style="font-size: 24px; width: 24px; height: 24px;"></span>
-                        Site Conectado ao Painel vexors.app!
+                        <span class="dashicons dashicons-yes-alt" style="font-size: 24px; width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; line-height: 1; margin: 0;"></span>
+                        <span>Site Conectado ao Painel vexors.app!</span>
                     </div>
                     <p>O seu site está pareado e pronto para responder às auditorias automáticas solicitadas via painel vexors.app.</p>
                     
                     <form method="post" action="" style="margin-top: 15px;">
                         <?php wp_nonce_field('vs_connect_nonce'); ?>
                         <input type="hidden" name="vs_action" value="connect_saas" />
-                        <button type="submit" class="button button-secondary" style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; height: auto; font-weight: 500;">
-                            <span class="dashicons dashicons-update" style="font-size: 18px; width: 18px; height: 18px; margin-top: 1px;"></span>
-                            Testar Reconexão com a Plataforma
+                        <button type="submit" class="button button-secondary vs-btn-with-icon">
+                            <span class="dashicons dashicons-update"></span>
+                            <span>Testar Reconexão com a Plataforma</span>
                         </button>
                     </form>
                 <?php else : ?>
                     <div style="display: flex; align-items: center; gap: 10px; color: #d32f2f; font-weight: bold; font-size: 16px; margin-bottom: 15px;">
-                        <span class="dashicons dashicons-warning" style="font-size: 24px; width: 24px; height: 24px;"></span>
-                        Site Não Conectado
+                        <span class="dashicons dashicons-warning" style="font-size: 24px; width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; line-height: 1; margin: 0;"></span>
+                        <span>Site Não Conectado</span>
                     </div>
                     <p>Clique no botão abaixo para autorizar o pareamento automático deste site com a sua conta no vexors.app.</p>
                     
                     <form method="post" action="">
                         <?php wp_nonce_field('vs_connect_nonce'); ?>
                         <input type="hidden" name="vs_action" value="connect_saas" />
-                        <button type="submit" class="button button-primary button-large" style="background: #1A7F86; border-color: #1A7F86; display: inline-flex; align-items: center; gap: 6px;">
-                            <span class="dashicons dashicons-admin-links" style="font-size: 18px; width: 18px; height: 18px; margin-top: 1px;"></span>
-                            Conectar Agora com vexors.app
+                        <button type="submit" class="button button-primary button-large vs-btn-with-icon" style="background: #1A7F86; border-color: #1A7F86;">
+                            <span class="dashicons dashicons-admin-links"></span>
+                            <span>Conectar Agora com vexors.app</span>
                         </button>
                     </form>
                 <?php endif; ?>
@@ -399,9 +472,9 @@ class VS_Agent_Admin {
                     <form method="post" action="" style="margin: 0;" onsubmit="return confirm('Deseja realmente limpar o histórico de logs?');">
                         <?php wp_nonce_field('vs_logs_nonce'); ?>
                         <input type="hidden" name="vs_action" value="clear_logs" />
-                        <button type="submit" class="button button-secondary style-danger" style="color: #ef4444; border-color: #fca5a5;">
-                            <span class="dashicons dashicons-trash" style="font-size: 16px; width: 16px; height: 16px; margin-top: 3px;"></span>
-                            Limpar Logs
+                        <button type="submit" class="button button-secondary style-danger vs-btn-with-icon" style="color: #ef4444; border-color: #fca5a5;">
+                            <span class="dashicons dashicons-trash"></span>
+                            <span>Limpar Logs</span>
                         </button>
                     </form>
                 <?php endif; ?>
