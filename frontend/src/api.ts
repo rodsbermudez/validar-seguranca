@@ -1374,5 +1374,94 @@ export const confirmProratedPix = async (payload: {
   return response.data;
 };
 
+// ==========================================
+// Central de Logs de Erros da Plataforma
+// ==========================================
+
+export interface PlatformErrorLog {
+  id: number;
+  severity: 'critical' | 'error' | 'warning' | 'info';
+  category: string;
+  website_id?: number | null;
+  website_name?: string | null;
+  website_url?: string | null;
+  user_id?: number | null;
+  user_email?: string | null;
+  endpoint?: string | null;
+  http_method: string;
+  http_status?: number | null;
+  error_message?: string | null;
+  curl_error?: string | null;
+  request_payload?: string | null;
+  response_body?: string | null;
+  suggested_solution?: string | null;
+  status: 'unresolved' | 'investigating' | 'resolved' | 'ignored';
+  admin_notes?: string | null;
+  resolved_at?: string | null;
+  resolved_by?: number | null;
+  ip_address?: string | null;
+  user_agent?: string | null;
+  created_at: string;
+  updated_at?: string | null;
+}
+
+export interface PlatformErrorMetrics {
+  total_errors: number;
+  unresolved_critical: number;
+  connection_failures_24h: number;
+  affected_websites: number;
+  affected_users: number;
+  status_breakdown: {
+    unresolved: number;
+    investigating: number;
+    resolved: number;
+    ignored: number;
+  };
+}
+
+export interface PlatformErrorFilterOptions {
+  websites: Array<{ id: number; name: string; url: string; error_count: number }>;
+  users: Array<{ id: number; email: string; error_count: number }>;
+}
+
+export const getPlatformErrorLogs = async (params: Record<string, any> = {}): Promise<{
+  logs: PlatformErrorLog[];
+  total: number;
+  page: number;
+  per_page: number;
+  total_pages: number;
+}> => {
+  const response = await api.get('/platform-errors', { params });
+  return response.data?.data || response.data;
+};
+
+export const getPlatformErrorMetrics = async (): Promise<PlatformErrorMetrics> => {
+  const response = await api.get('/platform-errors/metrics');
+  return response.data?.data || response.data;
+};
+
+export const getPlatformErrorFilters = async (): Promise<PlatformErrorFilterOptions> => {
+  const response = await api.get('/platform-errors/filters');
+  return response.data?.data || response.data;
+};
+
+export const getPlatformErrorDetails = async (id: number): Promise<PlatformErrorLog> => {
+  const response = await api.get(`/platform-errors/${id}`);
+  return response.data?.data || response.data;
+};
+
+export const updatePlatformErrorStatus = async (
+  id: number,
+  payload: { status?: string; admin_notes?: string }
+): Promise<PlatformErrorLog> => {
+  const response = await api.put(`/platform-errors/${id}/status`, payload);
+  return response.data?.data || response.data;
+};
+
+export const clearPlatformErrorLogs = async (days: number = 30): Promise<{ deleted_count: number }> => {
+  const response = await api.delete('/platform-errors/clear', { params: { days } });
+  return response.data?.data || response.data;
+};
+
 
 

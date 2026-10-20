@@ -118,6 +118,14 @@ $routes->group('api', function ($routes) {
         $routes->get('ai-monitoring/metrics', 'Api\AiMonitoring::metrics');
         $routes->get('ai-monitoring/logs', 'Api\AiMonitoring::logs');
 
+        // Platform Error Logs routes (Admin)
+        $routes->get('platform-errors', 'Api\PlatformErrors::index');
+        $routes->get('platform-errors/metrics', 'Api\PlatformErrors::metrics');
+        $routes->get('platform-errors/filters', 'Api\PlatformErrors::filters');
+        $routes->get('platform-errors/(:num)', 'Api\PlatformErrors::show/$1');
+        $routes->put('platform-errors/(:num)/status', 'Api\PlatformErrors::updateStatus/$1');
+        $routes->delete('platform-errors/clear', 'Api\PlatformErrors::clear');
+
         // Subscription routes
         $routes->get('subscriptions/current', 'Api\Subscriptions::current');
         $routes->post('subscriptions/cancel', 'Api\Subscriptions::cancel');

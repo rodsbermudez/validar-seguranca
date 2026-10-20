@@ -75,6 +75,24 @@ class Scan extends ResourceController
                 'executed_at'       => date('Y-m-d H:i:s'),
             ]);
 
+            try {
+                \App\Services\PlatformErrorLogger::log([
+                    'category'        => 'security_scan',
+                    'severity'        => 'error',
+                    'website_id'      => (int) $website['id'],
+                    'website_name'    => $website['name'] ?? null,
+                    'website_url'     => $website['url'] ?? null,
+                    'user_id'         => $effectiveUserId,
+                    'endpoint'        => '/api/scan/trigger/' . $websiteId,
+                    'http_method'     => 'POST',
+                    'http_status'     => 500,
+                    'error_message'   => 'Falha na execução do scan: ' . $e->getMessage(),
+                    'response_body'   => $e->getTraceAsString(),
+                ]);
+            } catch (\Throwable $logEx) {
+                // Ignore log error
+            }
+
             return $this->failServerError('Falha na execução do scan: ' . $e->getMessage());
         }
     }

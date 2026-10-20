@@ -385,9 +385,11 @@ class Websites extends ResourceController
 
         if ($response === false) {
             return [
-                'status'  => 500,
-                'success' => false,
-                'message' => 'Erro de conexão com o site: ' . $error,
+                'status'       => 500,
+                'success'      => false,
+                'message'      => 'Erro de conexão com o site: ' . $error,
+                'curl_error'   => $error,
+                'raw_response' => null,
             ];
         }
 
@@ -399,30 +401,38 @@ class Websites extends ResourceController
 
             if ($statusCode === 406 || strpos($response, 'Not Acceptable') !== false || strpos($response, 'Mod_Security') !== false) {
                 return [
-                    'status'  => 406,
-                    'success' => false,
-                    'message' => 'Bloqueio pelo Firewall do Servidor (Mod_Security / WAF 406 Not Acceptable): O servidor do WordPress rejeitou a requisição do agente. O User-Agent de navegação foi configurado para contornar essa trava.',
+                    'status'       => 406,
+                    'success'      => false,
+                    'message'      => 'Bloqueio pelo Firewall do Servidor (Mod_Security / WAF 406 Not Acceptable): O servidor do WordPress rejeitou a requisição do agente. O User-Agent de navegação foi configurado para contornar essa trava.',
+                    'curl_error'   => $error,
+                    'raw_response' => $response,
                 ];
             }
 
             if ($statusCode === 404) {
                 return [
-                    'status'  => 404,
-                    'success' => false,
-                    'message' => 'Endpoint do agente não encontrado no WordPress (HTTP 404). Verifique se o plugin vexors.app está instalado e ativo, e se os Links Permanentes (Permalinks) do WordPress estão salvos.',
+                    'status'       => 404,
+                    'success'      => false,
+                    'message'      => 'Endpoint do agente não encontrado no WordPress (HTTP 404). Verifique se o plugin vexors.app está instalado e ativo, e se os Links Permanentes (Permalinks) do WordPress estão salvos.',
+                    'curl_error'   => $error,
+                    'raw_response' => $response,
                 ];
             }
 
             return [
-                'status'  => $statusCode ?: 500,
-                'success' => false,
-                'message' => 'Resposta inválida do agente WordPress (HTTP ' . $statusCode . '): ' . mb_substr($cleanSnippet, 0, 200, 'UTF-8'),
+                'status'       => $statusCode ?: 500,
+                'success'      => false,
+                'message'      => 'Resposta inválida do agente WordPress (HTTP ' . $statusCode . '): ' . mb_substr($cleanSnippet, 0, 200, 'UTF-8'),
+                'curl_error'   => $error,
+                'raw_response' => $response,
             ];
         }
 
         return [
-            'status' => $statusCode,
-            'body'   => $decoded,
+            'status'       => $statusCode,
+            'body'         => $decoded,
+            'curl_error'   => $error,
+            'raw_response' => $response,
         ];
     }
 
@@ -460,23 +470,46 @@ class Websites extends ResourceController
 
         if ($lastRes && ($lastRes['status'] ?? 0) === 404) {
             return [
-                'status'  => 404,
-                'success' => false,
-                'message' => 'Endpoint do agente não encontrado no WordPress (HTTP 404). Certifique-se de que o plugin vexors.app está instalado e ativo, e que a estrutura de Links Permanentes (Permalinks) do WordPress foi salva.',
+                'status'       => 404,
+                'success'      => false,
+                'message'      => 'Endpoint do agente não encontrado no WordPress (HTTP 404). Certifique-se de que o plugin vexors.app está instalado e ativo, e que a estrutura de Links Permanentes (Permalinks) do WordPress foi salva.',
+                'curl_error'   => $lastRes['curl_error'] ?? null,
+                'raw_response' => $lastRes['raw_response'] ?? null,
             ];
         }
 
         return $lastRes ?: [
-            'status'  => 404,
-            'success' => false,
-            'message' => 'Não foi possível se comunicar com o agente WordPress. Certifique-se de que a versão mais recente do plugin vexors.app - Diagnóstico está instalada e ativada no site.',
+            'status'       => 404,
+            'success'      => false,
+            'message'      => 'Não foi possível se comunicar com o agente WordPress. Certifique-se de que a versão mais recente do plugin vexors.app - Diagnóstico está instalada e ativada no site.',
+            'curl_error'   => null,
+            'raw_response' => null,
         ];
     }
 
-    private function failAgentResponse(array $res, string $defaultMessage = 'Falha na comunicação com o agente WordPress')
+    private function failAgentResponse(array $res, string $defaultMessage = 'Falha na comunicação com o agente WordPress', ?array $context = null)
     {
         $message = $res['message'] ?? ($res['body']['message'] ?? $defaultMessage);
         $agentStatus = (int) ($res['status'] ?? 500);
+
+        // Automatically log platform connection failure
+        try {
+            \App\Services\PlatformErrorLogger::log([
+                'category'        => $context['category'] ?? 'agent_connection',
+                'severity'        => ($agentStatus >= 500 || empty($agentStatus)) ? 'critical' : ($agentStatus === 404 ? 'warning' : 'error'),
+                'website_id'      => $context['website_id'] ?? null,
+                'user_id'         => $context['user_id'] ?? ($this->request->effectiveUserId ?? ($this->request->userData->id ?? null)),
+                'endpoint'        => $context['endpoint'] ?? null,
+                'http_method'     => $context['http_method'] ?? 'GET',
+                'http_status'     => $agentStatus,
+                'error_message'   => $message,
+                'curl_error'      => $res['curl_error'] ?? null,
+                'request_payload' => $context['request_payload'] ?? null,
+                'response_body'   => $res['raw_response'] ?? ($res['body'] ?? null),
+            ]);
+        } catch (\Throwable $e) {
+            // Silently continue
+        }
 
         // Crucial: Never return HTTP 401 or 403 to the client for WordPress agent errors.
         // 401 is strictly reserved for SaaS JWT authentication session.

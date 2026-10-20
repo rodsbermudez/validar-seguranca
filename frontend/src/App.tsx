@@ -24,6 +24,7 @@ import {
   IconChevronDown,
   IconBrain,
   IconPackage,
+  IconBug,
 } from '@tabler/icons-react';
 import { LandingPageView } from './components/LandingPageView';
 import { OverviewDashboardView } from './components/OverviewDashboardView';
@@ -35,6 +36,7 @@ import { WebsiteDashboardView } from './components/WebsiteDashboardView';
 import { PublicActivityLogsView } from './components/PublicActivityLogsView';
 import { UserPlanManagementView } from './components/UserPlanManagementView';
 import { GlobalAiMonitoringView } from './components/GlobalAiMonitoringView';
+import { PlatformErrorLogsView } from './components/PlatformErrorLogsView';
 import { getDocsUrl } from './api';
 
 export default function App() {
@@ -43,7 +45,7 @@ export default function App() {
   const [selectedWebsite, setSelectedWebsite] = useState<any | null>(null);
   const [selectedAiUser, setSelectedAiUser] = useState<any | null>(null);
   const [dashboardTab, setDashboardTab] = useState<string>('overview');
-  const [viewMode, setViewMode] = useState<'overview' | 'list' | 'dashboard' | 'report' | 'users' | 'solutions' | 'logs' | 'settings' | 'user-ai' | 'user-ai-view' | 'ai-monitoring' | 'landing'>('overview');
+  const [viewMode, setViewMode] = useState<'overview' | 'list' | 'dashboard' | 'report' | 'users' | 'solutions' | 'logs' | 'settings' | 'user-ai' | 'user-ai-view' | 'ai-monitoring' | 'landing' | 'platform-errors'>('overview');
 
   // Detecta se a página foi acessada via link de compartilhamento de logs para o cliente
   const [shareToken, setShareToken] = useState<string | null>(() => {
@@ -286,6 +288,15 @@ export default function App() {
                     >
                       Uso Geral da IA
                     </Menu.Item>
+                    <Menu.Item
+                      leftSection={<IconBug size={16} color="var(--mantine-color-red-6)" />}
+                      onClick={() => {
+                        setSelectedWebsite(null);
+                        setViewMode('platform-errors');
+                      }}
+                    >
+                      Logs de Erros da Plataforma
+                    </Menu.Item>
                   </Menu.Dropdown>
                 </Menu>
               )}
@@ -358,7 +369,9 @@ export default function App() {
 
       <AppShell.Main bg="dark.9" style={{ minHeight: 'calc(100vh - 60px)' }}>
         <Container size="xl" py="lg">
-          {viewMode === 'settings' && isAdmin && !impersonatedUser ? (
+          {viewMode === 'platform-errors' && isAdmin && !impersonatedUser ? (
+            <PlatformErrorLogsView />
+          ) : viewMode === 'settings' && isAdmin && !impersonatedUser ? (
             <SettingsView onBack={() => setViewMode('list')} currentUserRole={user.role} />
           ) : viewMode === 'solutions' && isAdmin && !impersonatedUser ? (
             <SolutionCatalogView />
