@@ -62,8 +62,8 @@ class WebsiteModel extends Model
                 CASE WHEN w.user_id = ? THEN 1 ELSE 0 END AS is_owner,
                 CASE WHEN w.user_id = ? THEN 'owner' ELSE COALESCE(ws.role, 'viewer') END AS user_role,
                 (SELECT COUNT(*) FROM website_shares WHERE website_id = w.id) AS shares_count,
-                (SELECT score FROM scan_history WHERE website_id = w.id AND status = 'completed' ORDER BY executed_at DESC LIMIT 1) AS latest_score,
-                (SELECT executed_at FROM scan_history WHERE website_id = w.id AND status = 'completed' ORDER BY executed_at DESC LIMIT 1) AS latest_scanned_at,
+                (SELECT score FROM scan_history WHERE website_id = w.id AND status = 'completed' ORDER BY executed_at DESC, id DESC LIMIT 1) AS latest_score,
+                (SELECT executed_at FROM scan_history WHERE website_id = w.id AND status = 'completed' ORDER BY executed_at DESC, id DESC LIMIT 1) AS latest_scanned_at,
                 wm.completed_at AS maintenance_completed_at,
                 wm.notes AS maintenance_notes,
                 wmu.name AS maintenance_completed_by
@@ -103,8 +103,8 @@ class WebsiteModel extends Model
                 CASE WHEN w.user_id = ? THEN 1 ELSE 0 END AS is_owner,
                 CASE WHEN w.user_id = ? THEN 'owner' ELSE COALESCE(ws.role, 'viewer') END AS user_role,
                 (SELECT COUNT(*) FROM website_shares WHERE website_id = w.id) AS shares_count,
-                (SELECT score FROM scan_history WHERE website_id = w.id AND status = 'completed' ORDER BY executed_at DESC LIMIT 1) AS latest_score,
-                (SELECT executed_at FROM scan_history WHERE website_id = w.id AND status = 'completed' ORDER BY executed_at DESC LIMIT 1) AS latest_scanned_at,
+                (SELECT score FROM scan_history WHERE website_id = w.id AND status = 'completed' ORDER BY executed_at DESC, id DESC LIMIT 1) AS latest_score,
+                (SELECT executed_at FROM scan_history WHERE website_id = w.id AND status = 'completed' ORDER BY executed_at DESC, id DESC LIMIT 1) AS latest_scanned_at,
                 wm.completed_at AS maintenance_completed_at,
                 wm.notes AS maintenance_notes,
                 wmu.name AS maintenance_completed_by

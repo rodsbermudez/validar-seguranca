@@ -181,25 +181,32 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
   const [maintenanceHistory, setMaintenanceHistory] = useState<MaintenanceHistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
-  const fetchLatestScan = useCallback(async () => {
-    setScanHistoryLoading(true);
+  const fetchLatestScan = useCallback(async (showLoading = false) => {
+    if (showLoading) {
+      setScanHistoryLoading(true);
+    }
     try {
       const res = await api.get(`/scan/history/${website.id}`);
-      const historyData = res.data.data || [];
-      if (historyData.length > 0) {
-        setLatestScan(historyData[0].scan_results);
-      } else {
+      const historyData = res.data?.data || [];
+      const latestCompleted = historyData.find(
+        (item: any) => item.status === 'completed' && item.scan_results
+      );
+      if (latestCompleted) {
+        setLatestScan(latestCompleted.scan_results);
+      } else if (historyData.length === 0) {
         setLatestScan(null);
       }
     } catch (e) {
-      setLatestScan(null);
+      // Silently catch background error
     } finally {
-      setScanHistoryLoading(false);
+      if (showLoading) {
+        setScanHistoryLoading(false);
+      }
     }
   }, [website.id]);
 
   useEffect(() => {
-    fetchLatestScan();
+    fetchLatestScan(true);
   }, [fetchLatestScan]);
 
   // Live diagnostic summary for the 4 tool cards
@@ -222,12 +229,6 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
     }
   }, [isConnected, fetchDiagnosticData]);
 
-  useEffect(() => {
-    if (activeTab === 'overview' && isConnected) {
-      fetchDiagnosticData();
-    }
-  }, [activeTab, isConnected, fetchDiagnosticData]);
-
   const refreshWebsite = useCallback(async () => {
     try {
       const freshSite = await getWebsite(website.id);
@@ -238,7 +239,7 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
           if (!wasConnected && isNowConnected) {
             // Agente conectou!
             fetchDiagnosticData();
-            fetchLatestScan();
+            fetchLatestScan(false);
           }
           return freshSite;
         });
@@ -251,12 +252,25 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
     }
   }, [website.id, onUpdateWebsite, fetchDiagnosticData, fetchLatestScan]);
 
+  useEffect(() => {
+    if (activeTab === 'overview') {
+      fetchLatestScan(false);
+      refreshWebsite();
+      if (isConnected) {
+        fetchDiagnosticData();
+      }
+    }
+  }, [activeTab, isConnected, fetchDiagnosticData, fetchLatestScan, refreshWebsite]);
+
   // Revalidação em Tempo Real (Smart Polling + Focus Sync)
   useRealtimeSync({
     onSync: async () => {
       await refreshWebsite();
-      if (isConnected && activeTab === 'overview') {
-        await fetchDiagnosticData();
+      if (activeTab === 'overview') {
+        await fetchLatestScan(false);
+        if (isConnected) {
+          await fetchDiagnosticData();
+        }
       }
     },
     // Se estiver aguardando conexão do agente, poll a cada 5 segundos
@@ -1278,10 +1292,14 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
         {/* Tab 2: Audit & Security */}
         <Tabs.Panel value="audit" pt="md">
           <ScanReport
-            website={website}
+            website={currentWebsite}
             onBack={() => setActiveTab('overview')}
             toolsEnabled={toolsEnabled}
             onNavigateToPlans={onNavigateToPlans}
+            onScanComplete={(newResults) => {
+              setLatestScan(newResults);
+              refreshWebsite();
+            }}
           />
         </Tabs.Panel>
 

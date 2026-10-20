@@ -35,6 +35,17 @@ class Scan extends ResourceController
 
         $scanHistoryModel = new ScanHistoryModel();
 
+        // Limpar registros 'running' antigos que possam ter ficado órfãos por timeout (mais de 5 minutos)
+        $fiveMinutesAgo = date('Y-m-d H:i:s', strtotime('-5 minutes'));
+        $scanHistoryModel->where('website_id', $website['id'])
+                         ->where('status', 'running')
+                         ->where('executed_at <', $fiveMinutesAgo)
+                         ->set([
+                             'status' => 'failed',
+                             'scan_results_json' => json_encode(['error' => 'Tempo limite de execução excedido']),
+                         ])
+                         ->update();
+
         // Create initial pending scan record
         $scanId = $scanHistoryModel->insert([
             'website_id'        => $website['id'],
@@ -122,6 +133,7 @@ class Scan extends ResourceController
         $scanHistoryModel = new ScanHistoryModel();
         $history = $scanHistoryModel->where('website_id', $websiteId)
                                    ->orderBy('executed_at', 'DESC')
+                                   ->orderBy('id', 'DESC')
                                    ->findAll();
 
         // Decode JSON results for easier frontend consumption

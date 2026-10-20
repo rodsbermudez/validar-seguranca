@@ -21,6 +21,7 @@ import {
   Box,
   Switch,
   Table,
+  Progress,
 } from '@mantine/core';
 import {
   IconCheck,
@@ -47,10 +48,11 @@ import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { UpgradeGateBanner } from './UpgradeGateBanner';
 
 interface ScanReportProps {
-  website: { id: string | number; name: string; url: string };
+  website: { id: string | number; name: string; url: string; [key: string]: any };
   onBack?: () => void;
   toolsEnabled?: boolean;
   onNavigateToPlans?: () => void;
+  onScanComplete?: (scanResults: any) => void;
 }
 
 export const ScanReport: React.FC<ScanReportProps> = ({
@@ -58,6 +60,7 @@ export const ScanReport: React.FC<ScanReportProps> = ({
   onBack: _onBack,
   toolsEnabled = true,
   onNavigateToPlans,
+  onScanComplete,
 }) => {
   const [scanResult, setScanResult] = useState<any | null>(null);
   const [history, setHistory] = useState<any[]>([]);
@@ -144,25 +147,34 @@ export const ScanReport: React.FC<ScanReportProps> = ({
     }
   };
 
-  const fetchScanHistory = async () => {
-    setLoading(true);
+  const fetchScanHistory = async (showLoading = true) => {
+    if (showLoading) {
+      setLoading(true);
+    }
     setError(null);
     try {
       const res = await api.get(`/scan/history/${website.id}`);
-      const historyData = res.data.data || [];
+      const historyData = res.data?.data || [];
       setHistory(historyData);
-      if (historyData.length > 0) {
-        setScanResult(historyData[0].scan_results);
+      const latestCompleted = historyData.find(
+        (item: any) => item.status === 'completed' && item.scan_results
+      );
+      if (latestCompleted) {
+        setScanResult(latestCompleted.scan_results);
       }
     } catch (err: any) {
-      setError('Erro ao carregar relatório de varredura.');
+      if (showLoading) {
+        setError('Erro ao carregar relatório de varredura.');
+      }
     } finally {
-      setLoading(false);
+      if (showLoading) {
+        setLoading(false);
+      }
     }
   };
 
   useEffect(() => {
-    fetchScanHistory();
+    fetchScanHistory(true);
     fetchSolutionsCatalog();
     loadFixes();
   }, [website.id]);
@@ -171,10 +183,16 @@ export const ScanReport: React.FC<ScanReportProps> = ({
     onSync: async () => {
       try {
         const res = await api.get(`/scan/history/${website.id}`);
-        const historyData = res.data.data || [];
+        const historyData = res.data?.data || [];
         setHistory(historyData);
-        if (historyData.length > 0) {
-          setScanResult(historyData[0].scan_results);
+        const latestCompleted = historyData.find(
+          (item: any) => item.status === 'completed' && item.scan_results
+        );
+        if (latestCompleted) {
+          setScanResult(latestCompleted.scan_results);
+          if (onScanComplete) {
+            onScanComplete(latestCompleted.scan_results);
+          }
         }
       } catch (e) {
         // Silently catch background errors
@@ -190,11 +208,22 @@ export const ScanReport: React.FC<ScanReportProps> = ({
     setError(null);
     try {
       const res = await api.post(`/scan/trigger/${website.id}`);
-      setScanResult(res.data.data.results);
-      fetchScanHistory();
+      const scanResults = res.data?.data?.results;
+      if (scanResults) {
+        setScanResult(scanResults);
+        if (onScanComplete) {
+          onScanComplete(scanResults);
+        }
+      }
+      await fetchScanHistory(false);
       fetchSolutionsCatalog();
     } catch (err: any) {
-      setError(err.response?.data?.messages?.error || err.response?.data?.error || 'Erro ao executar a auditoria.');
+      setError(
+        err.response?.data?.messages?.error ||
+        err.response?.data?.error ||
+        err.message ||
+        'Erro ao executar a auditoria.'
+      );
     } finally {
       setScanLoading(false);
     }
@@ -647,25 +676,45 @@ export const ScanReport: React.FC<ScanReportProps> = ({
 
 
 
-      {!scanResult ? (
-        <Stack gap="lg" my="xl">
-          <Paper p="xl" ta="center" bg="dark.7" radius="md">
-            <IconShieldOff size={50} style={{ opacity: 0.5 }} />
-            <Text mt="md" fw={600} size="lg">Nenhuma varredura realizada para este site.</Text>
-            <Text c="dimmed" size="sm" mb="lg">
-              Inicie a auditoria automatizada de segurança para analisar cabeçalhos, vazamento de arquivos e enumeração.
-            </Text>
-            <Group justify="center" gap="md">
-              <Button variant="light" color="teal" size="md" loading={downloadLoading} onClick={handleDownloadAgentPlugin} leftSection={<IconDownload size={18} />}>
-                Baixar Plugin Agente
-              </Button>
-              <Button color="indigo" size="md" loading={scanLoading} onClick={handleTriggerScan}>
-                Iniciar Varredura Agora
-              </Button>
+      {/* Banner de Auditoria em Andamento com feedback visual claro */}
+      {scanLoading && (
+        <Paper p="lg" radius="md" withBorder bg="dark.7" mb="md" style={{ borderColor: '#6366F1' }}>
+          <Stack align="center" gap="sm">
+            <Group gap="sm">
+              <Loader size="md" color="indigo" />
+              <Title order={4} c="white">
+                Auditoria de Segurança em Andamento...
+              </Title>
             </Group>
-          </Paper>
-          {renderFixesCard()}
-        </Stack>
+            <Text size="sm" c="dimmed" ta="center" maw={640}>
+              Executando 30 checagens de infraestrutura, cabeçalhos de segurança, exposição de arquivos sensíveis, enumeração de usuários e validação com o agente WordPress. Isso costuma levar entre 15 e 30 segundos.
+            </Text>
+            <Progress value={100} animated striped color="indigo" w="100%" maw={400} size="xs" radius="xl" />
+          </Stack>
+        </Paper>
+      )}
+
+      {!scanResult ? (
+        scanLoading ? null : (
+          <Stack gap="lg" my="xl">
+            <Paper p="xl" ta="center" bg="dark.7" radius="md">
+              <IconShieldOff size={50} style={{ opacity: 0.5 }} />
+              <Text mt="md" fw={600} size="lg">Nenhuma varredura realizada para este site.</Text>
+              <Text c="dimmed" size="sm" mb="lg">
+                Inicie a auditoria automatizada de segurança para analisar cabeçalhos, vazamento de arquivos e enumeração.
+              </Text>
+              <Group justify="center" gap="md">
+                <Button variant="light" color="teal" size="md" loading={downloadLoading} onClick={handleDownloadAgentPlugin} leftSection={<IconDownload size={18} />}>
+                  Baixar Plugin Agente
+                </Button>
+                <Button color="indigo" size="md" loading={scanLoading} onClick={handleTriggerScan} leftSection={<IconRotateClockwise size={18} />}>
+                  Iniciar Varredura Agora
+                </Button>
+              </Group>
+            </Paper>
+            {renderFixesCard()}
+          </Stack>
+        )
       ) : (
         <Stack gap="lg">
           {/* Action Bar for Remediation & AI */}
