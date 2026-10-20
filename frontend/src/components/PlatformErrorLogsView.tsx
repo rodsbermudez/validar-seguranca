@@ -43,6 +43,7 @@ import {
   IconTerminal2,
   IconEye,
   IconFileText,
+  IconBrain,
 } from '@tabler/icons-react';
 import {
   getPlatformErrorLogs,
@@ -266,6 +267,7 @@ export function PlatformErrorLogsView() {
 
   const getCategoryLabel = (category: string) => {
     const map: Record<string, string> = {
+      ai_service: 'Serviço de IA / OpenCode',
       agent_connection: 'Conexão Agente',
       security_scan: 'Varredura de Segurança',
       integrity_check: 'Integridade de Arquivos',
@@ -276,6 +278,21 @@ export function PlatformErrorLogsView() {
       general_api: 'API Geral',
     };
     return map[category] || category;
+  };
+
+  const getCategoryBadge = (category: string) => {
+    if (category === 'ai_service') {
+      return (
+        <Badge size="xs" variant="light" color="violet" leftSection={<IconBrain size={12} />}>
+          Serviço de IA / OpenCode
+        </Badge>
+      );
+    }
+    return (
+      <Badge size="xs" variant="outline" color="gray">
+        {getCategoryLabel(category)}
+      </Badge>
+    );
   };
 
   const getHttpStatusBadge = (status?: number | null, curl?: string | null) => {
@@ -557,6 +574,7 @@ export function PlatformErrorLogsView() {
                 }}
                 data={[
                   { value: 'all', label: 'Todas as Categorias' },
+                  { value: 'ai_service', label: '🤖 Serviço de IA / OpenCode' },
                   { value: 'agent_connection', label: 'Conexão Agente WordPress' },
                   { value: 'security_scan', label: 'Varredura de Segurança' },
                   { value: 'integrity_check', label: 'Integridade de Arquivos' },
@@ -677,9 +695,7 @@ export function PlatformErrorLogsView() {
 
                     {/* Category */}
                     <Table.Td>
-                      <Badge size="xs" variant="outline" color="gray">
-                        {getCategoryLabel(log.category)}
-                      </Badge>
+                      {getCategoryBadge(log.category)}
                     </Table.Td>
 
                     {/* Status Code / cURL */}
@@ -785,19 +801,23 @@ export function PlatformErrorLogsView() {
             {/* Top Quick Status Strip */}
             <Paper p="sm" radius="md" bg="dark.8" withBorder style={{ borderColor: 'rgba(255, 255, 255, 0.08)' }}>
               <Grid gutter="xs" align="center">
-                <Grid.Col span={{ base: 6, sm: 3 }}>
+                <Grid.Col span={{ base: 6, sm: 2.4 }}>
                   <Text size="xs" c="dimmed">Status Atual:</Text>
                   {getStatusBadge(selectedLog.status)}
                 </Grid.Col>
-                <Grid.Col span={{ base: 6, sm: 3 }}>
+                <Grid.Col span={{ base: 6, sm: 2.4 }}>
+                  <Text size="xs" c="dimmed">Categoria:</Text>
+                  {getCategoryBadge(selectedLog.category)}
+                </Grid.Col>
+                <Grid.Col span={{ base: 6, sm: 2.4 }}>
                   <Text size="xs" c="dimmed">Gravidade:</Text>
                   {getSeverityBadge(selectedLog.severity)}
                 </Grid.Col>
-                <Grid.Col span={{ base: 6, sm: 3 }}>
+                <Grid.Col span={{ base: 6, sm: 2.4 }}>
                   <Text size="xs" c="dimmed">Código HTTP:</Text>
                   {getHttpStatusBadge(selectedLog.http_status, selectedLog.curl_error)}
                 </Grid.Col>
-                <Grid.Col span={{ base: 6, sm: 3 }}>
+                <Grid.Col span={{ base: 6, sm: 2.4 }}>
                   <Text size="xs" c="dimmed">Data do Evento:</Text>
                   <Text size="xs" fw={600} c="white">
                     {formatDateTime(selectedLog.created_at)}

@@ -4,6 +4,7 @@ namespace App\Controllers\Api;
 
 use CodeIgniter\RESTful\ResourceController;
 use App\Models\PlatformErrorLogModel;
+use App\Services\PlatformErrorLogger;
 
 class PlatformErrors extends ResourceController
 {
@@ -28,6 +29,9 @@ class PlatformErrors extends ResourceController
         if (!$this->checkAdminPermission()) {
             return $this->failForbidden('Apenas administradores podem acessar a central de logs de erros.');
         }
+
+        // Auto-sync any unrecorded historical AI errors
+        PlatformErrorLogger::syncHistoricalAiErrors();
 
         $logModel = new PlatformErrorLogModel();
 

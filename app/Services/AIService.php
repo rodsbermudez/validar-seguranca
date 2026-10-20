@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\SettingsModel;
+use App\Services\PlatformErrorLogger;
 
 class AIService
 {
@@ -346,12 +347,54 @@ class AIService
             if ($response['error']) {
                 $err = "Erro cURL ao conectar à API OpenCode: " . $response['error'];
                 $this->logAiUsage($this->userId, $this->websiteId, $this->actionType, $this->model, 0, 0, 0, $durationMs, 'error', $err);
+
+                PlatformErrorLogger::log([
+                    'severity'        => 'error',
+                    'category'        => 'ai_service',
+                    'website_id'      => $this->websiteId,
+                    'user_id'         => $this->userId,
+                    'endpoint'        => $this->apiUrl,
+                    'http_method'     => 'POST',
+                    'http_status'     => $response['code'] ?: null,
+                    'error_message'   => $err,
+                    'curl_error'      => $response['error'],
+                    'request_payload' => [
+                        'model'          => $this->model,
+                        'action_type'    => $this->actionType,
+                        'timeout_config' => $timeout,
+                        'duration_ms'    => $durationMs,
+                        'prompt_preview' => mb_substr($userPrompt, 0, 1000),
+                    ],
+                    'response_body'   => $response['body'] ?: null,
+                ]);
+
                 throw new \RuntimeException($err);
             }
 
             if ($response['code'] >= 400) {
                 $err = "API OpenCode respondeu com erro (HTTP {$response['code']}): " . $response['body'];
                 $this->logAiUsage($this->userId, $this->websiteId, $this->actionType, $this->model, 0, 0, 0, $durationMs, 'error', $err);
+
+                $severity = ($response['code'] === 401 || $response['code'] === 403 || $response['code'] === 429) ? 'critical' : 'error';
+                PlatformErrorLogger::log([
+                    'severity'        => $severity,
+                    'category'        => 'ai_service',
+                    'website_id'      => $this->websiteId,
+                    'user_id'         => $this->userId,
+                    'endpoint'        => $this->apiUrl,
+                    'http_method'     => 'POST',
+                    'http_status'     => (int) $response['code'],
+                    'error_message'   => $err,
+                    'curl_error'      => null,
+                    'request_payload' => [
+                        'model'          => $this->model,
+                        'action_type'    => $this->actionType,
+                        'duration_ms'    => $durationMs,
+                        'prompt_preview' => mb_substr($userPrompt, 0, 1000),
+                    ],
+                    'response_body'   => $response['body'] ?: null,
+                ]);
+
                 throw new \RuntimeException($err);
             }
 
@@ -380,11 +423,49 @@ class AIService
             if (trim($response['body']) === 'Not Found') {
                 $err = "URL da API OpenCode inválida (retornou Not Found). Verifique se a variável OPENCODE_API_URL no .env está configurada como 'https://opencode.ai/zen/go/v1/chat/completions'.";
                 $this->logAiUsage($this->userId, $this->websiteId, $this->actionType, $this->model, 0, 0, 0, $durationMs, 'error', $err);
+
+                PlatformErrorLogger::log([
+                    'severity'        => 'error',
+                    'category'        => 'ai_service',
+                    'website_id'      => $this->websiteId,
+                    'user_id'         => $this->userId,
+                    'endpoint'        => $this->apiUrl,
+                    'http_method'     => 'POST',
+                    'http_status'     => (int) ($response['code'] ?: 404),
+                    'error_message'   => $err,
+                    'curl_error'      => null,
+                    'request_payload' => [
+                        'model'       => $this->model,
+                        'action_type' => $this->actionType,
+                        'duration_ms' => $durationMs,
+                    ],
+                    'response_body'   => $response['body'] ?: null,
+                ]);
+
                 throw new \RuntimeException($err);
             }
 
             $err = "Resposta inesperada da API OpenCode: " . $response['body'];
             $this->logAiUsage($this->userId, $this->websiteId, $this->actionType, $this->model, 0, 0, 0, $durationMs, 'error', $err);
+
+            PlatformErrorLogger::log([
+                'severity'        => 'error',
+                'category'        => 'ai_service',
+                'website_id'      => $this->websiteId,
+                'user_id'         => $this->userId,
+                'endpoint'        => $this->apiUrl,
+                'http_method'     => 'POST',
+                'http_status'     => (int) ($response['code'] ?: 200),
+                'error_message'   => $err,
+                'curl_error'      => null,
+                'request_payload' => [
+                    'model'       => $this->model,
+                    'action_type' => $this->actionType,
+                    'duration_ms' => $durationMs,
+                ],
+                'response_body'   => $response['body'] ?: null,
+            ]);
+
             throw new \RuntimeException($err);
         } catch (\Throwable $e) {
             if ($durationMs === 0) {
@@ -443,6 +524,24 @@ class AIService
         }
 
         if (!is_array($decoded)) {
+            PlatformErrorLogger::log([
+                'severity'        => 'warning',
+                'category'        => 'ai_service',
+                'website_id'      => $this->websiteId,
+                'user_id'         => $this->userId,
+                'endpoint'        => $this->apiUrl,
+                'http_method'     => 'POST',
+                'http_status'     => 200,
+                'error_message'   => "A IA respondeu fora do formato JSON esperado para a checagem '{$checkName}' ({$checkId}).",
+                'curl_error'      => null,
+                'request_payload' => [
+                    'check_id'   => $checkId,
+                    'check_name' => $checkName,
+                    'model'      => $this->model,
+                ],
+                'response_body'   => mb_substr($rawContent, 0, 5000),
+            ]);
+
             // Fallback default structure if json parsing fails
             return [
                 'check_id'              => $checkId,

@@ -59,7 +59,7 @@ class PlatformErrorLogger
             $errorMessage = $data['error_message'] ?? 'Falha de comunicação não especificada.';
             $curlError    = $data['curl_error'] ?? null;
             $category     = $data['category'] ?? 'agent_connection';
-            $severity     = $data['severity'] ?? self::inferSeverity($httpStatus, $curlError, $errorMessage);
+            $severity     = $data['severity'] ?? self::inferSeverity($httpStatus, $curlError, $errorMessage, $category);
 
             // Throttle / Deduplication: Prevent flood of identical errors within 60 seconds
             if ($websiteId && $endpoint) {
@@ -83,6 +83,8 @@ class PlatformErrorLogger
 
             // Generate smart diagnosis suggestion if not provided
             $suggestedSolution = $data['suggested_solution'] ?? self::generateSuggestion([
+                'category'      => $category,
+                'endpoint'      => $endpoint,
                 'http_status'   => $httpStatus,
                 'curl_error'    => $curlError,
                 'error_message' => $errorMessage,
@@ -110,12 +112,12 @@ class PlatformErrorLogger
                 'request_payload'    => $requestPayload,
                 'response_body'      => $responseBody,
                 'suggested_solution' => $suggestedSolution,
-                'status'             => 'unresolved',
-                'admin_notes'        => null,
+                'status'             => $data['status'] ?? 'unresolved',
+                'admin_notes'        => $data['admin_notes'] ?? null,
                 'ip_address'         => $ipAddress,
                 'user_agent'         => $userAgent,
-                'created_at'         => date('Y-m-d H:i:s'),
-                'updated_at'         => date('Y-m-d H:i:s'),
+                'created_at'         => $data['created_at'] ?? date('Y-m-d H:i:s'),
+                'updated_at'         => $data['updated_at'] ?? date('Y-m-d H:i:s'),
             ];
 
             return (int) $logModel->insert($insertData, true);
@@ -133,8 +135,21 @@ class PlatformErrorLogger
     /**
      * Infer severity from status code or cURL message.
      */
-    protected static function inferSeverity(?int $status, ?string $curl, string $msg): string
+    protected static function inferSeverity(?int $status, ?string $curl, string $msg, string $category = 'agent_connection'): string
     {
+        if ($category === 'ai_service') {
+            if ($status === 401 || $status === 403 || $status === 429) {
+                return 'critical';
+            }
+            if ($status >= 500 || (!empty($curl) && stripos($curl, 'timed out') !== false)) {
+                return 'error';
+            }
+            if ($status === 200 || str_contains(strtolower($msg), 'json')) {
+                return 'warning';
+            }
+            return 'error';
+        }
+
         if ($status >= 500) {
             return 'critical';
         }
@@ -155,12 +170,100 @@ class PlatformErrorLogger
      */
     public static function generateSuggestion(array $ctx): string
     {
-        $status = $ctx['http_status'] ?? 0;
-        $curl   = strtolower($ctx['curl_error'] ?? '');
-        $body   = is_string($ctx['response_body'] ?? '') ? $ctx['response_body'] : '';
-        $msg    = strtolower($ctx['error_message'] ?? '');
+        $category = $ctx['category'] ?? '';
+        $endpoint = $ctx['endpoint'] ?? '';
+        $status   = $ctx['http_status'] ?? 0;
+        $curl     = strtolower($ctx['curl_error'] ?? '');
+        $body     = is_string($ctx['response_body'] ?? '') ? $ctx['response_body'] : '';
+        $msg      = strtolower($ctx['error_message'] ?? '');
 
-        // 1. Timeout cURL 28
+        $isAi = ($category === 'ai_service')
+            || str_contains($endpoint, 'opencode')
+            || str_contains($endpoint, 'chat/completions')
+            || str_contains($endpoint, 'openai')
+            || str_contains($msg, 'opencode')
+            || str_contains($msg, 'api de ia');
+
+        if ($isAi) {
+            // 1. Timeout na API de IA (cURL 28 / timeout)
+            if (strpos($curl, 'timed out') !== false || strpos($curl, 'operation timeout') !== false || strpos($msg, 'timed out') !== false) {
+                return "⏳ **Tempo Limite Excedido na API de IA (Timeout cURL 28)**:\n"
+                    . "A requisição para o provedor de Inteligência Artificial (OpenCode/OpenAI) ultrapassou o tempo limite configurado na plataforma.\n\n"
+                    . "**Possíveis Causas**:\n"
+                    . "1. Alta sobrecarga ou fila de inferência nos clusters do provedor de IA no momento da solicitação.\n"
+                    . "2. Prompt extenso ou complexo (ex: geração completa de plugin de segurança ou análise de múltiplos itens) que exigiu tempo de resposta superior a 90/120 segundos.\n"
+                    . "3. Instabilidade temporária de rede ou lentidão entre a VPS e o endpoint da API.\n\n"
+                    . "**Soluções Recomendadas**:\n"
+                    . "• Tente executar a solicitação novamente após alguns instantes no painel.\n"
+                    . "• Em ações com múltiplos itens, prefira gerar correções por lotes menores ou individualmente.\n"
+                    . "• Se o erro for frequente, selecione um modelo de menor latência nas configurações do sistema ou aumente o timeout.";
+            }
+
+            // 2. Chave de API de IA Inválida / Rejeitada (HTTP 401 ou 403)
+            if ($status === 401 || $status === 403 || strpos($msg, 'unauthorized') !== false || strpos($body, 'invalid_api_key') !== false || strpos($msg, 'chave da api') !== false) {
+                return "🔑 **Autenticação Rejeitada pelo Provedor de IA (HTTP {$status})**:\n"
+                    . "A API Key configurada para o serviço de inteligência artificial foi recusada pelo provedor.\n\n"
+                    . "**Possíveis Causas**:\n"
+                    . "1. A variável `OPENCODE_API_KEY` no arquivo `.env` está vazia, inválida ou foi revogada no console do provedor.\n"
+                    . "2. A conta na OpenCode / OpenAI foi desativada ou teve suas permissões de token alteradas.\n\n"
+                    . "**Soluções Recomendadas**:\n"
+                    . "• Verifique e renove a chave `OPENCODE_API_KEY` no arquivo `.env` da plataforma.\n"
+                    . "• Acesse o painel da OpenCode/provedor para certificar-se de que a API Key continua ativa e possui saldo disponível.";
+            }
+
+            // 3. Rate Limit ou Créditos Esgotados (HTTP 429)
+            if ($status === 429 || strpos($msg, 'too many requests') !== false || strpos($body, 'insufficient_quota') !== false || strpos($body, 'rate_limit') !== false) {
+                return "💳 **Limite de Requisições ou Créditos de IA Esgotados (HTTP 429 Too Many Requests)**:\n"
+                    . "O provedor de IA bloqueou a requisição por excesso de requisições por minuto ou falta de saldo na conta.\n\n"
+                    . "**Possíveis Causas**:\n"
+                    . "1. O saldo de créditos da conta na OpenCode / OpenAI esgotou.\n"
+                    . "2. O teto de requisições por minuto (RPM) ou tokens por minuto (TPM) da conta foi ultrapassado devido a múltiplas ações simultâneas.\n\n"
+                    . "**Soluções Recomendadas**:\n"
+                    . "• Acesse o portal do provedor de IA e recarregue créditos ou aumente o limite da conta.\n"
+                    . "• Aguarde cerca de 60 segundos antes de reenviar novas solicitações de IA.";
+            }
+
+            // 4. Instabilidade ou Falha no Provedor de IA (HTTP 500+)
+            if ($status >= 500) {
+                return "💥 **Instabilidade no Servidor do Provedor de IA (HTTP {$status})**:\n"
+                    . "Os servidores da API OpenCode / OpenAI responderam com erro interno de infraestrutura.\n\n"
+                    . "**Possíveis Causas**:\n"
+                    . "1. Manutenção programada ou degradação temporária no cluster de inferência do provedor.\n"
+                    . "2. O modelo solicitado está temporariamente indisponível ou em manutenção.\n\n"
+                    . "**Soluções Recomendadas**:\n"
+                    . "• Consulte a página de status do provedor para verificar incidentes em andamento.\n"
+                    . "• Tente novamente após alguns minutos ou alterne para outro modelo configurado no sistema.";
+            }
+
+            // 5. URL da API Incorreta / 404
+            if ($status === 404 || strpos($msg, 'not found') !== false || strpos($body, 'not found') !== false) {
+                return "🔍 **Endpoint da API de IA Não Encontrado (HTTP 404 Not Found)**:\n"
+                    . "A URL configurada para a API de Inteligência Artificial está incorreta.\n\n"
+                    . "**Possíveis Causas**:\n"
+                    . "1. A variável `OPENCODE_API_URL` no `.env` foi digitada incorretamente.\n\n"
+                    . "**Soluções Recomendadas**:\n"
+                    . "• Certifique-se de que a variável `OPENCODE_API_URL` no `.env` esteja configurada exatamente como:\n"
+                    . "  `https://opencode.ai/zen/go/v1/chat/completions` (ou o endpoint padrão do seu provedor OpenAI-compatível).";
+            }
+
+            // 6. Resposta Malformada / JSON Inválido
+            if (strpos($msg, 'resposta inesperada') !== false || strpos($msg, 'json') !== false) {
+                return "⚠️ **Resposta Fora do Padrão Retornada pela IA**:\n"
+                    . "O modelo de IA respondeu à requisição, porém o conteúdo retornado não pôde ser interpretado pelo parser do sistema.\n\n"
+                    . "**Ação Recomendada**:\n"
+                    . "• Inspecione o campo 'Resposta Bruta do Servidor' neste modal para conferir o texto exato gerado.\n"
+                    . "• Execute novamente a operação para que o modelo processe uma nova semente de geração.";
+            }
+
+            // Fallback genérico para IA
+            return "🤖 **Incidente na Execução de Inteligência Artificial (Código: " . ($status ?: 'cURL/Rede') . ")**:\n"
+                . "Houve uma falha durante o processamento da chamada à API de IA.\n\n"
+                . "**Mensagem**: " . ($ctx['error_message'] ?? 'Erro não especificado') . "\n\n"
+                . "**Ação Recomendada**:\n"
+                . "• Inspecione a aba 'Parâmetros da Requisição' e 'Resposta Bruta do Servidor' para mais detalhes.";
+        }
+
+        // 1. Timeout cURL 28 (Agente WordPress)
         if (strpos($curl, 'timed out') !== false || strpos($curl, 'operation timeout') !== false || strpos($msg, 'timed out') !== false) {
             return "⏳ **Tempo Limite Excedido (Timeout cURL 28)**:\n"
                 . "O servidor do cliente não respondeu dentro do limite de 60 segundos configurado no SaaS.\n\n"
@@ -333,5 +436,84 @@ class PlatformErrorLogger
         }
 
         return $str;
+    }
+
+    /**
+     * Sincroniza erros históricos de execução de IA da tabela ai_usage_logs para a central platform_error_logs.
+     */
+    public static function syncHistoricalAiErrors(): int
+    {
+        try {
+            $db = \Config\Database::connect();
+            if (!$db->tableExists('ai_usage_logs') || !$db->tableExists('platform_error_logs')) {
+                return 0;
+            }
+
+            $aiLogs = $db->table('ai_usage_logs')
+                ->where('status', 'error')
+                ->get()
+                ->getResultArray();
+
+            if (empty($aiLogs)) {
+                return 0;
+            }
+
+            $logModel = new PlatformErrorLogModel();
+            $syncedCount = 0;
+
+            foreach ($aiLogs as $log) {
+                $createdAt = $log['created_at'];
+                $errMsg    = $log['error_message'] ?: 'Falha na execução da IA';
+
+                // Verificar se já existe no platform_error_logs
+                $exists = $logModel->where('category', 'ai_service')
+                    ->where('created_at', $createdAt)
+                    ->first();
+
+                if ($exists) {
+                    continue;
+                }
+
+                $httpStatus = null;
+                $curlError  = null;
+
+                if (preg_match('/HTTP\s+(\d+)/i', $errMsg, $matches)) {
+                    $httpStatus = (int) $matches[1];
+                } elseif (stripos($errMsg, 'curl') !== false || (int) $log['duration_ms'] >= 60000) {
+                    $curlError = $errMsg;
+                }
+
+                $severity = ($httpStatus === 401 || $httpStatus === 403 || $httpStatus === 429) ? 'critical' : 'error';
+
+                self::log([
+                    'severity'        => $severity,
+                    'category'        => 'ai_service',
+                    'website_id'      => !empty($log['website_id']) ? (int) $log['website_id'] : null,
+                    'user_id'         => !empty($log['user_id']) ? (int) $log['user_id'] : null,
+                    'endpoint'        => env('OPENCODE_API_URL') ?: 'https://opencode.ai/zen/go/v1/chat/completions',
+                    'http_method'     => 'POST',
+                    'http_status'     => $httpStatus,
+                    'error_message'   => $errMsg,
+                    'curl_error'      => $curlError,
+                    'request_payload' => [
+                        'action_type' => $log['action_type'],
+                        'model'       => $log['model'],
+                        'duration_ms' => (int) $log['duration_ms'],
+                        'sync_source' => 'ai_usage_logs_backfill',
+                    ],
+                    'created_at'      => $createdAt,
+                    'updated_at'      => $createdAt,
+                ]);
+
+                $syncedCount++;
+            }
+
+            return $syncedCount;
+        } catch (\Throwable $e) {
+            if (function_exists('log_message')) {
+                \log_message('error', 'Falha ao sincronizar erros históricos de IA: ' . $e->getMessage());
+            }
+            return 0;
+        }
     }
 }
