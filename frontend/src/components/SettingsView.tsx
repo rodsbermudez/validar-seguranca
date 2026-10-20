@@ -90,6 +90,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onBack, currentUserR
   const [savingPaymentMethods, setSavingPaymentMethods] = useState<boolean>(false);
   const [paymentMethodsMsg, setPaymentMethodsMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  // Global Add-ons Pricing State
+  const [addonWebsitePrice, setAddonWebsitePrice] = useState<number>(8);
+  const [addonAiPackPrice, setAddonAiPackPrice] = useState<number>(60);
+  const [addonAiPackTokens, setAddonAiPackTokens] = useState<number>(250000);
+  const [savingAddonPricing, setSavingAddonPricing] = useState<boolean>(false);
+  const [addonPricingMsg, setAddonPricingMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
   // Plans State
   const [plans, setPlans] = useState<Plan[]>([]);
   const [plansLoading, setPlansLoading] = useState<boolean>(false);
@@ -133,6 +140,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onBack, currentUserR
         if (res.payment_methods) {
           setEnableCreditCard(!!res.payment_methods.credit_card);
           setEnablePix(!!res.payment_methods.pix);
+        }
+        if (res.addon_pricing) {
+          setAddonWebsitePrice(res.addon_pricing.extra_website_price ?? 8);
+          setAddonAiPackPrice(res.addon_pricing.ai_pack_price ?? 60);
+          setAddonAiPackTokens(res.addon_pricing.ai_pack_tokens ?? 250000);
         }
       } else {
         setErrorMsg(res.message || 'Falha ao carregar configurações.');
@@ -258,6 +270,51 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onBack, currentUserR
       });
     } finally {
       setSavingPaymentMethods(false);
+    }
+  };
+
+  const handleSaveAddonPricing = async () => {
+    setSavingAddonPricing(true);
+    setAddonPricingMsg(null);
+    try {
+      const res = await updateSettings(
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        {
+          extra_website_price: Number(addonWebsitePrice) || 0,
+          ai_pack_price: Number(addonAiPackPrice) || 0,
+          ai_pack_tokens: Number(addonAiPackTokens) || 250000,
+        }
+      );
+      if (res.success) {
+        if (res.addon_pricing) {
+          setAddonWebsitePrice(res.addon_pricing.extra_website_price);
+          setAddonAiPackPrice(res.addon_pricing.ai_pack_price);
+          setAddonAiPackTokens(res.addon_pricing.ai_pack_tokens);
+        }
+        setAddonPricingMsg({
+          type: 'success',
+          text: 'Tabela global de preços de add-ons atualizada com sucesso para toda a plataforma!',
+        });
+      } else {
+        setAddonPricingMsg({
+          type: 'error',
+          text: res.message || 'Erro ao salvar tabela de add-ons.',
+        });
+      }
+    } catch (err: any) {
+      setAddonPricingMsg({
+        type: 'error',
+        text: err.response?.data?.messages?.error || err.response?.data?.message || 'Erro ao salvar tabela de add-ons.',
+      });
+    } finally {
+      setSavingAddonPricing(false);
     }
   };
 
@@ -598,9 +655,115 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onBack, currentUserR
               )}
             </Paper>
 
+            {/* TABELA GLOBAL DE ADD-ONS */}
+            <Paper p="lg" radius="md" bg="dark.8" withBorder style={{ borderColor: '#374151' }}>
+              <Group justify="space-between" mb="md" wrap="wrap" gap="sm">
+                <div>
+                  <Group gap="xs">
+                    <ThemeIcon color="teal" variant="light" size="md">
+                      <IconCoins size={18} />
+                    </ThemeIcon>
+                    <Title order={3}>Tabela Global de Preços de Add-ons</Title>
+                  </Group>
+                  <Text size="xs" c="dimmed" mt={2}>
+                    Valores oficiais de sites extras e cotas adicionais de IA aplicados universalmente em todos os planos, no checkout e na gestão de usuários.
+                  </Text>
+                </div>
+                <Button
+                  color="teal"
+                  leftSection={<IconDeviceFloppy size={16} />}
+                  onClick={handleSaveAddonPricing}
+                  loading={savingAddonPricing}
+                >
+                  Salvar Tabela de Add-ons
+                </Button>
+              </Group>
+
+              {addonPricingMsg && (
+                <Alert
+                  mb="md"
+                  color={addonPricingMsg.type === 'success' ? 'teal' : 'red'}
+                  variant="light"
+                  icon={addonPricingMsg.type === 'success' ? <IconCheck size={16} /> : <IconAlertTriangle size={16} />}
+                >
+                  <Text size="xs">{addonPricingMsg.text}</Text>
+                </Alert>
+              )}
+
+              <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
+                <Card bg="dark.7" p="md" radius="sm" withBorder style={{ borderColor: '#374151' }}>
+                  <Text size="xs" fw={700} c="cyan.4" mb={4}>
+                    WEBSITES EXTRAS
+                  </Text>
+                  <Text size="xs" c="dimmed" mb="sm">
+                    Valor mensal cobrado por cada site adicional contratado.
+                  </Text>
+                  <NumberInput
+                    label="Valor por Site Extra (R$/mês)"
+                    min={0}
+                    step={1}
+                    decimalScale={2}
+                    thousandSeparator="."
+                    decimalSeparator=","
+                    prefix="R$ "
+                    value={addonWebsitePrice}
+                    onChange={(val) => setAddonWebsitePrice(Number(val) || 0)}
+                  />
+                  <Text size="xs" c="dimmed" mt="xs">
+                    Aplicado automaticamente quando o cliente ou admin adiciona novos sites à cota do plano.
+                  </Text>
+                </Card>
+
+                <Card bg="dark.7" p="md" radius="sm" withBorder style={{ borderColor: '#374151' }}>
+                  <Text size="xs" fw={700} c="violet.4" mb={4}>
+                    PACOTE EXTRA DE IA (VALOR)
+                  </Text>
+                  <Text size="xs" c="dimmed" mb="sm">
+                    Valor mensal cobrado por pacote de tokens extras de IA.
+                  </Text>
+                  <NumberInput
+                    label="Valor do Pacote de IA (R$/mês)"
+                    min={0}
+                    step={5}
+                    decimalScale={2}
+                    thousandSeparator="."
+                    decimalSeparator=","
+                    prefix="R$ "
+                    value={addonAiPackPrice}
+                    onChange={(val) => setAddonAiPackPrice(Number(val) || 0)}
+                  />
+                  <Text size="xs" c="dimmed" mt="xs">
+                    Ex: R$ {Number(addonAiPackPrice).toFixed(2).replace('.', ',')} para cada cota de tokens adquirida.
+                  </Text>
+                </Card>
+
+                <Card bg="dark.7" p="md" radius="sm" withBorder style={{ borderColor: '#374151' }}>
+                  <Text size="xs" fw={700} c="violet.4" mb={4}>
+                    TAMANHO DO PACOTE DE IA (TOKENS)
+                  </Text>
+                  <Text size="xs" c="dimmed" mb="sm">
+                    Quantidade de tokens inclusos em cada pacote extra contratado.
+                  </Text>
+                  <NumberInput
+                    label="Tokens por Pacote"
+                    min={10000}
+                    max={10000000}
+                    step={50000}
+                    thousandSeparator="."
+                    decimalSeparator=","
+                    value={addonAiPackTokens}
+                    onChange={(val) => setAddonAiPackTokens(Number(val) || 250000)}
+                  />
+                  <Text size="xs" c="dimmed" mt="xs">
+                    Padrão: 250.000 tokens ({(Number(addonAiPackTokens) / 1000).toLocaleString('pt-BR')}k tokens).
+                  </Text>
+                </Card>
+              </SimpleGrid>
+            </Paper>
+
             <Alert color="indigo" variant="light" icon={<IconCrown size={16} />}>
               <Text size="xs">
-                <b>Regra de Negócio:</b> Ao cadastrar ou alterar um usuário na tela de Gerenciamento de Usuários, o plano base selecionado é herdado automaticamente. Você também pode atribuir <b>add-ons com preços adicionais</b> (ex.: +5 sites ou +250k tokens de IA) diretamente na página <b>Gestão do Plano</b> do cliente.
+                <b>Regra de Negócio:</b> Os add-ons de sites extras e cotas de IA possuem preços e cotas unificadas definidos na tabela acima. Ao gerenciar um usuário ou no checkout da plataforma, a quantidade escolhida é multiplicada por esses valores oficiais de forma automática, garantindo transparência e integridade em todo o sistema.
               </Text>
             </Alert>
           </Stack>

@@ -43,6 +43,7 @@ import {
   checkCheckoutEmail,
   CheckoutInitiateResponse,
   PaymentMethodsConfig,
+  AddonPricingConfig,
   getPublicPaymentMethods,
 } from '../api';
 
@@ -54,6 +55,7 @@ interface CheckoutModalProps {
   initialExtraWebsites?: number;
   initialExtraAiPacks?: number;
   paymentMethods?: PaymentMethodsConfig;
+  addonPricing?: AddonPricingConfig;
   onOpenLogin?: () => void;
   onPaymentSuccess: (user: any, token?: string) => void;
 }
@@ -66,6 +68,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   initialExtraWebsites = 0,
   initialExtraAiPacks = 0,
   paymentMethods,
+  addonPricing,
   onOpenLogin,
   onPaymentSuccess,
 }) => {
@@ -90,6 +93,10 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     paymentMethods || { credit_card: true, pix: false }
   );
 
+  const [activeAddonPricing, setActiveAddonPricing] = useState<AddonPricingConfig>(
+    addonPricing || { extra_website_price: 8, ai_pack_price: 60, ai_pack_tokens: 250000 }
+  );
+
   useEffect(() => {
     if (paymentMethods) {
       setActivePaymentMethods(paymentMethods);
@@ -97,16 +104,27 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   }, [paymentMethods]);
 
   useEffect(() => {
-    if (opened && !paymentMethods) {
+    if (addonPricing) {
+      setActiveAddonPricing(addonPricing);
+    }
+  }, [addonPricing]);
+
+  useEffect(() => {
+    if (opened && (!paymentMethods || !addonPricing)) {
       getPublicPaymentMethods()
         .then((res) => {
-          if (res && res.payment_methods) {
-            setActivePaymentMethods(res.payment_methods);
+          if (res) {
+            if (res.payment_methods) {
+              setActivePaymentMethods(res.payment_methods);
+            }
+            if (res.addon_pricing) {
+              setActiveAddonPricing(res.addon_pricing);
+            }
           }
         })
         .catch((e) => console.warn('Could not fetch public payment methods:', e));
     }
-  }, [opened, paymentMethods]);
+  }, [opened, paymentMethods, addonPricing]);
 
   const allowCreditCard = activePaymentMethods.credit_card;
   const allowPix = activePaymentMethods.pix;
@@ -241,9 +259,11 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
   // Financial calculations
   const basePrice = Number(selectedPlan.price_monthly) || 0;
-  const extraWebsitesPrice = extraWebsites * 8; // R$ 8 por site extra (ou R$ 40 por pacote de 5)
-  const extraAiTokens = extraAiPacks * 250000;
-  const extraAiPrice = extraAiPacks * 60; // R$ 60 por 250k tokens
+  const extraWebsitesPrice = Math.round(extraWebsites * (activeAddonPricing.extra_website_price ?? 8) * 100) / 100;
+  const aiPackTokens = activeAddonPricing.ai_pack_tokens || 250000;
+  const aiPackPrice = activeAddonPricing.ai_pack_price ?? 60;
+  const extraAiTokens = extraAiPacks * aiPackTokens;
+  const extraAiPrice = Math.round(extraAiPacks * aiPackPrice * 100) / 100;
   const totalAmount = basePrice + extraWebsitesPrice + extraAiPrice;
 
   // Format CPF/CNPJ mask
@@ -585,7 +605,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
                   <Box>
                     <Text size="xs" fw={600} c="gray.3">
-                      Sites Extras (+R$ 8/site)
+                      Sites Extras (+R$ {(activeAddonPricing.extra_website_price ?? 8).toFixed(2).replace('.', ',')}/site)
                     </Text>
                     <Text size="xs" c="dimmed" mb={4}>
                       Aumente o limite de monitoramento
@@ -601,7 +621,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   </Box>
                   <Box>
                     <Text size="xs" fw={600} c="gray.3">
-                      Pacotes IA (+250k tokens / R$ 60)
+                      Pacotes IA (+{(aiPackTokens / 1000).toLocaleString('pt-BR')}k tokens / R$ {aiPackPrice.toFixed(2).replace('.', ',')})
                     </Text>
                     <Text size="xs" c="dimmed" mb={4}>
                       Cota extra para remediação e código

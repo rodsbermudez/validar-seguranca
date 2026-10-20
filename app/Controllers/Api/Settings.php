@@ -88,6 +88,7 @@ class Settings extends ResourceController
             'asaas_webhook_secret'          => $asaasSecret,
             'asaas_configured'              => !empty($asaasKey),
             'payment_methods'               => SettingsModel::getPaymentMethods(),
+            'addon_pricing'                 => SettingsModel::getAddonPricing(),
         ]);
     }
 
@@ -117,8 +118,34 @@ class Settings extends ResourceController
         $pmCardInput          = array_key_exists('payment_method_credit_card', $json) ? $json['payment_method_credit_card'] : ($this->request->getPost('payment_method_credit_card') !== null ? $this->request->getPost('payment_method_credit_card') : null);
         $pmPixInput           = array_key_exists('payment_method_pix', $json) ? $json['payment_method_pix'] : ($this->request->getPost('payment_method_pix') !== null ? $this->request->getPost('payment_method_pix') : null);
 
-        if (empty($aiModel) && $tokenPriceInput === null && $promptPriceInput === null && $completionPriceInput === null && $asaasKeyInput === null && $asaasEnvInput === null && $asaasSecretInput === null && $pmCardInput === null && $pmPixInput === null) {
+        // Preços globais de Add-ons
+        $addonWebsitesPriceInput = $json['addon_extra_website_price'] ?? ($json['addon_pricing']['extra_website_price'] ?? ($this->request->getPost('addon_extra_website_price') ?? null));
+        $addonAiPackPriceInput   = $json['addon_ai_pack_price'] ?? ($json['addon_pricing']['ai_pack_price'] ?? ($this->request->getPost('addon_ai_pack_price') ?? null));
+        $addonAiPackTokensInput  = $json['addon_ai_pack_tokens'] ?? ($json['addon_pricing']['ai_pack_tokens'] ?? ($this->request->getPost('addon_ai_pack_tokens') ?? null));
+
+        if (empty($aiModel) && $tokenPriceInput === null && $promptPriceInput === null && $completionPriceInput === null && $asaasKeyInput === null && $asaasEnvInput === null && $asaasSecretInput === null && $pmCardInput === null && $pmPixInput === null && $addonWebsitesPriceInput === null && $addonAiPackPriceInput === null && $addonAiPackTokensInput === null) {
             return $this->fail('Nenhum dado informado para atualização.', 400);
+        }
+
+        if ($addonWebsitesPriceInput !== null && $addonWebsitesPriceInput !== '') {
+            if (!is_numeric($addonWebsitesPriceInput) || (float) $addonWebsitesPriceInput < 0) {
+                return $this->fail('O valor por website extra deve ser um número maior ou igual a zero.', 400);
+            }
+            SettingsModel::setSetting('addon_extra_website_price', number_format((float) $addonWebsitesPriceInput, 2, '.', ''));
+        }
+
+        if ($addonAiPackPriceInput !== null && $addonAiPackPriceInput !== '') {
+            if (!is_numeric($addonAiPackPriceInput) || (float) $addonAiPackPriceInput < 0) {
+                return $this->fail('O valor por pacote extra de IA deve ser um número maior ou igual a zero.', 400);
+            }
+            SettingsModel::setSetting('addon_ai_pack_price', number_format((float) $addonAiPackPriceInput, 2, '.', ''));
+        }
+
+        if ($addonAiPackTokensInput !== null && $addonAiPackTokensInput !== '') {
+            if (!is_numeric($addonAiPackTokensInput) || (int) $addonAiPackTokensInput <= 0) {
+                return $this->fail('A quantidade de tokens por pacote de IA deve ser maior que zero.', 400);
+            }
+            SettingsModel::setSetting('addon_ai_pack_tokens', (string) (int) $addonAiPackTokensInput);
         }
 
         if (!empty($aiModel)) {
@@ -209,6 +236,7 @@ class Settings extends ResourceController
             'asaas_webhook_secret'          => $savedAsaasSecret,
             'asaas_configured'              => !empty($savedAsaasKey),
             'payment_methods'               => SettingsModel::getPaymentMethods(),
+            'addon_pricing'                 => SettingsModel::getAddonPricing(),
         ]);
     }
 
@@ -222,6 +250,7 @@ class Settings extends ResourceController
             'status'          => 200,
             'success'         => true,
             'payment_methods' => SettingsModel::getPaymentMethods(),
+            'addon_pricing'   => SettingsModel::getAddonPricing(),
         ]);
     }
 }

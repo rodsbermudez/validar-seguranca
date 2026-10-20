@@ -188,19 +188,24 @@ class Subscriptions extends ResourceController
         $currentBasePrice          = (float)($currentPlan['price_monthly'] ?? 0.00);
         $currentTotalMonthly       = round($currentBasePrice + $currentExtraWebsitesPrice + $currentExtraAiTokensPrice, 2);
 
+        $pricing = SettingsModel::getAddonPricing();
+        $websiteUnitPrice = $pricing['extra_website_price'];
+        $aiPackPrice = $pricing['ai_pack_price'];
+        $aiPackTokens = $pricing['ai_pack_tokens'] > 0 ? $pricing['ai_pack_tokens'] : 250000;
+
         // Novos add-ons propostos
         $newExtraWebsites = isset($json['extra_websites'])
             ? max(0, (int)$json['extra_websites'])
             : $currentExtraWebsites;
-        $newExtraWebsitesPrice = round($newExtraWebsites * 8.00, 2);
+        $newExtraWebsitesPrice = round($newExtraWebsites * $websiteUnitPrice, 2);
 
         if (isset($json['extra_ai_packs'])) {
             $newExtraAiPacks = max(0, (int)$json['extra_ai_packs']);
-            $newExtraAiTokens = $newExtraAiPacks * 250000;
-            $newExtraAiTokensPrice = round($newExtraAiPacks * 60.00, 2);
+            $newExtraAiTokens = $newExtraAiPacks * $aiPackTokens;
+            $newExtraAiTokensPrice = round($newExtraAiPacks * $aiPackPrice, 2);
         } elseif (isset($json['extra_ai_tokens'])) {
             $newExtraAiTokens = max(0, (int)$json['extra_ai_tokens']);
-            $newExtraAiTokensPrice = round(($newExtraAiTokens / 250000) * 60.00, 2);
+            $newExtraAiTokensPrice = round(($newExtraAiTokens / $aiPackTokens) * $aiPackPrice, 2);
         } else {
             $newExtraAiTokens = $currentExtraAiTokens;
             $newExtraAiTokensPrice = $currentExtraAiTokensPrice;
@@ -660,19 +665,24 @@ class Subscriptions extends ResourceController
         $basePrice                 = (float)$plan['price_monthly'];
         $currentTotalMonthly       = round($basePrice + $currentExtraWebsitesPrice + $currentExtraAiTokensPrice, 2);
 
+        $pricing = SettingsModel::getAddonPricing();
+        $websiteUnitPrice = $pricing['extra_website_price'];
+        $aiPackPrice = $pricing['ai_pack_price'];
+        $aiPackTokens = $pricing['ai_pack_tokens'] > 0 ? $pricing['ai_pack_tokens'] : 250000;
+
         // Novos valores de add-ons
         $newExtraWebsites = isset($json['extra_websites'])
             ? max(0, (int)$json['extra_websites'])
             : $currentExtraWebsites;
-        $newExtraWebsitesPrice = round($newExtraWebsites * 8.00, 2);
+        $newExtraWebsitesPrice = round($newExtraWebsites * $websiteUnitPrice, 2);
 
         if (isset($json['extra_ai_packs'])) {
             $newExtraAiPacks = max(0, (int)$json['extra_ai_packs']);
-            $newExtraAiTokens = $newExtraAiPacks * 250000;
-            $newExtraAiTokensPrice = round($newExtraAiPacks * 60.00, 2);
+            $newExtraAiTokens = $newExtraAiPacks * $aiPackTokens;
+            $newExtraAiTokensPrice = round($newExtraAiPacks * $aiPackPrice, 2);
         } elseif (isset($json['extra_ai_tokens'])) {
             $newExtraAiTokens = max(0, (int)$json['extra_ai_tokens']);
-            $newExtraAiTokensPrice = round(($newExtraAiTokens / 250000) * 60.00, 2);
+            $newExtraAiTokensPrice = round(($newExtraAiTokens / $aiPackTokens) * $aiPackPrice, 2);
         } else {
             $newExtraAiTokens = $currentExtraAiTokens;
             $newExtraAiTokensPrice = $currentExtraAiTokensPrice;

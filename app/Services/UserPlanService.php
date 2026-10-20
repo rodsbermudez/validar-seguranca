@@ -270,6 +270,7 @@ class UserPlanService
             'is_subscription_canceled'  => $isSubscriptionCanceled,
             'is_subscription_expired'   => $isSubscriptionExpired,
             'payment_methods'           => SettingsModel::getPaymentMethods(),
+            'addon_pricing'             => SettingsModel::getAddonPricing(),
         ];
     }
 
@@ -358,13 +359,21 @@ class UserPlanService
             return false;
         }
 
+        $pricing = SettingsModel::getAddonPricing();
+        $extraWebsites = max(0, (int)($addons['extra_websites'] ?? 0));
+        $extraWebsitesPrice = round($extraWebsites * $pricing['extra_website_price'], 2);
+
+        $extraAiTokens = max(0, (int)($addons['extra_ai_tokens'] ?? 0));
+        $packTokens = $pricing['ai_pack_tokens'] > 0 ? $pricing['ai_pack_tokens'] : 250000;
+        $extraAiTokensPrice = round(($extraAiTokens / $packTokens) * $pricing['ai_pack_price'], 2);
+
         $dataToUpdate = [
             'plan_id'               => $planId,
             'is_active'             => 1,
-            'extra_websites'        => max(0, (int)($addons['extra_websites'] ?? 0)),
-            'extra_websites_price'  => max(0, (float)($addons['extra_websites_price'] ?? 0.00)),
-            'extra_ai_tokens'       => max(0, (int)($addons['extra_ai_tokens'] ?? 0)),
-            'extra_ai_tokens_price' => max(0, (float)($addons['extra_ai_tokens_price'] ?? 0.00)),
+            'extra_websites'        => $extraWebsites,
+            'extra_websites_price'  => $extraWebsitesPrice,
+            'extra_ai_tokens'       => $extraAiTokens,
+            'extra_ai_tokens_price' => $extraAiTokensPrice,
             'custom_price_monthly'  => null,
             'custom_max_websites'   => null,
             'custom_ai_token_limit' => null,

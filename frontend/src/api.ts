@@ -116,6 +116,12 @@ export interface PaymentMethodsConfig {
   pix: boolean;
 }
 
+export interface AddonPricingConfig {
+  extra_website_price: number;
+  ai_pack_price: number;
+  ai_pack_tokens: number;
+}
+
 export interface PlatformSettingsResponse {
   status: number;
   success: boolean;
@@ -130,6 +136,7 @@ export interface PlatformSettingsResponse {
   asaas_webhook_secret?: string;
   asaas_configured?: boolean;
   payment_methods?: PaymentMethodsConfig;
+  addon_pricing?: AddonPricingConfig;
   message?: string;
 }
 
@@ -146,7 +153,8 @@ export const updateSettings = async (
   asaasApiKey?: string,
   asaasEnvironment?: 'sandbox' | 'production',
   asaasWebhookSecret?: string,
-  paymentMethods?: Partial<PaymentMethodsConfig>
+  paymentMethods?: Partial<PaymentMethodsConfig>,
+  addonPricing?: Partial<AddonPricingConfig>
 ): Promise<PlatformSettingsResponse> => {
   const payload: Record<string, any> = {};
   if (aiModel !== undefined) payload.ai_model = aiModel;
@@ -158,6 +166,9 @@ export const updateSettings = async (
   if (asaasWebhookSecret !== undefined) payload.asaas_webhook_secret = asaasWebhookSecret;
   if (paymentMethods?.credit_card !== undefined) payload.payment_method_credit_card = paymentMethods.credit_card;
   if (paymentMethods?.pix !== undefined) payload.payment_method_pix = paymentMethods.pix;
+  if (addonPricing?.extra_website_price !== undefined) payload.addon_extra_website_price = addonPricing.extra_website_price;
+  if (addonPricing?.ai_pack_price !== undefined) payload.addon_ai_pack_price = addonPricing.ai_pack_price;
+  if (addonPricing?.ai_pack_tokens !== undefined) payload.addon_ai_pack_tokens = addonPricing.ai_pack_tokens;
   const response = await api.post<PlatformSettingsResponse>('/settings', payload);
   return response.data;
 };
@@ -1020,6 +1031,8 @@ export interface UserPlanDetails {
   is_subscription_active?: boolean;
   is_subscription_canceled?: boolean;
   is_subscription_expired?: boolean;
+  payment_methods?: PaymentMethodsConfig;
+  addon_pricing?: AddonPricingConfig;
 }
 
 export interface UserPlanResponse {
@@ -1028,6 +1041,7 @@ export interface UserPlanResponse {
   subscription?: SubscriptionInfo | null;
   available_plans: Plan[];
   payment_methods?: PaymentMethodsConfig;
+  addon_pricing?: AddonPricingConfig;
   websites: Array<{
     id: number;
     name: string;
@@ -1063,7 +1077,7 @@ export interface UpdateUserPlanPayload {
   ai_enabled?: boolean | number;
 }
 
-export const getPlans = async (): Promise<{ status: number; data: Plan[] }> => {
+export const getPlans = async (): Promise<{ status: number; data: Plan[]; addon_pricing?: AddonPricingConfig }> => {
   const response = await api.get('/plans');
   return response.data;
 };
@@ -1099,13 +1113,13 @@ export const updateUserPlan = async (
   return response.data;
 };
 
-export const getPublicPlans = async (): Promise<{ status: number; data: Plan[]; payment_methods?: PaymentMethodsConfig }> => {
-  const response = await api.get<{ status: number; data: Plan[]; payment_methods?: PaymentMethodsConfig }>('/public/plans');
+export const getPublicPlans = async (): Promise<{ status: number; data: Plan[]; payment_methods?: PaymentMethodsConfig; addon_pricing?: AddonPricingConfig }> => {
+  const response = await api.get<{ status: number; data: Plan[]; payment_methods?: PaymentMethodsConfig; addon_pricing?: AddonPricingConfig }>('/public/plans');
   return response.data;
 };
 
-export const getPublicPaymentMethods = async (): Promise<{ status: number; success: boolean; payment_methods: PaymentMethodsConfig }> => {
-  const response = await api.get<{ status: number; success: boolean; payment_methods: PaymentMethodsConfig }>('/public/payment-methods');
+export const getPublicPaymentMethods = async (): Promise<{ status: number; success: boolean; payment_methods: PaymentMethodsConfig; addon_pricing?: AddonPricingConfig }> => {
+  const response = await api.get<{ status: number; success: boolean; payment_methods: PaymentMethodsConfig; addon_pricing?: AddonPricingConfig }>('/public/payment-methods');
   return response.data;
 };
 

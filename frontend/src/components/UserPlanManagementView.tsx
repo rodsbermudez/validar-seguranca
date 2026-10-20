@@ -125,9 +125,7 @@ export function UserPlanManagementView({
   // Form State for Admin Editing
   const [selectedPlanId, setSelectedPlanId] = useState<string>('');
   const [extraWebsites, setExtraWebsites] = useState<number>(0);
-  const [extraWebsitesPrice, setExtraWebsitesPrice] = useState<number>(0);
   const [extraAiTokens, setExtraAiTokens] = useState<number>(0);
-  const [extraAiTokensPrice, setExtraAiTokensPrice] = useState<number>(0);
   const [aiEnabled, setAiEnabled] = useState<boolean>(true);
 
   // Advanced Custom Overrides
@@ -224,9 +222,7 @@ export function UserPlanManagementView({
       const pd = res.plan_details;
       setSelectedPlanId(pd.plan_id ? String(pd.plan_id) : '');
       setExtraWebsites(pd.extra_websites || 0);
-      setExtraWebsitesPrice(pd.extra_websites_price || 0);
       setExtraAiTokens(pd.extra_ai_tokens || 0);
-      setExtraAiTokensPrice(pd.extra_ai_tokens_price || 0);
       setAiEnabled(Number(pd.ai_enabled) === 1);
 
       if (pd.custom_max_websites !== null || pd.custom_ai_token_limit !== null || pd.custom_price_monthly !== null) {
@@ -287,9 +283,9 @@ export function UserPlanManagementView({
       await updateUserPlan(initialUser.id, {
         plan_id: selectedPlanId ? Number(selectedPlanId) : null,
         extra_websites: Number(extraWebsites) || 0,
-        extra_websites_price: Number(extraWebsitesPrice) || 0,
+        extra_websites_price: calculatedExtraWebsitesPrice,
         extra_ai_tokens: Number(extraAiTokens) || 0,
-        extra_ai_tokens_price: Number(extraAiTokensPrice) || 0,
+        extra_ai_tokens_price: calculatedExtraAiTokensPrice,
         custom_max_websites: useCustomOverrides && customMaxWebsites !== '' ? Number(customMaxWebsites) : null,
         custom_ai_token_limit: useCustomOverrides && customAiLimit !== '' ? Number(customAiLimit) : null,
         custom_price_monthly: useCustomOverrides && customPriceMonthly !== '' ? Number(customPriceMonthly) : null,
@@ -370,6 +366,18 @@ export function UserPlanManagementView({
   const allowCreditCard = data?.payment_methods ? data.payment_methods.credit_card : true;
   const allowPix = data?.payment_methods ? data.payment_methods.pix : false;
 
+  // Global addon pricing reference
+  const addonPricing = data?.addon_pricing || data?.plan_details?.addon_pricing || {
+    extra_website_price: 8,
+    ai_pack_price: 60,
+    ai_pack_tokens: 250000,
+  };
+
+  const calculatedExtraWebsitesPrice = Math.round(Number(extraWebsites || 0) * (addonPricing.extra_website_price || 8) * 100) / 100;
+  const aiPackTokens = addonPricing.ai_pack_tokens || 250000;
+  const aiPackPrice = addonPricing.ai_pack_price || 60;
+  const calculatedExtraAiTokensPrice = Math.round((Number(extraAiTokens || 0) / aiPackTokens) * aiPackPrice * 100) / 100;
+
   // Dynamic preview calculations for admin form
   const previewBaseWebsites = currentPlan ? currentPlan.max_websites : null;
   const previewTotalWebsites = previewBaseWebsites !== null ? previewBaseWebsites + Number(extraWebsites || 0) : null;
@@ -378,7 +386,7 @@ export function UserPlanManagementView({
   const previewTotalAi = previewBaseAi + Number(extraAiTokens || 0);
 
   const previewBasePrice = currentPlan ? currentPlan.price_monthly : 0;
-  const previewTotalPrice = Number(previewBasePrice) + Number(extraWebsitesPrice || 0) + Number(extraAiTokensPrice || 0);
+  const previewTotalPrice = Number(previewBasePrice) + calculatedExtraWebsitesPrice + calculatedExtraAiTokensPrice;
 
   // Metrics for AI progress
   const monthlyUsed = data?.month_stats?.total_tokens || 0;
@@ -410,7 +418,7 @@ export function UserPlanManagementView({
 
   // Real-time Proration & Cycle calculations
   const currentTotalMonthly = pd?.total_monthly_price || 0;
-  const newAddonsTotalMonthly = (pd?.base_price || 0) + (modalExtraWebsites * 8) + (modalExtraAiPacks * 60);
+  const newAddonsTotalMonthly = (pd?.base_price || 0) + (modalExtraWebsites * (addonPricing.extra_website_price || 8)) + (modalExtraAiPacks * aiPackPrice);
   const addonsDiffMonthly = Math.round((newAddonsTotalMonthly - currentTotalMonthly) * 100) / 100;
   const isAddonsDowngrade = addonsDiffMonthly <= 0;
   const cycleEnd = sub?.current_period_end;
@@ -421,7 +429,7 @@ export function UserPlanManagementView({
 
   const selectedUpgradePlan = data?.available_plans.find((p) => p.id === targetUpgradePlanId);
   const upgradeNewTotal = selectedUpgradePlan
-    ? Number(selectedUpgradePlan.price_monthly) + (Number(pd?.extra_websites || 0) * 8) + (Number(pd?.extra_ai_tokens_price || 0))
+    ? Number(selectedUpgradePlan.price_monthly) + (Number(pd?.extra_websites || 0) * (addonPricing.extra_website_price || 8)) + (Number(pd?.extra_ai_tokens_price || 0))
     : 0;
   const upgradeDiffMonthly = Math.round((upgradeNewTotal - currentTotalMonthly) * 100) / 100;
   const isUpgradeDowngrade = upgradeDiffMonthly <= 0;
@@ -475,7 +483,7 @@ export function UserPlanManagementView({
 
   const handleOpenAddonsModal = () => {
     setModalExtraWebsites(pd?.extra_websites || 0);
-    setModalExtraAiPacks(Math.round((pd?.extra_ai_tokens || 0) / 250000));
+    setModalExtraAiPacks(Math.round((pd?.extra_ai_tokens || 0) / (aiPackTokens || 250000)));
     setAddonStep('config');
     const defaultPm = allowCreditCard ? 'credit_card' : 'pix';
     setAddonPaymentMethod(sub?.payment_method === 'pix' && allowPix ? 'pix' : defaultPm);
@@ -517,7 +525,7 @@ export function UserPlanManagementView({
             payment_id: addonPixData.payment_id,
             plan_id: pd?.plan_id ? Number(pd.plan_id) : undefined,
             extra_websites: modalExtraWebsites,
-            extra_ai_tokens: modalExtraAiPacks * 250000,
+            extra_ai_tokens: modalExtraAiPacks * aiPackTokens,
             user_id: initialUser.id,
           });
           if (res.paid) {
@@ -795,7 +803,7 @@ export function UserPlanManagementView({
         payment_id: addonPixData.payment_id,
         plan_id: pd?.plan_id ? Number(pd.plan_id) : undefined,
         extra_websites: modalExtraWebsites,
-        extra_ai_tokens: modalExtraAiPacks * 250000,
+        extra_ai_tokens: modalExtraAiPacks * aiPackTokens,
         user_id: initialUser.id,
       });
 
@@ -890,7 +898,7 @@ export function UserPlanManagementView({
         const planToCheckout = data?.available_plans.find((p) => p.id === targetUpgradePlanId) || currentPlan || null;
         setCheckoutPlan(planToCheckout);
         setCheckoutExtraWebsites(pd?.extra_websites || 0);
-        setCheckoutExtraAiPacks(Math.round((pd?.extra_ai_tokens || 0) / 250000));
+        setCheckoutExtraAiPacks(Math.round((pd?.extra_ai_tokens || 0) / (aiPackTokens || 250000)));
         setRenewModalOpen(true);
       }
     } catch (err: any) {
@@ -980,7 +988,7 @@ export function UserPlanManagementView({
         const planToCheckout = data?.available_plans.find((p) => p.id === targetUpgradePlanId) || currentPlan || null;
         setCheckoutPlan(planToCheckout);
         setCheckoutExtraWebsites(pd?.extra_websites || 0);
-        setCheckoutExtraAiPacks(Math.round((pd?.extra_ai_tokens || 0) / 250000));
+        setCheckoutExtraAiPacks(Math.round((pd?.extra_ai_tokens || 0) / (aiPackTokens || 250000)));
         setRenewModalOpen(true);
       } else {
         setUpgradePaymentError(res.message || 'Pagamento pendente ou recusado pela operadora.');
@@ -1386,7 +1394,7 @@ export function UserPlanManagementView({
               mt="xs"
               onClick={handleOpenAddonsModal}
             >
-              {pd?.extra_websites ? 'Gerenciar Sites Extras' : 'Adicionar Sites Extras (+R$ 8/site)'}
+              {pd?.extra_websites ? 'Gerenciar Sites Extras' : `Adicionar Sites Extras (+R$ ${(addonPricing.extra_website_price || 8).toFixed(2).replace('.', ',')}/site)`}
             </Button>
           </Card>
         </Grid.Col>
@@ -1439,7 +1447,7 @@ export function UserPlanManagementView({
               mt="xs"
               onClick={handleOpenAddonsModal}
             >
-              {pd?.extra_ai_tokens ? 'Gerenciar Cota de IA' : 'Adicionar Pacote de IA (+250k)'}
+              {pd?.extra_ai_tokens ? 'Gerenciar Cota de IA' : `Adicionar Pacote de IA (+${(aiPackTokens / 1000).toLocaleString('pt-BR')}k)`}
             </Button>
           </Card>
         </Grid.Col>
@@ -1524,73 +1532,65 @@ export function UserPlanManagementView({
               />
             </Grid.Col>
 
-            {/* Add-on Websites: Quantidade e Valor */}
+            {/* Add-on Websites: Quantidade com Cálculo Automático */}
             <Grid.Col span={{ base: 12, sm: 6, md: 4 }}>
               <Card bg="dark.7" p="sm" radius="sm" withBorder style={{ borderColor: '#374151' }}>
-                <Text size="xs" fw={700} c="cyan.4" mb={6}>
-                  ADD-ON: WEBSITES EXTRAS
-                </Text>
-                <Grid gutter="xs">
-                  <Grid.Col span={6}>
-                    <NumberInput
-                      label="Sites Extras (+)"
-                      min={0}
-                      max={200}
-                      step={1}
-                      value={extraWebsites}
-                      onChange={(val) => setExtraWebsites(Number(val) || 0)}
-                    />
-                  </Grid.Col>
-                  <Grid.Col span={6}>
-                    <NumberInput
-                      label="Valor Extra (R$)"
-                      min={0}
-                      step={10}
-                      decimalScale={2}
-                      thousandSeparator="."
-                      decimalSeparator=","
-                      prefix="R$ "
-                      value={extraWebsitesPrice}
-                      onChange={(val) => setExtraWebsitesPrice(Number(val) || 0)}
-                    />
-                  </Grid.Col>
-                </Grid>
+                <Group justify="space-between" mb={6}>
+                  <Text size="xs" fw={700} c="cyan.4">
+                    ADD-ON: WEBSITES EXTRAS
+                  </Text>
+                  <Badge color="cyan" variant="light" size="xs">
+                    R$ {(addonPricing.extra_website_price || 8).toFixed(2).replace('.', ',')}/site
+                  </Badge>
+                </Group>
+                <NumberInput
+                  label="Quantidade de Sites Extras (+)"
+                  min={0}
+                  max={200}
+                  step={1}
+                  value={extraWebsites}
+                  onChange={(val) => setExtraWebsites(Number(val) || 0)}
+                />
+                <Paper p="xs" mt="xs" bg="dark.8" radius="xs" withBorder style={{ borderColor: '#1e293b' }}>
+                  <Group justify="space-between">
+                    <Text size="xs" c="dimmed">Valor Mensal Adicional:</Text>
+                    <Text size="xs" fw={700} c="cyan.3">
+                      +R$ {calculatedExtraWebsitesPrice.toFixed(2).replace('.', ',')}/mês
+                    </Text>
+                  </Group>
+                </Paper>
               </Card>
             </Grid.Col>
 
-            {/* Add-on IA: Tokens e Valor */}
+            {/* Add-on IA: Tokens com Cálculo Automático */}
             <Grid.Col span={{ base: 12, sm: 6, md: 4 }}>
               <Card bg="dark.7" p="sm" radius="sm" withBorder style={{ borderColor: '#374151' }}>
-                <Text size="xs" fw={700} c="violet.4" mb={6}>
-                  ADD-ON: COTA EXTRA DE IA
-                </Text>
-                <Grid gutter="xs">
-                  <Grid.Col span={6}>
-                    <NumberInput
-                      label="Tokens Extras (+)"
-                      min={0}
-                      max={10000000}
-                      step={50000}
-                      thousandSeparator="."
-                      decimalSeparator=","
-                      value={extraAiTokens}
-                      onChange={(val) => setExtraAiTokens(Number(val) || 0)}
-                    />
-                  </Grid.Col>
-                  <Grid.Col span={6}>
-                    <NumberInput
-                      label="Valor Extra (R$)"
-                      min={0}
-                      step={10}
-                      decimalScale={2}
-                      thousandSeparator="."
-                      decimalSeparator=","
-                      prefix="R$ "
-                      value={extraAiTokensPrice}
-                      onChange={(val) => setExtraAiTokensPrice(Number(val) || 0)}
-                    />
-                  </Grid.Col>
-                </Grid>
+                <Group justify="space-between" mb={6}>
+                  <Text size="xs" fw={700} c="violet.4">
+                    ADD-ON: COTA EXTRA DE IA
+                  </Text>
+                  <Badge color="violet" variant="light" size="xs">
+                    R$ {(addonPricing.ai_pack_price || 60).toFixed(2).replace('.', ',')} / {(aiPackTokens / 1000).toLocaleString('pt-BR')}k tokens
+                  </Badge>
+                </Group>
+                <NumberInput
+                  label="Tokens Extras (+)"
+                  min={0}
+                  max={10000000}
+                  step={aiPackTokens}
+                  thousandSeparator="."
+                  decimalSeparator=","
+                  value={extraAiTokens}
+                  onChange={(val) => setExtraAiTokens(Number(val) || 0)}
+                />
+                <Paper p="xs" mt="xs" bg="dark.8" radius="xs" withBorder style={{ borderColor: '#1e293b' }}>
+                  <Group justify="space-between">
+                    <Text size="xs" c="dimmed">Valor Mensal Adicional:</Text>
+                    <Text size="xs" fw={700} c="violet.3">
+                      +R$ {calculatedExtraAiTokensPrice.toFixed(2).replace('.', ',')}/mês
+                    </Text>
+                  </Group>
+                </Paper>
               </Card>
             </Grid.Col>
           </Grid>
@@ -1604,54 +1604,31 @@ export function UserPlanManagementView({
               size="compact-xs"
               variant="subtle"
               color="gray"
-              onClick={() => {
-                setExtraAiTokens(100000);
-                if (extraAiTokensPrice === 0) setExtraAiTokensPrice(25);
-              }}
+              onClick={() => setExtraAiTokens(aiPackTokens)}
             >
-              +100k
+              +{(aiPackTokens / 1000).toLocaleString('pt-BR')}k
             </Button>
             <Button
               size="compact-xs"
               variant="subtle"
               color="gray"
-              onClick={() => {
-                setExtraAiTokens(250000);
-                if (extraAiTokensPrice === 0) setExtraAiTokensPrice(45);
-              }}
+              onClick={() => setExtraAiTokens(aiPackTokens * 2)}
             >
-              +250k
+              +{((aiPackTokens * 2) / 1000).toLocaleString('pt-BR')}k
             </Button>
             <Button
               size="compact-xs"
               variant="subtle"
               color="gray"
-              onClick={() => {
-                setExtraAiTokens(500000);
-                if (extraAiTokensPrice === 0) setExtraAiTokensPrice(80);
-              }}
+              onClick={() => setExtraAiTokens(aiPackTokens * 4)}
             >
-              +500k
-            </Button>
-            <Button
-              size="compact-xs"
-              variant="subtle"
-              color="gray"
-              onClick={() => {
-                setExtraAiTokens(1000000);
-                if (extraAiTokensPrice === 0) setExtraAiTokensPrice(150);
-              }}
-            >
-              +1M
+              +{((aiPackTokens * 4) / 1000).toLocaleString('pt-BR')}k
             </Button>
             <Button
               size="compact-xs"
               variant="subtle"
               color="red"
-              onClick={() => {
-                setExtraAiTokens(0);
-                setExtraAiTokensPrice(0);
-              }}
+              onClick={() => setExtraAiTokens(0)}
             >
               Zerar Add-on IA
             </Button>
@@ -2788,7 +2765,7 @@ export function UserPlanManagementView({
                       <IconBrain size={14} />
                     </ThemeIcon>
                     <Text size="sm" fw={700} c="white">
-                      Pacotes IA (+250k tokens por R$ 60,00/mês cada)
+                      Pacotes IA (+{(aiPackTokens / 1000).toLocaleString('pt-BR')}k tokens por R$ {aiPackPrice.toFixed(2).replace('.', ',')}/mês cada)
                     </Text>
                   </Group>
                   <Text size="xs" c="dimmed" mt={2}>
@@ -2796,7 +2773,7 @@ export function UserPlanManagementView({
                   </Text>
                 </div>
                 <Badge color="violet" variant="light">
-                  +R$ {(modalExtraAiPacks * 60).toFixed(2).replace('.', ',')}/mês
+                  +R$ {(modalExtraAiPacks * aiPackPrice).toFixed(2).replace('.', ',')}/mês
                 </Badge>
               </Group>
 
@@ -2813,7 +2790,7 @@ export function UserPlanManagementView({
                 <Text size="xs" c="dimmed">
                   Cota total resultante:{' '}
                   <Text component="span" fw={700} c="violet.3">
-                    {(((pd?.base_ai_tokens || 0) + (modalExtraAiPacks * 250000)) / 1000).toLocaleString('pt-BR')}k tokens/mês
+                    {(((pd?.base_ai_tokens || 0) + (modalExtraAiPacks * aiPackTokens)) / 1000).toLocaleString('pt-BR')}k tokens/mês
                   </Text>
                 </Text>
               </Group>
@@ -2825,7 +2802,7 @@ export function UserPlanManagementView({
                 <div>
                   <Text size="xs" c="dimmed">Novo Valor Mensal Estimado:</Text>
                   <Text size="xs" c="dimmed">
-                    Plano {pd?.plan_name} (R$ {(pd?.base_price || 0).toFixed(2).replace('.', ',')}) + Sites Extras (R$ {(modalExtraWebsites * 8).toFixed(2).replace('.', ',')}) + IA Extra (R$ {(modalExtraAiPacks * 60).toFixed(2).replace('.', ',')})
+                    Plano {pd?.plan_name} (R$ {(pd?.base_price || 0).toFixed(2).replace('.', ',')}) + Sites Extras (R$ {(modalExtraWebsites * (addonPricing.extra_website_price || 8)).toFixed(2).replace('.', ',')}) + IA Extra (R$ {(modalExtraAiPacks * aiPackPrice).toFixed(2).replace('.', ',')})
                   </Text>
                 </div>
                 <div style={{ textAlign: 'right' }}>
@@ -3242,6 +3219,7 @@ export function UserPlanManagementView({
           initialExtraWebsites={checkoutExtraWebsites}
           initialExtraAiPacks={checkoutExtraAiPacks}
           paymentMethods={data?.payment_methods}
+          addonPricing={addonPricing}
           onPaymentSuccess={() => {
             setRenewModalOpen(false);
             loadData();

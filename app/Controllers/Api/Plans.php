@@ -41,8 +41,9 @@ class Plans extends ResourceController
         }
 
         return $this->respond([
-            'status' => 200,
-            'data'   => $plans,
+            'status'        => 200,
+            'data'          => $plans,
+            'addon_pricing' => SettingsModel::getAddonPricing(),
         ]);
     }
 
@@ -73,6 +74,7 @@ class Plans extends ResourceController
             'status'          => 200,
             'data'            => $plans,
             'payment_methods' => SettingsModel::getPaymentMethods(),
+            'addon_pricing'   => SettingsModel::getAddonPricing(),
         ]);
     }
 

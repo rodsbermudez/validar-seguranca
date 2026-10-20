@@ -82,5 +82,25 @@ class SettingsModel extends Model
             'pix'         => $pix,
         ];
     }
+
+    /**
+     * Retorna a tabela global de precificação de add-ons da plataforma.
+     * Valores padrão:
+     * - extra_website_price: R$ 8.00/mês por site adicional
+     * - ai_pack_price: R$ 60.00/mês por pacote de tokens
+     * - ai_pack_tokens: 250.000 tokens por pacote
+     */
+    public static function getAddonPricing(): array
+    {
+        $extraWebsitePrice = (float) self::getSetting('addon_extra_website_price', '8.00');
+        $aiPackPrice       = (float) self::getSetting('addon_ai_pack_price', '60.00');
+        $aiPackTokens      = (int) self::getSetting('addon_ai_pack_tokens', '250000');
+
+        return [
+            'extra_website_price' => $extraWebsitePrice >= 0 ? $extraWebsitePrice : 8.00,
+            'ai_pack_price'       => $aiPackPrice >= 0 ? $aiPackPrice : 60.00,
+            'ai_pack_tokens'      => $aiPackTokens > 0 ? $aiPackTokens : 250000,
+        ];
+    }
 }
 
