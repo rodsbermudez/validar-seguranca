@@ -53,6 +53,7 @@ import {
   DashboardMaintenanceTask,
   Website,
 } from '../api';
+import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { formatDateOnly, formatDateTime } from '../utils/date';
 
 interface OverviewDashboardViewProps {
@@ -102,6 +103,13 @@ export const OverviewDashboardView: React.FC<OverviewDashboardViewProps> = ({
   useEffect(() => {
     fetchOverview();
   }, [fetchOverview]);
+
+  useRealtimeSync({
+    onSync: fetchOverview,
+    interval: 35000,
+    revalidateOnFocus: true,
+    enabled: true,
+  });
 
   const handleOpenCompleteModal = (task: DashboardMaintenanceTask) => {
     setTaskToComplete(task);

@@ -40,6 +40,7 @@ $routes->group('api', function ($routes) {
     // Protected routes (JWT Auth required)
     $routes->group('', ['filter' => 'jwtAuth'], function ($routes) {
         $routes->get('websites', 'Api\Websites::index');
+        $routes->get('websites/(:num)', 'Api\Websites::show/$1');
         $routes->post('websites', 'Api\Websites::create');
         $routes->put('websites/(:num)', 'Api\Websites::update/$1');
         $routes->delete('websites/(:num)', 'Api\Websites::delete/$1');

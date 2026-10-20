@@ -47,6 +47,7 @@ import {
 import { formatDateTime } from '../utils/date';
 import { extractErrorMessage } from '../utils/formatError';
 import { UpgradeGateBanner } from './UpgradeGateBanner';
+import { useRealtimeSync } from '../hooks/useRealtimeSync';
 
 interface WebsiteIntegrityViewProps {
   website: { id: string | number; name: string; url: string; environment?: string };
@@ -96,6 +97,13 @@ export const WebsiteIntegrityView: React.FC<WebsiteIntegrityViewProps> = ({
   useEffect(() => {
     fetchIntegrity();
   }, [fetchIntegrity]);
+
+  useRealtimeSync({
+    onSync: fetchIntegrity,
+    interval: 35000,
+    revalidateOnFocus: true,
+    enabled: true,
+  });
 
   const handleRunScan = async () => {
     setScanning(true);

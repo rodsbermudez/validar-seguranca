@@ -37,7 +37,7 @@ import { PublicActivityLogsView } from './components/PublicActivityLogsView';
 import { UserPlanManagementView } from './components/UserPlanManagementView';
 import { GlobalAiMonitoringView } from './components/GlobalAiMonitoringView';
 import { PlatformErrorLogsView } from './components/PlatformErrorLogsView';
-import { getDocsUrl } from './api';
+import { getDocsUrl, getWebsite } from './api';
 
 export default function App() {
   const [user, setUser] = useState<any | null>(null);
@@ -46,6 +46,7 @@ export default function App() {
   const [selectedAiUser, setSelectedAiUser] = useState<any | null>(null);
   const [dashboardTab, setDashboardTab] = useState<string>('overview');
   const [viewMode, setViewMode] = useState<'overview' | 'list' | 'dashboard' | 'report' | 'users' | 'solutions' | 'logs' | 'settings' | 'user-ai' | 'user-ai-view' | 'ai-monitoring' | 'landing' | 'platform-errors'>('overview');
+  const [restoringRoute, setRestoringRoute] = useState<boolean>(true);
 
   // Detecta se a página foi acessada via link de compartilhamento de logs para o cliente
   const [shareToken, setShareToken] = useState<string | null>(() => {
@@ -92,10 +93,130 @@ export default function App() {
       setSelectedWebsite(null);
       localStorage.removeItem('impersonated_user');
       localStorage.removeItem('impersonated_user_id');
+      sessionStorage.removeItem('vexors_current_nav');
     };
 
     window.addEventListener('auth-unauthorized', handleUnauthorized);
     return () => window.removeEventListener('auth-unauthorized', handleUnauthorized);
+  }, []);
+
+  // Restaura rota e website ao carregar página ou dar F5
+  useEffect(() => {
+    if (!user) {
+      setRestoringRoute(false);
+      return;
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    const urlView = params.get('view');
+    const urlSiteId = params.get('site');
+    const urlTab = params.get('tab') || 'overview';
+
+    let targetView = urlView;
+    let targetSiteId = urlSiteId;
+    let targetTab = urlTab;
+
+    if (!targetView && !targetSiteId) {
+      try {
+        const saved = sessionStorage.getItem('vexors_current_nav');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          targetView = parsed.view;
+          targetSiteId = parsed.siteId;
+          targetTab = parsed.tab || 'overview';
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    if (targetSiteId) {
+      getWebsite(targetSiteId)
+        .then((site) => {
+          setSelectedWebsite(site);
+          setDashboardTab(targetTab || 'overview');
+          setViewMode('dashboard');
+        })
+        .catch(() => {
+          setViewMode(targetView === 'dashboard' ? 'list' : ((targetView as any) || 'overview'));
+        })
+        .finally(() => {
+          setRestoringRoute(false);
+        });
+    } else if (targetView) {
+      setViewMode(targetView as any);
+      setRestoringRoute(false);
+    } else {
+      setRestoringRoute(false);
+    }
+  }, [user?.id]);
+
+  // Sincroniza estado de navegação com a URL e com o sessionStorage
+  useEffect(() => {
+    if (!user || restoringRoute) return;
+
+    const url = new URL(window.location.href);
+
+    if (viewMode === 'dashboard' && selectedWebsite) {
+      url.searchParams.set('view', 'dashboard');
+      url.searchParams.set('site', String(selectedWebsite.id));
+      if (dashboardTab && dashboardTab !== 'overview') {
+        url.searchParams.set('tab', dashboardTab);
+      } else {
+        url.searchParams.delete('tab');
+      }
+    } else {
+      url.searchParams.delete('site');
+      url.searchParams.delete('tab');
+      if (viewMode !== 'overview') {
+        url.searchParams.set('view', viewMode);
+      } else {
+        url.searchParams.delete('view');
+      }
+    }
+
+    window.history.replaceState(null, '', url.pathname + (url.search ? url.search : ''));
+
+    try {
+      sessionStorage.setItem(
+        'vexors_current_nav',
+        JSON.stringify({
+          view: viewMode,
+          siteId: selectedWebsite?.id || null,
+          tab: dashboardTab || 'overview',
+        })
+      );
+    } catch (e) {
+      // ignore
+    }
+  }, [user?.id, viewMode, selectedWebsite?.id, dashboardTab, restoringRoute]);
+
+  // Suporte a voltar/avançar no navegador (popstate)
+  useEffect(() => {
+    const handlePopState = () => {
+      const params = new URLSearchParams(window.location.search);
+      const v = params.get('view') || 'overview';
+      const sId = params.get('site');
+      const t = params.get('tab') || 'overview';
+
+      if (sId) {
+        getWebsite(sId)
+          .then((site) => {
+            setSelectedWebsite(site);
+            setDashboardTab(t);
+            setViewMode('dashboard');
+          })
+          .catch(() => {
+            setViewMode('list');
+          });
+      } else {
+        setSelectedWebsite(null);
+        setViewMode(v as any);
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
   const handleLoginSuccess = (userData: any) => {
@@ -107,6 +228,12 @@ export default function App() {
     localStorage.removeItem('user');
     localStorage.removeItem('impersonated_user');
     localStorage.removeItem('impersonated_user_id');
+    sessionStorage.removeItem('vexors_current_nav');
+    const url = new URL(window.location.href);
+    url.searchParams.delete('view');
+    url.searchParams.delete('site');
+    url.searchParams.delete('tab');
+    window.history.replaceState(null, '', url.pathname);
     setUser(null);
     setImpersonatedUser(null);
     setSelectedWebsite(null);
@@ -417,6 +544,7 @@ export default function App() {
             <WebsiteDashboardView
               website={selectedWebsite}
               initialTab={dashboardTab}
+              onTabChange={(tab) => setDashboardTab(tab)}
               onBack={() => {
                 setSelectedWebsite(null);
                 setViewMode('list');

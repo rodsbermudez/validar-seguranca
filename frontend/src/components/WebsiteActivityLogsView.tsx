@@ -58,6 +58,7 @@ import {
 } from '../api';
 import { RichNoteContent } from './RichNoteContent';
 import { formatDateTime } from '../utils/date';
+import { useRealtimeSync } from '../hooks/useRealtimeSync';
 
 interface WebsiteActivityLogsViewProps {
   website: Website;
@@ -109,6 +110,13 @@ export const WebsiteActivityLogsView: React.FC<WebsiteActivityLogsViewProps> = (
   useEffect(() => {
     fetchActivities();
   }, [fetchActivities]);
+
+  useRealtimeSync({
+    onSync: fetchActivities,
+    interval: 20000,
+    revalidateOnFocus: true,
+    enabled: true,
+  });
 
   const handleOpenShareModal = async () => {
     setShareModalOpen(true);

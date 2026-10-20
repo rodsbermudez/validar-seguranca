@@ -36,6 +36,7 @@ import {
 } from '@tabler/icons-react';
 import { getWebsiteLogs, toggleWebsiteLogs, clearWebsiteLogs, LogEntry } from '../api';
 import { formatDateTime } from '../utils/date';
+import { useRealtimeSync } from '../hooks/useRealtimeSync';
 
 interface WebsiteLogsViewProps {
   website: { id: string | number; name: string; url: string; environment?: string };
@@ -81,6 +82,21 @@ export const WebsiteLogsView: React.FC<WebsiteLogsViewProps> = ({ website, onBac
   useEffect(() => {
     fetchLogs(filterLevel);
   }, [fetchLogs, filterLevel]);
+
+  useRealtimeSync({
+    onSync: async () => {
+      try {
+        const data = await getWebsiteLogs(websiteId, filterLevel);
+        setLogs(data.logs || []);
+        setLoggingEnabled(data.logging_enabled ?? false);
+      } catch (err) {
+        // Silently catch background errors
+      }
+    },
+    interval: 15000,
+    revalidateOnFocus: true,
+    enabled: true,
+  });
 
   const handleToggle = async () => {
     setActionLoading(true);

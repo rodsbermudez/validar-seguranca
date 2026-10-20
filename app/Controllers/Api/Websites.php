@@ -39,6 +39,47 @@ class Websites extends ResourceController
         ]);
     }
 
+    public function show($id = null)
+    {
+        if (!$id) {
+            return $this->fail('ID do website não informado.', 400);
+        }
+
+        $effectiveUserId = (int) ($this->request->effectiveUserId ?? ($this->request->userData->id ?? 0));
+        $userData        = $this->request->userData ?? null;
+        $isImpersonating = $this->request->isImpersonating ?? false;
+        $isAdmin         = (($userData->role ?? 'user') === 'admin') && !$isImpersonating;
+
+        $websiteModel = new WebsiteModel();
+        if (!$websiteModel->canUserAccess((int)$id, $effectiveUserId, $isAdmin, false)) {
+            return $this->failForbidden('Você não tem permissão para acessar este website.');
+        }
+
+        $site = $websiteModel->getUserWebsite($effectiveUserId, (int)$id);
+        if (!$site && $isAdmin) {
+            $rawSite = $websiteModel->find($id);
+            if ($rawSite) {
+                $websiteModel->enrichWebsiteData($rawSite, date('Y-m'));
+                $site = $rawSite;
+            }
+        }
+
+        if (!$site) {
+            return $this->failNotFound('Website não encontrado.');
+        }
+
+        if (empty($site['agent_token'])) {
+            $token = bin2hex(random_bytes(16));
+            $websiteModel->update($site['id'], ['agent_token' => $token]);
+            $site['agent_token'] = $token;
+        }
+
+        return $this->respond([
+            'status' => 200,
+            'data'   => $site,
+        ]);
+    }
+
     public function create()
     {
         $json = $this->request->getJSON(true) ?? $this->request->getPost();

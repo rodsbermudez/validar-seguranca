@@ -43,6 +43,7 @@ import {
 } from '@tabler/icons-react';
 import { api, getWebsiteFixes, toggleWebsiteFix, WebsiteFixesResponse } from '../api';
 import { formatDateTime } from '../utils/date';
+import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { UpgradeGateBanner } from './UpgradeGateBanner';
 
 interface ScanReportProps {
@@ -165,6 +166,24 @@ export const ScanReport: React.FC<ScanReportProps> = ({
     fetchSolutionsCatalog();
     loadFixes();
   }, [website.id]);
+
+  useRealtimeSync({
+    onSync: async () => {
+      try {
+        const res = await api.get(`/scan/history/${website.id}`);
+        const historyData = res.data.data || [];
+        setHistory(historyData);
+        if (historyData.length > 0) {
+          setScanResult(historyData[0].scan_results);
+        }
+      } catch (e) {
+        // Silently catch background errors
+      }
+    },
+    interval: 45000,
+    revalidateOnFocus: true,
+    enabled: true,
+  });
 
   const handleTriggerScan = async () => {
     setScanLoading(true);

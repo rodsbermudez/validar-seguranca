@@ -71,7 +71,9 @@ import {
   getUserPlanDetails,
   getDiagnosticSummary,
   DiagnosticSummaryResponse,
+  getWebsite,
 } from '../api';
+import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { ScanReport } from './ScanReport';
 import { WebsiteLogsView } from './WebsiteLogsView';
 import { WebsiteUpdatesView } from './WebsiteUpdatesView';
@@ -87,6 +89,7 @@ interface WebsiteDashboardViewProps {
   onDeleteWebsite?: (siteId: string | number) => void;
   onNavigateToPlans?: () => void;
   initialTab?: string;
+  onTabChange?: (tab: string) => void;
 }
 
 export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
@@ -96,6 +99,7 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
   onDeleteWebsite,
   onNavigateToPlans,
   initialTab,
+  onTabChange,
 }) => {
   const [activeTab, setActiveTab] = useState<string | null>(initialTab || 'overview');
   const [viewingDiagnostic, setViewingDiagnostic] = useState<boolean>(false);
@@ -129,7 +133,27 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
       setActiveTab(initialTab);
     }
   }, [initialTab]);
-  
+
+  useEffect(() => {
+    if (activeTab && onTabChange) {
+      onTabChange(activeTab);
+    }
+  }, [activeTab, onTabChange]);
+
+  // Website local state to support seamless background updates without page reload
+  const [currentWebsite, setCurrentWebsite] = useState<Website>(website);
+
+  useEffect(() => {
+    setCurrentWebsite(website);
+    setName(website.name);
+    setUrl(website.url);
+    setEnvironment(website.environment || 'production');
+    setMaintenanceDay(website.maintenance_day || '');
+    setMaintenanceStatus(website.maintenance || null);
+  }, [website]);
+
+  const isConnected = Number(currentWebsite.is_connected) === 1;
+
   // Latest Audit State
   const [latestScan, setLatestScan] = useState<any | null>(null);
   const [scanHistoryLoading, setScanHistoryLoading] = useState(false);
@@ -157,8 +181,6 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
   const [maintenanceHistory, setMaintenanceHistory] = useState<MaintenanceHistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
-  const isConnected = Number(website.is_connected) === 1;
-
   const fetchLatestScan = useCallback(async () => {
     setScanHistoryLoading(true);
     try {
@@ -184,7 +206,6 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
   const [diagnosticData, setDiagnosticData] = useState<DiagnosticSummaryResponse['data'] | null>(null);
 
   const fetchDiagnosticData = useCallback(async () => {
-    if (!isConnected) return;
     try {
       const res = await getDiagnosticSummary(website.id);
       if (res?.data) {
@@ -193,17 +214,57 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
     } catch (e) {
       // Fallback silently to DB data in website prop
     }
-  }, [website.id, isConnected]);
+  }, [website.id]);
 
   useEffect(() => {
-    fetchDiagnosticData();
-  }, [fetchDiagnosticData]);
-
-  useEffect(() => {
-    if (activeTab === 'overview') {
+    if (isConnected) {
       fetchDiagnosticData();
     }
-  }, [activeTab, fetchDiagnosticData]);
+  }, [isConnected, fetchDiagnosticData]);
+
+  useEffect(() => {
+    if (activeTab === 'overview' && isConnected) {
+      fetchDiagnosticData();
+    }
+  }, [activeTab, isConnected, fetchDiagnosticData]);
+
+  const refreshWebsite = useCallback(async () => {
+    try {
+      const freshSite = await getWebsite(website.id);
+      if (freshSite) {
+        setCurrentWebsite((prev) => {
+          const wasConnected = Number(prev.is_connected) === 1;
+          const isNowConnected = Number(freshSite.is_connected) === 1;
+          if (!wasConnected && isNowConnected) {
+            // Agente conectou!
+            fetchDiagnosticData();
+            fetchLatestScan();
+          }
+          return freshSite;
+        });
+        if (onUpdateWebsite) {
+          onUpdateWebsite(freshSite);
+        }
+      }
+    } catch (e) {
+      // Silently catch background error
+    }
+  }, [website.id, onUpdateWebsite, fetchDiagnosticData, fetchLatestScan]);
+
+  // Revalidação em Tempo Real (Smart Polling + Focus Sync)
+  useRealtimeSync({
+    onSync: async () => {
+      await refreshWebsite();
+      if (isConnected && activeTab === 'overview') {
+        await fetchDiagnosticData();
+      }
+    },
+    // Se estiver aguardando conexão do agente, poll a cada 5 segundos
+    // Se já estiver conectado, revalidação a cada 30 segundos
+    interval: isConnected ? 30000 : 5000,
+    revalidateOnFocus: true,
+    enabled: true,
+  });
 
   const fetchMaintenanceHistory = async () => {
     setHistoryLoading(true);

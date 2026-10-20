@@ -32,6 +32,7 @@ import {
   IconDownload,
 } from '@tabler/icons-react';
 import { api, Website } from '../api';
+import { useRealtimeSync } from '../hooks/useRealtimeSync';
 
 interface WebsitesListProps {
   onSelectWebsite: (website: Website) => void;
@@ -70,6 +71,23 @@ export const WebsitesList: React.FC<WebsitesListProps> = ({ onSelectWebsite }) =
   useEffect(() => {
     fetchWebsites();
   }, []);
+
+  const hasPendingWebsites = websites.some((s) => Number(s.is_connected) !== 1);
+
+  // Revalidação em tempo real (Smart Polling + Focus Sync)
+  useRealtimeSync({
+    onSync: async () => {
+      try {
+        const response = await api.get('/websites');
+        setWebsites(response.data.data || []);
+      } catch (err) {
+        // Silently catch background errors
+      }
+    },
+    interval: hasPendingWebsites ? 6000 : 35000,
+    revalidateOnFocus: true,
+    enabled: true,
+  });
 
   const handleOpenCreateModal = () => {
     setEditingWebsite(null);

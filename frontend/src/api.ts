@@ -445,6 +445,11 @@ export interface Website {
   logs_summary_json?: string | null;
 }
 
+export const getWebsite = async (websiteId: number | string): Promise<Website> => {
+  const response = await api.get(`/websites/${websiteId}`);
+  return response.data.data;
+};
+
 export interface MaintenanceStatus {
   status: 'completed' | 'overdue' | 'today' | 'upcoming' | 'not_scheduled';
   label: string;
