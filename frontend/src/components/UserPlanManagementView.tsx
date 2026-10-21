@@ -1410,6 +1410,38 @@ export function UserPlanManagementView({
                 Add-ons
               </Button>
             </Group>
+
+            <Group justify="space-between" mt="xs" align="center">
+              {sub?.status === 'active' && !isCurrentPlanFree ? (
+                <Button
+                  size="xs"
+                  variant="subtle"
+                  color="red"
+                  leftSection={<IconX size={14} />}
+                  onClick={() => setCancelModalOpen(true)}
+                >
+                  Cancelar Assinatura
+                </Button>
+              ) : (
+                <div />
+              )}
+
+              {initialUser.role !== 'admin' && (
+                <Button
+                  size="xs"
+                  variant="subtle"
+                  color="gray"
+                  leftSection={<IconTrash size={14} />}
+                  onClick={() => {
+                    setDeletePassword('');
+                    setDeleteAccountError(null);
+                    setDeleteAccountModalOpen(true);
+                  }}
+                >
+                  Excluir Conta
+                </Button>
+              )}
+            </Group>
           </Card>
         </Grid.Col>
 
