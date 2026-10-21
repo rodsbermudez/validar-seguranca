@@ -105,22 +105,6 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
       const res = await api.get(endpoint);
       const payload = res.data?.data || res.data;
 
-      // Se o retorno veio sem a lista de plugins mas indica que há pendências (cache legado/incompleto)
-      if (
-        !isManualRefresh &&
-        payload &&
-        (!payload.plugins || payload.plugins.length === 0) &&
-        (payload.summary?.total_pending > 0 || payload.summary?.pending_plugins > 0)
-      ) {
-        const liveRes = await api.get(`/websites/${website.id}/updates?force_refresh=1`);
-        const livePayload = liveRes.data?.data || liveRes.data;
-        setUpdatesData(livePayload);
-        if (onUpdatesChanged && livePayload?.summary) {
-          onUpdatesChanged(livePayload.summary, livePayload);
-        }
-        return;
-      }
-
       setUpdatesData(payload);
       if (onUpdatesChanged && payload?.summary) {
         onUpdatesChanged(payload.summary, payload);

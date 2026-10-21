@@ -623,6 +623,10 @@ class Websites extends ResourceController
         ]);
 
         if (empty($res['body']) || $res['status'] !== 200) {
+            if (($res['status'] ?? 0) === 404) {
+                \Config\Services::cache()->save('agent_cooldown_site_' . (int)$id, time(), 900);
+                $websiteModel->update($id, ['is_connected' => 0]);
+            }
             return $this->failAgentResponse($res, 'Falha ao buscar logs do agente');
         }
 
@@ -847,6 +851,10 @@ class Websites extends ResourceController
                     ]);
                 }
             }
+            if (($res['status'] ?? 0) === 404) {
+                \Config\Services::cache()->save('agent_cooldown_site_' . (int)$id, time(), 900);
+                $websiteModel->update($id, ['is_connected' => 0]);
+            }
             return $this->failAgentResponse($res, 'Falha ao buscar atualizações do agente');
         }
 
@@ -1051,6 +1059,10 @@ class Websites extends ResourceController
                         'message' => 'Exibindo dados da última varredura salva (agente não respondeu no momento).',
                     ]);
                 }
+            }
+            if (($res['status'] ?? 0) === 404) {
+                \Config\Services::cache()->save('agent_cooldown_site_' . (int)$id, time(), 900);
+                $websiteModel->update($id, ['is_connected' => 0]);
             }
             return $this->failAgentResponse($res, 'Falha ao buscar integridade do agente');
         }
@@ -1296,8 +1308,13 @@ class Websites extends ResourceController
             return $this->failForbidden('Você não tem permissão para acessar este website.');
         }
 
-        if (empty($website['agent_token'])) {
-            return $this->fail('Este website não possui token do agente configurado.', 400);
+        if (empty($website['agent_token']) || (int)($website['is_connected'] ?? 0) !== 1) {
+            return $this->respond([
+                'installed' => false,
+                'active'    => false,
+                'fixes'     => [],
+                'message'   => 'Agente WordPress não está conectado neste site.',
+            ]);
         }
 
         $res = $this->makeAgentRequestWithFallback($website['url'], '/fixes', 'GET', $website['agent_token']);
@@ -1515,8 +1532,14 @@ class Websites extends ResourceController
         // 2. OU não temos absolutamente nenhum dado em cache gravado ainda e o site está conectado
         $shouldQueryLive = $forceRefresh || (!$hasCache && !empty($website['is_connected']));
 
-        // Mutex Anti-Overload: Se já houver consulta em andamento para este website, não dispara concorrência
+        // Cooldown: se o agente falhou ou retornou 404 recentemente, não tenta de novo por 15 minutos
         $cache = \Config\Services::cache();
+        $cooldownKey = 'agent_cooldown_site_' . (int)$website['id'];
+        if ($shouldQueryLive && $cache->get($cooldownKey) && !$forceRefresh) {
+            $shouldQueryLive = false;
+        }
+
+        // Mutex Anti-Overload: Se já houver consulta em andamento para este website, não dispara concorrência
         $lockKey = 'agent_lock_site_' . (int)$website['id'];
         if ($shouldQueryLive && $cache->get($lockKey)) {
             $shouldQueryLive = false;
@@ -1530,6 +1553,42 @@ class Websites extends ResourceController
                     'limit'        => 100,
                     'filter_level' => 'all',
                 ]);
+
+                // Se o agente retornou 404 (plugin desativado no WP), desconecta e aborta imediatamente!
+                if (($logsRes['status'] ?? 0) === 404) {
+                    $cache->save($cooldownKey, time(), 900);
+                    $websiteModel = new WebsiteModel();
+                    $websiteModel->update($website['id'], ['is_connected' => 0]);
+                    return $this->respond([
+                        'status'  => 200,
+                        'success' => true,
+                        'cached'  => true,
+                        'data'    => [
+                            'logs'      => $logsSummary,
+                            'integrity' => $integrityData,
+                            'updates'   => $updatesData,
+                            'connected' => false,
+                        ],
+                        'message' => 'Plugin agente não está ativo no WordPress.',
+                    ]);
+                }
+
+                // Se deu erro de servidor (500, 502, timeout), aplica cooldown e aborta chamadas subsequentes
+                if (($logsRes['status'] ?? 0) >= 500 || empty($logsRes['status'])) {
+                    $cache->save($cooldownKey, time(), 300);
+                    return $this->respond([
+                        'status'  => 200,
+                        'success' => true,
+                        'cached'  => true,
+                        'data'    => [
+                            'logs'      => $logsSummary,
+                            'integrity' => $integrityData,
+                            'updates'   => $updatesData,
+                            'connected' => false,
+                        ],
+                        'message' => 'Servidor do WordPress indisponível no momento.',
+                    ]);
+                }
 
                 if (!empty($logsRes['body']) && $logsRes['status'] === 200) {
                     $logsSummary['has_logs_agent']  = true;
