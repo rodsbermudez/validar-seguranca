@@ -256,26 +256,20 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
     if (activeTab === 'overview') {
       fetchLatestScan(false);
       refreshWebsite();
-      if (isConnected) {
-        fetchDiagnosticData();
-      }
     }
-  }, [activeTab, isConnected, fetchDiagnosticData, fetchLatestScan, refreshWebsite]);
+  }, [activeTab, fetchLatestScan, refreshWebsite]);
 
-  // Revalidação em Tempo Real (Smart Polling + Focus Sync)
+  // Revalidação em Tempo Real (Smart Polling + Focus Sync) do SaaS
   useRealtimeSync({
     onSync: async () => {
       await refreshWebsite();
       if (activeTab === 'overview') {
         await fetchLatestScan(false);
-        if (isConnected) {
-          await fetchDiagnosticData();
-        }
       }
     },
-    // Se estiver aguardando conexão do agente, poll a cada 5 segundos
-    // Se já estiver conectado, revalidação a cada 30 segundos
-    interval: isConnected ? 30000 : 5000,
+    // Se estiver aguardando conexão do agente, checa status no banco a cada 8s
+    // Se já estiver conectado, revalidação local a cada 60s
+    interval: isConnected ? 60000 : 8000,
     revalidateOnFocus: true,
     enabled: true,
   });

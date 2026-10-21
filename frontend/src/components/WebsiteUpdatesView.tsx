@@ -29,7 +29,6 @@ import {
 import { api } from '../api';
 import { extractErrorMessage } from '../utils/formatError';
 import { UpgradeGateBanner } from './UpgradeGateBanner';
-import { useRealtimeSync } from '../hooks/useRealtimeSync';
 
 interface PluginUpdateItem {
   file: string;
@@ -112,13 +111,6 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
   useEffect(() => {
     fetchUpdates();
   }, [fetchUpdates]);
-
-  useRealtimeSync({
-    onSync: fetchUpdates,
-    interval: 30000,
-    revalidateOnFocus: true,
-    enabled: true,
-  });
 
   const handleApplyUpdate = async (type: 'plugin' | 'theme' | 'core', itemKey: string) => {
     setUpdatingItem(itemKey);

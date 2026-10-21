@@ -495,16 +495,17 @@ class Websites extends ResourceController
     private function makeAgentRequestWithFallback(string $baseUrl, string $endpointPath, string $method = 'GET', string $token = '', array $params = []): array
     {
         $baseUrlClean = rtrim($baseUrl, '/');
+        // Rotas canônicas e diretas do Vexors (evita flood de 8 URLs desnecessárias no servidor do cliente)
         $routes = [
             $baseUrlClean . '/wp-json/vexors/v1' . $endpointPath,
             $baseUrlClean . '/?rest_route=/vexors/v1' . $endpointPath,
-            $baseUrlClean . '/wp-json/vexors-fixes/v1' . $endpointPath,
-            $baseUrlClean . '/?rest_route=/vexors-fixes/v1' . $endpointPath,
-            $baseUrlClean . '/wp-json/wp-patropi/v1' . $endpointPath,
-            $baseUrlClean . '/?rest_route=/wp-patropi/v1' . $endpointPath,
-            $baseUrlClean . '/wp-json/validar-seguranca/v1' . $endpointPath,
-            $baseUrlClean . '/?rest_route=/validar-seguranca/v1' . $endpointPath,
         ];
+
+        // Se for o endpoint específico de correções, tenta vexors-fixes caso vexors/v1 não atenda
+        if (strpos($endpointPath, '/fixes') !== false) {
+            $routes[] = $baseUrlClean . '/wp-json/vexors-fixes/v1' . $endpointPath;
+            $routes[] = $baseUrlClean . '/?rest_route=/vexors-fixes/v1' . $endpointPath;
+        }
 
         $lastRes = null;
         foreach ($routes as $url) {
@@ -514,13 +515,11 @@ class Websites extends ResourceController
             }
         }
 
-        // If POST failed or was blocked by WAF (406, 403, 405), attempt GET fallback
-        if ($method === 'POST') {
-            foreach ($routes as $url) {
-                $lastRes = $this->makeAgentRequest($url, 'GET', $token, $params);
-                if (!empty($lastRes['body']) && $lastRes['status'] === 200) {
-                    return $lastRes;
-                }
+        // Se falhou no POST por 405 Method Not Allowed ou 406 WAF, tenta GET uma única vez na rota primária
+        if ($method === 'POST' && in_array($lastRes['status'] ?? 0, [405, 406])) {
+            $lastRes = $this->makeAgentRequest($routes[0], 'GET', $token, $params);
+            if (!empty($lastRes['body']) && $lastRes['status'] === 200) {
+                return $lastRes;
             }
         }
 
@@ -742,6 +741,28 @@ class Websites extends ResourceController
             return $this->fail('Este website não possui token do agente configurado.', 400);
         }
 
+        $forceRefresh = ($this->request->getGet('force_refresh') === '1');
+        $lastChecked = !empty($website['last_updates_checked_at']) ? strtotime($website['last_updates_checked_at']) : 0;
+
+        // Se force_refresh NÃO foi solicitado e os dados em cache têm menos de 15 minutos, retorna do banco
+        if (!$forceRefresh && (time() - $lastChecked < 900) && !empty($website['updates_summary_json'])) {
+            $cachedSummary = json_decode($website['updates_summary_json'], true);
+            if (!empty($cachedSummary)) {
+                return $this->respond([
+                    'status'  => 200,
+                    'success' => true,
+                    'cached'  => true,
+                    'data'    => [
+                        'summary' => $cachedSummary,
+                        'core'    => ['current_version' => '', 'new_version' => '', 'has_update' => false],
+                        'plugins' => [],
+                        'themes'  => [],
+                    ],
+                    'message' => 'Exibindo dados da última checagem recente.',
+                ]);
+            }
+        }
+
         $res = $this->makeAgentRequestWithFallback($website['url'], '/updates', 'GET', $website['agent_token']);
 
         if (empty($res['body']) || $res['status'] !== 200) {
@@ -917,6 +938,23 @@ class Websites extends ResourceController
 
         if (empty($website['agent_token'])) {
             return $this->fail('Este website não possui token do agente configurado.', 400);
+        }
+
+        $forceRefresh = ($this->request->getGet('force_refresh') === '1');
+        $lastChecked = !empty($website['last_integrity_scanned_at']) ? strtotime($website['last_integrity_scanned_at']) : 0;
+
+        // Se force_refresh NÃO foi solicitado e os dados em cache têm menos de 15 minutos, retorna do banco
+        if (!$forceRefresh && (time() - $lastChecked < 900) && !empty($website['integrity_summary_json'])) {
+            $cachedData = json_decode($website['integrity_summary_json'], true);
+            if (!empty($cachedData)) {
+                return $this->respond([
+                    'status'  => 200,
+                    'success' => true,
+                    'cached'  => true,
+                    'data'    => $cachedData,
+                    'message' => 'Exibindo dados da última verificação recente.',
+                ]);
+            }
         }
 
         $res = $this->makeAgentRequestWithFallback($website['url'], '/integrity', 'GET', $website['agent_token']);
@@ -1353,6 +1391,8 @@ class Websites extends ResourceController
 
         // 2. Query Agent for Live Metrics if connected and token exists
         $token = $website['agent_token'] ?? '';
+        $forceRefresh = ($this->request->getGet('force_refresh') === '1');
+
         $logsSummary = [
             'total_fatal_48h' => 0,
             'fatal_logs_48h'  => [],
@@ -1362,7 +1402,40 @@ class Websites extends ResourceController
         $integrityData = null;
         $updatesData   = null;
 
-        if (!empty($token) && !empty($website['url'])) {
+        // Pré-carrega cache do banco de dados do SaaS
+        if (!empty($website['logs_summary_json'])) {
+            $cachedLogs = json_decode($website['logs_summary_json'], true);
+            if (!empty($cachedLogs)) {
+                $logsSummary = $cachedLogs;
+            }
+        }
+        if (!empty($website['integrity_summary_json'])) {
+            $integrityData = json_decode($website['integrity_summary_json'], true);
+        }
+        if (!empty($website['updates_summary_json'])) {
+            $cachedSummary = json_decode($website['updates_summary_json'], true);
+            if (!empty($cachedSummary)) {
+                $updatesData = [
+                    'summary' => $cachedSummary,
+                    'core'    => ['current_version' => '', 'new_version' => '', 'has_update' => false],
+                    'plugins' => [],
+                    'themes'  => [],
+                ];
+            }
+        }
+
+        // Verifica o frescor do cache (15 minutos = 900 segundos)
+        $now = time();
+        $logsAge = !empty($website['last_logs_checked_at']) ? ($now - strtotime($website['last_logs_checked_at'])) : 999999;
+        $hasCache = (!empty($website['last_logs_checked_at']) || !empty($website['last_integrity_scanned_at']) || !empty($website['last_updates_checked_at']));
+
+        // SÓ consulta o agente WordPress live se:
+        // 1. O usuário pediu explicitamente via ?force_refresh=1
+        // 2. OU não temos nenhum dado em cache gravado ainda
+        // 3. OU os dados têm mais de 15 minutos (900 segundos)
+        $shouldQueryLive = $forceRefresh || !$hasCache || ($logsAge > 900);
+
+        if ($shouldQueryLive && !empty($token) && !empty($website['url'])) {
             // A. Fetch recent fatal logs
             $logsRes = $this->makeAgentRequestWithFallback($website['url'], '/logs', 'GET', $token, [
                 'limit'        => 100,
@@ -1381,7 +1454,6 @@ class Websites extends ResourceController
                     $lvl = strtolower($logItem['level'] ?? '');
                     if ($lvl === 'fatal' || stripos($logItem['raw_line'] ?? '', 'fatal error') !== false || stripos($logItem['raw_line'] ?? '', 'parse error') !== false) {
                         $logTime = !empty($logItem['timestamp']) ? strtotime($logItem['timestamp']) : null;
-                        // Include if timestamp is within 48h, or if timestamp could not be parsed, include as recent
                         if ($logTime === false || $logTime === null || $logTime >= $time48hAgo) {
                             $fatal48h[] = $logItem;
                         }
@@ -1389,13 +1461,8 @@ class Websites extends ResourceController
                 }
 
                 $logsSummary['total_fatal_48h'] = count($fatal48h);
-                $logsSummary['fatal_logs_48h']  = array_slice($fatal48h, 0, 20); // Top 20 fatal logs
+                $logsSummary['fatal_logs_48h']  = array_slice($fatal48h, 0, 20);
                 $this->persistLogsCheck((int)$website['id'], $logsSummary);
-            } elseif (!empty($website['logs_summary_json'])) {
-                $cachedLogs = json_decode($website['logs_summary_json'], true);
-                if (!empty($cachedLogs)) {
-                    $logsSummary = $cachedLogs;
-                }
             }
 
             // B. Fetch Core Integrity
@@ -1405,8 +1472,6 @@ class Websites extends ResourceController
                 if (!empty($integrityData) && is_array($integrityData)) {
                     $this->persistIntegrityScan((int)$website['id'], $integrityData);
                 }
-            } elseif (!empty($website['integrity_summary_json'])) {
-                $integrityData = json_decode($website['integrity_summary_json'], true);
             }
 
             // C. Fetch Updates
@@ -1415,16 +1480,6 @@ class Websites extends ResourceController
                 $updatesData = $updatesRes['body']['data'] ?? $updatesRes['body'];
                 if (!empty($updatesData) && is_array($updatesData)) {
                     $this->persistUpdatesCheck((int)$website['id'], $updatesData);
-                }
-            } elseif (!empty($website['updates_summary_json'])) {
-                $cachedSummary = json_decode($website['updates_summary_json'], true);
-                if (!empty($cachedSummary)) {
-                    $updatesData = [
-                        'summary' => $cachedSummary,
-                        'core'    => ['current_version' => '', 'new_version' => '', 'has_update' => false],
-                        'plugins' => [],
-                        'themes'  => [],
-                    ];
                 }
             }
         }
