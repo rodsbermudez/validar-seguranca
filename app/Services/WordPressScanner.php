@@ -14,15 +14,16 @@ class WordPressScanner
 
     public function runFullScan(?array $websiteData = null): array
     {
+        $internalAuditResults = null;
+        $isConnected = !empty($websiteData['is_connected']) && !empty($websiteData['agent_token']);
+        if ($isConnected) {
+            $internalAuditResults = $this->runInternalAgentScan($websiteData['agent_token']);
+        }
+
         $infraResults        = $this->checkInfrastructure();
         $fileExposureResults = $this->checkFileExposures();
         $enumerationResults  = $this->checkEnumerationAndInterfaces();
-        $fingerprintResults  = $this->checkFingerprint();
-
-        $internalAuditResults = null;
-        if (!empty($websiteData['is_connected']) && !empty($websiteData['agent_token'])) {
-            $internalAuditResults = $this->runInternalAgentScan($websiteData['agent_token']);
-        }
+        $fingerprintResults  = $this->checkFingerprint($isConnected);
 
         $allChecks = array_merge(
             $infraResults['checks'],
@@ -81,18 +82,10 @@ class WordPressScanner
 
         $tokenParam = 'vs_token=' . urlencode($agentToken);
 
-        // Routes to attempt in order: vexors primary, wp-patropi fallback, legacy routes
+        // Canonical Vexors Agent routes
         $routes = [
             '/wp-json/vexors/v1/internal-audit?' . $tokenParam,
             '/?rest_route=/vexors/v1/internal-audit&' . $tokenParam,
-            '/wp-json/vexors/v1/internal-audit',
-            '/?rest_route=/vexors/v1/internal-audit',
-            '/wp-json/wp-patropi/v1/internal-audit?' . $tokenParam,
-            '/?rest_route=/wp-patropi/v1/internal-audit&' . $tokenParam,
-            '/wp-json/wp-patropi/v1/internal-audit',
-            '/?rest_route=/wp-patropi/v1/internal-audit',
-            '/wp-json/validar-seguranca/v1/internal-audit?' . $tokenParam,
-            '/?rest_route=/validar-seguranca/v1/internal-audit&' . $tokenParam,
         ];
 
         $res = null;
@@ -279,6 +272,7 @@ class WordPressScanner
         }
         curl_setopt($ch, CURLOPT_TIMEOUT, $followRedirects ? 25 : $this->timeout);
         curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, $this->timeout);
+        curl_setopt($ch, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
         curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
         curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36');
@@ -300,6 +294,9 @@ class WordPressScanner
         $effUrl     = curl_getinfo($ch, CURLINFO_EFFECTIVE_URL);
         $error      = curl_error($ch);
         curl_close($ch);
+
+        // Defensive pacing: 30ms sleep to protect client server worker pool
+        usleep(30000);
 
         if ($response === false) {
             return [
@@ -658,7 +655,7 @@ class WordPressScanner
     /**
      * 2.4. Identificação de Versões (Fingerprinting)
      */
-    private function checkFingerprint(): array
+    private function checkFingerprint(bool $isConnected = false): array
     {
         $checks = [];
 
@@ -685,7 +682,7 @@ class WordPressScanner
         // Detect Plugins via HTML source code links/scripts
         $detectedPlugins = [];
         if (preg_match_all('/\/wp-content\/plugins\/([a-zA-Z0-9\-_]+)\//i', $html, $matches)) {
-            $detectedPlugins = array_unique($matches[1]);
+            $detectedPlugins = array_values(array_unique($matches[1]));
         }
 
         $pluginDetails = [];
@@ -696,16 +693,29 @@ class WordPressScanner
             $versionsExposed = true;
         }
 
-        foreach ($detectedPlugins as $pluginSlug) {
-            $resPluginReadme = $this->request("/wp-content/plugins/{$pluginSlug}/readme.txt");
-            $pluginVer = null;
-            if ($resPluginReadme['http_code'] === 200) {
-                if (preg_match('/Stable tag:\s*([0-9\.]+)/i', $resPluginReadme['body'], $vMatch)) {
-                    $pluginVer = $vMatch[1];
-                    $versionsExposed = true;
-                }
+        if ($isConnected) {
+            // Se o agente já está conectado, não precisamos fazer dezenas de requisições de readme.txt
+            // Os plugins e versões são auditados internamente com precisão cirúrgica pelo agente
+            foreach ($detectedPlugins as $pluginSlug) {
+                $pluginDetails[] = $pluginSlug;
             }
-            $pluginDetails[] = $pluginSlug . ($pluginVer ? " (v{$pluginVer})" : '');
+        } else {
+            // Em sites sem o agente, testa no máximo 5 plugins para não sobrecarregar o worker pool do cliente
+            $pluginsToCheck = array_slice($detectedPlugins, 0, 5);
+            foreach ($pluginsToCheck as $pluginSlug) {
+                $resPluginReadme = $this->request("/wp-content/plugins/{$pluginSlug}/readme.txt");
+                $pluginVer = null;
+                if ($resPluginReadme['http_code'] === 200) {
+                    if (preg_match('/Stable tag:\s*([0-9\.]+)/i', $resPluginReadme['body'], $vMatch)) {
+                        $pluginVer = $vMatch[1];
+                        $versionsExposed = true;
+                    }
+                }
+                $pluginDetails[] = $pluginSlug . ($pluginVer ? " (v{$pluginVer})" : '');
+            }
+            if (count($detectedPlugins) > 5) {
+                $pluginDetails[] = '... e outros ' . (count($detectedPlugins) - 5) . ' plugins';
+            }
         }
 
         $checks[] = [

@@ -428,9 +428,11 @@ class Websites extends ResourceController
         curl_setopt_array($ch, [
             CURLOPT_URL            => $url,
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT        => 60,
+            CURLOPT_TIMEOUT        => 12,
+            CURLOPT_CONNECTTIMEOUT => 4,
+            CURLOPT_HTTP_VERSION   => CURL_HTTP_VERSION_1_1,
             CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_MAXREDIRS      => 5,
+            CURLOPT_MAXREDIRS      => 3,
             CURLOPT_USERAGENT      => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
             CURLOPT_SSL_VERIFYPEER => false,
             CURLOPT_SSL_VERIFYHOST => false,
@@ -785,7 +787,41 @@ class Websites extends ResourceController
             }
         }
 
-        $res = $this->makeAgentRequestWithFallback($website['url'], '/updates', 'GET', $website['agent_token']);
+        $cache = \Config\Services::cache();
+        $lockKey = 'agent_lock_site_' . (int)$website['id'];
+
+        if ($cache->get($lockKey) && !empty($website['updates_summary_json'])) {
+            $cached = json_decode($website['updates_summary_json'], true);
+            if (!empty($cached) && is_array($cached)) {
+                $summary = $cached['summary'] ?? (isset($cached['total_pending']) ? $cached : [
+                    'total_pending'   => (int)($website['updates_pending_count'] ?? 0),
+                    'pending_plugins' => 0,
+                    'pending_themes'  => 0,
+                    'pending_core'    => 0,
+                ]);
+                return $this->respond([
+                    'status'  => 200,
+                    'success' => true,
+                    'cached'  => true,
+                    'data'    => [
+                        'summary' => $summary,
+                        'core'    => $cached['core'] ?? ['current_version' => '', 'new_version' => '', 'has_update' => false],
+                        'plugins' => $cached['plugins'] ?? [],
+                        'themes'  => $cached['themes'] ?? [],
+                    ],
+                    'message' => 'Uma checagem já está em andamento. Exibindo dados em cache.',
+                ]);
+            }
+        }
+
+        $cache->save($lockKey, time(), 30);
+        try {
+            $res = $this->makeAgentRequestWithFallback($website['url'], '/updates', 'GET', $website['agent_token'], [
+                'force_refresh' => $forceRefresh ? '1' : '0'
+            ]);
+        } finally {
+            $cache->delete($lockKey);
+        }
 
         if (empty($res['body']) || $res['status'] !== 200) {
             if (!empty($website['updates_summary_json'])) {
@@ -1467,63 +1503,78 @@ class Websites extends ResourceController
             }
         }
 
-        // Verifica o frescor do cache (15 minutos = 900 segundos)
-        $now = time();
-        $logsAge = !empty($website['last_logs_checked_at']) ? ($now - strtotime($website['last_logs_checked_at'])) : 999999;
-        $hasCache = (!empty($website['last_logs_checked_at']) || !empty($website['last_integrity_scanned_at']) || !empty($website['last_updates_checked_at']));
+        // Verifica se já temos dados de diagnóstico gravados em banco de dados
+        $hasCache = (!empty($website['last_logs_checked_at']) 
+            || !empty($website['last_integrity_scanned_at']) 
+            || !empty($website['last_updates_checked_at']) 
+            || !empty($website['updates_summary_json'])
+            || !empty($website['integrity_summary_json']));
 
         // SÓ consulta o agente WordPress live se:
         // 1. O usuário pediu explicitamente via ?force_refresh=1
-        // 2. OU não temos nenhum dado em cache gravado ainda
-        // 3. OU os dados têm mais de 15 minutos (900 segundos)
-        $shouldQueryLive = $forceRefresh || !$hasCache || ($logsAge > 900);
+        // 2. OU não temos absolutamente nenhum dado em cache gravado ainda e o site está conectado
+        $shouldQueryLive = $forceRefresh || (!$hasCache && !empty($website['is_connected']));
+
+        // Mutex Anti-Overload: Se já houver consulta em andamento para este website, não dispara concorrência
+        $cache = \Config\Services::cache();
+        $lockKey = 'agent_lock_site_' . (int)$website['id'];
+        if ($shouldQueryLive && $cache->get($lockKey)) {
+            $shouldQueryLive = false;
+        }
 
         if ($shouldQueryLive && !empty($token) && !empty($website['url'])) {
-            // A. Fetch recent fatal logs
-            $logsRes = $this->makeAgentRequestWithFallback($website['url'], '/logs', 'GET', $token, [
-                'limit'        => 100,
-                'filter_level' => 'all',
-            ]);
+            $cache->save($lockKey, time(), 30);
+            try {
+                // A. Fetch recent fatal logs
+                $logsRes = $this->makeAgentRequestWithFallback($website['url'], '/logs', 'GET', $token, [
+                    'limit'        => 100,
+                    'filter_level' => 'all',
+                ]);
 
-            if (!empty($logsRes['body']) && $logsRes['status'] === 200) {
-                $logsSummary['has_logs_agent']  = true;
-                $logsSummary['logging_enabled'] = !empty($logsRes['body']['logging_enabled']);
-                $allLogs = $logsRes['body']['logs'] ?? [];
+                if (!empty($logsRes['body']) && $logsRes['status'] === 200) {
+                    $logsSummary['has_logs_agent']  = true;
+                    $logsSummary['logging_enabled'] = !empty($logsRes['body']['logging_enabled']);
+                    $allLogs = $logsRes['body']['logs'] ?? [];
 
-                $time48hAgo = time() - (48 * 3600);
-                $fatal48h = [];
+                    $time48hAgo = time() - (48 * 3600);
+                    $fatal48h = [];
 
-                foreach ($allLogs as $logItem) {
-                    $lvl = strtolower($logItem['level'] ?? '');
-                    if ($lvl === 'fatal' || stripos($logItem['raw_line'] ?? '', 'fatal error') !== false || stripos($logItem['raw_line'] ?? '', 'parse error') !== false) {
-                        $logTime = !empty($logItem['timestamp']) ? strtotime($logItem['timestamp']) : null;
-                        if ($logTime === false || $logTime === null || $logTime >= $time48hAgo) {
-                            $fatal48h[] = $logItem;
+                    foreach ($allLogs as $logItem) {
+                        $lvl = strtolower($logItem['level'] ?? '');
+                        if ($lvl === 'fatal' || stripos($logItem['raw_line'] ?? '', 'fatal error') !== false || stripos($logItem['raw_line'] ?? '', 'parse error') !== false) {
+                            $logTime = !empty($logItem['timestamp']) ? strtotime($logItem['timestamp']) : null;
+                            if ($logTime === false || $logTime === null || $logTime >= $time48hAgo) {
+                                $fatal48h[] = $logItem;
+                            }
                         }
+                    }
+
+                    $logsSummary['total_fatal_48h'] = count($fatal48h);
+                    $logsSummary['fatal_logs_48h']  = array_slice($fatal48h, 0, 20);
+                    $this->persistLogsCheck((int)$website['id'], $logsSummary);
+                }
+
+                // B. Fetch Core Integrity
+                $integrityRes = $this->makeAgentRequestWithFallback($website['url'], '/integrity', 'GET', $token);
+                if (!empty($integrityRes['body']) && $integrityRes['status'] === 200) {
+                    $integrityData = $integrityRes['body']['data'] ?? $integrityRes['body'];
+                    if (!empty($integrityData) && is_array($integrityData)) {
+                        $this->persistIntegrityScan((int)$website['id'], $integrityData);
                     }
                 }
 
-                $logsSummary['total_fatal_48h'] = count($fatal48h);
-                $logsSummary['fatal_logs_48h']  = array_slice($fatal48h, 0, 20);
-                $this->persistLogsCheck((int)$website['id'], $logsSummary);
-            }
-
-            // B. Fetch Core Integrity
-            $integrityRes = $this->makeAgentRequestWithFallback($website['url'], '/integrity', 'GET', $token);
-            if (!empty($integrityRes['body']) && $integrityRes['status'] === 200) {
-                $integrityData = $integrityRes['body']['data'] ?? $integrityRes['body'];
-                if (!empty($integrityData) && is_array($integrityData)) {
-                    $this->persistIntegrityScan((int)$website['id'], $integrityData);
+                // C. Fetch Updates (não força checagem externa no WP.org a menos que forceRefresh seja true)
+                $updatesRes = $this->makeAgentRequestWithFallback($website['url'], '/updates', 'GET', $token, [
+                    'force_refresh' => $forceRefresh ? '1' : '0'
+                ]);
+                if (!empty($updatesRes['body']) && $updatesRes['status'] === 200) {
+                    $updatesData = $updatesRes['body']['data'] ?? $updatesRes['body'];
+                    if (!empty($updatesData) && is_array($updatesData)) {
+                        $this->persistUpdatesCheck((int)$website['id'], $updatesData);
+                    }
                 }
-            }
-
-            // C. Fetch Updates
-            $updatesRes = $this->makeAgentRequestWithFallback($website['url'], '/updates', 'GET', $token);
-            if (!empty($updatesRes['body']) && $updatesRes['status'] === 200) {
-                $updatesData = $updatesRes['body']['data'] ?? $updatesRes['body'];
-                if (!empty($updatesData) && is_array($updatesData)) {
-                    $this->persistUpdatesCheck((int)$website['id'], $updatesData);
-                }
+            } finally {
+                $cache->delete($lockKey);
             }
         }
 

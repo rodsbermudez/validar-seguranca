@@ -33,7 +33,7 @@ class VS_Agent_Upgrader_Skin extends WP_Upgrader_Skin {
 
 class VS_Agent_Upgrader {
 
-    public function get_updates() {
+    public function get_updates($force = false) {
         if (!function_exists('get_plugins') || !function_exists('is_plugin_active')) {
             require_once ABSPATH . 'wp-admin/includes/plugin.php';
         }
@@ -41,20 +41,28 @@ class VS_Agent_Upgrader {
             require_once ABSPATH . 'wp-admin/includes/update.php';
         }
 
-        // Force check for updates
-        if (function_exists('wp_update_plugins')) {
-            wp_update_plugins();
-        }
-        if (function_exists('wp_update_themes')) {
-            wp_update_themes();
-        }
-        if (function_exists('wp_version_check')) {
-            wp_version_check();
-        }
+        $force_refresh = $force || (!empty($_GET['force_refresh']) && $_GET['force_refresh'] === '1') || (!empty($_POST['force_refresh']) && $_POST['force_refresh'] === '1');
 
         $update_plugins = get_site_transient('update_plugins');
         $update_themes  = get_site_transient('update_themes');
         $update_core    = get_site_transient('update_core');
+
+        // Only invoke heavy external WordPress.org update checks if explicitly forced OR if transients don't exist at all
+        if ($force_refresh || empty($update_plugins) || empty($update_themes)) {
+            if (function_exists('wp_update_plugins')) {
+                @wp_update_plugins();
+            }
+            if (function_exists('wp_update_themes')) {
+                @wp_update_themes();
+            }
+            if (function_exists('wp_version_check')) {
+                @wp_version_check();
+            }
+
+            $update_plugins = get_site_transient('update_plugins');
+            $update_themes  = get_site_transient('update_themes');
+            $update_core    = get_site_transient('update_core');
+        }
 
         $plugin_responses = (!empty($update_plugins) && is_object($update_plugins) && !empty($update_plugins->response) && is_array($update_plugins->response))
             ? $update_plugins->response

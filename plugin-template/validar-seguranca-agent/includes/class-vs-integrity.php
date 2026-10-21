@@ -393,7 +393,26 @@ class VS_Agent_Integrity {
     public function get_last_result() {
         $last = get_option('vs_last_integrity_scan', null);
         if (!$last) {
-            return $this->verify_core_integrity();
+            return array(
+                'status'  => 200,
+                'success' => true,
+                'data'    => array(
+                    'scanned_at'    => null,
+                    'is_secure'     => true,
+                    'summary'       => array(
+                        'total_checked'  => 0,
+                        'passed'         => 0,
+                        'modified'       => 0,
+                        'suspicious'     => 0,
+                        'missing'        => 0,
+                        'issues_count'   => 0,
+                        'active_issues'  => 0,
+                        'ignored_issues' => 0,
+                    ),
+                    'issues'        => array(),
+                    'message'       => 'Nenhuma varredura de integridade executada ainda.',
+                ),
+            );
         }
 
         $saved_ignored = get_option(self::OPTION_IGNORED_FILES, array());

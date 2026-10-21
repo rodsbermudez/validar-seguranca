@@ -318,9 +318,11 @@ export interface DiagnosticSummaryResponse {
 }
 
 export const getDiagnosticSummary = async (
-  websiteId: number | string
+  websiteId: number | string,
+  forceRefresh = false
 ): Promise<DiagnosticSummaryResponse> => {
-  const response = await api.get<DiagnosticSummaryResponse>(`/websites/${websiteId}/diagnostic-summary`);
+  const params = forceRefresh ? { force_refresh: '1' } : {};
+  const response = await api.get<DiagnosticSummaryResponse>(`/websites/${websiteId}/diagnostic-summary`, { params });
   return response.data;
 };
 

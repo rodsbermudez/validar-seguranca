@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Paper,
   Title,
@@ -213,21 +213,26 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
 
   // Live diagnostic summary for the 4 tool cards
   const [diagnosticData, setDiagnosticData] = useState<DiagnosticSummaryResponse['data'] | null>(null);
+  const isFetchingDiagnosticRef = useRef<boolean>(false);
 
-  const fetchDiagnosticData = useCallback(async () => {
+  const fetchDiagnosticData = useCallback(async (force = false) => {
+    if (isFetchingDiagnosticRef.current) return;
+    isFetchingDiagnosticRef.current = true;
     try {
-      const res = await getDiagnosticSummary(website.id);
+      const res = await getDiagnosticSummary(website.id, force);
       if (res?.data) {
         setDiagnosticData(res.data);
       }
     } catch (e) {
       // Fallback silently to DB data in website prop
+    } finally {
+      isFetchingDiagnosticRef.current = false;
     }
   }, [website.id]);
 
   useEffect(() => {
     if (isConnected) {
-      fetchDiagnosticData();
+      fetchDiagnosticData(false);
     }
   }, [isConnected, fetchDiagnosticData]);
 
@@ -240,7 +245,7 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
           const isNowConnected = Number(freshSite.is_connected) === 1;
           if (!wasConnected && isNowConnected) {
             // Agente conectou!
-            fetchDiagnosticData();
+            fetchDiagnosticData(false);
             fetchLatestScan(false);
           }
           return freshSite;
@@ -279,24 +284,22 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
       }));
     }
     refreshWebsite();
-    fetchDiagnosticData();
-  }, [refreshWebsite, fetchDiagnosticData]);
+  }, [refreshWebsite]);
 
   useEffect(() => {
     if (activeTab === 'overview') {
       fetchLatestScan(false);
       refreshWebsite();
-      fetchDiagnosticData();
     }
-  }, [activeTab, fetchLatestScan, refreshWebsite, fetchDiagnosticData]);
+  }, [activeTab, fetchLatestScan, refreshWebsite]);
 
   // Revalidação em Tempo Real (Smart Polling + Focus Sync) do SaaS
+  // Polling é 100% passivo: consulta apenas o banco MySQL local do SaaS (refreshWebsite e fetchLatestScan)
   useRealtimeSync({
     onSync: async () => {
       await refreshWebsite();
       if (activeTab === 'overview') {
         await fetchLatestScan(false);
-        await fetchDiagnosticData();
       }
     },
     // Se estiver aguardando conexão do agente, checa status no banco a cada 8s

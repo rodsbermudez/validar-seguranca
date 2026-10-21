@@ -247,8 +247,9 @@ class VS_Agent_REST_API {
     }
 
     public function handle_get_updates($request) {
+        $force    = $request->get_param('force_refresh') === '1' || $request->get_param('force_refresh') === 1;
         $upgrader = new VS_Agent_Upgrader();
-        $data     = $upgrader->get_updates();
+        $data     = $upgrader->get_updates($force);
 
         return new WP_REST_Response(array(
             'status'  => 200,
