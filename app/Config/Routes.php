@@ -17,6 +17,7 @@ $routes->options('(:any)', static function () {
 $routes->group('api', function ($routes) {
     // Public Auth route
     $routes->post('auth/login', 'Api\Auth::login');
+    $routes->post('auth/reactivate-account', 'Api\Auth::reactivateAccount');
 
     // Public Agent Connect Handshake route
     $routes->post('websites/connect', 'Api\Websites::connect');
@@ -92,12 +93,13 @@ $routes->group('api', function ($routes) {
         $routes->put('plans/(:num)', 'Api\Plans::update/$1');
         $routes->delete('plans/(:num)', 'Api\Plans::delete/$1');
 
-        // User management routes (Admin)
+        // User management routes (Admin & User Self-Service)
         $routes->get('users', 'Api\Users::index');
         $routes->post('users', 'Api\Users::create');
         $routes->put('users/(:num)', 'Api\Users::update/$1');
         $routes->post('users/(:num)/toggle-status', 'Api\Users::toggleStatus/$1');
         $routes->delete('users/(:num)', 'Api\Users::delete/$1');
+        $routes->post('users/request-deletion', 'Api\Users::requestDeletion');
         $routes->get('users/(:num)/ai-metrics', 'Api\Users::aiMetrics/$1');
         $routes->put('users/(:num)/ai-limits', 'Api\Users::updateAiLimits/$1');
         $routes->get('users/(:num)/plan', 'Api\Users::planDetails/$1');

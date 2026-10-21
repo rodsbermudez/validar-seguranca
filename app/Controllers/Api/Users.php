@@ -19,7 +19,7 @@ class Users extends ResourceController
 
         $userModel = new UserModel();
         $users = $userModel
-            ->select('id, name, email, role, plan_id, is_active, ai_enabled, ai_monthly_token_limit, created_at')
+            ->select('id, name, email, role, plan_id, is_active, ai_enabled, ai_monthly_token_limit, account_status, deletion_requested_at, deletion_scheduled_at, purged_at, created_at')
             ->orderBy('created_at', 'DESC')
             ->findAll();
 
@@ -235,11 +235,151 @@ class Users extends ResourceController
             return $this->failNotFound('Usuário não encontrado.');
         }
 
-        $userModel->delete($id);
+        // Cancelar assinaturas ativas no Asaas
+        $subModel = new \App\Models\SubscriptionModel();
+        $activeSubs = $subModel->where('user_id', $user['id'])
+                               ->where('status', 'active')
+                               ->findAll();
+        $asaasService = new \App\Services\AsaasService();
+        foreach ($activeSubs as $sub) {
+            if (!empty($sub['gateway_subscription_id']) && ($sub['gateway'] ?? '') === 'asaas') {
+                try {
+                    $asaasService->cancelSubscription($sub['gateway_subscription_id']);
+                } catch (\Throwable $e) {
+                    log_message('error', "[Users::delete] Erro ao cancelar no Asaas: " . $e->getMessage());
+                }
+            }
+            $subModel->update($sub['id'], [
+                'status'      => 'canceled',
+                'canceled_at' => date('Y-m-d H:i:s'),
+            ]);
+        }
+
+        // Desconectar sites
+        $websiteModel = new \App\Models\WebsiteModel();
+        $websites = $websiteModel->where('user_id', $user['id'])->findAll();
+        $sitesCount = count($websites);
+        if (!empty($websites)) {
+            $websiteModel->where('user_id', $user['id'])->set([
+                'is_active'     => 0,
+                'is_connected'  => 0,
+                'agent_status'  => 'disconnected',
+            ])->update();
+        }
+
+        // Agendar exclusão com carência de 90 dias sem apagar registros de IA e pagamentos
+        $scheduledAt = date('Y-m-d H:i:s', strtotime('+90 days'));
+        $userModel->update($id, [
+            'account_status'        => 'pending_deletion',
+            'deletion_requested_at' => date('Y-m-d H:i:s'),
+            'deletion_scheduled_at' => $scheduledAt,
+            'previous_plan_id'      => $user['plan_id'] ?? null,
+            'previous_sites_count'  => $sitesCount,
+            'is_active'             => 0,
+        ]);
 
         return $this->respond([
-            'status'  => 200,
-            'message' => 'Usuário removido com sucesso.',
+            'status'       => 200,
+            'message'      => 'Conta colocada em período de carência de 90 dias (exclusão agendada). Sites desconectados e faturas canceladas. Histórico de IA e pagamentos preservados com segurança.',
+            'scheduled_at' => $scheduledAt,
+        ]);
+    }
+
+    /**
+     * POST /api/users/request-deletion
+     * O próprio usuário solicita a exclusão da sua conta confirmando com sua senha
+     */
+    public function requestDeletion()
+    {
+        $userData = $this->request->userData ?? null;
+        if (!$userData || empty($userData->id)) {
+            return $this->failUnauthorized('Usuário não autenticado.');
+        }
+
+        if (($userData->role ?? '') === 'admin') {
+            return $this->fail('Contas de administrador não podem ser autoexcluídas pelo painel.', 400);
+        }
+
+        $json = $this->request->getJSON(true) ?? $this->request->getPost();
+        $password = trim($json['password'] ?? '');
+
+        if (empty($password)) {
+            return $this->fail('Informe sua senha atual para confirmar a exclusão da conta.', 400);
+        }
+
+        $userModel = new UserModel();
+        $user = $userModel->find($userData->id);
+        if (!$user) {
+            return $this->failNotFound('Usuário não encontrado.');
+        }
+
+        // Confirmação obrigatória por senha
+        if (!password_verify($password, $user['password_hash'])) {
+            return $this->fail('Senha incorreta. Não foi possível confirmar a exclusão da sua conta.', 400);
+        }
+
+        // 1. Cancelar assinaturas ativas no Asaas
+        $subModel = new \App\Models\SubscriptionModel();
+        $activeSubs = $subModel->where('user_id', $user['id'])
+                               ->where('status', 'active')
+                               ->findAll();
+        $asaasService = new \App\Services\AsaasService();
+        foreach ($activeSubs as $sub) {
+            if (!empty($sub['gateway_subscription_id']) && ($sub['gateway'] ?? '') === 'asaas') {
+                try {
+                    $asaasService->cancelSubscription($sub['gateway_subscription_id']);
+                } catch (\Throwable $e) {
+                    log_message('error', "[Users::requestDeletion] Erro ao cancelar no Asaas: " . $e->getMessage());
+                }
+            }
+            $subModel->update($sub['id'], [
+                'status'      => 'canceled',
+                'canceled_at' => date('Y-m-d H:i:s'),
+            ]);
+        }
+
+        // 2. Desconectar e pausar sites
+        $websiteModel = new \App\Models\WebsiteModel();
+        $websites = $websiteModel->where('user_id', $user['id'])->findAll();
+        $sitesCount = count($websites);
+        if (!empty($websites)) {
+            $websiteModel->where('user_id', $user['id'])->set([
+                'is_active'     => 0,
+                'is_connected'  => 0,
+                'agent_status'  => 'disconnected',
+            ])->update();
+        }
+
+        // 3. Atualizar usuário com carência de 90 dias
+        $scheduledAt = date('Y-m-d H:i:s', strtotime('+90 days'));
+        $userModel->update($user['id'], [
+            'account_status'        => 'pending_deletion',
+            'deletion_requested_at' => date('Y-m-d H:i:s'),
+            'deletion_scheduled_at' => $scheduledAt,
+            'previous_plan_id'      => $user['plan_id'] ?? null,
+            'previous_sites_count'  => $sitesCount,
+            'is_active'             => 0,
+        ]);
+
+        $formattedScheduled = date('d/m/Y', strtotime('+90 days'));
+
+        // Registrar no log da plataforma
+        try {
+            $logModel = new \App\Models\PlatformErrorLogModel();
+            $logModel->logError([
+                'error_type'    => 'audit_notice',
+                'severity'      => 'warning',
+                'user_id'       => $user['id'],
+                'error_message' => "Usuário {$user['email']} (#{$user['id']}) solicitou a exclusão da conta com confirmação por senha. Carência de 90 dias agendada até {$formattedScheduled}. Sites desconectados e faturas suspensas.",
+            ]);
+        } catch (\Throwable $e) {
+            // ignore
+        }
+
+        return $this->respond([
+            'status'       => 200,
+            'message'      => "Sua conta entrou em período de carência de 90 dias (até {$formattedScheduled}). Nenhuma cobrança futura será realizada e seus sites foram desconectados. Se você mudar de ideia, basta fazer login dentro deste período para reativar sua conta.",
+            'scheduled_at' => $scheduledAt,
         ]);
     }
 

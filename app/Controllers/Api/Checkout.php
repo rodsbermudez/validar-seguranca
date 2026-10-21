@@ -75,17 +75,59 @@ class Checkout extends ResourceController
         $isNewSignup = !empty($json['is_new_signup']);
 
         if ($existingUser) {
-            // Se for novo cadastro ou usuário não autenticado como o proprietário da conta:
-            // Bloqueia e instrui a fazer login
-            if ($isNewSignup || !$authUser || (int)$authUser->id !== (int)$existingUser['id']) {
+            $userStatus = $existingUser['account_status'] ?? 'active';
+
+            // 1. Em período de carência de 90 dias: deve logar para reativar
+            if ($userStatus === 'pending_deletion') {
                 return $this->respond([
-                    'status'      => 409,
-                    'user_exists' => true,
-                    'message'     => 'Este e-mail já possui cadastro na plataforma. Por favor, faça login com sua conta para contratar ou gerenciar sua assinatura.',
+                    'status'              => 409,
+                    'user_exists'         => true,
+                    'is_pending_deletion' => true,
+                    'message'             => 'Esta conta está em período de carência para exclusão (90 dias). Por favor, faça login com sua conta para recuperar e reativar seus dados.',
                 ], 409);
             }
-            $userId = (int)$existingUser['id'];
-            $user = $existingUser;
+
+            // 2. Conta purgada após os 90 dias: permite reativar com nova contratação limpa
+            if ($userStatus === 'purged') {
+                if (empty($password) || strlen($password) < 6) {
+                    return $this->fail('Defina uma senha de acesso com no mínimo 6 caracteres.', 400);
+                }
+                $userId = (int) $existingUser['id'];
+                $resetData = [
+                    'name'                  => $name,
+                    'password_hash'         => password_hash($password, PASSWORD_DEFAULT),
+                    'role'                  => 'user',
+                    'is_active'             => 1,
+                    'account_status'        => 'active',
+                    'plan_id'               => $planId,
+                    'deletion_requested_at' => null,
+                    'deletion_scheduled_at' => null,
+                    'purged_at'             => null,
+                ];
+                if (!empty($cpfCnpj)) $resetData['cpf_cnpj'] = $cpfCnpj;
+                if (!empty($phone)) $resetData['phone'] = $phone;
+                if (!empty($postalCode)) $resetData['postal_code'] = $postalCode;
+                if (!empty($address)) $resetData['address'] = $address;
+                if (!empty($addressNumber)) $resetData['address_number'] = $addressNumber;
+                if (!empty($complement)) $resetData['complement'] = $complement;
+                if (!empty($province)) $resetData['province'] = $province;
+                if (!empty($city)) $resetData['city'] = $city;
+                if (!empty($state)) $resetData['state'] = $state;
+
+                $userModel->update($userId, $resetData);
+                $user = array_merge($existingUser, $resetData);
+            } else {
+                // 3. Conta ativa existente:
+                if ($isNewSignup || !$authUser || (int)$authUser->id !== (int)$existingUser['id']) {
+                    return $this->respond([
+                        'status'      => 409,
+                        'user_exists' => true,
+                        'message'     => 'Este e-mail já possui cadastro na plataforma. Por favor, faça login com sua conta para contratar ou gerenciar sua assinatura.',
+                    ], 409);
+                }
+                $userId = (int)$existingUser['id'];
+                $user = $existingUser;
+            }
 
             // Atualiza telefone/cpf e endereço se faltava
             $updateUser = [];
@@ -632,6 +674,28 @@ class Checkout extends ResourceController
         $user = $userModel->where('email', $email)->first();
 
         if ($user) {
+            $accountStatus = $user['account_status'] ?? 'active';
+
+            if ($accountStatus === 'pending_deletion') {
+                return $this->respond([
+                    'status'              => 200,
+                    'valid'               => true,
+                    'exists'              => true,
+                    'is_pending_deletion' => true,
+                    'message'             => 'Esta conta está em período de carência para exclusão (90 dias). Faça login para recuperar e reativar seus dados.',
+                ]);
+            }
+
+            if ($accountStatus === 'purged') {
+                return $this->respond([
+                    'status'    => 200,
+                    'valid'     => true,
+                    'exists'    => false, // Permite seguir e recriar a conta limpamente
+                    'is_purged' => true,
+                    'message'   => 'E-mail disponível para contratação (reativação de nova conta).',
+                ]);
+            }
+
             return $this->respond([
                 'status'      => 200,
                 'valid'       => true,

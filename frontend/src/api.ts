@@ -1514,5 +1514,48 @@ export const clearPlatformErrorLogs = async (days: number = 30): Promise<{ delet
   return response.data?.data || response.data;
 };
 
+// ==========================================
+// Account Deletion & Reactivation (90 Days Grace Period)
+// ==========================================
+
+export interface RequestAccountDeletionResponse {
+  status: number;
+  message: string;
+  scheduled_at: string;
+}
+
+export const requestAccountDeletion = async (
+  password: string
+): Promise<RequestAccountDeletionResponse> => {
+  const response = await api.post<RequestAccountDeletionResponse>('/users/request-deletion', { password });
+  return response.data;
+};
+
+export interface ReactivateAccountPayload {
+  reactivation_token?: string;
+  email?: string;
+  password?: string;
+}
+
+export interface ReactivateAccountResponse {
+  status: number;
+  message: string;
+  token: string;
+  user: {
+    id: number;
+    name: string;
+    email: string;
+    role: string;
+  };
+}
+
+export const reactivateAccount = async (
+  payload: ReactivateAccountPayload
+): Promise<ReactivateAccountResponse> => {
+  const response = await api.post<ReactivateAccountResponse>('/auth/reactivate-account', payload);
+  return response.data;
+};
+
+
 
 

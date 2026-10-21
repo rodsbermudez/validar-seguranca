@@ -22,6 +22,7 @@ import {
   Select,
   Modal,
   TextInput,
+  PasswordInput,
   SimpleGrid,
   CopyButton,
 } from '@mantine/core';
@@ -53,6 +54,7 @@ import {
   IconLock,
   IconShieldCheck,
   IconMapPin,
+  IconTrash,
 } from '@tabler/icons-react';
 import {
   getUserPlanDetails,
@@ -62,6 +64,7 @@ import {
   upgradePlanWithOptions,
   manageAddons,
   confirmProratedPix,
+  requestAccountDeletion,
   UserPlanResponse,
   AiUsageLogItem,
   Plan,
@@ -140,6 +143,13 @@ export function UserPlanManagementView({
   // Subscription Cancellation, Renewal & Feedback State
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [cancelingSub, setCancelingSub] = useState(false);
+
+  // Exclusão de Conta com Carência de 90 Dias
+  const [deleteAccountModalOpen, setDeleteAccountModalOpen] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deletingAccount, setDeletingAccount] = useState(false);
+  const [deleteAccountError, setDeleteAccountError] = useState<string | null>(null);
+
   const [feedback, setFeedback] = useState<{
     title: string;
     message: string | React.ReactNode;
@@ -329,6 +339,34 @@ export function UserPlanManagementView({
       );
     } finally {
       setCancelingSub(false);
+    }
+  };
+
+  const handleConfirmAccountDeletion = async () => {
+    if (!deletePassword) {
+      setDeleteAccountError('Por favor, informe sua senha atual para confirmar a exclusão.');
+      return;
+    }
+
+    setDeletingAccount(true);
+    setDeleteAccountError(null);
+
+    try {
+      const res = await requestAccountDeletion(deletePassword);
+      setDeleteAccountModalOpen(false);
+      alert(res.message);
+      // Logout imediato
+      localStorage.removeItem('jwt_token');
+      localStorage.removeItem('user');
+      window.location.reload();
+    } catch (err: any) {
+      setDeleteAccountError(
+        err.response?.data?.messages?.error ||
+          err.response?.data?.message ||
+          'Falha ao solicitar a exclusão da conta. Verifique sua senha e tente novamente.'
+      );
+    } finally {
+      setDeletingAccount(false);
     }
   };
 
@@ -2133,6 +2171,22 @@ export function UserPlanManagementView({
                   {sub.is_period_active ? 'Reativar / Renovar Assinatura' : 'Contratar Novo Plano'}
                 </Button>
               )}
+
+              {initialUser.role !== 'admin' && (
+                <Button
+                  variant="subtle"
+                  color="red"
+                  size="xs"
+                  leftSection={<IconTrash size={14} />}
+                  onClick={() => {
+                    setDeletePassword('');
+                    setDeleteAccountError(null);
+                    setDeleteAccountModalOpen(true);
+                  }}
+                >
+                  Excluir Minha Conta
+                </Button>
+              )}
             </Group>
           </Group>
         </Paper>
@@ -2173,6 +2227,93 @@ export function UserPlanManagementView({
             </Button>
             <Button color="red" size="sm" onClick={handleCancelSubscription} loading={cancelingSub} leftSection={<IconX size={14} />}>
               Sim, Cancelar Assinatura
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      {/* Modal de Exclusão de Conta com Carência de 90 Dias */}
+      <Modal
+        opened={deleteAccountModalOpen}
+        onClose={() => !deletingAccount && setDeleteAccountModalOpen(false)}
+        title={
+          <Group gap="xs">
+            <ThemeIcon color="red" variant="light" size="sm" radius="md">
+              <IconTrash size={16} />
+            </ThemeIcon>
+            <Text fw={700} size="md" c="red.4">
+              Excluir Minha Conta (Carência de 90 Dias)
+            </Text>
+          </Group>
+        }
+        centered
+        radius="md"
+        size="lg"
+        styles={{ content: { backgroundColor: '#1f2937' }, header: { backgroundColor: '#1f2937' } }}
+      >
+        <Stack gap="md">
+          {deleteAccountError && (
+            <Alert color="red" variant="light" icon={<IconAlertCircle size={18} />} title="Erro na Solicitação">
+              {deleteAccountError}
+            </Alert>
+          )}
+
+          <Alert color="orange" variant="light" icon={<IconAlertTriangle size={20} />} title="Atenção: Como funciona a exclusão da sua conta">
+            <Text size="xs" fw={500}>
+              Para sua segurança, a exclusão da conta segue uma política com <b>período de carência de 90 dias</b>:
+            </Text>
+            <ul style={{ margin: '8px 0 0 0', paddingLeft: 18, fontSize: 12, lineHeight: 1.6 }}>
+              <li>
+                <b>Cobranças suspensas imediatamente:</b> Nenhuma nova fatura recorrente será cobrada no seu cartão ou PIX.
+              </li>
+              <li>
+                <b>Sites desconectados:</b> Seus sites cadastrados serão imediatamente desconectados da plataforma para pausar requisições.
+              </li>
+              <li>
+                <b>90 dias para mudar de ideia:</b> Seus sites, notas e históricos permanecerão salvos por 90 dias. Durante esse período, basta fazer login com sua senha para <b>reativar sua conta</b> instantaneamente.
+              </li>
+              <li>
+                <b>Exclusão definitiva após 90 dias:</b> Encerrado o prazo de 90 dias, os dados dos seus sites (varreduras, relatórios e notas) serão <b>permanentemente apagados</b>.
+              </li>
+            </ul>
+          </Alert>
+
+          <Paper withBorder p="md" radius="md" style={{ backgroundColor: 'rgba(239, 68, 68, 0.05)', borderColor: 'rgba(239, 68, 68, 0.3)' }}>
+            <Text size="sm" fw={600} c="red.3" mb={6}>
+              Confirmação Obrigatória por Senha
+            </Text>
+            <Text size="xs" c="dimmed" mb="sm">
+              Para prosseguir com a exclusão agendada, digite a sua <b>senha atual</b> de acesso à plataforma:
+            </Text>
+            <PasswordInput
+              label="Sua Senha Atual"
+              placeholder="Digite sua senha para confirmar"
+              value={deletePassword}
+              onChange={(e) => setDeletePassword(e.currentTarget.value)}
+              required
+              error={!deletePassword && deleteAccountError ? 'Senha é obrigatória' : undefined}
+            />
+          </Paper>
+
+          <Group justify="flex-end" mt="sm">
+            <Button
+              variant="subtle"
+              color="gray"
+              size="sm"
+              onClick={() => setDeleteAccountModalOpen(false)}
+              disabled={deletingAccount}
+            >
+              Manter Minha Conta
+            </Button>
+            <Button
+              color="red"
+              size="sm"
+              onClick={handleConfirmAccountDeletion}
+              loading={deletingAccount}
+              disabled={!deletePassword.trim()}
+              leftSection={<IconTrash size={14} />}
+            >
+              Confirmar Exclusão da Conta
             </Button>
           </Group>
         </Stack>

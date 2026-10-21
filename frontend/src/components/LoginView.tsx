@@ -10,9 +10,21 @@ import {
   Container,
   Group,
   ThemeIcon,
+  Modal,
+  Stack,
+  Badge,
+  Divider,
 } from '@mantine/core';
-import { IconShieldCheck, IconAlertCircle } from '@tabler/icons-react';
-import { api } from '../api';
+import {
+  IconShieldCheck,
+  IconAlertCircle,
+  IconAlertTriangle,
+  IconRefresh,
+  IconCheck,
+  IconWorld,
+  IconArrowLeft,
+} from '@tabler/icons-react';
+import { api, reactivateAccount } from '../api';
 
 interface LoginModalProps {
   onLoginSuccess: (user: any, token: string) => void;
@@ -24,6 +36,11 @@ export const LoginView: React.FC<LoginModalProps> = ({ onLoginSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Estado de Reativação de Conta em Carência (90 dias)
+  const [reactivationData, setReactivationData] = useState<any | null>(null);
+  const [reactivating, setReactivating] = useState(false);
+  const [reactivateError, setReactivateError] = useState<string | null>(null);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -31,8 +48,14 @@ export const LoginView: React.FC<LoginModalProps> = ({ onLoginSuccess }) => {
 
     try {
       const response = await api.post('/auth/login', { email, password });
-      const { token, user } = response.data;
+      
+      // Caso a conta esteja em carência de 90 dias
+      if (response.data?.needs_reactivation) {
+        setReactivationData(response.data);
+        return;
+      }
 
+      const { token, user } = response.data;
       localStorage.setItem('jwt_token', token);
       localStorage.setItem('user', JSON.stringify(user));
 
@@ -41,6 +64,35 @@ export const LoginView: React.FC<LoginModalProps> = ({ onLoginSuccess }) => {
       setError(err.response?.data?.messages?.error || err.response?.data?.error || 'Email ou senha inválidos.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleConfirmReactivation = async () => {
+    if (!reactivationData) return;
+    setReactivating(true);
+    setReactivateError(null);
+
+    try {
+      const res = await reactivateAccount({
+        reactivation_token: reactivationData.reactivation_token,
+        email,
+        password,
+      });
+
+      const { token, user } = res;
+      localStorage.setItem('jwt_token', token);
+      localStorage.setItem('user', JSON.stringify(user));
+
+      setReactivationData(null);
+      onLoginSuccess(user, token);
+    } catch (err: any) {
+      setReactivateError(
+        err.response?.data?.messages?.error ||
+          err.response?.data?.message ||
+          'Falha ao reativar a conta. Tente novamente.'
+      );
+    } finally {
+      setReactivating(false);
     }
   };
 
@@ -87,6 +139,95 @@ export const LoginView: React.FC<LoginModalProps> = ({ onLoginSuccess }) => {
           </Button>
         </form>
       </Paper>
+
+      {/* Modal de Reativação de Conta em Carência de 90 Dias */}
+      <Modal
+        opened={!!reactivationData}
+        onClose={() => !reactivating && setReactivationData(null)}
+        title={
+          <Group gap="xs">
+            <ThemeIcon color="teal" variant="light" size="sm" radius="md">
+              <IconRefresh size={16} />
+            </ThemeIcon>
+            <Text fw={700} size="md" c="teal.4">
+              Reativar Conta em Carência
+            </Text>
+          </Group>
+        }
+        centered
+        radius="md"
+        size="md"
+        styles={{ content: { backgroundColor: '#1f2937' }, header: { backgroundColor: '#1f2937' } }}
+      >
+        <Stack gap="md">
+          {reactivateError && (
+            <Alert color="red" variant="light" icon={<IconAlertCircle size={18} />} title="Falha na Reativação">
+              {reactivateError}
+            </Alert>
+          )}
+
+          <Alert color="yellow" variant="light" icon={<IconAlertTriangle size={20} />} title="Sua conta está em processo de exclusão">
+            <Text size="xs" fw={500}>
+              Faltam <b>{reactivationData?.days_remaining || 0} dias</b> até a exclusão definitiva dos dados dos seus sites.
+            </Text>
+            <Text size="xs" mt={6} c="dimmed">
+              Como você está dentro do prazo de carência de 90 dias, todos os seus sites cadastrados, notas e históricos de auditoria continuam salvos e podem ser totalmente recuperados agora.
+            </Text>
+          </Alert>
+
+          <Paper withBorder p="sm" radius="md" style={{ backgroundColor: '#111827' }}>
+            <Group justify="space-between" mb={6}>
+              <Text size="xs" c="dimmed">Plano Anterior:</Text>
+              <Badge color="indigo" variant="filled" size="sm">
+                {reactivationData?.plan?.name || 'Plano Atual'}
+              </Badge>
+            </Group>
+            <Group justify="space-between" mb={6}>
+              <Text size="xs" c="dimmed">Sites Preservados:</Text>
+              <Group gap={4}>
+                <IconWorld size={14} color="#1A7F86" />
+                <Text size="xs" fw={600}>{reactivationData?.user?.sites_count || 0} site(s)</Text>
+              </Group>
+            </Group>
+            <Group justify="space-between">
+              <Text size="xs" c="dimmed">Valor Mensal:</Text>
+              <Text size="xs" fw={700} c="teal.3">
+                {Number(reactivationData?.plan?.price_monthly) > 0
+                  ? `R$ ${Number(reactivationData?.plan?.price_monthly).toFixed(2)}/mês`
+                  : 'Gratuito'}
+              </Text>
+            </Group>
+          </Paper>
+
+          <Text size="xs" c="dimmed">
+            Deseja reativar sua conta agora? Seus sites voltarão a ficar disponíveis imediatamente no seu painel.
+          </Text>
+
+          <Divider my={4} />
+
+          <Group justify="flex-end" gap="xs">
+            <Button
+              variant="subtle"
+              color="gray"
+              size="sm"
+              onClick={() => setReactivationData(null)}
+              disabled={reactivating}
+              leftSection={<IconArrowLeft size={14} />}
+            >
+              Manter Cancelada
+            </Button>
+            <Button
+              color="teal"
+              size="sm"
+              onClick={handleConfirmReactivation}
+              loading={reactivating}
+              leftSection={<IconCheck size={14} />}
+            >
+              Reativar Minha Conta Agora
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
     </Container>
   );
 };

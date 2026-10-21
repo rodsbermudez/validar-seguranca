@@ -38,6 +38,12 @@ class UserModel extends Model
         'city',
         'state',
         'asaas_customer_id',
+        'account_status',
+        'deletion_requested_at',
+        'deletion_scheduled_at',
+        'previous_plan_id',
+        'previous_sites_count',
+        'purged_at',
     ];
 
     // Dates

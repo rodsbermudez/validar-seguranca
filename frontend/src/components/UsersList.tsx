@@ -38,6 +38,10 @@ export interface User {
   email: string;
   role: 'admin' | 'user';
   is_active: number;
+  account_status?: 'active' | 'pending_deletion' | 'purged';
+  deletion_requested_at?: string | null;
+  deletion_scheduled_at?: string | null;
+  purged_at?: string | null;
   plan_id?: number | null;
   plan_name?: string;
   effective_max_websites?: number | null;
@@ -247,9 +251,19 @@ export function UsersList({ onImpersonate, onManageAi, currentUserId }: UsersLis
                   </Badge>
                 </Table.Td>
                 <Table.Td>
-                  <Badge color={isUserActive ? 'teal' : 'red'} variant="dot">
-                    {isUserActive ? 'ATIVO' : 'INATIVO'}
-                  </Badge>
+                  {user.account_status === 'pending_deletion' ? (
+                    <Badge color="orange" variant="filled" size="xs">
+                      EM CARÊNCIA (90d)
+                    </Badge>
+                  ) : user.account_status === 'purged' ? (
+                    <Badge color="gray" variant="outline" size="xs">
+                      PURGADO (90d+)
+                    </Badge>
+                  ) : (
+                    <Badge color={isUserActive ? 'teal' : 'red'} variant="dot">
+                      {isUserActive ? 'ATIVO' : 'INATIVO'}
+                    </Badge>
+                  )}
                 </Table.Td>
                 <Table.Td>
                   <Stack gap={3}>
