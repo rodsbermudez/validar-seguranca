@@ -195,6 +195,12 @@ class AsaasService
             'notificationDisabled' => false,
         ];
 
+        if (!empty($params['postal_code'])) $payload['postalCode'] = preg_replace('/\D/', '', $params['postal_code']);
+        if (!empty($params['address'])) $payload['address'] = trim($params['address']);
+        if (!empty($params['address_number'])) $payload['addressNumber'] = trim($params['address_number']);
+        if (!empty($params['complement'])) $payload['complement'] = trim($params['complement']);
+        if (!empty($params['province'])) $payload['province'] = trim($params['province']);
+
         $creation = $this->request('customers', 'POST', $payload);
         if (!$creation['success']) {
             return $creation;

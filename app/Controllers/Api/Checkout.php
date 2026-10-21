@@ -35,11 +35,18 @@ class Checkout extends ResourceController
             return $this->fail('Plano selecionado não encontrado ou indisponível.', 404);
         }
 
-        $name     = trim($json['name'] ?? '');
-        $email    = strtolower(trim($json['email'] ?? ''));
-        $cpfCnpj  = preg_replace('/\D/', '', $json['cpf_cnpj'] ?? '');
-        $phone    = preg_replace('/\D/', '', $json['phone'] ?? '');
-        $password = $json['password'] ?? '';
+        $name          = trim($json['name'] ?? '');
+        $email         = strtolower(trim($json['email'] ?? ''));
+        $cpfCnpj       = preg_replace('/\D/', '', $json['cpf_cnpj'] ?? '');
+        $phone         = preg_replace('/\D/', '', $json['phone'] ?? '');
+        $password      = $json['password'] ?? '';
+        $postalCode    = preg_replace('/\D/', '', $json['postal_code'] ?? ($json['credit_card']['postal_code'] ?? ''));
+        $address       = trim($json['address'] ?? '');
+        $addressNumber = trim($json['address_number'] ?? ($json['credit_card']['address_number'] ?? ''));
+        $complement    = trim($json['complement'] ?? '');
+        $province      = trim($json['province'] ?? '');
+        $city          = trim($json['city'] ?? '');
+        $state         = trim($json['state'] ?? '');
 
         if (empty($name)) {
             return $this->fail('O nome completo é obrigatório.', 400);
@@ -80,10 +87,17 @@ class Checkout extends ResourceController
             $userId = (int)$existingUser['id'];
             $user = $existingUser;
 
-            // Atualiza telefone/cpf se faltava
+            // Atualiza telefone/cpf e endereço se faltava
             $updateUser = [];
             if (empty($user['cpf_cnpj']) && !empty($cpfCnpj)) $updateUser['cpf_cnpj'] = $cpfCnpj;
             if (empty($user['phone']) && !empty($phone)) $updateUser['phone'] = $phone;
+            if (empty($user['postal_code']) && !empty($postalCode)) $updateUser['postal_code'] = $postalCode;
+            if (empty($user['address']) && !empty($address)) $updateUser['address'] = $address;
+            if (empty($user['address_number']) && !empty($addressNumber)) $updateUser['address_number'] = $addressNumber;
+            if (empty($user['complement']) && !empty($complement)) $updateUser['complement'] = $complement;
+            if (empty($user['province']) && !empty($province)) $updateUser['province'] = $province;
+            if (empty($user['city']) && !empty($city)) $updateUser['city'] = $city;
+            if (empty($user['state']) && !empty($state)) $updateUser['state'] = $state;
             if (!empty($updateUser)) {
                 $userModel->update($userId, $updateUser);
                 $user = array_merge($user, $updateUser);
@@ -95,14 +109,21 @@ class Checkout extends ResourceController
             }
 
             $userId = $userModel->insert([
-                'name'          => $name,
-                'email'         => $email,
-                'password_hash' => password_hash($password, PASSWORD_DEFAULT),
-                'role'          => 'user',
-                'is_active'     => 1,
-                'plan_id'       => $planId,
-                'cpf_cnpj'      => $cpfCnpj,
-                'phone'         => $phone,
+                'name'           => $name,
+                'email'          => $email,
+                'password_hash'  => password_hash($password, PASSWORD_DEFAULT),
+                'role'           => 'user',
+                'is_active'      => 1,
+                'plan_id'        => $planId,
+                'cpf_cnpj'       => $cpfCnpj,
+                'phone'          => $phone,
+                'postal_code'    => $postalCode ?: null,
+                'address'        => $address ?: null,
+                'address_number' => $addressNumber ?: null,
+                'complement'     => $complement ?: null,
+                'province'       => $province ?: null,
+                'city'           => $city ?: null,
+                'state'          => $state ?: null,
             ]);
 
             $user = $userModel->find($userId);
@@ -173,10 +194,17 @@ class Checkout extends ResourceController
 
         // Obter ou criar cliente no Asaas
         $customerRes = $asaasService->getOrCreateCustomer([
-            'name'     => $name,
-            'email'    => $email,
-            'cpf_cnpj' => $cpfCnpj,
-            'phone'    => $phone,
+            'name'           => $name,
+            'email'          => $email,
+            'cpf_cnpj'       => $cpfCnpj,
+            'phone'          => $phone,
+            'postal_code'    => $user['postal_code'] ?? $postalCode,
+            'address'        => $user['address'] ?? $address,
+            'address_number' => $user['address_number'] ?? $addressNumber,
+            'complement'     => $user['complement'] ?? $complement,
+            'province'       => $user['province'] ?? $province,
+            'city'           => $user['city'] ?? $city,
+            'state'          => $user['state'] ?? $state,
         ]);
 
         $asaasCustomerId = $customerRes['customer_id'] ?? null;

@@ -1074,7 +1074,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                         rightSection={isFree ? <IconRocket size={16} /> : <IconArrowRight size={16} />}
                         onClick={() => handleSelectPlan(plan)}
                       >
-                        {isFree ? 'Começar Grátis 🚀' : `Assinar ${plan.name}`}
+                        {isFree ? 'Começar Grátis' : `Assinar ${plan.name}`}
                       </Button>
                     </Card>
                   </Grid.Col>

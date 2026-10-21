@@ -467,8 +467,8 @@ class Websites extends ResourceController
         // Falhou: registra erro administrativo e mantém desconectado
         $status = $res['status'] ?? 500;
         $errMsg = ($status === 404)
-            ? 'Endpoint do plugin agente não encontrado (HTTP 404). Verifique se o plugin vexors.app - Diagnóstico está ativo no WordPress e com os Permalinks salvos.'
-            : 'Falha na comunicação com o WordPress (HTTP ' . $status . '). ' . ($res['message'] ?? '');
+            ? 'Endpoint do plugin agente não encontrado. Verifique se o plugin vexors.app - Diagnóstico está ativo no WordPress e com os Permalinks salvos.'
+            : 'Falha na comunicação com o WordPress. ' . ($res['message'] ?? '');
 
         try {
             \App\Services\PlatformErrorLogger::log([
@@ -643,7 +643,7 @@ class Websites extends ResourceController
                 return [
                     'status'       => 404,
                     'success'      => false,
-                    'message'      => 'Endpoint do agente não encontrado no WordPress (HTTP 404). Verifique se o plugin vexors.app está instalado e ativo, e se os Links Permanentes (Permalinks) do WordPress estão salvos.',
+                    'message'      => 'Endpoint do agente não encontrado no WordPress. Verifique se o plugin vexors.app - Diagnóstico está instalado e ativo, e se os Links Permanentes (Permalinks) do WordPress estão salvos.',
                     'curl_error'   => $error,
                     'raw_response' => $response,
                 ];
@@ -701,7 +701,7 @@ class Websites extends ResourceController
             return [
                 'status'       => 404,
                 'success'      => false,
-                'message'      => 'Endpoint do agente não encontrado no WordPress (HTTP 404). Certifique-se de que o plugin vexors.app está instalado e ativo, e que a estrutura de Links Permanentes (Permalinks) do WordPress foi salva.',
+                'message'      => 'Endpoint do agente não encontrado no WordPress. Certifique-se de que o plugin vexors.app - Diagnóstico está instalado e ativo, e que a estrutura de Links Permanentes (Permalinks) do WordPress foi salva.',
                 'curl_error'   => $lastRes['curl_error'] ?? null,
                 'raw_response' => $lastRes['raw_response'] ?? null,
             ];
@@ -1849,7 +1849,7 @@ class Websites extends ResourceController
                             'integrity'   => $integrityData,
                             'updates'     => $updatesData,
                         ],
-                        'message'      => 'Agente WordPress não encontrado (HTTP 404). O serviço foi desconectado.',
+                        'message'      => 'Agente WordPress não encontrado. O serviço foi desconectado.',
                     ]);
                 }
 

@@ -139,8 +139,15 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [cardNumber, setCardNumber] = useState('');
   const [cardExpiry, setCardExpiry] = useState('');
   const [cardCcv, setCardCcv] = useState('');
+  // Address fields
   const [postalCode, setPostalCode] = useState('');
+  const [address, setAddress] = useState('');
   const [addressNumber, setAddressNumber] = useState('');
+  const [complement, setComplement] = useState('');
+  const [province, setProvince] = useState('');
+  const [city, setCity] = useState('');
+  const [state, setState] = useState('');
+  const [cepLoading, setCepLoading] = useState(false);
 
   // Add-ons
   const [extraWebsites, setExtraWebsites] = useState<number>(initialExtraWebsites);
@@ -170,11 +177,25 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       setCardExpiry('');
       setCardCcv('');
       setPostalCode('');
+      setAddress('');
       setAddressNumber('');
+      setComplement('');
+      setProvince('');
+      setCity('');
+      setState('');
 
       if (currentUser) {
         setName(currentUser.name || '');
         setEmail(currentUser.email || '');
+        if (currentUser.cpf_cnpj) setCpfCnpj(currentUser.cpf_cnpj);
+        if (currentUser.phone) setPhone(currentUser.phone);
+        if (currentUser.postal_code) setPostalCode(currentUser.postal_code);
+        if (currentUser.address) setAddress(currentUser.address);
+        if (currentUser.address_number) setAddressNumber(currentUser.address_number);
+        if (currentUser.complement) setComplement(currentUser.complement);
+        if (currentUser.province) setProvince(currentUser.province);
+        if (currentUser.city) setCity(currentUser.city);
+        if (currentUser.state) setState(currentUser.state);
         setEmailExists(false);
         setEmailError(null);
       } else {
@@ -328,13 +349,31 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     setCardCcv(val.replace(/\D/g, '').slice(0, 4));
   };
 
-  // Format Postal Code CEP (00000-000)
-  const handlePostalCodeChange = (val: string) => {
+  // Format Postal Code CEP (00000-000) and Auto-fetch via ViaCEP
+  const handlePostalCodeChange = async (val: string) => {
     const digits = val.replace(/\D/g, '').slice(0, 8);
     if (digits.length <= 5) {
       setPostalCode(digits);
     } else {
       setPostalCode(`${digits.slice(0, 5)}-${digits.slice(5)}`);
+    }
+
+    if (digits.length === 8) {
+      try {
+        setCepLoading(true);
+        const res = await fetch(`https://viacep.com.br/ws/${digits}/json/`);
+        const data = await res.json();
+        if (!data.erro) {
+          if (data.logradouro) setAddress(data.logradouro);
+          if (data.bairro) setProvince(data.bairro);
+          if (data.localidade) setCity(data.localidade);
+          if (data.uf) setState(data.uf);
+        }
+      } catch (e) {
+        // Silenciosamente ignora indisponibilidade externa do ViaCEP
+      } finally {
+        setCepLoading(false);
+      }
     }
   };
 
@@ -350,6 +389,32 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
     if (!currentUser && (!password || password.length < 6)) {
       setError('A senha de acesso deve possuir pelo menos 6 caracteres.');
+      return;
+    }
+
+    const cleanCep = postalCode.replace(/\D/g, '');
+    if (cleanCep.length !== 8) {
+      setError('Por favor, informe um CEP válido com 8 dígitos.');
+      return;
+    }
+
+    if (!address.trim()) {
+      setError('Por favor, informe a rua / logradouro do endereço.');
+      return;
+    }
+
+    if (!addressNumber.trim()) {
+      setError('Por favor, informe o número do endereço.');
+      return;
+    }
+
+    if (!city.trim()) {
+      setError('Por favor, informe a cidade do endereço.');
+      return;
+    }
+
+    if (!state.trim()) {
+      setError('Por favor, informe o estado (UF) do endereço.');
       return;
     }
 
@@ -381,17 +446,6 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       const cleanCcv = cardCcv.replace(/\D/g, '');
       if (cleanCcv.length < 3 || cleanCcv.length > 4) {
         setError('O código de segurança (CVV) deve possuir 3 ou 4 dígitos.');
-        return;
-      }
-
-      const cleanCep = postalCode.replace(/\D/g, '');
-      if (cleanCep.length !== 8) {
-        setError('Por favor, informe um CEP válido com 8 dígitos para o faturamento do cartão.');
-        return;
-      }
-
-      if (!addressNumber.trim()) {
-        setError('Por favor, informe o número do endereço do titular.');
         return;
       }
     }
@@ -428,6 +482,13 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         cpf_cnpj: cleanCpf,
         phone: phone.replace(/\D/g, ''),
         password: password || undefined,
+        postal_code: cleanCep,
+        address: address.trim(),
+        address_number: addressNumber.trim(),
+        complement: complement.trim(),
+        province: province.trim(),
+        city: city.trim(),
+        state: state.trim(),
         billing_type: totalAmount <= 0 ? 'FREE' : (paymentMethod === 'credit_card' ? 'CREDIT_CARD' : 'PIX'),
         extra_websites: extraWebsites,
         extra_websites_price: extraWebsitesPrice,
@@ -439,7 +500,6 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       if (totalAmount > 0 && paymentMethod === 'credit_card') {
         const [monthStr, yearStrRaw] = cardExpiry.split('/');
         const yearStr = yearStrRaw.length === 2 ? `20${yearStrRaw}` : yearStrRaw;
-        const cleanCep = postalCode.replace(/\D/g, '');
 
         payload.credit_card = {
           holder_name: cardHolder.trim().toUpperCase(),
@@ -450,8 +510,6 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           postal_code: cleanCep,
           address_number: addressNumber.trim(),
         };
-        payload.postal_code = cleanCep;
-        payload.address_number = addressNumber.trim();
       }
 
       const res = await initiateCheckout(payload);
@@ -737,6 +795,70 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               />
             )}
 
+            <Divider label="Endereço de Cobrança / Faturamento" labelPosition="center" color="dark.5" />
+
+            <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="sm">
+              <TextInput
+                label="CEP"
+                placeholder="00000-000"
+                value={postalCode}
+                onChange={(e) => handlePostalCodeChange(e.target.value)}
+                maxLength={9}
+                leftSection={<IconMapPin size={16} />}
+                rightSection={cepLoading ? <Loader size="xs" color="indigo" /> : null}
+                required
+              />
+              <Box style={{ gridColumn: 'span 2' }}>
+                <TextInput
+                  label="Rua / Logradouro"
+                  placeholder="Ex: Rua das Flores ou Av. Paulista"
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  required
+                />
+              </Box>
+            </SimpleGrid>
+
+            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
+              <TextInput
+                label="Número"
+                placeholder="Ex: 100 ou S/N"
+                value={addressNumber}
+                onChange={(e) => setAddressNumber(e.target.value)}
+                required
+              />
+              <TextInput
+                label="Complemento"
+                placeholder="Ex: Sala 301, Bloco A (opcional)"
+                value={complement}
+                onChange={(e) => setComplement(e.target.value)}
+              />
+            </SimpleGrid>
+
+            <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="sm">
+              <TextInput
+                label="Bairro"
+                placeholder="Ex: Centro"
+                value={province}
+                onChange={(e) => setProvince(e.target.value)}
+              />
+              <TextInput
+                label="Cidade"
+                placeholder="Ex: São Paulo"
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                required
+              />
+              <TextInput
+                label="Estado (UF)"
+                placeholder="Ex: SP"
+                value={state}
+                onChange={(e) => setState(e.target.value.toUpperCase().slice(0, 2))}
+                maxLength={2}
+                required
+              />
+            </SimpleGrid>
+
             {totalAmount <= 0 ? (
               <Paper p="sm" radius="md" bg="rgba(6, 214, 160, 0.12)" style={{ border: '1px solid rgba(6, 214, 160, 0.35)' }}>
                 <Group gap="sm">
@@ -892,25 +1014,6 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                           type="password"
                         />
                       </SimpleGrid>
-
-                      <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs">
-                        <TextInput
-                          label="CEP do Titular"
-                          placeholder="00000-000"
-                          value={postalCode}
-                          onChange={(e) => handlePostalCodeChange(e.target.value)}
-                          maxLength={9}
-                          leftSection={<IconMapPin size={16} />}
-                          required
-                        />
-                        <TextInput
-                          label="Número do Endereço"
-                          placeholder="Ex: 100 ou S/N"
-                          value={addressNumber}
-                          onChange={(e) => setAddressNumber(e.target.value)}
-                          required
-                        />
-                      </SimpleGrid>
                     </Stack>
                   </Card>
                 )}
@@ -943,7 +1046,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               mt="xs"
             >
               {totalAmount <= 0
-                ? 'Começar Gratuitamente 🚀'
+                ? 'Começar Gratuitamente'
                 : paymentMethod === 'credit_card'
                 ? `Assinar no Cartão (R$ ${totalAmount.toFixed(2).replace('.', ',')}/mês)`
                 : `Gerar Pix para Pagamento (R$ ${totalAmount.toFixed(2).replace('.', ',')})`}

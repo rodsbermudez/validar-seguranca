@@ -1177,14 +1177,14 @@ export function UserPlanManagementView({
           icon={<IconLock size={18} />}
           color="orange"
           variant="light"
-          title="Plano de Testes: Ferramentas de Correção Bloqueadas"
+          title="Plano Free: Ferramentas de Correção Bloqueadas"
           styles={{
             root: { borderColor: 'rgba(237, 174, 73, 0.4)' },
           }}
         >
           <Group justify="space-between" align="center" wrap="wrap" gap="sm">
             <Text size="xs" maw={700}>
-              Você está no plano gratuito. As auditorias e diagnósticos funcionam normalmente, mas as ferramentas ativas de correção (plugin de fixes com IA, atualizações remotas pelo SaaS e restauração de arquivos) estão restritas aos planos pagos.
+              Você está no plano gratuito. As auditorias e diagnósticos funcionam normalmente, mas as ferramentas ativas de correção (plugin de fixes com IA, atualizações remotas pela plataforma e restauração de arquivos) estão restritas aos planos pagos.
             </Text>
             <Button
               size="xs"

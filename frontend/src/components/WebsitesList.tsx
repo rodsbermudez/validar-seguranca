@@ -6,7 +6,6 @@ import {
   Group,
   Table,
   Badge,
-  ActionIcon,
   Modal,
   TextInput,
   NumberInput,
@@ -19,17 +18,13 @@ import {
 } from '@mantine/core';
 import {
   IconPlus,
-  IconTrash,
   IconAlertCircle,
   IconWorldCheck,
-  IconPencil,
   IconPlugConnected,
   IconLayoutDashboard,
   IconUsers,
-  IconDoorExit,
   IconAlertTriangle,
   IconInfoCircle,
-  IconDownload,
 } from '@tabler/icons-react';
 import { api, Website } from '../api';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
@@ -48,7 +43,6 @@ export const WebsitesList: React.FC<WebsitesListProps> = ({ onSelectWebsite }) =
   const [formLoading, setFormLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [downloadingId, setDownloadingId] = useState<number | string | null>(null);
 
   // Form State
   const [name, setName] = useState('');
@@ -97,40 +91,6 @@ export const WebsitesList: React.FC<WebsitesListProps> = ({ onSelectWebsite }) =
     setMaintenanceDay('');
     setError(null);
     setModalOpen(true);
-  };
-
-  const handleOpenEditModal = (site: Website) => {
-    setEditingWebsite(site);
-    setName(site.name);
-    setUrl(site.url);
-    setEnvironment(site.environment || 'production');
-    setMaintenanceDay(site.maintenance_day || '');
-    setError(null);
-    setModalOpen(true);
-  };
-
-  const handleDownloadPlugin = async (site: Website) => {
-    setDownloadingId(site.id);
-    try {
-      const response = await api.get(`/websites/${site.id}/download-plugin`, {
-        responseType: 'blob',
-      });
-      const blobUrl = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      const siteHost = site.url
-        ? site.url.replace(/^https?:\/\//, '').replace(/\/.*$/, '')
-        : site.name.replace(/\s+/g, '-').toLowerCase();
-      const siteSlug = siteHost.replace(/[^a-zA-Z0-9_\-]/g, '-');
-      link.setAttribute('download', `vexors-diagnostico-${siteSlug}.zip`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-    } catch (err: any) {
-      alert('Erro ao baixar o plugin agente do WordPress.');
-    } finally {
-      setDownloadingId(null);
-    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -183,31 +143,6 @@ export const WebsitesList: React.FC<WebsitesListProps> = ({ onSelectWebsite }) =
       );
     } finally {
       setFormLoading(false);
-    }
-  };
-
-  const handleDelete = async (site: Website) => {
-    const isOwner = site.is_owner === undefined || site.is_owner === true || site.is_owner === 1;
-    if (isOwner) {
-      if (!confirm(`Deseja realmente remover o website "${site.name}"?`)) return;
-      try {
-        await api.delete(`/websites/${site.id}`);
-        fetchWebsites();
-      } catch (err: any) {
-        alert(err.response?.data?.messages?.error || err.response?.data?.error || 'Erro ao excluir website.');
-      }
-    } else {
-      if (!confirm(`Deseja remover seu acesso ao website compartilhado "${site.name}"?`)) return;
-      try {
-        const userJson = localStorage.getItem('user');
-        const user = userJson ? JSON.parse(userJson) : null;
-        if (user?.id) {
-          await api.delete(`/websites/${site.id}/shares/${user.id}`);
-          fetchWebsites();
-        }
-      } catch (err: any) {
-        alert(err.response?.data?.messages?.error || err.response?.data?.error || 'Erro ao sair do website.');
-      }
     }
   };
 
@@ -355,36 +290,6 @@ export const WebsitesList: React.FC<WebsitesListProps> = ({ onSelectWebsite }) =
                       >
                         Acessar Painel
                       </Button>
-                      {isOwner ? (
-                        <>
-                          <Tooltip label="Baixar Plugin Agente WP (.zip)">
-                            <ActionIcon
-                              color="teal"
-                              variant="subtle"
-                              loading={downloadingId === site.id}
-                              onClick={() => handleDownloadPlugin(site)}
-                            >
-                              <IconDownload size={16} />
-                            </ActionIcon>
-                          </Tooltip>
-                          <Tooltip label="Editar Configurações">
-                            <ActionIcon color="blue" variant="subtle" onClick={() => handleOpenEditModal(site)}>
-                              <IconPencil size={16} />
-                            </ActionIcon>
-                          </Tooltip>
-                          <Tooltip label="Excluir Website">
-                            <ActionIcon color="red" variant="subtle" onClick={() => handleDelete(site)}>
-                              <IconTrash size={16} />
-                            </ActionIcon>
-                          </Tooltip>
-                        </>
-                      ) : (
-                        <Tooltip label="Sair do Monitoramento deste Website">
-                          <ActionIcon color="orange" variant="subtle" onClick={() => handleDelete(site)}>
-                            <IconDoorExit size={16} />
-                          </ActionIcon>
-                        </Tooltip>
-                      )}
                     </Group>
                   </Table.Td>
                 </Table.Tr>

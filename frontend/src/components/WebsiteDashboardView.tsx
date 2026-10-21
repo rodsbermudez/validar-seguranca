@@ -226,6 +226,23 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
     }
   };
 
+  const renderFormattedAlertMessage = (rawMessage: string) => {
+    if (!rawMessage) return null;
+    const cleaned = rawMessage.replace(/\s*\(HTTP\s*\d+\)/gi, '');
+    const parts = cleaned.split(/(vexors\.app\s*-\s*Diagnóstico)/gi);
+    return (
+      <span>
+        {parts.map((part, index) =>
+          /vexors\.app\s*-\s*Diagnóstico/i.test(part) ? (
+            <strong key={index}>{part}</strong>
+          ) : (
+            part
+          )
+        )}
+      </span>
+    );
+  };
+
   const handleReconnect = async () => {
     setReconnecting(true);
     setFeedbackAlert(null);
@@ -863,7 +880,7 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
                 onClose={() => setFeedbackAlert(null)}
                 icon={feedbackAlert.type === 'success' ? <IconCheck size={18} /> : <IconAlertCircle size={18} />}
               >
-                {feedbackAlert.message}
+                {renderFormattedAlertMessage(feedbackAlert.message)}
               </Alert>
             )}
 

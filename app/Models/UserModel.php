@@ -30,6 +30,13 @@ class UserModel extends Model
         'custom_ai_token_limit',
         'cpf_cnpj',
         'phone',
+        'postal_code',
+        'address',
+        'address_number',
+        'complement',
+        'province',
+        'city',
+        'state',
         'asaas_customer_id',
     ];
 

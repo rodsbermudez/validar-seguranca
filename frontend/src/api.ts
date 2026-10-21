@@ -1181,7 +1181,12 @@ export interface CheckoutInitiatePayload {
   billing_type?: 'PIX' | 'CREDIT_CARD';
   credit_card?: CreditCardPayload;
   postal_code?: string;
+  address?: string;
   address_number?: string;
+  complement?: string;
+  province?: string;
+  city?: string;
+  state?: string;
   extra_websites?: number;
   extra_websites_price?: number;
   extra_ai_tokens?: number;
