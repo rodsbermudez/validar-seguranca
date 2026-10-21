@@ -34,36 +34,66 @@ class VS_Agent_Upgrader_Skin extends WP_Upgrader_Skin {
 class VS_Agent_Upgrader {
 
     public function get_updates() {
-        if (!function_exists('get_plugins')) {
+        if (!function_exists('get_plugins') || !function_exists('is_plugin_active')) {
             require_once ABSPATH . 'wp-admin/includes/plugin.php';
         }
-        require_once ABSPATH . 'wp-admin/includes/update.php';
+        if (file_exists(ABSPATH . 'wp-admin/includes/update.php')) {
+            require_once ABSPATH . 'wp-admin/includes/update.php';
+        }
 
         // Force check for updates
-        wp_update_plugins();
-        wp_update_themes();
-        wp_version_check();
+        if (function_exists('wp_update_plugins')) {
+            wp_update_plugins();
+        }
+        if (function_exists('wp_update_themes')) {
+            wp_update_themes();
+        }
+        if (function_exists('wp_version_check')) {
+            wp_version_check();
+        }
 
         $update_plugins = get_site_transient('update_plugins');
         $update_themes  = get_site_transient('update_themes');
         $update_core    = get_site_transient('update_core');
 
+        $plugin_responses = (!empty($update_plugins) && is_object($update_plugins) && !empty($update_plugins->response) && is_array($update_plugins->response))
+            ? $update_plugins->response
+            : array();
+
+        $theme_responses = (!empty($update_themes) && is_object($update_themes) && !empty($update_themes->response) && is_array($update_themes->response))
+            ? $update_themes->response
+            : array();
+
         // Process Plugins
-        $all_plugins = get_plugins();
+        $all_plugins = function_exists('get_plugins') ? get_plugins() : array();
+        $active_plugins = (array) get_option('active_plugins', array());
         $plugins_out = array();
         $pending_plugins_count = 0;
 
         if (!empty($all_plugins)) {
             foreach ($all_plugins as $file => $data) {
-                $has_update  = isset($update_plugins->response[$file]);
-                $new_version = $has_update ? $update_plugins->response[$file]->new_version : $data['Version'];
-                $is_active   = is_plugin_active($file);
+                $has_update  = isset($plugin_responses[$file]);
+                $update_item = $has_update ? $plugin_responses[$file] : null;
+                $new_version = $data['Version'];
+                $slug        = sanitize_title($data['Name']);
+
+                if ($has_update && !empty($update_item)) {
+                    if (is_object($update_item)) {
+                        $new_version = !empty($update_item->new_version) ? $update_item->new_version : $data['Version'];
+                        $slug        = !empty($update_item->slug) ? $update_item->slug : $slug;
+                    } elseif (is_array($update_item)) {
+                        $new_version = !empty($update_item['new_version']) ? $update_item['new_version'] : $data['Version'];
+                        $slug        = !empty($update_item['slug']) ? $update_item['slug'] : $slug;
+                    }
+                }
+
+                $is_active = function_exists('is_plugin_active') ? is_plugin_active($file) : in_array($file, $active_plugins, true);
                 if ($has_update) {
                     $pending_plugins_count++;
                 }
                 $plugins_out[] = array(
                     'file'            => $file,
-                    'slug'            => isset($update_plugins->response[$file]->slug) ? $update_plugins->response[$file]->slug : sanitize_title($data['Name']),
+                    'slug'            => $slug,
                     'name'            => $data['Name'],
                     'current_version' => $data['Version'],
                     'new_version'     => $new_version,
@@ -74,14 +104,24 @@ class VS_Agent_Upgrader {
         }
 
         // Process Themes
-        $all_themes = wp_get_themes();
+        $all_themes = function_exists('wp_get_themes') ? wp_get_themes() : array();
         $themes_out = array();
         $pending_themes_count = 0;
 
         if (!empty($all_themes)) {
             foreach ($all_themes as $slug => $theme) {
-                $has_update  = isset($update_themes->response[$slug]);
-                $new_version = $has_update ? $update_themes->response[$slug]['new_version'] : $theme->get('Version');
+                $has_update  = isset($theme_responses[$slug]);
+                $theme_item  = $has_update ? $theme_responses[$slug] : null;
+                $new_version = $theme->get('Version');
+
+                if ($has_update && !empty($theme_item)) {
+                    if (is_array($theme_item) && !empty($theme_item['new_version'])) {
+                        $new_version = $theme_item['new_version'];
+                    } elseif (is_object($theme_item) && !empty($theme_item->new_version)) {
+                        $new_version = $theme_item->new_version;
+                    }
+                }
+
                 if ($has_update) {
                     $pending_themes_count++;
                 }
@@ -100,7 +140,7 @@ class VS_Agent_Upgrader {
         $core_new_version = $wp_version;
         $core_has_update  = false;
 
-        if (!empty($update_core->updates) && is_array($update_core->updates)) {
+        if (!empty($update_core) && is_object($update_core) && !empty($update_core->updates) && is_array($update_core->updates)) {
             foreach ($update_core->updates as $offer) {
                 if (isset($offer->response) && $offer->response === 'upgrade' && version_compare($offer->current, $wp_version, '>')) {
                     $core_new_version = $offer->current;
@@ -148,7 +188,7 @@ class VS_Agent_Upgrader {
             require_once ABSPATH . 'wp-admin/includes/plugin.php';
             require_once ABSPATH . 'wp-admin/includes/update.php';
 
-            $was_active         = is_plugin_active($item);
+            $was_active         = function_exists('is_plugin_active') ? is_plugin_active($item) : in_array($item, (array) get_option('active_plugins', array()), true);
             $was_network_active = function_exists('is_plugin_active_for_network') ? is_plugin_active_for_network($item) : false;
 
             wp_update_plugins();

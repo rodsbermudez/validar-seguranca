@@ -744,19 +744,29 @@ class Websites extends ResourceController
         $forceRefresh = ($this->request->getGet('force_refresh') === '1');
         $lastChecked = !empty($website['last_updates_checked_at']) ? strtotime($website['last_updates_checked_at']) : 0;
 
-        // Se force_refresh NÃO foi solicitado e os dados em cache têm menos de 15 minutos, retorna do banco
+        // Se force_refresh NÃO foi solicitado e os dados em cache têm menos de 15 minutos,
+        // E o cache possui a lista completa de plugins (não é legado e não está vazio com pendências)
         if (!$forceRefresh && (time() - $lastChecked < 900) && !empty($website['updates_summary_json'])) {
-            $cachedSummary = json_decode($website['updates_summary_json'], true);
-            if (!empty($cachedSummary)) {
+            $cached = json_decode($website['updates_summary_json'], true);
+            $hasPluginsKey = !empty($cached) && is_array($cached) && isset($cached['plugins']);
+            $pendingCount  = (int)($website['updates_pending_count'] ?? 0);
+            $hasPluginsIfPending = ($pendingCount === 0) || !empty($cached['plugins']);
+
+            if ($hasPluginsKey && $hasPluginsIfPending) {
                 return $this->respond([
                     'status'  => 200,
                     'success' => true,
                     'cached'  => true,
                     'data'    => [
-                        'summary' => $cachedSummary,
-                        'core'    => ['current_version' => '', 'new_version' => '', 'has_update' => false],
-                        'plugins' => [],
-                        'themes'  => [],
+                        'summary' => $cached['summary'] ?? [
+                            'total_pending'   => $pendingCount,
+                            'pending_plugins' => 0,
+                            'pending_themes'  => 0,
+                            'pending_core'    => 0,
+                        ],
+                        'core'    => $cached['core'] ?? ['current_version' => '', 'new_version' => '', 'has_update' => false],
+                        'plugins' => $cached['plugins'] ?? [],
+                        'themes'  => $cached['themes'] ?? [],
                     ],
                     'message' => 'Exibindo dados da última checagem recente.',
                 ]);
@@ -767,17 +777,23 @@ class Websites extends ResourceController
 
         if (empty($res['body']) || $res['status'] !== 200) {
             if (!empty($website['updates_summary_json'])) {
-                $cachedSummary = json_decode($website['updates_summary_json'], true);
-                if (!empty($cachedSummary)) {
+                $cached = json_decode($website['updates_summary_json'], true);
+                if (!empty($cached) && is_array($cached)) {
+                    $summary = $cached['summary'] ?? (isset($cached['total_pending']) ? $cached : [
+                        'total_pending'   => (int)($website['updates_pending_count'] ?? 0),
+                        'pending_plugins' => 0,
+                        'pending_themes'  => 0,
+                        'pending_core'    => 0,
+                    ]);
                     return $this->respond([
                         'status'  => 200,
                         'success' => true,
                         'cached'  => true,
                         'data'    => [
-                            'summary' => $cachedSummary,
-                            'core'    => ['current_version' => '', 'new_version' => '', 'has_update' => false],
-                            'plugins' => [],
-                            'themes'  => [],
+                            'summary' => $summary,
+                            'core'    => $cached['core'] ?? ['current_version' => '', 'new_version' => '', 'has_update' => false],
+                            'plugins' => $cached['plugins'] ?? [],
+                            'themes'  => $cached['themes'] ?? [],
                         ],
                         'message' => 'Exibindo dados da última checagem salva (agente não respondeu no momento).',
                     ]);
@@ -886,10 +902,17 @@ class Websites extends ResourceController
         $totalPending = isset($summary['total_pending']) ? (int)$summary['total_pending'] : 0;
         $checkedAt = date('Y-m-d H:i:s');
 
+        $fullPayload = [
+            'summary' => $summary,
+            'core'    => $data['core'] ?? ['current_version' => '', 'new_version' => '', 'has_update' => false],
+            'plugins' => $data['plugins'] ?? [],
+            'themes'  => $data['themes'] ?? [],
+        ];
+
         $updateData = [
             'last_updates_checked_at' => $checkedAt,
             'updates_pending_count'   => $totalPending,
-            'updates_summary_json'    => json_encode($summary, JSON_UNESCAPED_UNICODE),
+            'updates_summary_json'    => json_encode($fullPayload, JSON_UNESCAPED_UNICODE),
         ];
 
         $websiteModel = new WebsiteModel();
@@ -1413,13 +1436,13 @@ class Websites extends ResourceController
             $integrityData = json_decode($website['integrity_summary_json'], true);
         }
         if (!empty($website['updates_summary_json'])) {
-            $cachedSummary = json_decode($website['updates_summary_json'], true);
-            if (!empty($cachedSummary)) {
+            $cachedUpdates = json_decode($website['updates_summary_json'], true);
+            if (!empty($cachedUpdates) && is_array($cachedUpdates)) {
                 $updatesData = [
-                    'summary' => $cachedSummary,
-                    'core'    => ['current_version' => '', 'new_version' => '', 'has_update' => false],
-                    'plugins' => [],
-                    'themes'  => [],
+                    'summary' => $cachedUpdates['summary'] ?? (isset($cachedUpdates['total_pending']) ? $cachedUpdates : []),
+                    'core'    => $cachedUpdates['core'] ?? ['current_version' => '', 'new_version' => '', 'has_update' => false],
+                    'plugins' => $cachedUpdates['plugins'] ?? [],
+                    'themes'  => $cachedUpdates['themes'] ?? [],
                 ];
             }
         }
@@ -1489,13 +1512,13 @@ class Websites extends ResourceController
             $integrityData = json_decode($website['integrity_summary_json'], true);
         }
         if (empty($updatesData) && !empty($website['updates_summary_json'])) {
-            $cachedSummary = json_decode($website['updates_summary_json'], true);
-            if (!empty($cachedSummary)) {
+            $cachedUpdates = json_decode($website['updates_summary_json'], true);
+            if (!empty($cachedUpdates) && is_array($cachedUpdates)) {
                 $updatesData = [
-                    'summary' => $cachedSummary,
-                    'core'    => ['current_version' => '', 'new_version' => '', 'has_update' => false],
-                    'plugins' => [],
-                    'themes'  => [],
+                    'summary' => $cachedUpdates['summary'] ?? (isset($cachedUpdates['total_pending']) ? $cachedUpdates : []),
+                    'core'    => $cachedUpdates['core'] ?? ['current_version' => '', 'new_version' => '', 'has_update' => false],
+                    'plugins' => $cachedUpdates['plugins'] ?? [],
+                    'themes'  => $cachedUpdates['themes'] ?? [],
                 ];
             }
         }

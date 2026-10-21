@@ -97,8 +97,25 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
     setErrorMsg(null);
 
     try {
-      const res = await api.get(`/websites/${website.id}/updates`);
+      const endpoint = isManualRefresh
+        ? `/websites/${website.id}/updates?force_refresh=1`
+        : `/websites/${website.id}/updates`;
+      const res = await api.get(endpoint);
       const payload = res.data?.data || res.data;
+
+      // Se o retorno veio sem a lista de plugins mas indica que há pendências (cache legado/incompleto)
+      if (
+        !isManualRefresh &&
+        payload &&
+        (!payload.plugins || payload.plugins.length === 0) &&
+        (payload.summary?.total_pending > 0 || payload.summary?.pending_plugins > 0)
+      ) {
+        const liveRes = await api.get(`/websites/${website.id}/updates?force_refresh=1`);
+        const livePayload = liveRes.data?.data || liveRes.data;
+        setUpdatesData(livePayload);
+        return;
+      }
+
       setUpdatesData(payload);
     } catch (err: any) {
       setErrorMsg(extractErrorMessage(err, 'Falha ao consultar atualizações do agente WordPress.'));
@@ -175,8 +192,11 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
     await fetchUpdates(true);
   };
 
-  const pendingPlugins = updatesData?.plugins?.filter((p) => p.has_update) || [];
-  const pendingThemes = updatesData?.themes?.filter((t) => t.has_update) || [];
+  const coreData = updatesData?.core || { current_version: '', new_version: '', has_update: false };
+  const pluginsList = updatesData?.plugins || [];
+  const themesList = updatesData?.themes || [];
+  const pendingPlugins = pluginsList.filter((p) => p.has_update);
+  const pendingThemes = themesList.filter((t) => t.has_update);
 
   return (
     <Stack gap="md">
@@ -277,20 +297,20 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
                   <Text size="xs" fw={700} c="dimmed" tt="uppercase">
                     WordPress Core
                   </Text>
-                  <ThemeIcon color={updatesData.core.has_update ? 'orange' : 'green'} variant="light" radius="xl">
+                  <ThemeIcon color={coreData.has_update ? 'orange' : 'green'} variant="light" radius="xl">
                     <IconWorld size={18} />
                   </ThemeIcon>
                 </Group>
                 <Text fw={700} size="md">
-                  Versão {updatesData.core.current_version}
+                  Versão {coreData.current_version || 'N/A'}
                 </Text>
                 <Text size="xs" c="dimmed" mb="sm">
-                  {updatesData.core.has_update
-                    ? `Nova versão disponível: ${updatesData.core.new_version}`
+                  {coreData.has_update
+                    ? `Nova versão disponível: ${coreData.new_version}`
                     : 'Seu WordPress está na versão mais recente.'}
                 </Text>
 
-                {updatesData.core.has_update ? (
+                {coreData.has_update ? (
                   toolsEnabled === false ? (
                     <Badge
                       color="gray"
@@ -311,7 +331,7 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
                       leftSection={<IconArrowUpCircle size={14} />}
                       onClick={() => handleApplyUpdate('core', 'core')}
                     >
-                      Atualizar para {updatesData.core.new_version}
+                      Atualizar para {coreData.new_version}
                     </Button>
                   )
                 ) : (
@@ -333,7 +353,7 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
                   </ThemeIcon>
                 </Group>
                 <Text fw={700} size="md">
-                  {updatesData.plugins.length} Plugins no Total
+                  {pluginsList.length} Plugins no Total
                 </Text>
                 <Text size="xs" c="dimmed" mb="sm">
                   {pendingPlugins.length > 0
@@ -370,7 +390,7 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
                   </ThemeIcon>
                 </Group>
                 <Text fw={700} size="md">
-                  {updatesData.themes.length} Temas no Total
+                  {themesList.length} Temas no Total
                 </Text>
                 <Text size="xs" c="dimmed" mb="sm">
                   {pendingThemes.length > 0
@@ -388,7 +408,7 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
           <Paper p="md" radius="md" bg="dark.7" withBorder>
             <Group justify="space-between" mb="md">
               <div>
-                <Title order={5}>🔌 Plugins ({updatesData.plugins.length})</Title>
+                <Title order={5}>🔌 Plugins ({pluginsList.length})</Title>
                 <Text size="xs" c="dimmed">
                   Lista de plugins instalados no WordPress e versões disponíveis no repositório.
                 </Text>
@@ -420,7 +440,7 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
               )}
             </Group>
 
-            {updatesData.plugins.length === 0 ? (
+            {pluginsList.length === 0 ? (
               <Text size="xs" c="dimmed" ta="center" py="md">
                 Nenhum plugin encontrado no site.
               </Text>
@@ -436,7 +456,7 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
-                  {updatesData.plugins.map((plugin) => (
+                  {pluginsList.map((plugin) => (
                     <Table.Tr key={plugin.file}>
                       <Table.Td>
                         <Group gap="xs">
@@ -516,13 +536,13 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
           {/* Section: Themes Table */}
           <Paper p="md" radius="md" bg="dark.7" withBorder>
             <Title order={5} mb="xs">
-              🎨 Temas ({updatesData.themes.length})
+              🎨 Temas ({themesList.length})
             </Title>
             <Text size="xs" c="dimmed" mb="md">
               Lista de temas instalados no WordPress.
             </Text>
 
-            {updatesData.themes.length === 0 ? (
+            {themesList.length === 0 ? (
               <Text size="xs" c="dimmed" ta="center" py="md">
                 Nenhum tema encontrado no site.
               </Text>
@@ -537,7 +557,7 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
-                  {updatesData.themes.map((theme) => (
+                  {themesList.map((theme) => (
                     <Table.Tr key={theme.slug}>
                       <Table.Td>
                         <Text size="sm" fw={600}>
