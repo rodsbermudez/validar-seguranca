@@ -160,7 +160,7 @@ class Checkout extends ResourceController
                 'extra_ai_tokens'         => 0,
                 'extra_ai_tokens_price'   => 0.00,
                 'current_period_start'    => date('Y-m-d H:i:s'),
-                'current_period_end'      => date('Y-m-d H:i:s', strtotime('+1 year')),
+                'current_period_end'      => date('Y-m-d H:i:s', strtotime('+30 days')),
             ]);
 
             UserPlanService::assignPlanToUser($userId, $planId, [

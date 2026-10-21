@@ -20,6 +20,7 @@ $routes->group('api', function ($routes) {
 
     // Public Agent Connect Handshake route
     $routes->post('websites/connect', 'Api\Websites::connect');
+    $routes->post('websites/disconnect-agent', 'Api\Websites::disconnectAgent');
 
     // Public Activity Logs route for clients (no auth required)
     $routes->get('public/activity-logs/(:segment)', 'Api\Websites::publicActivityLogs/$1');

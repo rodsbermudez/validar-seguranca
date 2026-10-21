@@ -64,15 +64,32 @@ class UserPlanService
             $periodEnd = !empty($sub['current_period_end']) ? strtotime($sub['current_period_end']) : null;
             $now = time();
 
+            // Saneamento proativo: se for ciclo mensal e a data estiver além de 35 dias (ex: bug legado de 365 dias)
+            $isMonthly = ($sub['billing_cycle'] ?? 'monthly') === 'monthly';
+            if ($isMonthly && $periodEnd && ($periodEnd - $now) > (35 * 86400)) {
+                $startTs = !empty($sub['current_period_start']) ? strtotime($sub['current_period_start']) : strtotime($sub['created_at'] ?? 'now');
+                $correctedEnd = strtotime('+30 days', $startTs > 0 ? $startTs : $now);
+                if ($correctedEnd <= $now) {
+                    $correctedEnd = strtotime('+30 days', $now);
+                }
+                $periodEnd = $correctedEnd;
+                $sub['current_period_end'] = date('Y-m-d H:i:s', $periodEnd);
+                try {
+                    $subModel->update($sub['id'], ['current_period_end' => $sub['current_period_end']]);
+                } catch (\Throwable $e) {}
+            }
+
             if ($status === 'active') {
                 $isSubscriptionActive = true;
-                $subscriptionDaysRemaining = $periodEnd ? max(0, (int)ceil(($periodEnd - $now) / 86400)) : 30;
+                $rawDays = $periodEnd ? max(0, (int)ceil(($periodEnd - $now) / 86400)) : 30;
+                $subscriptionDaysRemaining = $isMonthly ? min(30, $rawDays) : $rawDays;
             } elseif ($status === 'canceled') {
                 $isSubscriptionCanceled = true;
                 // REGRA CRÍTICA: Se o cliente cancelou, ele CONTINUA com acesso ativo até o término do período já pago
                 if ($periodEnd && $periodEnd >= $now) {
                     $isSubscriptionActive = true;
-                    $subscriptionDaysRemaining = max(0, (int)ceil(($periodEnd - $now) / 86400));
+                    $rawDays = max(0, (int)ceil(($periodEnd - $now) / 86400));
+                    $subscriptionDaysRemaining = $isMonthly ? min(30, $rawDays) : $rawDays;
                 } else {
                     // O período pago terminou: PERDE O ACESSO
                     $isSubscriptionActive = false;

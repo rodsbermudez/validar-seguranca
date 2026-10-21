@@ -142,7 +142,7 @@ export function UserPlanManagementView({
   const [cancelingSub, setCancelingSub] = useState(false);
   const [feedback, setFeedback] = useState<{
     title: string;
-    message: string;
+    message: string | React.ReactNode;
     color: 'teal' | 'orange' | 'blue' | 'red';
     icon?: 'check' | 'alert' | 'info';
   } | null>(null);
@@ -422,8 +422,25 @@ export function UserPlanManagementView({
   const addonsDiffMonthly = Math.round((newAddonsTotalMonthly - currentTotalMonthly) * 100) / 100;
   const isAddonsDowngrade = addonsDiffMonthly <= 0;
   const cycleEnd = sub?.current_period_end;
-  const daysRemainingInCycle = cycleEnd ? Math.max(1, Math.ceil((new Date(cycleEnd).getTime() - Date.now()) / (1000 * 60 * 60 * 24))) : 30;
-  const nextCycleDueDateFmt = cycleEnd ? formatDateOnly(cycleEnd) : formatDateOnly(new Date(Date.now() + 30 * 86400000).toISOString());
+
+  // Normalização do ciclo mensal:
+  // Se cycleEnd estiver além de 35 dias no futuro (bug legado de 365 dias), normaliza para 30 dias
+  const rawDaysRemaining = cycleEnd ? Math.max(1, Math.ceil((new Date(cycleEnd).getTime() - Date.now()) / (1000 * 60 * 60 * 24))) : 30;
+  const daysRemainingInCycle = Math.min(30, rawDaysRemaining);
+
+  const getMonthlyRenewalDate = (cycleEndVal: string | null | undefined): string => {
+    if (!cycleEndVal) {
+      return formatDateOnly(new Date(Date.now() + 30 * 86400000).toISOString());
+    }
+    const endMs = new Date(cycleEndVal).getTime();
+    const diffDays = Math.ceil((endMs - Date.now()) / (1000 * 60 * 60 * 24));
+    if (diffDays > 35) {
+      return formatDateOnly(new Date(Date.now() + 30 * 86400000).toISOString());
+    }
+    return formatDateOnly(cycleEndVal);
+  };
+
+  const nextCycleDueDateFmt = getMonthlyRenewalDate(cycleEnd);
   const proratedRatioCalc = Math.min(1.0, Math.max(0.033, daysRemainingInCycle / 30.0));
   const addonsProratedDueNow = addonsDiffMonthly > 0 ? Math.round(addonsDiffMonthly * proratedRatioCalc * 100) / 100 : 0;
 
@@ -433,7 +450,9 @@ export function UserPlanManagementView({
     : 0;
   const upgradeDiffMonthly = Math.round((upgradeNewTotal - currentTotalMonthly) * 100) / 100;
   const isUpgradeDowngrade = upgradeDiffMonthly <= 0;
-  const upgradeProratedDue = upgradeDiffMonthly > 0 ? Math.round(upgradeDiffMonthly * proratedRatioCalc * 100) / 100 : 0;
+  const upgradeProratedDue = isCurrentPlanFree
+    ? upgradeNewTotal
+    : (upgradeDiffMonthly > 0 ? Math.round(upgradeDiffMonthly * proratedRatioCalc * 100) / 100 : 0);
 
   const getDayOfMonth = (val: string | number | Date | null | undefined): number => {
     if (!val) return 1;
@@ -447,7 +466,7 @@ export function UserPlanManagementView({
 
   const startDateRaw = sub?.current_period_start || sub?.created_at || pd?.user_created_at || (initialUser as any)?.created_at;
   const planStartDateFmt = startDateRaw ? formatDateOnly(startDateRaw) : formatDateOnly(new Date().toISOString());
-  const nextPaymentDateFmt = cycleEnd ? formatDateOnly(cycleEnd) : formatDateOnly(new Date(Date.now() + 30 * 86400000).toISOString());
+  const nextPaymentDateFmt = getMonthlyRenewalDate(cycleEnd);
   const renewalDayNumber = getDayOfMonth(startDateRaw || cycleEnd);
 
   const handleCardNumberFormat = (val: string, setter: (v: string) => void) => {
@@ -976,9 +995,16 @@ export function UserPlanManagementView({
       if (res.paid) {
         setUpgradeModalOpen(false);
         setUpgradeStep('config');
+        const planName = selectedUpgradePlan?.name || '';
         setFeedback({
           title: 'Upgrade Ativado com Sucesso!',
-          message: res.message || 'Pagamento pró-rata aprovado no cartão! Seu novo plano já está ativo.',
+          message: res.message ? (
+            <span dangerouslySetInnerHTML={{ __html: res.message }} />
+          ) : (
+            <span>
+              Upgrade para o <strong>Plano {planName}</strong> ativado com sucesso! {isCurrentPlanFree ? 'A assinatura mensal' : 'O pagamento proporcional'} de R$ {(isCurrentPlanFree ? upgradeNewTotal : upgradeProratedDue).toFixed(2).replace('.', ',')} foi aprovado no cartão.
+            </span>
+          ),
           color: 'teal',
           icon: 'check',
         });
@@ -1020,9 +1046,16 @@ export function UserPlanManagementView({
       if (res.paid) {
         setUpgradeModalOpen(false);
         setUpgradeStep('config');
+        const planName = selectedUpgradePlan?.name || '';
         setFeedback({
           title: 'Pagamento PIX Confirmado!',
-          message: res.message || 'Upgrade de plano confirmado com sucesso!',
+          message: res.message ? (
+            <span dangerouslySetInnerHTML={{ __html: res.message }} />
+          ) : (
+            <span>
+              Upgrade para o <strong>Plano {planName}</strong> confirmado com sucesso! Seus novos limites já estão ativos.
+            </span>
+          ),
           color: 'teal',
           icon: 'check',
         });
@@ -1142,7 +1175,17 @@ export function UserPlanManagementView({
           onClose={() => setFeedback(null)}
           title={feedback.title}
         >
-          {feedback.message}
+          {typeof feedback.message === 'string' ? (
+            <span
+              dangerouslySetInnerHTML={{
+                __html: feedback.message.includes('<strong>') || feedback.message.includes('<b>')
+                  ? feedback.message
+                  : feedback.message.replace(/(Plano\s+[A-Za-z0-9\u00C0-\u00FF_-]+)/gi, '<strong>$1</strong>'),
+              }}
+            />
+          ) : (
+            feedback.message
+          )}
         </Alert>
       )}
 
@@ -2028,12 +2071,12 @@ export function UserPlanManagementView({
                       </>
                     ) : (
                       <>
-                        Plano iniciado em <b>{planStartDateFmt}</b> (dia {renewalDayNumber}) • Próxima renovação em <b>{nextPaymentDateFmt}</b> (renovação mensal todo dia <b>{renewalDayNumber}</b> • {sub.days_remaining} dias restantes no ciclo).
+                        Plano iniciado em <b>{planStartDateFmt}</b> (dia {renewalDayNumber}) • Próxima renovação em <b>{nextPaymentDateFmt}</b> (renovação mensal todo dia <b>{renewalDayNumber}</b> • {Math.min(30, sub.days_remaining || daysRemainingInCycle)} dias restantes no ciclo).
                       </>
                     )
                   ) : sub.status === 'canceled' && sub.is_period_active ? (
                     <>
-                      Cancelada em {sub.canceled_at ? formatDateOnly(sub.canceled_at) : '—'}. Seu acesso permanece 100% liberado até <b>{nextPaymentDateFmt}</b> ({sub.days_remaining} dias restantes). Nenhuma nova cobrança será realizada.
+                      Cancelada em {sub.canceled_at ? formatDateOnly(sub.canceled_at) : '—'}. Seu acesso permanece 100% liberado até <b>{nextPaymentDateFmt}</b> ({Math.min(30, sub.days_remaining || daysRemainingInCycle)} dias restantes). Nenhuma nova cobrança será realizada.
                     </>
                   ) : (
                     <>
@@ -2288,6 +2331,15 @@ export function UserPlanManagementView({
                     A partir dessa data, sua fatura passará para <b>R$ {upgradeNewTotal.toFixed(2).replace('.', ',')}/mês</b> no Plano {selectedUpgradePlan.name} (seus add-ons continuam preservados).
                   </Text>
                 </Alert>
+              ) : isCurrentPlanFree ? (
+                <Alert color="indigo" variant="light" icon={<IconTrendingUp size={18} />}>
+                  <Text size="xs" fw={700}>Ativação Imediata da Assinatura Mensal:</Text>
+                  <Text size="xs" mt={2}>
+                    Ao assinar o <b>Plano {selectedUpgradePlan.name}</b>, seu ciclo mensal de faturamento se inicia hoje.
+                    Você paga apenas o valor da mensalidade de <b>R$ {upgradeNewTotal.toFixed(2).replace('.', ',')}</b>.
+                    Sua próxima renovação mensal ocorrerá em <b>{nextCycleDueDateFmt}</b> no valor de <b>R$ {upgradeNewTotal.toFixed(2).replace('.', ',')}/mês</b>.
+                  </Text>
+                </Alert>
               ) : (
                 <Alert color="indigo" variant="light" icon={<IconTrendingUp size={18} />}>
                   <Text size="xs" fw={700}>Cobrança Proporcional aos Dias Restantes (Pró-rata):</Text>
@@ -2324,6 +2376,8 @@ export function UserPlanManagementView({
               >
                 {isUpgradeDowngrade
                   ? 'Confirmar Alteração para o Próximo Mês'
+                  : isCurrentPlanFree
+                  ? `Prosseguir para Pagamento (R$ ${upgradeNewTotal.toFixed(2).replace('.', ',')}/mês) →`
                   : `Prosseguir para Pagamento (R$ ${upgradeProratedDue.toFixed(2).replace('.', ',')} Pró-rata) →`}
               </Button>
             </Group>
@@ -2333,22 +2387,32 @@ export function UserPlanManagementView({
           <Stack gap="md">
             {/* Box Resumo do Valor Proporcional */}
             <Paper p="md" radius="md" bg="rgba(30, 41, 59, 0.6)" style={{ border: '1px solid rgba(99, 102, 241, 0.3)' }}>
-              <Group justify="space-between" align="center">
+              <Group justify="space-between" align="center" wrap="nowrap">
                 <div>
                   <Text size="xs" c="dimmed" tt="uppercase" fw={700}>Resumo da Operação</Text>
                   <Text size="sm" fw={700} c="white">
                     Upgrade para Plano {selectedUpgradePlan?.name}
                   </Text>
                   <Text size="xs" c="dimmed" mt={2}>
-                    Período proporcional: <b>{daysRemainingInCycle} dias restantes</b> até renovação em <b>{nextCycleDueDateFmt}</b>
+                    {isCurrentPlanFree ? (
+                      <>
+                        Ciclo mensal iniciado hoje • Próxima renovação em <b>{nextCycleDueDateFmt}</b> (30 dias)
+                      </>
+                    ) : (
+                      <>
+                        Período proporcional: <b>{daysRemainingInCycle} dias restantes</b> até renovação em <b>{nextCycleDueDateFmt}</b>
+                      </>
+                    )}
                   </Text>
                 </div>
-                <div style={{ textAlign: 'right' }}>
-                  <Text size="xs" c="dimmed">Valor a Pagar Hoje (Pró-rata):</Text>
-                  <Text fw={800} size="xl" c="indigo.3">
-                    R$ {upgradeProratedDue.toFixed(2).replace('.', ',')}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', textAlign: 'right', minWidth: '180px' }}>
+                  <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
+                    {isCurrentPlanFree ? 'Valor a Pagar Hoje:' : 'Valor a Pagar Hoje (Pró-rata):'}
                   </Text>
-                  <Text size="11px" c="dimmed">
+                  <Text fw={800} size="22px" c="indigo.3" style={{ lineHeight: 1.2 }}>
+                    R$ {(isCurrentPlanFree ? upgradeNewTotal : upgradeProratedDue).toFixed(2).replace('.', ',')}
+                  </Text>
+                  <Text size="11px" c="dimmed" style={{ whiteSpace: 'nowrap', marginTop: 2 }}>
                     Próxima mensalidade: R$ {upgradeNewTotal.toFixed(2).replace('.', ',')}/mês
                   </Text>
                 </div>

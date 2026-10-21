@@ -232,6 +232,27 @@ class VS_Agent_Admin {
                     $err_msg = isset($data['messages']['error']) ? $data['messages']['error'] : (isset($data['error']) ? $data['error'] : 'Falha no pareamento com o SaaS.');
                     add_settings_error('vs_messages', 'vs_err', 'Erro na conexão: ' . $err_msg, 'error');
                 }
+            } elseif ($_POST['vs_action'] === 'disconnect_saas') {
+                check_admin_referer('vs_disconnect_nonce');
+
+                $site_id     = get_option('vs_site_id');
+                $agent_token = get_option('vs_agent_token');
+                $saas_url    = get_option('vs_saas_url', 'http://localhost/validar-seguranca');
+
+                if (!empty($site_id) && !empty($agent_token)) {
+                    $target_endpoint = rtrim($saas_url, '/') . '/api/websites/disconnect-agent';
+                    wp_remote_post($target_endpoint, array(
+                        'headers' => array('Content-Type' => 'application/json'),
+                        'body'    => json_encode(array(
+                            'site_id'     => (int) $site_id,
+                            'agent_token' => trim($agent_token),
+                        )),
+                        'timeout' => 10,
+                    ));
+                }
+
+                update_option('vs_is_connected', 0);
+                add_settings_error('vs_messages', 'vs_msg', 'Site desconectado com sucesso da plataforma vexors.app! O serviço do agente foi desativado.', 'updated');
             } elseif ($_POST['vs_action'] === 'save_config') {
                 check_admin_referer('vs_save_config_nonce');
 
@@ -328,14 +349,25 @@ class VS_Agent_Admin {
                     </div>
                     <p>O seu site está pareado e pronto para responder às auditorias automáticas solicitadas via painel vexors.app.</p>
                     
-                    <form method="post" action="" style="margin-top: 15px;">
-                        <?php wp_nonce_field('vs_connect_nonce'); ?>
-                        <input type="hidden" name="vs_action" value="connect_saas" />
-                        <button type="submit" class="button button-secondary vs-btn-with-icon">
-                            <span class="dashicons dashicons-update"></span>
-                            <span>Testar Reconexão com a Plataforma</span>
-                        </button>
-                    </form>
+                    <div style="display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap; align-items: center;">
+                        <form method="post" action="">
+                            <?php wp_nonce_field('vs_connect_nonce'); ?>
+                            <input type="hidden" name="vs_action" value="connect_saas" />
+                            <button type="submit" class="button button-secondary vs-btn-with-icon">
+                                <span class="dashicons dashicons-update"></span>
+                                <span>Testar Reconexão com a Plataforma</span>
+                            </button>
+                        </form>
+
+                        <form method="post" action="" onsubmit="return confirm('Tem certeza que deseja desconectar este site da plataforma vexors.app? As rotinas e auditorias serão interrompidas.');">
+                            <?php wp_nonce_field('vs_disconnect_nonce'); ?>
+                            <input type="hidden" name="vs_action" value="disconnect_saas" />
+                            <button type="submit" class="button vs-btn-with-icon" style="color: #b91c1c; border-color: #fca5a5; background: #fff;">
+                                <span class="dashicons dashicons-dismiss"></span>
+                                <span>Desconectar da Plataforma</span>
+                            </button>
+                        </form>
+                    </div>
                 <?php else : ?>
                     <div style="display: flex; align-items: center; gap: 10px; color: #d32f2f; font-weight: bold; font-size: 16px; margin-bottom: 15px;">
                         <span class="dashicons dashicons-warning" style="font-size: 24px; width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; line-height: 1; margin: 0;"></span>

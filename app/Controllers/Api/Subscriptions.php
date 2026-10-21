@@ -221,19 +221,33 @@ class Subscriptions extends ResourceController
         $currentPeriodEnd = $sub['current_period_end'] ?? null;
         $now = time();
 
-        if ($hasActiveSub && !empty($currentPeriodEnd) && strtotime($currentPeriodEnd) > $now) {
-            $endTs = strtotime($currentPeriodEnd);
-            $daysRemaining = max(1, (int)ceil(($endTs - $now) / 86400));
-            $daysInCycle = 30;
-            $nextDueDate = date('Y-m-d', $endTs);
-        } else {
+        $isFromFree = empty($currentPlan['price_monthly']) || (float)$currentPlan['price_monthly'] == 0.00 || ($currentPlan['slug'] ?? '') === 'free';
+
+        if ($isFromFree) {
+            // Upgrade partindo de plano Free: Inicia nova assinatura mensal hoje (não é pró-rata de plano pago)
             $daysRemaining = 30;
             $daysInCycle = 30;
             $nextDueDate = date('Y-m-d', strtotime('+30 days'));
-        }
+            $proratedRatio = 1.0;
+            $proratedAmount = $difference > 0 ? $newTotalMonthly : 0.00;
+        } else {
+            if ($hasActiveSub && !empty($currentPeriodEnd) && strtotime($currentPeriodEnd) > $now) {
+                $endTs = strtotime($currentPeriodEnd);
+                if (($endTs - $now) > (35 * 86400)) {
+                    $endTs = strtotime('+30 days', $now);
+                }
+                $daysRemaining = min(30, max(1, (int)ceil(($endTs - $now) / 86400)));
+                $daysInCycle = 30;
+                $nextDueDate = date('Y-m-d', $endTs);
+            } else {
+                $daysRemaining = 30;
+                $daysInCycle = 30;
+                $nextDueDate = date('Y-m-d', strtotime('+30 days'));
+            }
 
-        $proratedRatio = min(1.0, max(0.033, $daysRemaining / 30.0));
-        $proratedAmount = $difference > 0 ? round($difference * $proratedRatio, 2) : 0.00;
+            $proratedRatio = min(1.0, max(0.033, $daysRemaining / 30.0));
+            $proratedAmount = $difference > 0 ? round($difference * $proratedRatio, 2) : 0.00;
+        }
 
         // Validação de Capacidade
         $websiteModel = new WebsiteModel();
@@ -382,20 +396,31 @@ class Subscriptions extends ResourceController
             ]);
         }
 
-        // 2. UPGRADE COM DIFERENÇA (PRÓ-RATA)
+        // 2. UPGRADE COM DIFERENÇA (PRÓ-RATA OU ATIVAÇÃO MENSAL)
         $now = time();
         $currentPeriodEnd = $sub['current_period_end'] ?? null;
-        if ($sub && !empty($currentPeriodEnd) && strtotime($currentPeriodEnd) > $now) {
-            $endTs = strtotime($currentPeriodEnd);
-            $daysRemaining = max(1, (int)ceil(($endTs - $now) / 86400));
-            $nextDueDateFmt = date('d/m/Y', $endTs);
-        } else {
+        $isFromFree = empty($currentPlan['price_monthly']) || (float)$currentPlan['price_monthly'] == 0.00 || ($currentPlan['slug'] ?? '') === 'free';
+
+        if ($isFromFree) {
             $daysRemaining = 30;
             $nextDueDateFmt = date('d/m/Y', strtotime('+30 days'));
-        }
+            $proratedAmount = $newTotalAmount;
+        } else {
+            if ($sub && !empty($currentPeriodEnd) && strtotime($currentPeriodEnd) > $now) {
+                $endTs = strtotime($currentPeriodEnd);
+                if (($endTs - $now) > (35 * 86400)) {
+                    $endTs = strtotime('+30 days', $now);
+                }
+                $daysRemaining = min(30, max(1, (int)ceil(($endTs - $now) / 86400)));
+                $nextDueDateFmt = date('d/m/Y', $endTs);
+            } else {
+                $daysRemaining = 30;
+                $nextDueDateFmt = date('d/m/Y', strtotime('+30 days'));
+            }
 
-        $proratedRatio = min(1.0, max(0.033, $daysRemaining / 30.0));
-        $proratedAmount = round($difference * $proratedRatio, 2);
+            $proratedRatio = min(1.0, max(0.033, $daysRemaining / 30.0));
+            $proratedAmount = round($difference * $proratedRatio, 2);
+        }
 
         $paymentMethods = SettingsModel::getPaymentMethods();
         $requestedBillingType = strtoupper(trim($json['billing_type'] ?? ''));
@@ -458,7 +483,7 @@ class Subscriptions extends ResourceController
 
             $asaasCustomerId = $sub['gateway_customer_id'] ?? ($user['asaas_customer_id'] ?? 'cus_sim');
             $extRef = "prorated_upg_{$sub['id']}_usr_{$targetUserId}_" . time();
-            $desc = "Diferenca Pro-rata Upgrade {$newPlan['name']} ({$daysRemaining} dias)";
+            $desc = $isFromFree ? "Assinatura Mensal {$newPlan['name']}" : "Diferenca Pro-rata Upgrade {$newPlan['name']} ({$daysRemaining} dias)";
             $clientIp = $this->request->getIPAddress();
 
             $cardPayRes = $asaasService->createPaymentCreditCard(
@@ -531,12 +556,18 @@ class Subscriptions extends ResourceController
                 $gatewaySubId = $subRes['subscription_id'] ?? ('sub_card_' . uniqid());
             }
 
-            $subModel->update($sub['id'], [
+            $subUpdateData = [
                 'plan_id'                 => $newPlanId,
                 'price'                   => $newTotalAmount,
                 'gateway'                 => 'asaas',
                 'gateway_subscription_id' => $gatewaySubId,
-            ]);
+                'billing_cycle'           => 'monthly',
+            ];
+            if ($isFromFree || empty($sub['current_period_end']) || (strtotime($sub['current_period_end']) - $now) > (35 * 86400)) {
+                $subUpdateData['current_period_start'] = date('Y-m-d H:i:s');
+                $subUpdateData['current_period_end']   = date('Y-m-d H:i:s', strtotime('+30 days'));
+            }
+            $subModel->update($sub['id'], $subUpdateData);
 
             UserPlanService::assignPlanToUser($targetUserId, $newPlanId, [
                 'extra_websites'        => $extraWebsites,
@@ -547,11 +578,15 @@ class Subscriptions extends ResourceController
 
             $updatedDetails = UserPlanService::getUserPlanDetails($targetUserId);
 
+            $successMsg = $isFromFree
+                ? "Upgrade para o <strong>Plano {$newPlan['name']}</strong> ativado com sucesso! A assinatura mensal de R$ " . number_format($newTotalAmount, 2, ',', '.') . " foi aprovada no cartão."
+                : "Upgrade para o <strong>Plano {$newPlan['name']}</strong> ativado com sucesso! O pagamento proporcional de R$ " . number_format($proratedAmount, 2, ',', '.') . " foi aprovado no cartão.";
+
             return $this->respond([
                 'status'       => 200,
                 'success'      => true,
                 'paid'         => true,
-                'message'      => "Upgrade para o Plano {$newPlan['name']} ativado com sucesso! O pagamento proporcional de R$ " . number_format($proratedAmount, 2, ',', '.') . " foi aprovado no cartão.",
+                'message'      => $successMsg,
                 'plan_details' => $updatedDetails,
             ]);
         }
@@ -560,14 +595,18 @@ class Subscriptions extends ResourceController
         if ($sub && ($requestedBillingType === 'PIX' || empty($requestedBillingType))) {
             $asaasCustomerId = $sub['gateway_customer_id'] ?? ($user['asaas_customer_id'] ?? 'cus_sim');
             $extRef = "prorated_pix_upg_{$sub['id']}_usr_{$targetUserId}_" . time();
-            $desc = "Diferenca Pro-rata Upgrade {$newPlan['name']} ({$daysRemaining} dias)";
+            $desc = $isFromFree ? "Assinatura Mensal {$newPlan['name']}" : "Diferenca Pro-rata Upgrade {$newPlan['name']} ({$daysRemaining} dias)";
 
             $pixRes = $asaasService->createPaymentPix($asaasCustomerId, $proratedAmount, $desc, $extRef);
             if (!$pixRes['success']) {
-                return $this->fail('Falha ao gerar cobrança PIX pró-rata: ' . ($pixRes['message'] ?? 'Erro no Asaas'), 400);
+                return $this->fail('Falha ao gerar cobrança PIX: ' . ($pixRes['message'] ?? 'Erro no Asaas'), 400);
             }
 
             $pixDetails = $asaasService->getPixQrCode($pixRes['payment_id']);
+
+            $pixMessage = $isFromFree
+                ? "Para ativar seu plano, efetue o pagamento da primeira mensalidade de R$ " . number_format($proratedAmount, 2, ',', '.') . " via PIX."
+                : "Para ativar seu upgrade, efetue o pagamento da diferença proporcional de R$ " . number_format($proratedAmount, 2, ',', '.') . " via PIX.";
 
             return $this->respond([
                 'status'                  => 200,
@@ -580,7 +619,7 @@ class Subscriptions extends ResourceController
                 'next_due_date_formatted' => $nextDueDateFmt,
                 'new_monthly'             => $newTotalAmount,
                 'new_plan_id'             => $newPlanId,
-                'message'                 => "Para ativar seu upgrade, efetue o pagamento da diferença proporcional de R$ " . number_format($proratedAmount, 2, ',', '.') . " via PIX.",
+                'message'                 => $pixMessage,
             ]);
         }
 
@@ -750,7 +789,10 @@ class Subscriptions extends ResourceController
         $currentPeriodEnd = $sub['current_period_end'] ?? null;
         if ($sub && !empty($currentPeriodEnd) && strtotime($currentPeriodEnd) > $now) {
             $endTs = strtotime($currentPeriodEnd);
-            $daysRemaining = max(1, (int)ceil(($endTs - $now) / 86400));
+            if (($endTs - $now) > (35 * 86400)) {
+                $endTs = strtotime('+30 days', $now);
+            }
+            $daysRemaining = min(30, max(1, (int)ceil(($endTs - $now) / 86400)));
             $nextDueDateFmt = date('d/m/Y', $endTs);
         } else {
             $daysRemaining = 30;
@@ -1023,14 +1065,21 @@ class Subscriptions extends ResourceController
                 'updatePendingPayments' => false,
             ]);
 
-            $subModel->update($sub['id'], [
+            $subPixUpdate = [
                 'plan_id'              => $planId,
                 'price'                => $newTotalAmount,
                 'extra_websites'       => $extraWebsites,
                 'extra_websites_price' => $extraWebsitesPrice,
                 'extra_ai_tokens'      => $extraAiTokens,
                 'extra_ai_tokens_price'=> $extraAiTokensPrice,
-            ]);
+                'billing_cycle'        => 'monthly',
+            ];
+            $now = time();
+            if (empty($sub['current_period_end']) || (strtotime($sub['current_period_end']) - $now) > (35 * 86400) || (float)$sub['price'] == 0.00) {
+                $subPixUpdate['current_period_start'] = date('Y-m-d H:i:s');
+                $subPixUpdate['current_period_end']   = date('Y-m-d H:i:s', strtotime('+30 days'));
+            }
+            $subModel->update($sub['id'], $subPixUpdate);
         }
 
         // Aplica limites no usuário
@@ -1047,7 +1096,7 @@ class Subscriptions extends ResourceController
             'status'       => 200,
             'paid'         => true,
             'success'      => true,
-            'message'      => 'Pagamento confirmado com sucesso! Seus novos limites já estão ativos.',
+            'message'      => "Pagamento confirmado com sucesso! Seu novo <strong>Plano {$plan['name']}</strong> já está ativo.",
             'plan_details' => $updatedDetails,
         ]);
     }

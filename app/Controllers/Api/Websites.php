@@ -358,17 +358,26 @@ class Websites extends ResourceController
             return $this->failForbidden('Apenas o proprietário ou administrador pode alterar o estado deste website.');
         }
 
-        // 1. Atualizar banco de dados para is_connected = 0
+        // 1. Notificar o WordPress para marcar o plugin localmente como desconectado
+        if (!empty($website['agent_token']) && !empty($website['url'])) {
+            try {
+                $this->makeAgentRequestWithFallback($website['url'], '/connection/status', 'POST', $website['agent_token'], [
+                    'connected' => 0,
+                ]);
+            } catch (\Throwable $e) {}
+        }
+
+        // 2. Atualizar banco de dados para is_connected = 0
         $websiteModel->update($id, [
             'is_connected' => 0,
         ]);
 
-        // 2. Limpar qualquer lock e ativar cooldown preventivo de 1 hora
+        // 3. Limpar qualquer lock e ativar cooldown preventivo de 1 hora
         $cache = \Config\Services::cache();
         $cache->delete('agent_lock_site_' . (int)$id);
         $cache->save('agent_cooldown_site_' . (int)$id, time(), 3600);
 
-        // 3. Registrar na Central de Erros e Logs Administrativos
+        // 4. Registrar na Central de Erros e Logs Administrativos
         try {
             \App\Services\PlatformErrorLogger::log([
                 'category'        => 'agent_kill_switch',
@@ -438,6 +447,13 @@ class Websites extends ResourceController
                 'is_connected' => 1,
                 'connected_at' => date('Y-m-d H:i:s'),
             ]);
+
+            // Sincroniza o status no WordPress para marcar o plugin como conectado
+            try {
+                $this->makeAgentRequestWithFallback($website['url'], '/connection/status', 'POST', $website['agent_token'], [
+                    'connected' => 1,
+                ]);
+            } catch (\Throwable $e) {}
 
             try {
                 \App\Services\PlatformErrorLogger::log([
@@ -528,6 +544,66 @@ class Websites extends ResourceController
             'data'    => [
                 'site_id'      => $siteId,
                 'is_connected' => 1,
+            ],
+        ]);
+    }
+
+    /**
+     * Handshake de desconexão solicitado diretamente a partir do plugin WordPress
+     */
+    public function disconnectAgent()
+    {
+        $json = $this->request->getJSON(true) ?? $this->request->getPost();
+
+        $siteId     = $json['site_id'] ?? null;
+        $agentToken = $json['agent_token'] ?? null;
+
+        if (!$siteId || !$agentToken) {
+            return $this->fail('ID do site e token são obrigatórios para desconexão.', 400);
+        }
+
+        $websiteModel = new WebsiteModel();
+        $website = $websiteModel->find($siteId);
+
+        if (!$website) {
+            return $this->failNotFound('Website não cadastrado no painel.');
+        }
+
+        if (trim($website['agent_token']) !== trim($agentToken)) {
+            return $this->failUnauthorized('Token de agente inválido para este site.');
+        }
+
+        // Atualiza status para desconectado
+        $websiteModel->update($siteId, [
+            'is_connected' => 0,
+        ]);
+
+        $cache = \Config\Services::cache();
+        $cache->delete('agent_lock_site_' . (int)$siteId);
+        $cache->save('agent_cooldown_site_' . (int)$siteId, time(), 3600);
+
+        try {
+            \App\Services\PlatformErrorLogger::log([
+                'category'        => 'agent_kill_switch',
+                'severity'        => 'info',
+                'website_id'      => (int) $siteId,
+                'website_name'    => $website['name'] ?? null,
+                'website_url'     => $website['url'] ?? null,
+                'user_id'         => (int) ($website['user_id'] ?? 0),
+                'endpoint'        => '/api/websites/disconnect-agent',
+                'http_method'     => 'POST',
+                'http_status'     => 200,
+                'error_message'   => 'Agente WordPress desconectado diretamente a partir do painel do WordPress.',
+            ]);
+        } catch (\Throwable $e) {}
+
+        return $this->respond([
+            'status'  => 200,
+            'success' => true,
+            'message' => 'Site desconectado com sucesso no SaaS.',
+            'data'    => [
+                'site_id'      => $siteId,
+                'is_connected' => 0,
             ],
         ]);
     }

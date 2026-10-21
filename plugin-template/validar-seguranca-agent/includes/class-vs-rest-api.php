@@ -92,6 +92,12 @@ class VS_Agent_REST_API {
                 'callback'            => array($this, 'handle_toggle_fix'),
                 'permission_callback' => array($this, 'check_permission'),
             ));
+
+            register_rest_route($ns, '/connection/status', array(
+                'methods'             => array('POST', 'GET'),
+                'callback'            => array($this, 'handle_connection_status'),
+                'permission_callback' => array($this, 'check_permission'),
+            ));
         }
     }
 
@@ -186,10 +192,39 @@ class VS_Agent_REST_API {
         }
 
         if (hash_equals($token_saved, $token_header)) {
+            // Sincronização automática: se receber chamada autenticada válida do SaaS, marca como conectado no WordPress
+            $uri = isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '';
+            $param_conn = ($request && is_a($request, 'WP_REST_Request')) ? $request->get_param('connected') : null;
+            $is_disconnect_call = (strpos($uri, '/connection/status') !== false && $param_conn !== null && (int)$param_conn === 0);
+
+            if (!$is_disconnect_call && !get_option('vs_is_connected', 0)) {
+                update_option('vs_is_connected', 1);
+            }
+
             return true;
         }
 
         return new WP_Error('vs_unauthorized', 'Token de acesso incorreto.', array('status' => 401));
+    }
+
+    public function handle_connection_status($request) {
+        $connected = ($request && is_a($request, 'WP_REST_Request')) ? $request->get_param('connected') : null;
+        if ($connected !== null) {
+            $is_conn = (int)$connected === 1 ? 1 : 0;
+            update_option('vs_is_connected', $is_conn);
+            return new WP_REST_Response(array(
+                'status'    => 200,
+                'success'   => true,
+                'connected' => $is_conn,
+                'message'   => $is_conn ? 'Plugin sincronizado como conectado.' : 'Plugin sincronizado como desconectado.',
+            ), 200);
+        }
+
+        return new WP_REST_Response(array(
+            'status'    => 200,
+            'success'   => true,
+            'connected' => (int) get_option('vs_is_connected', 0),
+        ), 200);
     }
 
     public function handle_internal_audit($request) {
