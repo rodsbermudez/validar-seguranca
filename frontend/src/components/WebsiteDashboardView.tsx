@@ -149,7 +149,7 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
     setUrl(website.url);
     setEnvironment(website.environment || 'production');
     setMaintenanceDay(website.maintenance_day || '');
-    setMaintenanceStatus(website.maintenance || null);
+    setMaintenanceStatus(website.maintenance || (website as any).maintenance_status || null);
   }, [website]);
 
   const isConnected = Number(currentWebsite.is_connected) === 1;
@@ -169,7 +169,9 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
 
   // Maintenance Cycle State
   const maintenanceMonthOptions = getAvailableMaintenanceMonths();
-  const [maintenanceStatus, setMaintenanceStatus] = useState<MaintenanceStatus | null>(website.maintenance || null);
+  const [maintenanceStatus, setMaintenanceStatus] = useState<MaintenanceStatus | null>(
+    website.maintenance || (website as any).maintenance_status || null
+  );
   const [maintenanceLoading, setMaintenanceLoading] = useState(false);
   const [completeModalOpen, setCompleteModalOpen] = useState(false);
   const [maintenanceNotes, setMaintenanceNotes] = useState('');
@@ -243,6 +245,10 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
           }
           return freshSite;
         });
+        const mStatus = freshSite.maintenance || (freshSite as any).maintenance_status || null;
+        if (mStatus) {
+          setMaintenanceStatus(mStatus);
+        }
         if (onUpdateWebsite) {
           onUpdateWebsite(freshSite);
         }
@@ -321,8 +327,9 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
       setCompleteModalOpen(false);
       setMaintenanceNotes('');
       if (onUpdateWebsite) {
-        onUpdateWebsite({ ...website, maintenance: res.data.status });
+        onUpdateWebsite({ ...currentWebsite, maintenance: res.data.status, maintenance_status: res.data.status });
       }
+      refreshWebsite();
     } catch (err: any) {
       alert(
         err.response?.data?.messages?.error ||
@@ -341,8 +348,9 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
       const res = await uncompleteWebsiteMaintenance(website.id);
       setMaintenanceStatus(res.data.status);
       if (onUpdateWebsite) {
-        onUpdateWebsite({ ...website, maintenance: res.data.status });
+        onUpdateWebsite({ ...currentWebsite, maintenance: res.data.status, maintenance_status: res.data.status });
       }
+      refreshWebsite();
     } catch (err: any) {
       alert(
         err.response?.data?.messages?.error ||
@@ -815,183 +823,300 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
             </Paper>
 
             {/* Card do Ciclo de Manutenção Preventiva do Mês */}
-            <Paper p="lg" radius="md" bg="dark.8" withBorder style={{ borderLeft: '4px solid #06d6a0' }}>
-              <Group justify="space-between" mb="sm" wrap="wrap" gap="md">
-                <Group gap="xs">
-                  <ThemeIcon color="teal" variant="light" radius="xl">
-                    <IconCalendarCheck size={18} />
-                  </ThemeIcon>
-                  <div>
-                    <Group gap="xs" align="center">
-                      <Title order={4}>Ciclo de Manutenção Preventiva</Title>
-                      <Badge color="teal" variant="light" size="sm">
-                        {formatMonthYear(new Date()).toUpperCase()}
-                      </Badge>
-                    </Group>
-                    <Text size="xs" c="dimmed">
-                      Acompanhamento da rotina mensal de atualizações, integridade e testes do site.
-                    </Text>
-                  </div>
-                </Group>
+            {(() => {
+              const activeSite = currentWebsite || website;
+              const isMaintenanceCompleted = maintenanceStatus?.status === 'completed';
 
-                <Group gap="xs">
-                  <Button
-                    variant="subtle"
-                    color="gray"
-                    size="xs"
-                    leftSection={<IconHistory size={14} />}
-                    onClick={fetchMaintenanceHistory}
-                    loading={historyLoading}
-                  >
-                    Histórico Anterior
-                  </Button>
-
-                  <Button
-                    variant="light"
-                    color="indigo"
-                    size="xs"
-                    leftSection={<IconNotes size={14} />}
-                    onClick={() => setActiveTab('activity_logs')}
-                  >
-                    Diário & Anotações
-                  </Button>
-
-                  {maintenanceStatus?.status === 'completed' ? (
-                    <Button
-                      variant="outline"
-                      color="orange"
-                      size="xs"
-                      leftSection={<IconRotateClockwise size={14} />}
-                      loading={maintenanceLoading}
-                      onClick={handleUncompleteMaintenance}
-                    >
-                      Reabrir Manutenção
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="filled"
-                      color="teal"
-                      size="xs"
-                      leftSection={<IconCheck size={14} />}
-                      loading={maintenanceLoading}
-                      onClick={() => {
-                        setMaintenanceNotes('');
-                        setCompleteModalOpen(true);
-                      }}
-                    >
-                      Marcar Concluída este Mês
-                    </Button>
-                  )}
-                </Group>
-              </Group>
-
-              <Grid align="center" mt="xs">
-                <Grid.Col span={{ base: 12, md: 7 }}>
-                  <Stack gap="xs">
-                    <Group gap="xs" align="center">
-                      <Text size="sm" fw={600}>
-                        Status Atual:
-                      </Text>
-                      {maintenanceStatus ? (
-                        <Badge
-                          color={maintenanceStatus.badge_color}
-                          variant={maintenanceStatus.status === 'completed' ? 'filled' : 'light'}
-                          size="md"
-                        >
-                          {maintenanceStatus.label}
-                        </Badge>
-                      ) : website.maintenance_day ? (
-                        <Badge color="blue" variant="light" size="md">
-                          Todo dia {website.maintenance_day}
-                        </Badge>
-                      ) : (
-                        <Badge color="gray" variant="light" size="md">
-                          Dia não agendado
-                        </Badge>
-                      )}
-                    </Group>
-
-                    {website.maintenance_day ? (
-                      <Text size="sm" c="dimmed">
-                        Rotina agendada para <b>todo dia {website.maintenance_day} de cada mês</b>.
-                      </Text>
-                    ) : (
-                      <Group gap="xs">
-                        <Text size="xs" c="orange.4">
-                          Nenhum dia do mês definido para a manutenção preventiva.
-                        </Text>
-                        <Button
-                          variant="subtle"
-                          color="indigo"
-                          size="compact-xs"
-                          onClick={() => setActiveTab('settings')}
-                        >
-                          Configurar dia agora
-                        </Button>
-                      </Group>
-                    )}
-
-                    {maintenanceStatus?.status === 'completed' && (
-                      <Paper p="xs" bg="dark.7" radius="sm" withBorder mt={4}>
-                        <Group justify="space-between" mb={maintenanceStatus.notes ? 4 : 0}>
-                          <Text size="xs" c="green.4" fw={600}>
-                            ✓ Concluída em:{' '}
-                            {formatDateTime(maintenanceStatus.completed_at, 'Data N/D')}
-                          </Text>
-                          {maintenanceStatus.completed_by && (
-                            <Text size="xs" c="dimmed">
-                              Por: {maintenanceStatus.completed_by}
-                            </Text>
+              return (
+                <Paper
+                  p="lg"
+                  radius="md"
+                  bg={isMaintenanceCompleted ? 'rgba(6, 214, 160, 0.04)' : 'dark.8'}
+                  withBorder
+                  style={{
+                    borderLeft: isMaintenanceCompleted
+                      ? '4px solid #06d6a0'
+                      : maintenanceStatus?.status === 'overdue'
+                      ? '4px solid #fa5252'
+                      : maintenanceStatus?.status === 'today'
+                      ? '4px solid #fab005'
+                      : '4px solid #228be6',
+                    borderColor: isMaintenanceCompleted ? 'rgba(6, 214, 160, 0.3)' : undefined,
+                  }}
+                >
+                  <Group justify="space-between" mb="sm" wrap="wrap" gap="md">
+                    <Group gap="xs">
+                      <ThemeIcon
+                        color={isMaintenanceCompleted ? 'teal' : 'blue'}
+                        variant={isMaintenanceCompleted ? 'filled' : 'light'}
+                        radius="xl"
+                        size="md"
+                      >
+                        {isMaintenanceCompleted ? <IconCheck size={18} /> : <IconCalendarCheck size={18} />}
+                      </ThemeIcon>
+                      <div>
+                        <Group gap="xs" align="center">
+                          <Title order={4}>Ciclo de Manutenção Preventiva</Title>
+                          {isMaintenanceCompleted ? (
+                            <Badge color="teal" variant="filled" size="sm" leftSection={<IconCheck size={12} />}>
+                              CONCLUÍDA EM {formatMonthYear(new Date()).toUpperCase()}
+                            </Badge>
+                          ) : (
+                            <Badge color="blue" variant="light" size="sm">
+                              {formatMonthYear(new Date()).toUpperCase()}
+                            </Badge>
                           )}
                         </Group>
-                        {maintenanceStatus.notes && (
-                          <Text size="xs" c="dimmed" fs="italic">
-                            "{maintenanceStatus.notes}"
-                          </Text>
-                        )}
-                      </Paper>
-                    )}
-                  </Stack>
-                </Grid.Col>
+                        <Text size="xs" c={isMaintenanceCompleted ? 'teal.3' : 'dimmed'}>
+                          {isMaintenanceCompleted
+                            ? 'A manutenção preventiva deste mês já foi executada e registrada com sucesso.'
+                            : 'Acompanhamento da rotina mensal de atualizações, integridade e testes do site.'}
+                        </Text>
+                      </div>
+                    </Group>
 
-                <Grid.Col span={{ base: 12, md: 5 }}>
-                  <Paper p="sm" bg="dark.7" radius="md" withBorder ta="center">
-                    <Text size="xs" c="dimmed" mb={4}>
-                      Ações Recomendadas na Manutenção:
-                    </Text>
-                    <Group gap="xs" justify="center">
+                    <Group gap="xs">
                       <Button
-                        variant="light"
-                        color="blue"
-                        size="compact-xs"
-                        leftSection={<IconRefresh size={12} />}
-                        onClick={() => setActiveTab('updates')}
+                        variant="subtle"
+                        color="gray"
+                        size="xs"
+                        leftSection={<IconHistory size={14} />}
+                        onClick={fetchMaintenanceHistory}
+                        loading={historyLoading}
                       >
-                        Atualizar Plugins
+                        Histórico Anterior
                       </Button>
-                      <Button
-                        variant="light"
-                        color="teal"
-                        size="compact-xs"
-                        leftSection={<IconFileCheck size={12} />}
-                        onClick={() => setActiveTab('integrity')}
-                      >
-                        Checksums Core
-                      </Button>
+
                       <Button
                         variant="light"
                         color="indigo"
-                        size="compact-xs"
-                        leftSection={<IconRadar size={12} />}
-                        onClick={() => setActiveTab('audit')}
+                        size="xs"
+                        leftSection={<IconNotes size={14} />}
+                        onClick={() => setActiveTab('activity_logs')}
                       >
-                        Nova Auditoria
+                        Diário & Anotações
                       </Button>
+
+                      {isMaintenanceCompleted ? (
+                        <Button
+                          variant="subtle"
+                          color="orange"
+                          size="xs"
+                          leftSection={<IconRotateClockwise size={14} />}
+                          loading={maintenanceLoading}
+                          onClick={handleUncompleteMaintenance}
+                        >
+                          Reabrir Manutenção
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="filled"
+                          color="teal"
+                          size="xs"
+                          leftSection={<IconCheck size={14} />}
+                          loading={maintenanceLoading}
+                          onClick={() => {
+                            setMaintenanceNotes('');
+                            setCompleteModalOpen(true);
+                          }}
+                        >
+                          Marcar Concluída este Mês
+                        </Button>
+                      )}
                     </Group>
-                  </Paper>
-                </Grid.Col>
-              </Grid>
-            </Paper>
+                  </Group>
+
+                  {isMaintenanceCompleted ? (
+                    <Grid align="stretch" mt="xs">
+                      <Grid.Col span={{ base: 12, md: 7 }}>
+                        <Paper
+                          p="sm"
+                          radius="md"
+                          bg="rgba(6, 214, 160, 0.08)"
+                          withBorder
+                          style={{ borderColor: 'rgba(6, 214, 160, 0.25)', height: '100%' }}
+                        >
+                          <Group gap="sm" align="flex-start" wrap="nowrap">
+                            <ThemeIcon color="teal" variant="light" size="md" radius="xl" mt={2}>
+                              <IconCheck size={16} />
+                            </ThemeIcon>
+                            <div style={{ flex: 1 }}>
+                              <Group justify="space-between" align="center" wrap="wrap">
+                                <Text size="sm" fw={700} c="teal.3">
+                                  Manutenção Preventiva Realizada!
+                                </Text>
+                                <Badge color="teal" variant="light" size="xs">
+                                  {activeSite.maintenance_day
+                                    ? `Ciclo Mensal (Todo dia ${activeSite.maintenance_day})`
+                                    : 'Ciclo Mensal'}
+                                </Badge>
+                              </Group>
+
+                              <Text size="xs" c="dimmed" mt={4}>
+                                Concluída em <b>{formatDateTime(maintenanceStatus?.completed_at, 'Data N/D')}</b>
+                                {maintenanceStatus?.completed_by && (
+                                  <> por <b>{maintenanceStatus.completed_by}</b></>
+                                )}.
+                              </Text>
+
+                              {maintenanceStatus?.notes && (
+                                <Paper p="xs" bg="dark.8" radius="sm" withBorder mt="xs" style={{ borderLeft: '3px solid #06d6a0' }}>
+                                  <Text size="xs" c="dimmed" fs="italic">
+                                    "{maintenanceStatus.notes}"
+                                  </Text>
+                                </Paper>
+                              )}
+
+                              <Text size="xs" c="dimmed" mt={8}>
+                                💡 Próximo ciclo programado para <b>{activeSite.maintenance_day ? `todo dia ${activeSite.maintenance_day} do próximo mês` : 'o próximo mês'}</b>.
+                              </Text>
+                            </div>
+                          </Group>
+                        </Paper>
+                      </Grid.Col>
+
+                      <Grid.Col span={{ base: 12, md: 5 }}>
+                        <Paper
+                          p="sm"
+                          bg="dark.7"
+                          radius="md"
+                          withBorder
+                          ta="center"
+                          style={{
+                            height: '100%',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          <Text size="xs" fw={600} c="teal.3" mb={4}>
+                            ✓ Rotinas do Mês Finalizadas
+                          </Text>
+                          <Text size="xs" c="dimmed" mb="xs">
+                            Atualizações, integridade e diagnóstico verificados para este ciclo.
+                          </Text>
+                          <Group gap="xs" justify="center">
+                            <Button
+                              variant="light"
+                              color="blue"
+                              size="compact-xs"
+                              leftSection={<IconRefresh size={12} />}
+                              onClick={() => setActiveTab('updates')}
+                            >
+                              Ver Atualizações
+                            </Button>
+                            <Button
+                              variant="light"
+                              color="teal"
+                              size="compact-xs"
+                              leftSection={<IconFileCheck size={12} />}
+                              onClick={() => setActiveTab('integrity')}
+                            >
+                              Integridade
+                            </Button>
+                            <Button
+                              variant="light"
+                              color="indigo"
+                              size="compact-xs"
+                              leftSection={<IconRadar size={12} />}
+                              onClick={() => setActiveTab('audit')}
+                            >
+                              Nova Auditoria
+                            </Button>
+                          </Group>
+                        </Paper>
+                      </Grid.Col>
+                    </Grid>
+                  ) : (
+                    <Grid align="center" mt="xs">
+                      <Grid.Col span={{ base: 12, md: 7 }}>
+                        <Stack gap="xs">
+                          <Group gap="xs" align="center">
+                            <Text size="sm" fw={600}>
+                              Status Atual:
+                            </Text>
+                            {maintenanceStatus ? (
+                              <Badge
+                                color={maintenanceStatus.badge_color}
+                                variant="light"
+                                size="md"
+                              >
+                                {maintenanceStatus.label}
+                              </Badge>
+                            ) : activeSite.maintenance_day ? (
+                              <Badge color="blue" variant="light" size="md">
+                                Todo dia {activeSite.maintenance_day}
+                              </Badge>
+                            ) : (
+                              <Badge color="gray" variant="light" size="md">
+                                Dia não agendado
+                              </Badge>
+                            )}
+                          </Group>
+
+                          {activeSite.maintenance_day ? (
+                            <Text size="sm" c="dimmed">
+                              Rotina agendada para <b>todo dia {activeSite.maintenance_day} de cada mês</b>.
+                            </Text>
+                          ) : (
+                            <Group gap="xs">
+                              <Text size="xs" c="orange.4">
+                                Nenhum dia do mês definido para a manutenção preventiva.
+                              </Text>
+                              <Button
+                                variant="subtle"
+                                color="indigo"
+                                size="compact-xs"
+                                onClick={() => setActiveTab('settings')}
+                              >
+                                Configurar dia agora
+                              </Button>
+                            </Group>
+                          )}
+                        </Stack>
+                      </Grid.Col>
+
+                      <Grid.Col span={{ base: 12, md: 5 }}>
+                        <Paper p="sm" bg="dark.7" radius="md" withBorder ta="center">
+                          <Text size="xs" c="dimmed" mb={4}>
+                            Ações Recomendadas na Manutenção:
+                          </Text>
+                          <Group gap="xs" justify="center">
+                            <Button
+                              variant="light"
+                              color="blue"
+                              size="compact-xs"
+                              leftSection={<IconRefresh size={12} />}
+                              onClick={() => setActiveTab('updates')}
+                            >
+                              Atualizar Plugins
+                            </Button>
+                            <Button
+                              variant="light"
+                              color="teal"
+                              size="compact-xs"
+                              leftSection={<IconFileCheck size={12} />}
+                              onClick={() => setActiveTab('integrity')}
+                            >
+                              Checksums Core
+                            </Button>
+                            <Button
+                              variant="light"
+                              color="indigo"
+                              size="compact-xs"
+                              leftSection={<IconRadar size={12} />}
+                              onClick={() => setActiveTab('audit')}
+                            >
+                              Nova Auditoria
+                            </Button>
+                          </Group>
+                        </Paper>
+                      </Grid.Col>
+                    </Grid>
+                  )}
+                </Paper>
+              );
+            })()}
 
             {/* Status Summary Cards (Módulos Ativos / Error Report & Auditoria) */}
             {(() => {

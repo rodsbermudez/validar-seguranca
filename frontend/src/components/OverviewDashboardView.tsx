@@ -829,6 +829,27 @@ export const OverviewDashboardView: React.FC<OverviewDashboardViewProps> = ({
                                     name: task.website_name,
                                     url: task.website_url,
                                     environment: task.environment,
+                                    maintenance_day: task.maintenance_day,
+                                    maintenance: {
+                                      status: task.status,
+                                      label: task.label,
+                                      badge_color: task.badge_color,
+                                      target_day: task.target_day,
+                                      target_date: task.target_date,
+                                      completed_at: task.completed_at,
+                                      completed_by: task.completed_by,
+                                      notes: task.notes,
+                                    },
+                                    maintenance_status: {
+                                      status: task.status,
+                                      label: task.label,
+                                      badge_color: task.badge_color,
+                                      target_day: task.target_day,
+                                      target_date: task.target_date,
+                                      completed_at: task.completed_at,
+                                      completed_by: task.completed_by,
+                                      notes: task.notes,
+                                    },
                                   })
                                 }
                               >
@@ -968,6 +989,27 @@ export const OverviewDashboardView: React.FC<OverviewDashboardViewProps> = ({
                                     name: task.website_name,
                                     url: task.website_url,
                                     environment: task.environment,
+                                    maintenance_day: task.maintenance_day,
+                                    maintenance: {
+                                      status: task.status,
+                                      label: task.label,
+                                      badge_color: task.badge_color,
+                                      target_day: task.target_day,
+                                      target_date: task.target_date,
+                                      completed_at: task.completed_at,
+                                      completed_by: task.completed_by,
+                                      notes: task.notes,
+                                    },
+                                    maintenance_status: {
+                                      status: task.status,
+                                      label: task.label,
+                                      badge_color: task.badge_color,
+                                      target_day: task.target_day,
+                                      target_date: task.target_date,
+                                      completed_at: task.completed_at,
+                                      completed_by: task.completed_by,
+                                      notes: task.notes,
+                                    },
                                   })
                                 }
                               >

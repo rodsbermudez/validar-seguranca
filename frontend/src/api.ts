@@ -428,6 +428,7 @@ export interface Website {
   latest_grade?: string | null;
   latest_scanned_at?: string | null;
   maintenance?: MaintenanceStatus;
+  maintenance_status?: MaintenanceStatus;
   connected_at?: string | null;
   last_integrity_scanned_at?: string | null;
   integrity_issues_count?: number | null;

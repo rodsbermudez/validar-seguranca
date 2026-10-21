@@ -90,35 +90,60 @@ class WebsiteModel extends Model
     /**
      * Retorna um único website do usuário com todas as métricas calculadas.
      */
-    public function getUserWebsite(int $userId, int $websiteId, ?string $yearMonth = null): ?array
+    public function getUserWebsite(int $userId, int $websiteId, ?string $yearMonth = null, bool $isAdmin = false): ?array
     {
         $db = \Config\Database::connect();
         $currentMonth = $yearMonth ?: date('Y-m');
 
-        $sql = "
-            SELECT 
-                w.*,
-                u.name AS owner_name,
-                u.email AS owner_email,
-                CASE WHEN w.user_id = ? THEN 1 ELSE 0 END AS is_owner,
-                CASE WHEN w.user_id = ? THEN 'owner' ELSE COALESCE(ws.role, 'viewer') END AS user_role,
-                (SELECT COUNT(*) FROM website_shares WHERE website_id = w.id) AS shares_count,
-                (SELECT score FROM scan_history WHERE website_id = w.id AND status = 'completed' ORDER BY executed_at DESC, id DESC LIMIT 1) AS latest_score,
-                (SELECT executed_at FROM scan_history WHERE website_id = w.id AND status = 'completed' ORDER BY executed_at DESC, id DESC LIMIT 1) AS latest_scanned_at,
-                wm.completed_at AS maintenance_completed_at,
-                wm.notes AS maintenance_notes,
-                wmu.name AS maintenance_completed_by
-            FROM websites w
-            INNER JOIN users u ON u.id = w.user_id
-            LEFT JOIN website_shares ws ON ws.website_id = w.id AND ws.user_id = ?
-            LEFT JOIN website_maintenances wm ON wm.website_id = w.id AND wm.year_month = ?
-            LEFT JOIN users wmu ON wmu.id = wm.user_id
-            WHERE w.id = ? AND (w.user_id = ? OR ws.user_id = ?)
-            GROUP BY w.id
-            LIMIT 1
-        ";
-
-        $query = $db->query($sql, [$userId, $userId, $userId, $currentMonth, $websiteId, $userId, $userId]);
+        if ($isAdmin) {
+            $sql = "
+                SELECT 
+                    w.*,
+                    u.name AS owner_name,
+                    u.email AS owner_email,
+                    CASE WHEN w.user_id = ? THEN 1 ELSE 0 END AS is_owner,
+                    CASE WHEN w.user_id = ? THEN 'owner' ELSE COALESCE(ws.role, 'viewer') END AS user_role,
+                    (SELECT COUNT(*) FROM website_shares WHERE website_id = w.id) AS shares_count,
+                    (SELECT score FROM scan_history WHERE website_id = w.id AND status = 'completed' ORDER BY executed_at DESC, id DESC LIMIT 1) AS latest_score,
+                    (SELECT executed_at FROM scan_history WHERE website_id = w.id AND status = 'completed' ORDER BY executed_at DESC, id DESC LIMIT 1) AS latest_scanned_at,
+                    wm.completed_at AS maintenance_completed_at,
+                    wm.notes AS maintenance_notes,
+                    wmu.name AS maintenance_completed_by
+                FROM websites w
+                INNER JOIN users u ON u.id = w.user_id
+                LEFT JOIN website_shares ws ON ws.website_id = w.id AND ws.user_id = ?
+                LEFT JOIN website_maintenances wm ON wm.website_id = w.id AND wm.year_month = ?
+                LEFT JOIN users wmu ON wmu.id = wm.user_id
+                WHERE w.id = ?
+                GROUP BY w.id
+                LIMIT 1
+            ";
+            $query = $db->query($sql, [$userId, $userId, $userId, $currentMonth, $websiteId]);
+        } else {
+            $sql = "
+                SELECT 
+                    w.*,
+                    u.name AS owner_name,
+                    u.email AS owner_email,
+                    CASE WHEN w.user_id = ? THEN 1 ELSE 0 END AS is_owner,
+                    CASE WHEN w.user_id = ? THEN 'owner' ELSE COALESCE(ws.role, 'viewer') END AS user_role,
+                    (SELECT COUNT(*) FROM website_shares WHERE website_id = w.id) AS shares_count,
+                    (SELECT score FROM scan_history WHERE website_id = w.id AND status = 'completed' ORDER BY executed_at DESC, id DESC LIMIT 1) AS latest_score,
+                    (SELECT executed_at FROM scan_history WHERE website_id = w.id AND status = 'completed' ORDER BY executed_at DESC, id DESC LIMIT 1) AS latest_scanned_at,
+                    wm.completed_at AS maintenance_completed_at,
+                    wm.notes AS maintenance_notes,
+                    wmu.name AS maintenance_completed_by
+                FROM websites w
+                INNER JOIN users u ON u.id = w.user_id
+                LEFT JOIN website_shares ws ON ws.website_id = w.id AND ws.user_id = ?
+                LEFT JOIN website_maintenances wm ON wm.website_id = w.id AND wm.year_month = ?
+                LEFT JOIN users wmu ON wmu.id = wm.user_id
+                WHERE w.id = ? AND (w.user_id = ? OR ws.user_id = ?)
+                GROUP BY w.id
+                LIMIT 1
+            ";
+            $query = $db->query($sql, [$userId, $userId, $userId, $currentMonth, $websiteId, $userId, $userId]);
+        }
         $site = $query->getRowArray();
 
         if (!$site) {
@@ -192,6 +217,7 @@ class WebsiteModel extends Model
             $record,
             $currentMonth
         );
+        $site['maintenance'] = $site['maintenance_status'];
     }
 
     /**

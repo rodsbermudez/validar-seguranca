@@ -55,11 +55,23 @@ class Websites extends ResourceController
             return $this->failForbidden('Você não tem permissão para acessar este website.');
         }
 
-        $site = $websiteModel->getUserWebsite($effectiveUserId, (int)$id);
+        $site = $websiteModel->getUserWebsite($effectiveUserId, (int)$id, null, $isAdmin);
         if (!$site && $isAdmin) {
             $rawSite = $websiteModel->find($id);
             if ($rawSite) {
-                $websiteModel->enrichWebsiteData($rawSite, date('Y-m'));
+                $currentMonth = date('Y-m');
+                $mModel = new \App\Models\WebsiteMaintenanceModel();
+                $mRec = $mModel->where('website_id', (int)$id)->where('year_month', $currentMonth)->first();
+                if ($mRec) {
+                    $rawSite['maintenance_completed_at'] = $mRec['completed_at'] ?? null;
+                    $rawSite['maintenance_notes'] = $mRec['notes'] ?? null;
+                    if (!empty($mRec['user_id'])) {
+                        $uModel = new \App\Models\UserModel();
+                        $u = $uModel->find($mRec['user_id']);
+                        $rawSite['maintenance_completed_by'] = $u['name'] ?? ($u['email'] ?? null);
+                    }
+                }
+                $websiteModel->enrichWebsiteData($rawSite, $currentMonth);
                 $site = $rawSite;
             }
         }
