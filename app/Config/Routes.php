@@ -45,6 +45,8 @@ $routes->group('api', function ($routes) {
         $routes->put('websites/(:num)', 'Api\Websites::update/$1');
         $routes->delete('websites/(:num)', 'Api\Websites::delete/$1');
         $routes->get('websites/(:num)/download-plugin', 'Api\Websites::downloadPlugin/$1');
+        $routes->post('websites/(:num)/disconnect', 'Api\Websites::disconnect/$1');
+        $routes->post('websites/(:num)/reconnect', 'Api\Websites::reconnect/$1');
         $routes->get('websites/(:num)/logs', 'Api\Websites::logs/$1');
         $routes->post('websites/(:num)/logs/toggle', 'Api\Websites::toggleLogs/$1');
         $routes->post('websites/(:num)/logs/clear', 'Api\Websites::clearLogs/$1');

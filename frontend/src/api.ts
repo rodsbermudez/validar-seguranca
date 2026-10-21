@@ -453,6 +453,30 @@ export const getWebsite = async (websiteId: number | string): Promise<Website> =
   return response.data.data;
 };
 
+export interface DisconnectWebsiteResponse {
+  status: number;
+  success: boolean;
+  message: string;
+  data?: Website;
+}
+
+export interface ReconnectWebsiteResponse {
+  status: number;
+  success: boolean;
+  message: string;
+  data?: Website;
+}
+
+export const disconnectWebsiteAgent = async (websiteId: number | string): Promise<DisconnectWebsiteResponse> => {
+  const response = await api.post<DisconnectWebsiteResponse>(`/websites/${websiteId}/disconnect`);
+  return response.data;
+};
+
+export const reconnectWebsiteAgent = async (websiteId: number | string): Promise<ReconnectWebsiteResponse> => {
+  const response = await api.post<ReconnectWebsiteResponse>(`/websites/${websiteId}/reconnect`);
+  return response.data;
+};
+
 export interface MaintenanceStatus {
   status: 'completed' | 'overdue' | 'today' | 'upcoming' | 'not_scheduled';
   label: string;

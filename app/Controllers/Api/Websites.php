@@ -333,6 +333,166 @@ class Websites extends ResourceController
         return $this->response->download($tempZip, null)->setFileName("vexors-diagnostico-{$siteSlug}.zip");
     }
 
+    /**
+     * Kill Switch: Desconecta o agente WordPress e interrompe todas as comunicações com o site do cliente.
+     */
+    public function disconnect($id = null)
+    {
+        if (!$id) {
+            return $this->fail('ID do website não informado.', 400);
+        }
+
+        $effectiveUserId = (int) ($this->request->effectiveUserId ?? ($this->request->userData->id ?? 0));
+        $userData        = $this->request->userData ?? null;
+        $isImpersonating = $this->request->isImpersonating ?? false;
+        $isAdmin         = (($userData->role ?? 'user') === 'admin') && !$isImpersonating;
+
+        $websiteModel = new WebsiteModel();
+        $website = $websiteModel->find($id);
+
+        if (!$website) {
+            return $this->failNotFound('Website não encontrado.');
+        }
+
+        if (!$websiteModel->canUserAccess((int)$id, $effectiveUserId, $isAdmin, true)) {
+            return $this->failForbidden('Apenas o proprietário ou administrador pode alterar o estado deste website.');
+        }
+
+        // 1. Atualizar banco de dados para is_connected = 0
+        $websiteModel->update($id, [
+            'is_connected' => 0,
+        ]);
+
+        // 2. Limpar qualquer lock e ativar cooldown preventivo de 1 hora
+        $cache = \Config\Services::cache();
+        $cache->delete('agent_lock_site_' . (int)$id);
+        $cache->save('agent_cooldown_site_' . (int)$id, time(), 3600);
+
+        // 3. Registrar na Central de Erros e Logs Administrativos
+        try {
+            \App\Services\PlatformErrorLogger::log([
+                'category'        => 'agent_kill_switch',
+                'severity'        => 'info',
+                'website_id'      => (int) $id,
+                'website_name'    => $website['name'] ?? null,
+                'website_url'     => $website['url'] ?? null,
+                'user_id'         => $effectiveUserId,
+                'endpoint'        => '/api/websites/' . $id . '/disconnect',
+                'http_method'     => 'POST',
+                'http_status'     => 200,
+                'error_message'   => 'Kill Switch acionado manualmente pelo usuário: conexão do agente interrompida e todas as execuções externas suspensas.',
+            ]);
+        } catch (\Throwable $e) {}
+
+        $updatedWebsite = $websiteModel->find($id);
+
+        return $this->respond([
+            'status'  => 200,
+            'success' => true,
+            'message' => 'Serviço do site interrompido com sucesso! O agente foi desconectado e nenhuma requisição será disparada para o site.',
+            'data'    => $updatedWebsite,
+        ]);
+    }
+
+    /**
+     * Reconecta o agente WordPress manualmente pelo painel do SaaS.
+     */
+    public function reconnect($id = null)
+    {
+        if (!$id) {
+            return $this->fail('ID do website não informado.', 400);
+        }
+
+        $effectiveUserId = (int) ($this->request->effectiveUserId ?? ($this->request->userData->id ?? 0));
+        $userData        = $this->request->userData ?? null;
+        $isImpersonating = $this->request->isImpersonating ?? false;
+        $isAdmin         = (($userData->role ?? 'user') === 'admin') && !$isImpersonating;
+
+        $websiteModel = new WebsiteModel();
+        $website = $websiteModel->find($id);
+
+        if (!$website) {
+            return $this->failNotFound('Website não encontrado.');
+        }
+
+        if (!$websiteModel->canUserAccess((int)$id, $effectiveUserId, $isAdmin, true)) {
+            return $this->failForbidden('Apenas o proprietário ou administrador pode alterar o estado deste website.');
+        }
+
+        if (empty($website['agent_token'])) {
+            return $this->fail('Este website não possui token do agente configurado.', 400);
+        }
+
+        // Remove qualquer cooldown ativo para permitir o teste manual
+        $cache = \Config\Services::cache();
+        $cache->delete('agent_cooldown_site_' . (int)$id);
+        $cache->delete('agent_lock_site_' . (int)$id);
+
+        // Testa comunicação com o agente via rota direta
+        $res = $this->makeAgentRequestWithFallback($website['url'], '/logs', 'GET', $website['agent_token'], [
+            'limit' => 5,
+        ]);
+
+        if (!empty($res['body']) && ($res['status'] ?? 0) === 200) {
+            $websiteModel->update($id, [
+                'is_connected' => 1,
+                'connected_at' => date('Y-m-d H:i:s'),
+            ]);
+
+            try {
+                \App\Services\PlatformErrorLogger::log([
+                    'category'        => 'agent_connection',
+                    'severity'        => 'info',
+                    'website_id'      => (int) $id,
+                    'website_name'    => $website['name'] ?? null,
+                    'website_url'     => $website['url'] ?? null,
+                    'user_id'         => $effectiveUserId,
+                    'endpoint'        => '/api/websites/' . $id . '/reconnect',
+                    'http_method'     => 'POST',
+                    'http_status'     => 200,
+                    'error_message'   => 'Agente WordPress detectado e reconectado com sucesso pelo usuário.',
+                ]);
+            } catch (\Throwable $e) {}
+
+            $updatedWebsite = $websiteModel->find($id);
+
+            return $this->respond([
+                'status'  => 200,
+                'success' => true,
+                'message' => 'Agente WordPress detectado e reconectado com sucesso!',
+                'data'    => $updatedWebsite,
+            ]);
+        }
+
+        // Falhou: registra erro administrativo e mantém desconectado
+        $status = $res['status'] ?? 500;
+        $errMsg = ($status === 404)
+            ? 'Endpoint do plugin agente não encontrado (HTTP 404). Verifique se o plugin vexors.app - Diagnóstico está ativo no WordPress e com os Permalinks salvos.'
+            : 'Falha na comunicação com o WordPress (HTTP ' . $status . '). ' . ($res['message'] ?? '');
+
+        try {
+            \App\Services\PlatformErrorLogger::log([
+                'category'        => 'agent_connection',
+                'severity'        => ($status === 404 ? 'warning' : 'error'),
+                'website_id'      => (int) $id,
+                'website_name'    => $website['name'] ?? null,
+                'website_url'     => $website['url'] ?? null,
+                'user_id'         => $effectiveUserId,
+                'endpoint'        => '/api/websites/' . $id . '/reconnect',
+                'http_method'     => 'POST',
+                'http_status'     => $status,
+                'error_message'   => 'Tentativa manual de reconexão falhou: ' . $errMsg,
+                'curl_error'      => $res['curl_error'] ?? null,
+                'response_body'   => $res['raw_response'] ?? null,
+            ]);
+        } catch (\Throwable $e) {}
+
+        // Aplica cooldown de 10 min para não permitir spam de reconexão
+        $cache->save('agent_cooldown_site_' . (int)$id, time(), 600);
+
+        return $this->fail($errMsg, 502);
+    }
+
     public function connect()
     {
         $json = $this->request->getJSON(true) ?? $this->request->getPost();
@@ -614,6 +774,17 @@ class Websites extends ResourceController
             return $this->fail('Este website não possui token do agente configurado.', 400);
         }
 
+        if (empty($website['is_connected'])) {
+            return $this->respond([
+                'status'          => 200,
+                'success'         => true,
+                'logging_enabled' => false,
+                'total'           => 0,
+                'logs'            => [],
+                'message'         => 'Serviço do site desconectado. Reconecte o agente para consultar logs ao vivo.'
+            ]);
+        }
+
         $limit       = $this->request->getGet('limit') ?? 100;
         $filterLevel = $this->request->getGet('filter_level') ?? 'all';
 
@@ -757,6 +928,44 @@ class Websites extends ResourceController
 
         if (empty($website['agent_token'])) {
             return $this->fail('Este website não possui token do agente configurado.', 400);
+        }
+
+        if (empty($website['is_connected'])) {
+            if (!empty($website['updates_summary_json'])) {
+                $cached = json_decode($website['updates_summary_json'], true);
+                if (!empty($cached) && is_array($cached)) {
+                    $summary = $cached['summary'] ?? (isset($cached['total_pending']) ? $cached : [
+                        'total_pending'   => (int)($website['updates_pending_count'] ?? 0),
+                        'pending_plugins' => 0,
+                        'pending_themes'  => 0,
+                        'pending_core'    => 0,
+                    ]);
+                    return $this->respond([
+                        'status'  => 200,
+                        'success' => true,
+                        'cached'  => true,
+                        'data'    => [
+                            'summary' => $summary,
+                            'core'    => $cached['core'] ?? ['current_version' => '', 'new_version' => '', 'has_update' => false],
+                            'plugins' => $cached['plugins'] ?? [],
+                            'themes'  => $cached['themes'] ?? [],
+                        ],
+                        'message' => 'Serviço do site desconectado. Exibindo dados da última checagem salva.',
+                    ]);
+                }
+            }
+            return $this->respond([
+                'status'  => 200,
+                'success' => true,
+                'cached'  => true,
+                'data'    => [
+                    'summary' => ['total_pending' => 0, 'pending_plugins' => 0, 'pending_themes' => 0, 'pending_core' => 0],
+                    'core'    => ['current_version' => '', 'new_version' => '', 'has_update' => false],
+                    'plugins' => [],
+                    'themes'  => [],
+                ],
+                'message' => 'Serviço do site desconectado. Reconecte o agente para consultar atualizações.'
+            ]);
         }
 
         $forceRefresh = ($this->request->getGet('force_refresh') === '1');
@@ -1025,6 +1234,42 @@ class Websites extends ResourceController
 
         if (empty($website['agent_token'])) {
             return $this->fail('Este website não possui token do agente configurado.', 400);
+        }
+
+        if (empty($website['is_connected'])) {
+            if (!empty($website['integrity_summary_json'])) {
+                $cachedData = json_decode($website['integrity_summary_json'], true);
+                if (!empty($cachedData)) {
+                    return $this->respond([
+                        'status'  => 200,
+                        'success' => true,
+                        'cached'  => true,
+                        'data'    => $cachedData,
+                        'message' => 'Serviço do site desconectado. Exibindo dados da última varredura salva.',
+                    ]);
+                }
+            }
+            return $this->respond([
+                'status'  => 200,
+                'success' => true,
+                'cached'  => true,
+                'data'    => [
+                    'scanned_at' => $website['last_integrity_scanned_at'] ?? '',
+                    'wp_version' => '',
+                    'locale'     => '',
+                    'is_secure'  => (bool)($website['integrity_is_secure'] ?? true),
+                    'summary'    => [
+                        'total_checked' => 0,
+                        'passed'        => 0,
+                        'modified'      => 0,
+                        'suspicious'    => 0,
+                        'missing'       => 0,
+                        'issues_count'  => 0,
+                    ],
+                    'issues'     => [],
+                ],
+                'message' => 'Serviço do site desconectado. Reconecte o agente para verificar a integridade.'
+            ]);
         }
 
         $forceRefresh = ($this->request->getGet('force_refresh') === '1');
@@ -1527,10 +1772,11 @@ class Websites extends ResourceController
             || !empty($website['updates_summary_json'])
             || !empty($website['integrity_summary_json']));
 
-        // SÓ consulta o agente WordPress live se:
-        // 1. O usuário pediu explicitamente via ?force_refresh=1
-        // 2. OU não temos absolutamente nenhum dado em cache gravado ainda e o site está conectado
-        $shouldQueryLive = $forceRefresh || (!$hasCache && !empty($website['is_connected']));
+        $isConnected = (int)($website['is_connected'] ?? 0);
+
+        // NUNCA consulta o agente live se o site estiver desconectado (is_connected !== 1)
+        // Só consulta live se conectado E (force_refresh ou não tem cache)
+        $shouldQueryLive = ($isConnected === 1) && ($forceRefresh || !$hasCache);
 
         // Cooldown: se o agente falhou ou retornou 404 recentemente, não tenta de novo por 15 minutos
         $cache = \Config\Services::cache();
@@ -1559,17 +1805,51 @@ class Websites extends ResourceController
                     $cache->save($cooldownKey, time(), 900);
                     $websiteModel = new WebsiteModel();
                     $websiteModel->update($website['id'], ['is_connected' => 0]);
+
+                    // Registrar na Central de Erros da Plataforma
+                    try {
+                        \App\Services\PlatformErrorLogger::log([
+                            'category'        => 'agent_connection',
+                            'severity'        => 'warning',
+                            'website_id'      => (int) $website['id'],
+                            'website_name'    => $website['name'] ?? null,
+                            'website_url'     => $website['url'] ?? null,
+                            'user_id'         => $effectiveUserId ?? null,
+                            'endpoint'        => '/api/websites/' . $website['id'] . '/diagnostic-summary',
+                            'http_method'     => 'GET',
+                            'http_status'     => 404,
+                            'error_message'   => 'Agente WordPress não encontrado (HTTP 404). O plugin foi desativado ou desinstalado no site do cliente. A plataforma interrompeu a comunicação e marcou o website como Desconectado para prevenir sobrecarga.',
+                            'curl_error'      => $logsRes['curl_error'] ?? null,
+                            'response_body'   => $logsRes['raw_response'] ?? null,
+                        ]);
+                    } catch (\Throwable $e) {}
+
                     return $this->respond([
-                        'status'  => 200,
-                        'success' => true,
-                        'cached'  => true,
-                        'data'    => [
-                            'logs'      => $logsSummary,
-                            'integrity' => $integrityData,
-                            'updates'   => $updatesData,
-                            'connected' => false,
+                        'status'       => 200,
+                        'success'      => true,
+                        'generated_at' => date('Y-m-d H:i:s'),
+                        'website'      => [
+                            'id'                        => $website['id'],
+                            'name'                      => $website['name'],
+                            'url'                       => $website['url'],
+                            'environment'               => $website['environment'] ?? 'production',
+                            'is_connected'              => 0,
+                            'connected_at'              => $website['connected_at'] ?? null,
+                            'last_integrity_scanned_at' => $website['last_integrity_scanned_at'] ?? null,
+                            'integrity_issues_count'    => $website['integrity_issues_count'] ?? null,
+                            'integrity_is_secure'       => $website['integrity_is_secure'] ?? null,
+                            'last_updates_checked_at'   => $website['last_updates_checked_at'] ?? null,
+                            'updates_pending_count'     => $website['updates_pending_count'] ?? null,
+                            'last_logs_checked_at'      => $website['last_logs_checked_at'] ?? null,
+                            'logs_fatal_count'          => $website['logs_fatal_count'] ?? null,
                         ],
-                        'message' => 'Plugin agente não está ativo no WordPress.',
+                        'data'         => [
+                            'latest_scan' => $latestScan,
+                            'logs_48h'    => $logsSummary,
+                            'integrity'   => $integrityData,
+                            'updates'     => $updatesData,
+                        ],
+                        'message'      => 'Agente WordPress não encontrado (HTTP 404). O serviço foi desconectado.',
                     ]);
                 }
 
@@ -1577,16 +1857,31 @@ class Websites extends ResourceController
                 if (($logsRes['status'] ?? 0) >= 500 || empty($logsRes['status'])) {
                     $cache->save($cooldownKey, time(), 300);
                     return $this->respond([
-                        'status'  => 200,
-                        'success' => true,
-                        'cached'  => true,
-                        'data'    => [
-                            'logs'      => $logsSummary,
-                            'integrity' => $integrityData,
-                            'updates'   => $updatesData,
-                            'connected' => false,
+                        'status'       => 200,
+                        'success'      => true,
+                        'generated_at' => date('Y-m-d H:i:s'),
+                        'website'      => [
+                            'id'                        => $website['id'],
+                            'name'                      => $website['name'],
+                            'url'                       => $website['url'],
+                            'environment'               => $website['environment'] ?? 'production',
+                            'is_connected'              => (int)($website['is_connected'] ?? 0),
+                            'connected_at'              => $website['connected_at'] ?? null,
+                            'last_integrity_scanned_at' => $website['last_integrity_scanned_at'] ?? null,
+                            'integrity_issues_count'    => $website['integrity_issues_count'] ?? null,
+                            'integrity_is_secure'       => $website['integrity_is_secure'] ?? null,
+                            'last_updates_checked_at'   => $website['last_updates_checked_at'] ?? null,
+                            'updates_pending_count'     => $website['updates_pending_count'] ?? null,
+                            'last_logs_checked_at'      => $website['last_logs_checked_at'] ?? null,
+                            'logs_fatal_count'          => $website['logs_fatal_count'] ?? null,
                         ],
-                        'message' => 'Servidor do WordPress indisponível no momento.',
+                        'data'         => [
+                            'latest_scan' => $latestScan,
+                            'logs_48h'    => $logsSummary,
+                            'integrity'   => $integrityData,
+                            'updates'     => $updatesData,
+                        ],
+                        'message'      => 'Servidor do WordPress indisponível no momento.',
                     ]);
                 }
 

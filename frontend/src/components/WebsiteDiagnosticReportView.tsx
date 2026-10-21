@@ -27,6 +27,7 @@ import {
   IconFileCheck,
   IconTerminal,
   IconPlugConnected,
+  IconPlugConnectedX,
   IconWorld,
   IconPlug,
   IconPalette,
@@ -34,22 +35,26 @@ import {
 } from '@tabler/icons-react';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
-import { getDiagnosticSummary, DiagnosticSummaryResponse } from '../api';
+import { getDiagnosticSummary, DiagnosticSummaryResponse, reconnectWebsiteAgent } from '../api';
 import { VEXORS_LOGO_BASE64 } from '../assets/logoBase64';
 import { formatDateTime } from '../utils/date';
 
 interface WebsiteDiagnosticReportViewProps {
-  website: { id: string | number; name: string; url: string; environment?: string };
+  website: { id: string | number; name: string; url: string; environment?: string; is_connected?: number | boolean };
   onBack: () => void;
+  onWebsiteUpdated?: (updated: any) => void;
 }
 
 export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewProps> = ({
   website,
   onBack,
+  onWebsiteUpdated,
 }) => {
   const [loading, setLoading] = useState<boolean>(true);
   const [report, setReport] = useState<DiagnosticSummaryResponse | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [reconnecting, setReconnecting] = useState<boolean>(false);
+  const [reconnectAlert, setReconnectAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const fetchReport = useCallback(async () => {
     setLoading(true);
@@ -57,6 +62,9 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
     try {
       const data = await getDiagnosticSummary(website.id);
       setReport(data);
+      if (data?.website && onWebsiteUpdated) {
+        onWebsiteUpdated(data.website);
+      }
     } catch (err: any) {
       setErrorMsg(
         err.response?.data?.messages?.error ||
@@ -67,7 +75,40 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
     } finally {
       setLoading(false);
     }
-  }, [website.id]);
+  }, [website.id, onWebsiteUpdated]);
+
+  const handleReconnect = async () => {
+    setReconnecting(true);
+    setReconnectAlert(null);
+    try {
+      const res = await reconnectWebsiteAgent(website.id);
+      if (res.success) {
+        setReconnectAlert({
+          type: 'success',
+          message: res.message || 'Agente WordPress reconectado com sucesso!',
+        });
+        if (res.data && onWebsiteUpdated) {
+          onWebsiteUpdated(res.data);
+        }
+        await fetchReport();
+      } else {
+        setReconnectAlert({
+          type: 'error',
+          message: res.message || 'Não foi possível reconectar com o agente.',
+        });
+      }
+    } catch (err: any) {
+      setReconnectAlert({
+        type: 'error',
+        message:
+          err.response?.data?.messages?.error ||
+          err.response?.data?.message ||
+          'Falha na comunicação ao tentar reconectar com o agente.',
+      });
+    } finally {
+      setReconnecting(false);
+    }
+  };
 
   useEffect(() => {
     fetchReport();
@@ -240,6 +281,18 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
             </Group>
 
             <Group gap="sm">
+              {Number(report?.website?.is_connected) !== 1 && (
+                <Button
+                  color="teal"
+                  size="sm"
+                  leftSection={<IconPlugConnected size={16} />}
+                  loading={reconnecting}
+                  onClick={handleReconnect}
+                >
+                  Reconectar Agente
+                </Button>
+              )}
+
               <Button
                 variant="light"
                 color="blue"
@@ -264,6 +317,54 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
           </Group>
         </Paper>
 
+        {/* Feedback alert after attempting reconnect */}
+        {reconnectAlert && (
+          <Alert
+            color={reconnectAlert.type === 'success' ? 'green' : 'red'}
+            title={reconnectAlert.type === 'success' ? 'Sucesso' : 'Falha na Reconexão'}
+            mb="md"
+            withCloseButton
+            onClose={() => setReconnectAlert(null)}
+            icon={reconnectAlert.type === 'success' ? <IconCheck size={18} /> : <IconAlertCircle size={18} />}
+            className="no-print"
+          >
+            {reconnectAlert.message}
+          </Alert>
+        )}
+
+        {/* Prominent banner if agent is disconnected */}
+        {!loading && !errorMsg && Number(report?.website?.is_connected) !== 1 && (
+          <Alert
+            icon={<IconPlugConnectedX size={20} />}
+            title="Agente WordPress Desconectado"
+            color="red"
+            variant="light"
+            radius="md"
+            mb="md"
+            className="no-print"
+          >
+            <Group justify="space-between" align="center" wrap="wrap" gap="sm">
+              <Box style={{ maxWidth: 720 }}>
+                <Text size="sm">
+                  O agente deste site está <strong>desconectado</strong>. As requisições automáticas e consultas em tempo real ao WordPress foram suspensas para preservar a estabilidade do servidor.
+                </Text>
+                <Text size="xs" c="dimmed" mt={4}>
+                  Os dados exibidos abaixo são do último diagnóstico salvo. Caso o plugin esteja ativo no WordPress, clique ao lado para restabelecer a conexão.
+                </Text>
+              </Box>
+              <Button
+                color="teal"
+                size="sm"
+                leftSection={<IconPlugConnected size={16} />}
+                loading={reconnecting}
+                onClick={handleReconnect}
+              >
+                Reconectar Agente Agora
+              </Button>
+            </Group>
+          </Alert>
+        )}
+
         {loading ? (
           <Center p={80}>
             <Stack align="center" gap="md">
@@ -277,9 +378,36 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
             </Stack>
           </Center>
         ) : errorMsg ? (
-          <Alert icon={<IconAlertCircle size={18} />} title="Erro ao carregar diagnóstico" color="red">
-            {errorMsg}
-          </Alert>
+          <Stack gap="md" className="no-print">
+            <Alert icon={<IconAlertCircle size={18} />} title="Agente Desconectado ou Indisponível" color="red">
+              <Stack gap="xs">
+                <Text size="sm">{errorMsg}</Text>
+                <Text size="xs" c="dimmed">
+                  O agente WordPress pode ter sido desativado ou o servidor do cliente está temporariamente inacessível.
+                </Text>
+                <Group mt="xs">
+                  <Button
+                    color="teal"
+                    size="sm"
+                    leftSection={<IconPlugConnected size={16} />}
+                    loading={reconnecting}
+                    onClick={handleReconnect}
+                  >
+                    Tentar Reconectar Agora
+                  </Button>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    leftSection={<IconRefresh size={16} />}
+                    loading={loading}
+                    onClick={fetchReport}
+                  >
+                    Recarregar Dados Salvos
+                  </Button>
+                </Group>
+              </Stack>
+            </Alert>
+          </Stack>
         ) : (
           <Paper
             ref={reportRef}
@@ -351,12 +479,18 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
                       {(report?.website.environment || website.environment || 'PRODUCTION').toUpperCase()}
                     </Badge>
                     <Badge
-                      color={report?.website.is_connected ? 'teal' : 'gray'}
+                      color={Number(report?.website?.is_connected) === 1 ? 'teal' : 'red'}
                       size="md"
                       variant="filled"
-                      leftSection={<IconPlugConnected size={14} />}
+                      leftSection={
+                        Number(report?.website?.is_connected) === 1 ? (
+                          <IconPlugConnected size={14} />
+                        ) : (
+                          <IconPlugConnectedX size={14} />
+                        )
+                      }
                     >
-                      {report?.website.is_connected ? 'AGENTE ATIVO' : 'SEM AGENTE'}
+                      {Number(report?.website?.is_connected) === 1 ? 'AGENTE ATIVO' : 'AGENTE DESCONECTADO'}
                     </Badge>
                   </Group>
                 </Grid.Col>

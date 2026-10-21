@@ -72,6 +72,8 @@ import {
   getDiagnosticSummary,
   DiagnosticSummaryResponse,
   getWebsite,
+  disconnectWebsiteAgent,
+  reconnectWebsiteAgent,
 } from '../api';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { ScanReport } from './ScanReport';
@@ -182,6 +184,83 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
   const [maintenanceHistory, setMaintenanceHistory] = useState<MaintenanceHistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+
+  // Agent Connection & Kill Switch State
+  const [disconnecting, setDisconnecting] = useState<boolean>(false);
+  const [reconnecting, setReconnecting] = useState<boolean>(false);
+  const [killModalOpen, setKillModalOpen] = useState<boolean>(false);
+  const [feedbackAlert, setFeedbackAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  const handleDisconnect = async () => {
+    setDisconnecting(true);
+    setFeedbackAlert(null);
+    try {
+      const res = await disconnectWebsiteAgent(website.id);
+      if (res.success) {
+        setKillModalOpen(false);
+        setFeedbackAlert({
+          type: 'success',
+          message: res.message || 'Serviço do site desligado com sucesso. Todas as requisições ao agente foram interrompidas.',
+        });
+        const updated = res.data || { ...currentWebsite, is_connected: 0 };
+        setCurrentWebsite(updated);
+        if (onUpdateWebsite) {
+          onUpdateWebsite(updated);
+        }
+      } else {
+        setFeedbackAlert({
+          type: 'error',
+          message: res.message || 'Falha ao desligar serviço do site.',
+        });
+      }
+    } catch (err: any) {
+      setFeedbackAlert({
+        type: 'error',
+        message:
+          err.response?.data?.messages?.error ||
+          err.response?.data?.message ||
+          'Erro ao desligar serviço do website.',
+      });
+    } finally {
+      setDisconnecting(false);
+    }
+  };
+
+  const handleReconnect = async () => {
+    setReconnecting(true);
+    setFeedbackAlert(null);
+    try {
+      const res = await reconnectWebsiteAgent(website.id);
+      if (res.success) {
+        setFeedbackAlert({
+          type: 'success',
+          message: res.message || 'Agente WordPress reconectado com sucesso!',
+        });
+        const updated = res.data || { ...currentWebsite, is_connected: 1, connected_at: new Date().toISOString() };
+        setCurrentWebsite(updated);
+        if (onUpdateWebsite) {
+          onUpdateWebsite(updated);
+        }
+        await fetchDiagnosticData(false);
+        await fetchLatestScan(false);
+      } else {
+        setFeedbackAlert({
+          type: 'error',
+          message: res.message || 'Não foi possível reconectar com o agente WordPress.',
+        });
+      }
+    } catch (err: any) {
+      setFeedbackAlert({
+        type: 'error',
+        message:
+          err.response?.data?.messages?.error ||
+          err.response?.data?.message ||
+          'Falha na comunicação ao tentar reconectar o agente. Verifique se o plugin está ativo no WordPress.',
+      });
+    } finally {
+      setReconnecting(false);
+    }
+  };
 
   const fetchLatestScan = useCallback(async (showLoading = false) => {
     if (showLoading) {
@@ -560,8 +639,14 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
   if (viewingDiagnostic) {
     return (
       <WebsiteDiagnosticReportView
-        website={website}
+        website={currentWebsite}
         onBack={() => setViewingDiagnostic(false)}
+        onWebsiteUpdated={(updated) => {
+          setCurrentWebsite(updated);
+          if (onUpdateWebsite) {
+            onUpdateWebsite(updated);
+          }
+        }}
       />
     );
   }
@@ -620,12 +705,35 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
             ) : (
               <Badge
                 size="lg"
-                color="gray"
-                variant="light"
+                color="red"
+                variant="filled"
                 leftSection={<IconPlugConnectedX size={16} />}
               >
-                AGENTE PENDENTE
+                AGENTE DESCONECTADO
               </Badge>
+            )}
+
+            {isConnected ? (
+              <Button
+                variant="light"
+                color="red"
+                size="sm"
+                leftSection={<IconPlugConnectedX size={16} />}
+                onClick={() => setKillModalOpen(true)}
+              >
+                Desligar Serviço
+              </Button>
+            ) : (
+              <Button
+                variant="filled"
+                color="teal"
+                size="sm"
+                leftSection={<IconPlugConnected size={16} />}
+                loading={reconnecting}
+                onClick={handleReconnect}
+              >
+                Reconectar Agente
+              </Button>
             )}
 
             {/* Menu Dropdown Ferramentas */}
@@ -717,6 +825,23 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
                 >
                   Baixar Plugin WP
                 </Menu.Item>
+                {isConnected ? (
+                  <Menu.Item
+                    leftSection={<IconPlugConnectedX size={16} color="#fa5252" />}
+                    color="red"
+                    onClick={() => setKillModalOpen(true)}
+                  >
+                    Desligar Serviço (Kill Switch)
+                  </Menu.Item>
+                ) : (
+                  <Menu.Item
+                    leftSection={<IconPlugConnected size={16} color="#12b886" />}
+                    onClick={handleReconnect}
+                    disabled={reconnecting}
+                  >
+                    Reconectar Agente
+                  </Menu.Item>
+                )}
               </Menu.Dropdown>
             </Menu>
           </Group>
@@ -729,6 +854,60 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
         {/* Tab 1: Overview */}
         <Tabs.Panel value="overview" pt="md">
           <Stack gap="md">
+            {/* Feedback alert (Reconnect / Kill Switch result) */}
+            {feedbackAlert && (
+              <Alert
+                color={feedbackAlert.type === 'success' ? 'green' : 'red'}
+                title={feedbackAlert.type === 'success' ? 'Sucesso' : 'Atenção'}
+                withCloseButton
+                onClose={() => setFeedbackAlert(null)}
+                icon={feedbackAlert.type === 'success' ? <IconCheck size={18} /> : <IconAlertCircle size={18} />}
+              >
+                {feedbackAlert.message}
+              </Alert>
+            )}
+
+            {/* Prominent banner if agent is disconnected */}
+            {!isConnected && (
+              <Alert
+                icon={<IconPlugConnectedX size={22} />}
+                title="Agente WordPress Desconectado"
+                color="red"
+                variant="light"
+                radius="md"
+              >
+                <Group justify="space-between" align="center" wrap="wrap" gap="md">
+                  <Box style={{ maxWidth: 700 }}>
+                    <Text size="sm">
+                      A comunicação com o agente deste site está desativada. Todas as requisições automáticas e consultas externas foram suspensas para garantir a estabilidade do servidor.
+                    </Text>
+                    <Text size="xs" c="dimmed" mt={4}>
+                      Para restabelecer o monitoramento em tempo real, verifique se o plugin <strong>vexors.app - Diagnóstico</strong> está ativo no seu WordPress e clique em <strong>Reconectar Agente</strong>.
+                    </Text>
+                  </Box>
+                  <Group gap="xs">
+                    <Button
+                      color="teal"
+                      size="sm"
+                      leftSection={<IconPlugConnected size={16} />}
+                      loading={reconnecting}
+                      onClick={handleReconnect}
+                    >
+                      Reconectar Agente
+                    </Button>
+                    <Button
+                      variant="default"
+                      size="sm"
+                      leftSection={<IconDownload size={16} />}
+                      loading={downloading}
+                      onClick={handleDownloadPlugin}
+                    >
+                      Baixar Plugin WP
+                    </Button>
+                  </Group>
+                </Group>
+              </Alert>
+            )}
             {/* Card do Resumo da Última Auditoria */}
             <Paper p="lg" radius="md" bg="dark.8" withBorder>
               <Group justify="space-between" mb="sm">
@@ -1184,7 +1363,7 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
                         <Text size="xs" fw={700} c="dimmed" tt="uppercase" lineClamp={1}>
                           Status da Conexão
                         </Text>
-                        <ThemeIcon color={isConnected ? 'green' : 'gray'} variant="light" radius="xl" size="md">
+                        <ThemeIcon color={isConnected ? 'green' : 'red'} variant="light" radius="xl" size="md">
                           {isConnected ? <IconPlugConnected size={18} /> : <IconPlugConnectedX size={18} />}
                         </ThemeIcon>
                       </Group>
@@ -1192,35 +1371,61 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
                       <Box style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                         <Group justify="space-between" align="center" gap="xs" mb={4} wrap="nowrap">
                           <Text fw={700} size="sm" lineClamp={1}>
-                            {isConnected ? 'Agente Ativo' : 'Pendente de Conexão'}
+                            {isConnected ? 'Agente Conectado' : 'Agente Desconectado'}
                           </Text>
-                          {isConnected && (
-                            <Badge size="xs" variant="light" color="teal" style={{ flexShrink: 0 }}>
-                              Sincronizado
-                            </Badge>
-                          )}
+                          <Badge
+                            size="xs"
+                            variant="light"
+                            color={isConnected ? 'teal' : 'red'}
+                            style={{ flexShrink: 0 }}
+                          >
+                            {isConnected ? 'Sincronizado' : 'Interrompido'}
+                          </Badge>
                         </Group>
                         <Text size="xs" c="dimmed" lineClamp={2} style={{ minHeight: 34 }} mb={4}>
                           {isConnected
                             ? 'O agente vexors.app está conectado e comunicando com o SaaS.'
-                            : 'Baixe e ative o plugin no painel WordPress para liberar as funções.'}
+                            : 'A comunicação com o WordPress está pausada para evitar sobrecarga.'}
                         </Text>
                         <Text size="10px" c="dimmed" style={{ minHeight: 16 }} mb="xs">
                           {isConnected && connDate ? `Sincronizado: ${formatDateTime(connDate)}` : ' '}
                         </Text>
                       </Box>
 
-                      <Button
-                        variant="light"
-                        color={isConnected ? 'indigo' : 'teal'}
-                        size="xs"
-                        fullWidth
-                        leftSection={isConnected ? <IconPlugConnected size={14} /> : <IconDownload size={14} />}
-                        onClick={() => setActiveTab('agent')}
-                        mt="auto"
-                      >
-                        {isConnected ? 'Ver Conexão' : 'Instalar Agente'}
-                      </Button>
+                      {isConnected ? (
+                        <Button
+                          variant="light"
+                          color="indigo"
+                          size="xs"
+                          fullWidth
+                          leftSection={<IconPlugConnected size={14} />}
+                          onClick={() => setActiveTab('agent')}
+                          mt="auto"
+                        >
+                          Ver Conexão
+                        </Button>
+                      ) : (
+                        <Group gap="xs" mt="auto" grow>
+                          <Button
+                            variant="filled"
+                            color="teal"
+                            size="xs"
+                            leftSection={<IconPlugConnected size={14} />}
+                            loading={reconnecting}
+                            onClick={handleReconnect}
+                          >
+                            Reconectar
+                          </Button>
+                          <Button
+                            variant="subtle"
+                            color="gray"
+                            size="xs"
+                            onClick={() => setActiveTab('agent')}
+                          >
+                            Configurar
+                          </Button>
+                        </Group>
+                      )}
                     </Card>
                   </Grid.Col>
 
@@ -1561,10 +1766,41 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
                     </div>
                   </Stack>
 
-                  <Alert icon={<IconAlertCircle size={16} />} title="Status da Integração" color={isConnected ? 'green' : 'yellow'}>
-                    {isConnected
-                      ? 'Tudo certo! O agente respondeu perfeitamente ao teste de handshake.'
-                      : 'O agente ainda não foi detectado com este token. Cole as credenciais acima em vexors.app > Diagnóstico no seu WordPress e clique em "Salvar Configurações e Conectar".'}
+                  <Alert
+                    icon={isConnected ? <IconCheck size={16} /> : <IconAlertCircle size={16} />}
+                    title={isConnected ? 'Status da Integração: Conectado' : 'Status da Integração: Desconectado'}
+                    color={isConnected ? 'green' : 'red'}
+                  >
+                    <Stack gap="xs">
+                      <Text size="xs">
+                        {isConnected
+                          ? 'Tudo certo! O agente respondeu perfeitamente ao teste de handshake e está ativo no WordPress.'
+                          : 'O agente está atualmente desconectado. As requisições automáticas foram suspensas para preservar o servidor.'}
+                      </Text>
+                      <Group mt={4}>
+                        {isConnected ? (
+                          <Button
+                            variant="light"
+                            color="red"
+                            size="xs"
+                            leftSection={<IconPlugConnectedX size={14} />}
+                            onClick={() => setKillModalOpen(true)}
+                          >
+                            Desligar Serviço (Kill Switch)
+                          </Button>
+                        ) : (
+                          <Button
+                            color="teal"
+                            size="xs"
+                            leftSection={<IconPlugConnected size={14} />}
+                            loading={reconnecting}
+                            onClick={handleReconnect}
+                          >
+                            Reconectar Agente Agora
+                          </Button>
+                        )}
+                      </Group>
+                    </Stack>
                   </Alert>
                 </Paper>
               </Grid.Col>
@@ -2025,6 +2261,69 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
             </Table.Tbody>
           </Table>
         )}
+      </Modal>
+
+      {/* Modal de Confirmação do Kill Switch */}
+      <Modal
+        opened={killModalOpen}
+        onClose={() => setKillModalOpen(false)}
+        title={
+          <Group gap="xs">
+            <ThemeIcon color="red" size="sm" radius="xl">
+              <IconPlugConnectedX size={14} />
+            </ThemeIcon>
+            <Text fw={700} size="sm">
+              Desligar Serviço do Site (Kill Switch)
+            </Text>
+          </Group>
+        }
+        centered
+      >
+        <Stack gap="md">
+          <Paper p="xs" bg="dark.7" radius="sm" withBorder>
+            <Text size="xs" fw={700}>
+              {website.name}
+            </Text>
+            <Text size="xs" c="dimmed">
+              {website.url}
+            </Text>
+          </Paper>
+
+          <Alert
+            icon={<IconAlertTriangle size={18} />}
+            title="Atenção: Interrupção Imediata"
+            color="red"
+            variant="light"
+          >
+            <Text size="xs">
+              Esta ação desliga a integração com o agente WordPress. Nenhuma requisição automática, leitura de logs, checagem de integridade ou verificação de updates será disparada para este servidor até que você reconecte manualmente.
+            </Text>
+          </Alert>
+
+          <Text size="xs" c="dimmed">
+            Isso é ideal caso você tenha desativado temporariamente o plugin no WordPress ou precise estancar qualquer tráfego da plataforma para estabilizar o servidor PHP-FPM.
+          </Text>
+
+          <Group justify="flex-end" mt="sm">
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => setKillModalOpen(false)}
+              disabled={disconnecting}
+            >
+              Cancelar
+            </Button>
+            <Button
+              color="red"
+              size="sm"
+              leftSection={<IconPlugConnectedX size={16} />}
+              loading={disconnecting}
+              onClick={handleDisconnect}
+            >
+              Desligar Serviço Agora
+            </Button>
+          </Group>
+        </Stack>
       </Modal>
     </Stack>
   );
