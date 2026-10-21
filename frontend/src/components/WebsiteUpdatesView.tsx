@@ -54,14 +54,14 @@ interface CoreUpdateData {
   has_update: boolean;
 }
 
-interface UpdatesSummary {
+export interface UpdatesSummary {
   total_pending: number;
   pending_plugins: number;
   pending_themes: number;
   pending_core: number;
 }
 
-interface UpdatesData {
+export interface UpdatesData {
   summary: UpdatesSummary;
   core: CoreUpdateData;
   plugins: PluginUpdateItem[];
@@ -73,12 +73,14 @@ interface WebsiteUpdatesViewProps {
   onBack?: () => void;
   toolsEnabled?: boolean;
   onNavigateToPlans?: () => void;
+  onUpdatesChanged?: (summary?: UpdatesSummary, fullData?: UpdatesData) => void;
 }
 
 export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
   website,
   toolsEnabled = true,
   onNavigateToPlans,
+  onUpdatesChanged,
 }) => {
   const [updatesData, setUpdatesData] = useState<UpdatesData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -113,17 +115,23 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
         const liveRes = await api.get(`/websites/${website.id}/updates?force_refresh=1`);
         const livePayload = liveRes.data?.data || liveRes.data;
         setUpdatesData(livePayload);
+        if (onUpdatesChanged && livePayload?.summary) {
+          onUpdatesChanged(livePayload.summary, livePayload);
+        }
         return;
       }
 
       setUpdatesData(payload);
+      if (onUpdatesChanged && payload?.summary) {
+        onUpdatesChanged(payload.summary, payload);
+      }
     } catch (err: any) {
       setErrorMsg(extractErrorMessage(err, 'Falha ao consultar atualizações do agente WordPress.'));
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [website.id]);
+  }, [website.id, onUpdatesChanged]);
 
   useEffect(() => {
     fetchUpdates();

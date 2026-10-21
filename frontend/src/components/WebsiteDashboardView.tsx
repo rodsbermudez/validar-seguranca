@@ -76,7 +76,7 @@ import {
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { ScanReport } from './ScanReport';
 import { WebsiteLogsView } from './WebsiteLogsView';
-import { WebsiteUpdatesView } from './WebsiteUpdatesView';
+import { WebsiteUpdatesView, UpdatesSummary, UpdatesData } from './WebsiteUpdatesView';
 import { WebsiteIntegrityView } from './WebsiteIntegrityView';
 import { WebsiteDiagnosticReportView } from './WebsiteDiagnosticReportView';
 import { WebsiteActivityLogsView } from './WebsiteActivityLogsView';
@@ -252,12 +252,37 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
     }
   }, [website.id, onUpdateWebsite, fetchDiagnosticData, fetchLatestScan]);
 
+  const handleUpdatesChanged = useCallback((newSummary?: UpdatesSummary, fullData?: UpdatesData) => {
+    if (newSummary) {
+      setDiagnosticData((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          updates: fullData || {
+            summary: newSummary,
+            core: prev.updates?.core || { current_version: '', new_version: '', has_update: false },
+            plugins: prev.updates?.plugins || [],
+            themes: prev.updates?.themes || [],
+          },
+        };
+      });
+      setCurrentWebsite((prev) => ({
+        ...prev,
+        updates_pending_count: newSummary.total_pending,
+        last_updates_checked_at: new Date().toISOString().replace('T', ' ').substring(0, 19),
+      }));
+    }
+    refreshWebsite();
+    fetchDiagnosticData();
+  }, [refreshWebsite, fetchDiagnosticData]);
+
   useEffect(() => {
     if (activeTab === 'overview') {
       fetchLatestScan(false);
       refreshWebsite();
+      fetchDiagnosticData();
     }
-  }, [activeTab, fetchLatestScan, refreshWebsite]);
+  }, [activeTab, fetchLatestScan, refreshWebsite, fetchDiagnosticData]);
 
   // Revalidação em Tempo Real (Smart Polling + Focus Sync) do SaaS
   useRealtimeSync({
@@ -265,6 +290,7 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
       await refreshWebsite();
       if (activeTab === 'overview') {
         await fetchLatestScan(false);
+        await fetchDiagnosticData();
       }
     },
     // Se estiver aguardando conexão do agente, checa status no banco a cada 8s
@@ -969,48 +995,50 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
 
             {/* Status Summary Cards (Módulos Ativos / Error Report & Auditoria) */}
             {(() => {
+              const activeSite = currentWebsite || website;
+
               // 1. Conexão
-              const connDate = website.connected_at || website.created_at;
+              const connDate = activeSite.connected_at || activeSite.created_at;
 
               // 2. Integridade
               const integrityInfo = diagnosticData?.integrity;
-              const hasIntegrityScan = Boolean(website.last_integrity_scanned_at || integrityInfo?.scanned_at);
-              const integrityScanDate = integrityInfo?.scanned_at || website.last_integrity_scanned_at;
+              const hasIntegrityScan = Boolean(activeSite.last_integrity_scanned_at || integrityInfo?.scanned_at);
+              const integrityScanDate = integrityInfo?.scanned_at || activeSite.last_integrity_scanned_at;
               const integrityIssues = integrityInfo
                 ? (integrityInfo.summary?.active_issues ?? integrityInfo.summary?.issues_count ?? 0)
-                : Number(website.integrity_issues_count ?? 0);
+                : Number(activeSite.integrity_issues_count ?? 0);
               const isIntegritySecure = integrityInfo
                 ? Boolean(integrityInfo.is_secure)
-                : (website.integrity_is_secure === 1 || integrityIssues === 0);
-              const integrityMod = integrityInfo?.summary?.modified ?? website.integrity_modified ?? 0;
-              const integritySusp = integrityInfo?.summary?.suspicious ?? website.integrity_suspicious ?? 0;
+                : (activeSite.integrity_is_secure === 1 || integrityIssues === 0);
+              const integrityMod = integrityInfo?.summary?.modified ?? activeSite.integrity_modified ?? 0;
+              const integritySusp = integrityInfo?.summary?.suspicious ?? activeSite.integrity_suspicious ?? 0;
 
               // 3. Atualizações
               const updatesInfo = diagnosticData?.updates;
               const hasUpdatesData = Boolean(
                 updatesInfo ||
-                website.last_updates_checked_at ||
-                (website.updates_pending_count !== null && website.updates_pending_count !== undefined)
+                activeSite.last_updates_checked_at ||
+                (activeSite.updates_pending_count !== null && activeSite.updates_pending_count !== undefined)
               );
               const totalPending = updatesInfo
                 ? updatesInfo.summary.total_pending
-                : Number(website.updates_pending_count ?? 0);
+                : Number(activeSite.updates_pending_count ?? 0);
               const pendingPlugins = updatesInfo?.summary?.pending_plugins;
               const pendingThemes = updatesInfo?.summary?.pending_themes;
               const pendingCore = updatesInfo?.summary?.pending_core;
-              const updatesCheckedAt = website.last_updates_checked_at;
+              const updatesCheckedAt = activeSite.last_updates_checked_at;
 
               // 4. Error Report & Logs
               const logsInfo = diagnosticData?.logs_48h;
               const hasLogsData = Boolean(
                 logsInfo ||
-                website.last_logs_checked_at ||
-                (website.logs_fatal_count !== null && website.logs_fatal_count !== undefined)
+                activeSite.last_logs_checked_at ||
+                (activeSite.logs_fatal_count !== null && activeSite.logs_fatal_count !== undefined)
               );
               const totalFatal = logsInfo
                 ? logsInfo.total_fatal_48h
-                : Number(website.logs_fatal_count ?? 0);
-              const logsCheckedAt = website.last_logs_checked_at;
+                : Number(activeSite.logs_fatal_count ?? 0);
+              const logsCheckedAt = activeSite.last_logs_checked_at;
 
               return (
                 <Grid>
@@ -1319,9 +1347,10 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
         {/* Tab 5: Remote Updates */}
         <Tabs.Panel value="updates" pt="md">
           <WebsiteUpdatesView
-            website={website}
+            website={currentWebsite}
             toolsEnabled={toolsEnabled}
             onNavigateToPlans={onNavigateToPlans}
+            onUpdatesChanged={handleUpdatesChanged}
           />
         </Tabs.Panel>
 

@@ -857,8 +857,16 @@ class Websites extends ResourceController
             return $this->failAgentResponse($res, 'Falha ao aplicar atualização');
         }
 
-        // Se após atualizar, o agente retornar novo resumo de pendências, persiste
-        if (!empty($res['body']['data']['summary'])) {
+        // Após aplicar atualização com sucesso, consulta imediatamente o estado fresco de updates
+        // e persiste no banco de dados do SaaS
+        $freshUpdates = $this->makeAgentRequestWithFallback($website['url'], '/updates', 'GET', $website['agent_token']);
+        if (!empty($freshUpdates['body']) && $freshUpdates['status'] === 200) {
+            $data = $freshUpdates['body']['data'] ?? $freshUpdates['body'];
+            if (!empty($data) && is_array($data)) {
+                $this->persistUpdatesCheck((int)$id, $data);
+                $res['body']['data'] = $data;
+            }
+        } elseif (!empty($res['body']['data']['summary'])) {
             $this->persistUpdatesCheck((int)$id, $res['body']['data']);
         }
 
