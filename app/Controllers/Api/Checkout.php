@@ -122,17 +122,12 @@ class Checkout extends ResourceController
                 ];
                 $userModel->update($userId, $reactivateData);
 
-                // Reativa os sites do usuário
-                $websiteModel = new \App\Models\WebsiteModel();
-                $websiteModel->where('user_id', $userId)->set(['is_active' => 1])->update();
-
                 // Log de auditoria
                 try {
-                    $logModel = new \App\Models\PlatformErrorLogModel();
-                    $logModel->logError([
-                        'error_type'    => 'audit_notice',
+                    \App\Services\PlatformErrorLogger::log([
                         'severity'      => 'info',
                         'user_id'       => $userId,
+                        'user_email'    => $existingUser['email'] ?? null,
                         'error_message' => "Conta #{$userId} ({$existingUser['email']}) foi reativada com sucesso via checkout/pagamento no cartão durante a carência de 90 dias.",
                     ]);
                 } catch (\Throwable $e) {}
@@ -309,7 +304,9 @@ class Checkout extends ResourceController
                                                 ->findAll();
         foreach ($existingActiveSubs as $prevSub) {
             if (!empty($prevSub['gateway_subscription_id'])) {
-                $asaasService->cancelSubscription($prevSub['gateway_subscription_id']);
+                try {
+                    $asaasService->cancelSubscription($prevSub['gateway_subscription_id']);
+                } catch (\Throwable $e) {}
             }
             $subscriptionModel->update($prevSub['id'], [
                 'status'      => 'canceled',

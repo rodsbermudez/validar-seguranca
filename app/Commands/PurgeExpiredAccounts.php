@@ -74,11 +74,10 @@ class PurgeExpiredAccounts extends BaseCommand
 
                     // Registrar log de erro/auditoria da plataforma
                     try {
-                        $logModel = new \App\Models\PlatformErrorLogModel();
-                        $logModel->logError([
-                            'error_type'    => 'audit_notice',
+                        \App\Services\PlatformErrorLogger::log([
                             'severity'      => 'info',
                             'user_id'       => $userId,
+                            'user_email'    => $email,
                             'error_message' => "Expurgo de 90 dias concluído para o usuário {$email} (#{$userId}). {$deletedSitesCount} sites removidos permanentemente. Histórico de IA e pagamentos arquivados com sucesso.",
                         ]);
                     } catch (\Throwable $e) {

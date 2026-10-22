@@ -145,13 +145,7 @@ class Auth extends ResourceController
             'purged_at'              => null,
         ]);
 
-        // 2. Reativar os sites do usuário
-        $websiteModel = new WebsiteModel();
-        $websiteModel->where('user_id', $user['id'])->set([
-            'is_active' => 1,
-        ])->update();
-
-        // 3. Se for plano gratuito, reativa a assinatura localmente
+        // 2. Se for plano gratuito, reativa a assinatura localmente
         if ($planPrice <= 0) {
             $subModel = new SubscriptionModel();
             $sub = $subModel->where('user_id', $user['id'])->orderBy('id', 'DESC')->first();
@@ -165,11 +159,10 @@ class Auth extends ResourceController
 
         // Registrar no log da plataforma
         try {
-            $logModel = new \App\Models\PlatformErrorLogModel();
-            $logModel->logError([
-                'error_type'    => 'audit_notice',
+            \App\Services\PlatformErrorLogger::log([
                 'severity'      => 'info',
-                'user_id'       => $user['id'],
+                'user_id'       => (int) $user['id'],
+                'user_email'    => $user['email'] ?? null,
                 'error_message' => "Conta do usuário {$user['email']} (#{$user['id']}) foi reativada com sucesso dentro do período de carência de 90 dias.",
             ]);
         } catch (\Throwable $e) {

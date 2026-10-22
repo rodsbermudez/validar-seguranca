@@ -261,9 +261,7 @@ class Users extends ResourceController
         $sitesCount = count($websites);
         if (!empty($websites)) {
             $websiteModel->where('user_id', $user['id'])->set([
-                'is_active'     => 0,
                 'is_connected'  => 0,
-                'agent_status'  => 'disconnected',
             ])->update();
         }
 
@@ -344,9 +342,7 @@ class Users extends ResourceController
         $sitesCount = count($websites);
         if (!empty($websites)) {
             $websiteModel->where('user_id', $user['id'])->set([
-                'is_active'     => 0,
                 'is_connected'  => 0,
-                'agent_status'  => 'disconnected',
             ])->update();
         }
 
@@ -365,11 +361,10 @@ class Users extends ResourceController
 
         // Registrar no log da plataforma
         try {
-            $logModel = new \App\Models\PlatformErrorLogModel();
-            $logModel->logError([
-                'error_type'    => 'audit_notice',
+            \App\Services\PlatformErrorLogger::log([
                 'severity'      => 'warning',
-                'user_id'       => $user['id'],
+                'user_id'       => (int) $user['id'],
+                'user_email'    => $user['email'] ?? null,
                 'error_message' => "Usuário {$user['email']} (#{$user['id']}) solicitou a exclusão da conta com confirmação por senha. Carência de 90 dias agendada até {$formattedScheduled}. Sites desconectados e faturas suspensas.",
             ]);
         } catch (\Throwable $e) {

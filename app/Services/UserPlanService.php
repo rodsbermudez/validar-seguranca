@@ -400,11 +400,6 @@ class UserPlanService
             'custom_ai_token_limit' => null,
         ];
 
-        $updated = (bool)$userModel->update($userId, $dataToUpdate);
-        if ($updated) {
-            $websiteModel = new WebsiteModel();
-            $websiteModel->where('user_id', $userId)->set(['is_active' => 1])->update();
-        }
-        return $updated;
+        return (bool)$userModel->update($userId, $dataToUpdate);
     }
 }
