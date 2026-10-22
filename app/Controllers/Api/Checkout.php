@@ -70,32 +70,77 @@ class Checkout extends ResourceController
         $userModel = new UserModel();
         $existingUser = $userModel->where('email', $email)->first();
 
-        // Usuário autenticado via JWT (se houver)
+        // Usuário autenticado via JWT (seja via filter ou via header Authorization Bearer)
         $authUser = $this->request->userData ?? null;
-        $isNewSignup = !empty($json['is_new_signup']);
+        if (!$authUser) {
+            $authHeader = $this->request->getHeaderLine('Authorization');
+            if (!empty($authHeader) && preg_match('/Bearer\s(\S+)/', $authHeader, $matches)) {
+                $authUser = \App\Libraries\JWTAuth::validateToken($matches[1]);
+            }
+        }
 
         if ($existingUser) {
             $userStatus = $existingUser['account_status'] ?? 'active';
 
-            // 1. Em período de carência de 90 dias: deve logar para reativar
-            if ($userStatus === 'pending_deletion') {
+            // Verifica se o usuário provou a titularidade da conta (por JWT ou fornecendo a senha correta)
+            $isOwnerByToken = $authUser && (int)$authUser->id === (int)$existingUser['id'];
+            $isOwnerByPassword = !empty($password) && password_verify($password, $existingUser['password_hash']);
+            $isOwner = $isOwnerByToken || $isOwnerByPassword;
+
+            if (!$isOwner) {
+                $hasPasswordProvided = !empty($password);
+                if ($hasPasswordProvided) {
+                    $errorMessage = ($userStatus === 'pending_deletion')
+                        ? 'Senha incorreta para esta conta em período de carência (90 dias). Digite a senha cadastrada para reativar sua conta e seus sites.'
+                        : 'Senha incorreta para esta conta existente. Digite a senha cadastrada da conta para continuar.';
+                } else {
+                    $errorMessage = ($userStatus === 'pending_deletion')
+                        ? 'Esta conta está em período de carência (90 dias). Para reativar sua conta e seus sites agora com este cartão, informe a sua senha de acesso.'
+                        : 'Este e-mail já possui cadastro na plataforma. Para contratar ou gerenciar seu plano, informe a senha da sua conta.';
+                }
+
                 return $this->respond([
                     'status'              => 409,
                     'user_exists'         => true,
-                    'is_pending_deletion' => true,
-                    'message'             => 'Esta conta está em período de carência para exclusão (90 dias). Por favor, faça login com sua conta para recuperar e reativar seus dados.',
+                    'can_reactivate'      => true,
+                    'is_pending_deletion' => ($userStatus === 'pending_deletion'),
+                    'message'             => $errorMessage,
                 ], 409);
             }
 
-            // 2. Conta purgada após os 90 dias: permite reativar com nova contratação limpa
-            if ($userStatus === 'purged') {
-                if (empty($password) || strlen($password) < 6) {
-                    return $this->fail('Defina uma senha de acesso com no mínimo 6 caracteres.', 400);
-                }
-                $userId = (int) $existingUser['id'];
+            $userId = (int) $existingUser['id'];
+
+            // Se a conta estava em carência de 90 dias, REATIVA A CONTA E OS SITES AGORA
+            if ($userStatus === 'pending_deletion') {
+                $reactivateData = [
+                    'account_status'        => 'active',
+                    'is_active'             => 1,
+                    'plan_id'               => $planId,
+                    'deletion_requested_at' => null,
+                    'deletion_scheduled_at' => null,
+                    'purged_at'             => null,
+                ];
+                $userModel->update($userId, $reactivateData);
+
+                // Reativa os sites do usuário
+                $websiteModel = new \App\Models\WebsiteModel();
+                $websiteModel->where('user_id', $userId)->set(['is_active' => 1])->update();
+
+                // Log de auditoria
+                try {
+                    $logModel = new \App\Models\PlatformErrorLogModel();
+                    $logModel->logError([
+                        'error_type'    => 'audit_notice',
+                        'severity'      => 'info',
+                        'user_id'       => $userId,
+                        'error_message' => "Conta #{$userId} ({$existingUser['email']}) foi reativada com sucesso via checkout/pagamento no cartão durante a carência de 90 dias.",
+                    ]);
+                } catch (\Throwable $e) {}
+
+                $user = array_merge($existingUser, $reactivateData);
+            } elseif ($userStatus === 'purged') {
+                // Conta purgada após os 90 dias: reativação limpa
                 $resetData = [
-                    'name'                  => $name,
-                    'password_hash'         => password_hash($password, PASSWORD_DEFAULT),
                     'role'                  => 'user',
                     'is_active'             => 1,
                     'account_status'        => 'active',
@@ -104,29 +149,17 @@ class Checkout extends ResourceController
                     'deletion_scheduled_at' => null,
                     'purged_at'             => null,
                 ];
-                if (!empty($cpfCnpj)) $resetData['cpf_cnpj'] = $cpfCnpj;
-                if (!empty($phone)) $resetData['phone'] = $phone;
-                if (!empty($postalCode)) $resetData['postal_code'] = $postalCode;
-                if (!empty($address)) $resetData['address'] = $address;
-                if (!empty($addressNumber)) $resetData['address_number'] = $addressNumber;
-                if (!empty($complement)) $resetData['complement'] = $complement;
-                if (!empty($province)) $resetData['province'] = $province;
-                if (!empty($city)) $resetData['city'] = $city;
-                if (!empty($state)) $resetData['state'] = $state;
-
+                if (!empty($name)) $resetData['name'] = $name;
+                if (!empty($password)) $resetData['password_hash'] = password_hash($password, PASSWORD_DEFAULT);
                 $userModel->update($userId, $resetData);
                 $user = array_merge($existingUser, $resetData);
             } else {
-                // 3. Conta ativa existente:
-                if ($isNewSignup || !$authUser || (int)$authUser->id !== (int)$existingUser['id']) {
-                    return $this->respond([
-                        'status'      => 409,
-                        'user_exists' => true,
-                        'message'     => 'Este e-mail já possui cadastro na plataforma. Por favor, faça login com sua conta para contratar ou gerenciar sua assinatura.',
-                    ], 409);
-                }
-                $userId = (int)$existingUser['id'];
-                $user = $existingUser;
+                // Conta ativa existente: atualiza plano e status
+                $userModel->update($userId, [
+                    'plan_id'   => $planId,
+                    'is_active' => 1,
+                ]);
+                $user = array_merge($existingUser, ['plan_id' => $planId, 'is_active' => 1]);
             }
 
             // Atualiza telefone/cpf e endereço se faltava
@@ -681,27 +714,31 @@ class Checkout extends ResourceController
                     'status'              => 200,
                     'valid'               => true,
                     'exists'              => true,
+                    'can_reactivate'      => true,
                     'is_pending_deletion' => true,
-                    'message'             => 'Esta conta está em período de carência para exclusão (90 dias). Faça login para recuperar e reativar seus dados.',
+                    'user_name'           => $user['name'] ?? null,
+                    'message'             => 'Esta conta está em período de carência (90 dias). Digite sua senha de acesso para reativar sua conta agora com este plano.',
                 ]);
             }
 
             if ($accountStatus === 'purged') {
                 return $this->respond([
-                    'status'    => 200,
-                    'valid'     => true,
-                    'exists'    => false, // Permite seguir e recriar a conta limpamente
-                    'is_purged' => true,
-                    'message'   => 'E-mail disponível para contratação (reativação de nova conta).',
+                    'status'         => 200,
+                    'valid'          => true,
+                    'exists'         => false,
+                    'can_reactivate' => true,
+                    'is_purged'      => true,
+                    'message'        => 'E-mail disponível para contratação (reativação de nova conta).',
                 ]);
             }
 
             return $this->respond([
-                'status'      => 200,
-                'valid'       => true,
-                'exists'      => true,
-                'user_name'   => $user['name'] ?? null,
-                'message'     => 'Este e-mail já possui cadastro na plataforma. Faça login com sua conta para gerenciar seu plano.',
+                'status'         => 200,
+                'valid'          => true,
+                'exists'         => true,
+                'can_reactivate' => true,
+                'user_name'      => $user['name'] ?? null,
+                'message'        => 'Este e-mail já possui cadastro. Digite a sua senha de acesso para reativar ou atualizar o plano da sua conta.',
             ]);
         }
 

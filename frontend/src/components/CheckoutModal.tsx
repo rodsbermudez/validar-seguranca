@@ -18,6 +18,7 @@ import {
   Box,
   SimpleGrid,
   NumberInput,
+  Tooltip,
 } from '@mantine/core';
 import {
   IconCheck,
@@ -26,7 +27,7 @@ import {
   IconShieldCheck,
   IconLock,
   IconAlertCircle,
-  IconAlertTriangle,
+  IconInfoCircle,
   IconArrowRight,
   IconArrowLeft,
   IconSparkles,
@@ -86,6 +87,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   // Email validation state
   const [emailChecking, setEmailChecking] = useState(false);
   const [emailExists, setEmailExists] = useState(false);
+  const [isPendingDeletion, setIsPendingDeletion] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
 
   // Active payment methods configuration
@@ -167,6 +169,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       setError(null);
       setEmailChecking(false);
       setEmailExists(false);
+      setIsPendingDeletion(false);
       setEmailError(null);
       setCheckoutData(null);
       setExtraWebsites(initialExtraWebsites);
@@ -197,6 +200,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         if (currentUser.city) setCity(currentUser.city);
         if (currentUser.state) setState(currentUser.state);
         setEmailExists(false);
+        setIsPendingDeletion(false);
         setEmailError(null);
       } else {
         setName('');
@@ -205,6 +209,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         setPhone('');
         setPassword('');
         setEmailExists(false);
+        setIsPendingDeletion(false);
         setEmailError(null);
       }
     }
@@ -215,6 +220,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     const clean = emailToTest.trim().toLowerCase();
     if (!clean || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean)) {
       setEmailExists(false);
+      setIsPendingDeletion(false);
       setEmailError(null);
       return;
     }
@@ -224,9 +230,16 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       const res = await checkCheckoutEmail(clean);
       if (res.exists) {
         setEmailExists(true);
-        setEmailError('Este e-mail já possui cadastro na plataforma.');
+        setIsPendingDeletion(!!res.is_pending_deletion);
+        // Se a conta pode ser reativada ou confirmada via senha, não mostramos erro impeditivo no input
+        if (res.can_reactivate || res.is_pending_deletion) {
+          setEmailError(null);
+        } else {
+          setEmailError('Este e-mail já possui cadastro na plataforma.');
+        }
       } else {
         setEmailExists(false);
+        setIsPendingDeletion(false);
         setEmailError(null);
       }
     } catch (err) {
@@ -452,23 +465,35 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
     if (!currentUser) {
       if (emailExists) {
-        setError('Este e-mail já possui cadastro na plataforma. Por favor, faça login com sua conta para continuar.');
-        return;
-      }
-
-      try {
-        setEmailChecking(true);
-        const checkRes = await checkCheckoutEmail(email.trim().toLowerCase());
-        if (checkRes.exists) {
-          setEmailExists(true);
-          setEmailError('Este e-mail já possui cadastro na plataforma.');
-          setError('Este e-mail já possui cadastro na plataforma. Por favor, faça login com sua conta para contratar ou gerenciar sua assinatura.');
+        if (!password) {
+          setError(
+            isPendingDeletion
+              ? 'Esta conta está em período de carência (90 dias). Digite a senha da sua conta para reativar.'
+              : 'Este e-mail já possui cadastro. Digite a senha da sua conta para confirmar a contratação.'
+          );
           return;
         }
-      } catch (e) {
-        // Ignora falha de rede da checagem prévia e deixa o backend validar
-      } finally {
-        setEmailChecking(false);
+      } else {
+        try {
+          setEmailChecking(true);
+          const checkRes = await checkCheckoutEmail(email.trim().toLowerCase());
+          if (checkRes.exists) {
+            setEmailExists(true);
+            setIsPendingDeletion(!!checkRes.is_pending_deletion);
+            if (!password) {
+              setError(
+                checkRes.is_pending_deletion
+                  ? 'Esta conta está em período de carência (90 dias). Digite a senha da sua conta para reativar.'
+                  : 'Este e-mail já possui cadastro. Digite a senha da sua conta para confirmar a contratação.'
+              );
+              return;
+            }
+          }
+        } catch (e) {
+          // Ignora falha de rede da checagem prévia e deixa o backend validar
+        } finally {
+          setEmailChecking(false);
+        }
       }
     }
 
@@ -536,7 +561,12 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     } catch (err: any) {
       if (err?.response?.data?.user_exists) {
         setEmailExists(true);
-        setEmailError('Este e-mail já possui cadastro na plataforma.');
+        if (err?.response?.data?.is_pending_deletion) {
+          setIsPendingDeletion(true);
+        }
+        if (!err?.response?.data?.can_reactivate) {
+          setEmailError('Este e-mail já possui cadastro na plataforma.');
+        }
       }
       const msg =
         err?.response?.data?.messages?.error ||
@@ -715,6 +745,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   setEmail(e.target.value);
                   if (emailExists) {
                     setEmailExists(false);
+                    setIsPendingDeletion(false);
                     setEmailError(null);
                   }
                 }}
@@ -727,7 +758,9 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   emailChecking ? (
                     <Loader size="xs" color="indigo" />
                   ) : emailExists ? (
-                    <IconAlertCircle size={18} color="var(--mantine-color-red-5)" />
+                    <Tooltip label={isPendingDeletion ? "Conta em carência: confirme sua senha abaixo para reativar" : "Conta existente: confirme sua senha abaixo"}>
+                      <IconInfoCircle size={18} color={isPendingDeletion ? "var(--mantine-color-teal-5)" : "var(--mantine-color-blue-5)"} />
+                    </Tooltip>
                   ) : email && !emailError && !currentUser ? (
                     <IconCheck size={18} color="var(--mantine-color-green-5)" />
                   ) : null
@@ -737,27 +770,37 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
             {emailExists && !currentUser && (
               <Alert
-                color="yellow"
+                color={isPendingDeletion ? "teal" : "blue"}
                 variant="light"
-                icon={<IconAlertTriangle size={18} />}
-                title="E-mail já cadastrado na plataforma"
+                icon={<IconInfoCircle size={18} />}
+                title={isPendingDeletion ? "Reativação de Conta em Carência (90 dias)" : "Conta já cadastrada na plataforma"}
               >
                 <Stack gap="xs">
                   <Text size="sm">
-                    Identificamos que o e-mail <strong>{email}</strong> já possui uma conta ativa. Para assinar um novo plano ou gerenciar sua assinatura, faça login na sua conta existente.
+                    {isPendingDeletion ? (
+                      <>
+                        Identificamos que o e-mail <strong>{email}</strong> possui uma conta em período de carência.
+                        Digite a <strong>senha da sua conta</strong> abaixo para <strong>reativar sua conta e todos os seus sites</strong> imediatamente com a contratação deste plano.
+                      </>
+                    ) : (
+                      <>
+                        Identificamos que o e-mail <strong>{email}</strong> já possui cadastro.
+                        Basta digitar a <strong>senha da sua conta</strong> abaixo para contratar ou atualizar o plano da sua conta agora com este cartão.
+                      </>
+                    )}
                   </Text>
                   {onOpenLogin && (
                     <Group>
                       <Button
                         size="xs"
-                        variant="filled"
-                        color="yellow"
+                        variant="subtle"
+                        color={isPendingDeletion ? "teal" : "blue"}
                         onClick={() => {
                           onClose();
                           onOpenLogin();
                         }}
                       >
-                        Fazer Login com esta Conta
+                        Ou faça login tradicional se preferir
                       </Button>
                     </Group>
                   )}
@@ -785,13 +828,25 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
             {!currentUser && (
               <PasswordInput
-                label="Defina uma Senha de Acesso"
-                placeholder="Mínimo 6 caracteres"
+                label={
+                  emailExists
+                    ? isPendingDeletion
+                      ? 'Sua Senha de Acesso (para reativar sua conta)'
+                      : 'Sua Senha de Acesso (para confirmar sua conta)'
+                    : 'Defina uma Senha de Acesso'
+                }
+                placeholder={emailExists ? 'Digite a senha da sua conta' : 'Mínimo 6 caracteres'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 leftSection={<IconLock size={16} />}
                 required
-                description="Você usará este e-mail e senha para acessar sua conta."
+                description={
+                  emailExists
+                    ? isPendingDeletion
+                      ? 'Informe a senha da sua conta para validar sua identidade e reativar todos os seus dados e sites com este plano.'
+                      : 'Informe a senha da sua conta para validar a contratação deste plano.'
+                    : 'Você usará este e-mail e senha para acessar sua conta.'
+                }
               />
             )}
 

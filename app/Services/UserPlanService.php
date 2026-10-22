@@ -386,7 +386,11 @@ class UserPlanService
 
         $dataToUpdate = [
             'plan_id'               => $planId,
+            'account_status'        => 'active',
             'is_active'             => 1,
+            'deletion_requested_at' => null,
+            'deletion_scheduled_at' => null,
+            'purged_at'             => null,
             'extra_websites'        => $extraWebsites,
             'extra_websites_price'  => $extraWebsitesPrice,
             'extra_ai_tokens'       => $extraAiTokens,
@@ -396,6 +400,11 @@ class UserPlanService
             'custom_ai_token_limit' => null,
         ];
 
-        return (bool)$userModel->update($userId, $dataToUpdate);
+        $updated = (bool)$userModel->update($userId, $dataToUpdate);
+        if ($updated) {
+            $websiteModel = new WebsiteModel();
+            $websiteModel->where('user_id', $userId)->set(['is_active' => 1])->update();
+        }
+        return $updated;
     }
 }

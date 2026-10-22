@@ -1232,6 +1232,9 @@ export interface CheckEmailResponse {
   status: number;
   valid: boolean;
   exists: boolean;
+  can_reactivate?: boolean;
+  is_pending_deletion?: boolean;
+  is_purged?: boolean;
   user_name?: string;
   message: string;
 }
