@@ -8,6 +8,7 @@ use App\Models\PlanModel;
 use App\Models\SubscriptionModel;
 use App\Models\PaymentTransactionModel;
 use App\Models\SettingsModel;
+use App\Models\WebsiteModel;
 use App\Services\Payment\AsaasService;
 use App\Services\UserPlanService;
 use App\Libraries\JWTAuth;
@@ -22,9 +23,10 @@ class Checkout extends ResourceController
      */
     public function initiate()
     {
-        $json = $this->request->getJSON(true) ?? $this->request->getPost();
+        try {
+            $json = $this->request->getJSON(true) ?? $this->request->getPost();
 
-        $planId = (int)($json['plan_id'] ?? 0);
+            $planId = (int)($json['plan_id'] ?? 0);
         if (!$planId) {
             return $this->fail('O identificador do plano é obrigatório.', 400);
         }
@@ -495,6 +497,10 @@ class Checkout extends ResourceController
                 $websiteModel->where('user_id', $userId)->set(['is_connected' => 1])->update();
             }
 
+            $freshUser = $userModel->find($userId);
+            if ($freshUser) {
+                $user = $freshUser;
+            }
             $token = JWTAuth::generateToken($user);
 
             return $this->respond([
@@ -623,6 +629,18 @@ class Checkout extends ResourceController
                 'role'  => $user['role'] ?? 'user',
             ],
         ]);
+        } catch (\Throwable $e) {
+            try {
+                \App\Services\PlatformErrorLogger::log([
+                    'severity'      => 'error',
+                    'error_message' => 'Falha no checkout initiate: ' . $e->getMessage() . ' em ' . $e->getFile() . ':' . $e->getLine(),
+                    'stack_trace'   => $e->getTraceAsString(),
+                ]);
+            } catch (\Throwable $ignored) {}
+
+            log_message('error', 'Checkout initiate error: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
+            return $this->fail('Não foi possível processar a assinatura: ' . $e->getMessage(), 500);
+        }
     }
 
     /**
