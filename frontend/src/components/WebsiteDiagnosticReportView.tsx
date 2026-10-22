@@ -289,7 +289,7 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
                   loading={reconnecting}
                   onClick={handleReconnect}
                 >
-                  Reconectar Agente
+                  Conectar Agente
                 </Button>
               )}
 
@@ -321,7 +321,7 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
         {reconnectAlert && (
           <Alert
             color={reconnectAlert.type === 'success' ? 'green' : 'red'}
-            title={reconnectAlert.type === 'success' ? 'Sucesso' : 'Falha na Reconexão'}
+            title={reconnectAlert.type === 'success' ? 'Sucesso' : 'Falha na Conexão'}
             mb="md"
             withCloseButton
             onClose={() => setReconnectAlert(null)}
@@ -359,7 +359,7 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
                 loading={reconnecting}
                 onClick={handleReconnect}
               >
-                Reconectar Agente Agora
+                Conectar Agente Agora
               </Button>
             </Group>
           </Alert>
@@ -393,7 +393,7 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
                     loading={reconnecting}
                     onClick={handleReconnect}
                   >
-                    Tentar Reconectar Agora
+                    Tentar Conectar Agora
                   </Button>
                   <Button
                     variant="default"

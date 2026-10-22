@@ -332,6 +332,11 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
     }
   }, [isConnected, fetchDiagnosticData]);
 
+  const onUpdateWebsiteRef = useRef(onUpdateWebsite);
+  useEffect(() => {
+    onUpdateWebsiteRef.current = onUpdateWebsite;
+  }, [onUpdateWebsite]);
+
   const refreshWebsite = useCallback(async () => {
     try {
       const freshSite = await getWebsite(website.id);
@@ -350,14 +355,14 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
         if (mStatus) {
           setMaintenanceStatus(mStatus);
         }
-        if (onUpdateWebsite) {
-          onUpdateWebsite(freshSite);
+        if (onUpdateWebsiteRef.current) {
+          onUpdateWebsiteRef.current(freshSite);
         }
       }
     } catch (e) {
       // Silently catch background error
     }
-  }, [website.id, onUpdateWebsite, fetchDiagnosticData, fetchLatestScan]);
+  }, [website.id, fetchDiagnosticData, fetchLatestScan]);
 
   const handleUpdatesChanged = useCallback((newSummary?: UpdatesSummary, fullData?: UpdatesData) => {
     if (newSummary) {
@@ -379,8 +384,7 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
         last_updates_checked_at: new Date().toISOString().replace('T', ' ').substring(0, 19),
       }));
     }
-    refreshWebsite();
-  }, [refreshWebsite]);
+  }, []);
 
   useEffect(() => {
     if (activeTab === 'overview') {
@@ -749,7 +753,7 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
                 loading={reconnecting}
                 onClick={handleReconnect}
               >
-                Reconectar Agente
+                Conectar Agente
               </Button>
             )}
 
@@ -856,7 +860,7 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
                     onClick={handleReconnect}
                     disabled={reconnecting}
                   >
-                    Reconectar Agente
+                    Conectar Agente
                   </Menu.Item>
                 )}
               </Menu.Dropdown>
@@ -899,7 +903,7 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
                       A comunicação com o agente deste site está desativada. Todas as requisições automáticas e consultas externas foram suspensas para garantir a estabilidade do servidor.
                     </Text>
                     <Text size="xs" c="dimmed" mt={4}>
-                      Para restabelecer o monitoramento em tempo real, verifique se o plugin <strong>vexors.app - Diagnóstico</strong> está ativo no seu WordPress e clique em <strong>Reconectar Agente</strong>.
+                      Para restabelecer o monitoramento em tempo real, verifique se o plugin <strong>vexors.app - Diagnóstico</strong> está ativo no seu WordPress e clique em <strong>Conectar Agente</strong>.
                     </Text>
                   </Box>
                   <Group gap="xs">
@@ -910,7 +914,7 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
                       loading={reconnecting}
                       onClick={handleReconnect}
                     >
-                      Reconectar Agente
+                      Conectar Agente
                     </Button>
                     <Button
                       variant="default"
@@ -1431,7 +1435,7 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
                             loading={reconnecting}
                             onClick={handleReconnect}
                           >
-                            Reconectar
+                            Conectar
                           </Button>
                           <Button
                             variant="subtle"
@@ -1813,7 +1817,7 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
                             loading={reconnecting}
                             onClick={handleReconnect}
                           >
-                            Reconectar Agente Agora
+                            Conectar Agente Agora
                           </Button>
                         )}
                       </Group>
@@ -2313,7 +2317,7 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
             variant="light"
           >
             <Text size="xs">
-              Esta ação desliga a integração com o agente WordPress. Nenhuma requisição automática, leitura de logs, checagem de integridade ou verificação de updates será disparada para este servidor até que você reconecte manualmente.
+              Esta ação desliga a integração com o agente WordPress. Nenhuma requisição automática, leitura de logs, checagem de integridade ou verificação de updates será disparada para este servidor até que você conecte manualmente.
             </Text>
           </Alert>
 

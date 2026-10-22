@@ -318,7 +318,7 @@ export const WebsiteLogsView: React.FC<WebsiteLogsViewProps> = ({ website, onBac
                   ).
                 </Text>
                 <Text size="xs">
-                  2. Acesse o painel do seu WordPress em <b>vexors.app &gt; Diagnóstico</b> e clique no botão de <b>Reconectar / Re-sincronizar</b> para restaurar a chave da ponte.
+                  2. Acesse o painel do seu WordPress em <b>vexors.app &gt; Diagnóstico</b> e clique no botão de <b>Conectar / Sincronizar</b> para restaurar a chave da ponte.
                 </Text>
                 <Text size="xs">
                   3. Em caso de <b>Erro 404</b> (como acima), acesse no painel do WordPress em <b>Configurações &gt; Links Permanentes</b> e clique em <b>"Salvar Alterações"</b> para redefinir as rotas da REST API.

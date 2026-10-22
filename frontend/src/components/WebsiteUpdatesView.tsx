@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Paper,
   Title,
@@ -90,8 +90,13 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
+  const onUpdatesChangedRef = useRef(onUpdatesChanged);
+  useEffect(() => {
+    onUpdatesChangedRef.current = onUpdatesChanged;
+  }, [onUpdatesChanged]);
+
   const fetchUpdates = useCallback(async (isManualRefresh = false) => {
-    if (isManualRefresh) {
+    if (isManualRefresh || updatesData) {
       setRefreshing(true);
     } else {
       setLoading(true);
@@ -106,8 +111,8 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
       const payload = res.data?.data || res.data;
 
       setUpdatesData(payload);
-      if (onUpdatesChanged && payload?.summary) {
-        onUpdatesChanged(payload.summary, payload);
+      if (onUpdatesChangedRef.current && payload?.summary) {
+        onUpdatesChangedRef.current(payload.summary, payload);
       }
     } catch (err: any) {
       setErrorMsg(extractErrorMessage(err, 'Falha ao consultar atualizações do agente WordPress.'));
@@ -115,11 +120,12 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
       setLoading(false);
       setRefreshing(false);
     }
-  }, [website.id, onUpdatesChanged]);
+  }, [website.id, updatesData]);
 
   useEffect(() => {
     fetchUpdates();
-  }, [fetchUpdates]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [website.id]);
 
   const handleApplyUpdate = async (type: 'plugin' | 'theme' | 'core', itemKey: string) => {
     setUpdatingItem(itemKey);

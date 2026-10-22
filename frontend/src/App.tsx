@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   AppShell,
   Group,
@@ -47,6 +47,10 @@ export default function App() {
   const [dashboardTab, setDashboardTab] = useState<string>('overview');
   const [viewMode, setViewMode] = useState<'overview' | 'list' | 'dashboard' | 'report' | 'users' | 'solutions' | 'logs' | 'settings' | 'user-ai' | 'user-ai-view' | 'ai-monitoring' | 'landing' | 'platform-errors'>('overview');
   const [restoringRoute, setRestoringRoute] = useState<boolean>(true);
+
+  const handleUpdateWebsite = useCallback((updated: any) => {
+    setSelectedWebsite(updated);
+  }, []);
 
   // Detecta se a página foi acessada via link de compartilhamento de logs para o cliente
   const [shareToken, setShareToken] = useState<string | null>(() => {
@@ -554,7 +558,7 @@ export default function App() {
                 setSelectedAiUser(impersonatedUser || user);
                 setViewMode('user-ai-view');
               }}
-              onUpdateWebsite={(updated) => setSelectedWebsite(updated)}
+              onUpdateWebsite={handleUpdateWebsite}
             />
           ) : viewMode === 'list' ? (
             <WebsitesList
