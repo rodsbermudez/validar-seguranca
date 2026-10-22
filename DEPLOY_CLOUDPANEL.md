@@ -222,6 +222,27 @@ O build irá gerar automaticamente os arquivos estáticos dentro de `public/`.
 
 ---
 
+## Passo 11: Configurar Cron Jobs no CloudPanel (Manutenção em Segundo Plano)
+
+Para garantir a governança automatizada das contas, cancelamentos e a política de carência de 90 dias com exclusão definitiva de dados expirados:
+
+1. No CloudPanel, acesse o seu site e clique na aba **Cron Jobs**.
+2. Clique no botão **+ Add Cron Job**.
+3. Configure os campos:
+   * **Period**: Selecione `Every Day at 03:00` (ou preencha `0 3 * * *`).
+   * **User**: Selecione o usuário do site (ex: `vexors`).
+   * **Command**:
+     ```bash
+     php /home/vexors/htdocs/seudominio.com/spark accounts:purge-expired > /dev/null 2>&1
+     ```
+4. Clique em **Save**.
+
+> 💡 **O que esta rotina faz diariamente**:
+> - Identifica contas cuja assinatura foi cancelada e o período pago já terminou, colocando-as automaticamente na carência de 90 dias com sites desconectados.
+> - Identifica contas cuja carência de 90 dias venceu e executa a exclusão definitiva dos dados dos websites, mantendo registros fiscais e volumetria de IA para conformidade.
+
+---
+
 ## 🛠️ Checklist de Verificação Pós-Deploy:
 
 - [ ] Acessar `https://seudominio.com` no navegador e verificar se a Landing Page carrega normalmente.
@@ -229,3 +250,4 @@ O build irá gerar automaticamente os arquivos estáticos dentro de `public/`.
 - [ ] No menu superior **Configurações**, acessar **Logs de Erros da Plataforma** e verificar se a tela abre sem erros.
 - [ ] Testar adicionar um site WordPress e validar o download do plugin agente em ZIP.
 - [ ] Testar a conexão do agente WordPress com a plataforma.
+- [ ] Confirmar que o Cron Job `accounts:purge-expired` está configurado e ativo no CloudPanel.

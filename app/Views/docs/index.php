@@ -665,7 +665,7 @@
             </div>
 
             <div class="nav-group">
-                <div class="nav-title">Funcionalidades Principais</div>
+                <div class="nav-title">Funcionalidades Gerais (Usuários)</div>
                 <ul class="nav-list">
                     <li class="nav-item"><a href="#auditoria-de-seguranca"><span class="nav-icon">🛡️</span> Auditoria & Varreduras</a></li>
                     <li class="nav-item" style="margin-left: 10px;"><a href="#testes-resumo" style="font-size: 0.82rem; opacity: 0.85;"><span class="nav-icon">📋</span> Catálogo de Testes</a></li>
@@ -676,15 +676,16 @@
                     <li class="nav-item"><a href="#logs-de-atividades"><span class="nav-icon">📝</span> Logs de Atividades & Diário Técnico</a></li>
                     <li class="nav-item"><a href="#link-publico-clientes"><span class="nav-icon">🔗</span> Link Público para Clientes</a></li>
                     <li class="nav-item"><a href="#remediacao-e-ia"><span class="nav-icon">🤖</span> Remediação & Fixes WP</a></li>
-                    <li class="nav-item"><a href="#gestao-plano-cliente"><span class="nav-icon">📦</span> Gestão do Plano, Assinaturas & Add-ons</a></li>
+                    <li class="nav-item"><a href="#gestao-plano-cliente"><span class="nav-icon">📦</span> Gestão do Plano & Assinaturas</a></li>
+                    <li class="nav-item"><a href="#exclusao-conta-carencia"><span class="nav-icon">🔒</span> Exclusão de Conta & Carência (90 Dias)</a></li>
                 </ul>
             </div>
 
             <div class="nav-group admin-only">
-                <div class="nav-title">Administração (Restrito)</div>
+                <div class="nav-title">Administração & Governança (Restrito)</div>
                 <ul class="nav-list">
                     <li class="nav-item admin-only"><a href="#catalogo-de-solucoes"><span class="nav-icon">📚</span> Catálogo de Soluções</a></li>
-                    <li class="nav-item admin-only"><a href="#gestao-de-usuarios"><span class="nav-icon">👥</span> Gestão de Usuários, Planos & Add-ons</a></li>
+                    <li class="nav-item admin-only"><a href="#gestao-de-usuarios"><span class="nav-icon">👥</span> Gestão de Usuários, Planos & Expurgo</a></li>
                     <li class="nav-item admin-only"><a href="#configuracao-planos-ia"><span class="nav-icon">⚙️</span> Catálogo de Planos & Motores de IA</a></li>
                     <li class="nav-item admin-only"><a href="#monitoramento-ia-global"><span class="nav-icon">💰</span> Monitoramento Geral de IA & Custos</a></li>
                     <li class="nav-item admin-only"><a href="#configuracao-pagamentos-gateway"><span class="nav-icon">💳</span> Formas de Pagamento & Gateway Asaas</a></li>
@@ -2130,12 +2131,13 @@ location ~* /(wp-config\.php|readme\.html|license\.txt) {
                 <h2>5. Upgrade de Plano & Migração Imediata</h2>
                 <p>Caso sua operação exija limites superiores do plano base (ex: migrar do plano <em>Iniciante</em> para o plano <em>Profissional</em> ou <em>Full</em>), a mudança pode ser feita em 1 clique através do botão <strong>"Fazer Upgrade"</strong>. A ativação é imediata no gateway de pagamento e os novos limites de sites e cotas de IA ficam disponíveis instantaneamente.</p>
 
-                <h2>6. Cancelamento de Assinatura Sem Burocracia</h2>
-                <p>A qualquer momento, o cliente pode solicitar o cancelamento da assinatura diretamente na tela <strong>Gestão do Plano</strong>:</p>
+                <h2>6. Cancelamento de Assinatura & Carência Automática</h2>
+                <p>A qualquer momento, o cliente pode solicitar o cancelamento da assinatura diretamente na tela <strong>Gestão do Plano</strong> através do botão <em>"Cancelar Assinatura"</em>:</p>
                 <ul>
-                    <li><strong>Preservação Integral do Período Pago:</strong> Ao cancelar, seu acesso <strong>não é bloqueado imediatamente</strong>. Você continua com acesso pleno a todos os sites, auditorias e limites até a data final do ciclo vigente já quitado (<code>current_period_end</code>).</li>
-                    <li><strong>Sem Novas Cobranças:</strong> A cobrança recorrente no gateway é interrompida automaticamente, garantindo que nenhum novo lançamento seja gerado.</li>
-                    <li><strong>Reativação Simples:</strong> Caso decida reativar sua assinatura após o término do ciclo, basta acessar o painel e realizar uma nova contratação de plano.</li>
+                    <li><strong>Sem Novas Cobranças:</strong> A cobrança recorrente no gateway Asaas é imediatamente cancelada, garantindo que nenhum novo lançamento seja gerado no cartão de crédito.</li>
+                    <li><strong>Preservação Integral do Período Pago:</strong> Ao cancelar, seu acesso <strong>não é interrompido no mesmo instante</strong>. Você continua usufruindo de 100% dos recursos, sites conectados, auditorias e limites contratados até a data de término do ciclo já quitado (<code>current_period_end</code>).</li>
+                    <li><strong>Entrada Automática em Carência de 90 Dias:</strong> Ao final do período pago já quitado, caso a assinatura não seja reativada, a conta transiciona automaticamente para o status de <strong>Carência de 90 Dias</strong> (<code>pending_deletion</code>). Nesse momento, os sites são desconectados preventivamente e inicia-se a contagem regressiva de 90 dias para exclusão definitiva.</li>
+                    <li><strong>Reativação com Recuperação Total dos Dados:</strong> Durante os 90 dias de carência, basta fazer login para reativar a assinatura contratando um plano. Todos os sites, históricos e análises serão recuperados intactos.</li>
                 </ul>
 
                 <h2>7. Histórico Mensal & Auditoria de Consumo</h2>
@@ -2147,6 +2149,81 @@ location ~* /(wp-config\.php|readme\.html|license\.txt) {
                     <li><strong>Total de Tokens:</strong> Soma total consumida no período.</li>
                 </ul>
                 <p>Abaixo do histórico, uma tabela detalhada com paginação permite auditar cada requisição individual com data, horário, funcionalidade e website de origem.</p>
+            </section>
+
+            <!-- 6. Exclusão de Conta, Carência de 90 Dias & Privacidade (Geral) -->
+            <section id="exclusao-conta-carencia" class="doc-section">
+                <h1>🔒 Exclusão de Conta, Carência de 90 Dias & Privacidade (LGPD)</h1>
+                <p>Em conformidade com as melhores práticas de privacidade e a LGPD (Lei Geral de Proteção de Dados), o usuário tem autonomia para solicitar a exclusão de sua conta a qualquer momento diretamente no painel do usuário (menu superior do perfil &gt; <em>Minha Conta</em> &gt; <em>Excluir Minha Conta</em>).</p>
+
+                <h2>1. Confirmação com Senha Atual da Conta</h2>
+                <p>Por se tratar de uma ação de encerramento de serviços, a plataforma adota uma camada crítica de segurança: <strong>é obrigatório digitar a senha atual de acesso à conta</strong> para autorizar a solicitação. Isso impede cliques acidentais ou ações não autorizadas caso uma sessão permaneça aberta em computadores compartilhados.</p>
+
+                <h2>2. O que Acontece Imediatamente ao Solicitar a Exclusão</h2>
+                <p>No momento exato em que a senha é confirmada e a solicitação é processada:</p>
+                <div class="grade-grid" style="grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); margin: 20px 0;">
+                    <div class="grade-card" style="text-align: left; padding: 18px; background: rgba(239, 68, 68, 0.08); border-color: rgba(239, 68, 68, 0.25);">
+                        <strong style="color: #f87171; font-size: 1rem; display: flex; align-items: center; gap: 8px;">
+                            <span>💳</span> Cancelamento Financeiro
+                        </strong>
+                        <p style="font-size: 0.86rem; color: #cbd5e1; margin-top: 8px;">
+                            Qualquer assinatura recorrente vinculada à conta é imediatamente cancelada no gateway Asaas. Nenhuma cobrança futura será realizada.
+                        </p>
+                    </div>
+
+                    <div class="grade-card" style="text-align: left; padding: 18px; background: rgba(245, 158, 11, 0.08); border-color: rgba(245, 158, 11, 0.25);">
+                        <strong style="color: #fbbf24; font-size: 1rem; display: flex; align-items: center; gap: 8px;">
+                            <span>🔌</span> Desconexão Imediata dos Sites
+                        </strong>
+                        <p style="font-size: 0.86rem; color: #cbd5e1; margin-top: 8px;">
+                            Todos os sites WordPress monitorados são desconectados da plataforma (<code>is_connected = 0</code>), interrompendo rotinas ativas de monitoramento.
+                        </p>
+                    </div>
+
+                    <div class="grade-card" style="text-align: left; padding: 18px; background: rgba(99, 102, 241, 0.08); border-color: rgba(99, 102, 241, 0.25);">
+                        <strong style="color: #818cf8; font-size: 1rem; display: flex; align-items: center; gap: 8px;">
+                            <span>⏳</span> Carência de 90 Dias Ativada
+                        </strong>
+                        <p style="font-size: 0.86rem; color: #cbd5e1; margin-top: 8px;">
+                            A conta recebe o status <code>pending_deletion</code> e a data de exclusão definitiva é agendada para <strong>exatamente 90 dias</strong> no futuro.
+                        </p>
+                    </div>
+                </div>
+
+                <h2>3. Regras e Comportamento Durante os 90 Dias de Carência</h2>
+                <p>Durante a janela de carência de 90 dias, os dados dos sites permanecem salvos no banco de dados para possibilitar o arrependimento e a recuperação rápida da operação:</p>
+                <ul>
+                    <li><strong>Tentativa de Login pelo Usuário:</strong> Ao acessar a tela de login e informar seu e-mail e senha, o sistema detecta a carência e exibe a tela de <strong>Reativação de Conta</strong>. Caso o usuário decida retornar, basta reativar sua assinatura contratando seu plano anterior por cartão de crédito. Ao aprovar o pagamento, a conta volta a ficar <code>active</code> e <strong>todos os sites, relatórios, históricos e notas de manutenção são preservados intactos</strong>.</li>
+                    <li><strong>Tentativa de Novo Cadastro com o Mesmo E-mail:</strong> Se o usuário (ou terceiro) tentar registrar uma nova conta utilizando o mesmo endereço de e-mail na tela de cadastro da Landing Page durante os 90 dias, o sistema bloqueia o cadastro duplicado e orienta o usuário a entrar na conta existente para reativá-la.</li>
+                </ul>
+
+                <h2>4. O que Acontece Após os 90 Dias (Expurgo Definitivo)</h2>
+                <p>Transcorridos os 90 dias de carência sem que o usuário tenha reativado a conta, a rotina automatizada da plataforma (<code>PurgeExpiredAccounts</code>) executa a limpeza final irreversível:</p>
+
+                <div class="callout callout-warning">
+                    <div class="callout-title">🗑️ Dados Excluídos em Definitivo (Irreversível)</div>
+                    <p>Todos os registros operacionais vinculados aos websites do usuário são permanentemente deletados do banco de dados:</p>
+                    <ul style="margin-top: 8px; margin-bottom: 0;">
+                        <li>Cadastro de websites (domínios, tokens e chaves do agente);</li>
+                        <li>Históricos de auditorias de segurança e varreduras de vulnerabilidades;</li>
+                        <li>Relatórios de integridade criptográfica do core WordPress;</li>
+                        <li>Logs de atividades, intervenções técnicas e notas de manutenção;</li>
+                        <li>Opções de regras salvas do plugin de fixes.</li>
+                    </ul>
+                </div>
+
+                <div class="callout callout-info">
+                    <div class="callout-title">⚖️ Dados Preservados para Conformidade Fiscal e Auditoria de IA</div>
+                    <p>Para cumprimento de obrigações legais, fiscais (guarda de notas e transações por prazo legal) e preservação da integridade contábil da plataforma:</p>
+                    <ul style="margin-top: 8px; margin-bottom: 0;">
+                        <li><strong>Identificação Cadastral:</strong> O registro da conta do usuário é mantido com o status <code>purged</code> e data de expurgo (<code>purged_at</code>).</li>
+                        <li><strong>Histórico Financeiro:</strong> O registro de faturas e transações efetuadas (<code>payment_transactions</code>) é mantido 100% preservado para fins contábeis e fiscais.</li>
+                        <li><strong>Consumo de IA:</strong> Os registros volumétricos de chamadas e tokens de inteligência artificial (<code>ai_usage_logs</code>) permanecem vinculados ao ID do usuário, garantindo que o DRE administrativo e os custos históricos da plataforma não sejam corrompidos.</li>
+                    </ul>
+                </div>
+
+                <h2>5. Novo Cadastro Após o Expurgo Definitivo</h2>
+                <p>Após a conclusão do expurgo dos 90 dias (status <code>purged</code>), o endereço de e-mail do usuário fica novamente liberado para realizar um novo cadastro na plataforma pelo fluxo normal da Landing Page, iniciando uma conta do zero no plano escolhido.</p>
             </section>
 
             <!-- 6. Catálogo de Soluções -->
@@ -2243,6 +2320,29 @@ location ~* /(wp-config\.php|readme\.html|license\.txt) {
                     <li><strong>Painel DRE & Margem de Contribuição (Exclusivo Admin):</strong> O sistema calcula em tempo real o <strong>Faturamento Mensal Contratado (R$)</strong> contra o <strong>Custo Real da API de IA Consumida no Mês (R$)</strong>, exibindo a Margem Líquida em R$ e em percentual (%).</li>
                     <li><strong>Travas Automáticas de Backend:</strong> Se o cliente tentar cadastrar sites além do limite (base + extras), a criação é interrompida via API (`403 Forbidden`). Caso a cota mensal de IA seja atingida, novas chamadas de inteligência artificial são pausadas até o próximo ciclo ou até a contratação de add-ons.</li>
                 </ul>
+
+                <h2>Governança do Ciclo de Vida de Contas & Carência de 90 Dias</h2>
+                <p>O administrador acompanha o status operacional de cada conta diretamente na tabela de usuários:</p>
+                <ul>
+                    <li><span class="badge" style="background:#10b981; color:#fff; padding:2px 8px; border-radius:4px; font-size:11px;">ATIVO</span>: Conta operando normalmente, com sites monitorados e acesso regular.</li>
+                    <li><span class="badge" style="background:#f59e0b; color:#111; padding:2px 8px; border-radius:4px; font-size:11px;">EM CARÊNCIA</span> (<code>pending_deletion</code>): Conta que solicitou exclusão voluntária ou cuja assinatura foi cancelada e o período pago expirou. A tabela estampa a data de agendamento do expurgo definitivo (ex: <code>Exclusão em DD/MM/AAAA</code>).</li>
+                    <li><span class="badge" style="background:#64748b; color:#fff; padding:2px 8px; border-radius:4px; font-size:11px;">PURGADO</span> (<code>purged</code>): Conta cujos 90 dias de carência venceram e os dados dos websites foram excluídos definitivamente, preservando registros fiscais e consumo de IA.</li>
+                </ul>
+
+                <h2>Rotina Automatizada de Expurgo (Comando Spark & Cron Job)</h2>
+                <p>A plataforma conta com um comando CLI nativo para governança e expurgo automático de contas, projetado para rodar diariamente via Cron no servidor:</p>
+                <div class="code-block">
+                    <button class="btn-copy" onclick="copyCode(this)">Copiar</button>
+                    <pre># Executar rotina de verificação e expurgo de contas expiradas
+php spark accounts:purge-expired</pre>
+                </div>
+
+                <h3>O que este comando processa automaticamente:</h3>
+                <ol>
+                    <li><strong>Transição de Assinaturas Vencidas:</strong> Localiza contas com status <code>active</code> cuja assinatura foi cancelada e o período pago terminou (<code>current_period_end &lt; now()</code>), transicionando-as para <code>pending_deletion</code> com prazo de 90 dias e desconectando os sites.</li>
+                    <li><strong>Expurgo Definitivo de Dados:</strong> Localiza contas em <code>pending_deletion</code> cujo prazo de 90 dias já venceu (<code>deletion_scheduled_at &lt;= now()</code>) e apaga permanentemente todos os registros de sites, diagnósticos, integridade e logs de atividades.</li>
+                    <li><strong>Registro de Auditoria do Sistema:</strong> Registra cada expurgo no log de erros e auditoria da plataforma (<code>PlatformErrorLogger</code>) com a relação de sites e registros afetados.</li>
+                </ol>
             </section>
 
             <!-- 8. Catálogo de Planos & Motores de IA (Área Restrita Admin) -->
@@ -2329,6 +2429,12 @@ location ~* /(wp-config\.php|readme\.html|license\.txt) {
                     <li><strong>Ranking por Website:</strong> Relaciona quais domínios demandaram maior número de requisições e processamento de IA.</li>
                     <li><strong>Breakdown por Funcionalidade:</strong> Segmentação do uso entre geração de soluções no catálogo (<code>single_check</code> / <code>batch_check</code>), guias de servidor (<code>server_guide</code>) e plugins de remediação (<code>remediation_plugin</code>).</li>
                 </ol>
+
+                <h2>Garantia de Integridade de Relatórios e Auditoria Histórica</h2>
+                <div class="callout callout-info">
+                    <div class="callout-title">🛡️ Preservação Histórica contra Corrupção de Dados</div>
+                    <p>Um dos pilares da arquitetura contábil do <strong>Vexors</strong> é a <strong>imutabilidade dos registros de consumo</strong>: quando um usuário cancela o plano ou tem seus sites expurgados após os 90 dias de carência, a plataforma <strong>jamais exclui seus registros em <code>ai_usage_logs</code></strong>. O histórico de tokens consumidos, custos em R$ e datas de requisição permanecem vinculados ao usuário, garantindo que o DRE geral da plataforma, as métricas de lucratividade passada e os balanços mensais permaneçam 100% fiéis e auditáveis.</p>
+                </div>
             </section>
 
             <!-- 10. Formas de Pagamento & Gateway Asaas (Área Restrita Admin) -->
@@ -2424,9 +2530,41 @@ location ~* /(wp-config\.php|readme\.html|license\.txt) {
                 <p>Ao adicionar sites ou pacotes de IA no meio de um ciclo, o sistema calcula apenas os dias restantes até a sua data de renovação. Você paga somente por esse período fracionado no ato da ativação, e a partir do ciclo seguinte o novo valor integral é somado à sua fatura mensal regular.</p>
 
                 <h3>8. O que acontece ao solicitar o cancelamento da assinatura?</h3>
-                <p>O cancelamento pode ser feito a qualquer momento no painel. O seu acesso permanece <strong>100% ativo até o último dia do ciclo já pago</strong> (<code>current_period_end</code>). Nenhuma cobrança futura será realizada e, se desejar retornar mais tarde, basta reativar sua assinatura na plataforma.</p>
+                <p>O cancelamento da assinatura pode ser solicitado a qualquer momento na tela <strong>Gestão do Plano</strong>. O seu acesso permanece <strong>100% ativo até o último dia do ciclo já pago</strong> (<code>current_period_end</code>). Nenhuma cobrança futura será realizada no cartão de crédito. Ao término desse período pago, caso não haja reativação, a conta entra automaticamente no período de <strong>carência de 90 dias</strong> (com sites desconectados preventivamente) para exclusão definitiva.</p>
 
-                <h3>9. Quais são as formas de pagamento aceitas?</h3>
+                <h3>9. Qual a diferença entre "Cancelar Assinatura" e "Excluir Conta"?</h3>
+                <table class="doc-table" style="margin: 15px 0;">
+                    <thead>
+                        <tr>
+                            <th>Ação</th>
+                            <th>Cobrança Asaas</th>
+                            <th>Acesso aos Sites & Painel</th>
+                            <th>Quando Entra em Carência (90 Dias)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Cancelar Assinatura</strong></td>
+                            <td>Cancela próximas mensalidades</td>
+                            <td>Permanece 100% funcional até o fim dos dias já pagos</td>
+                            <td>Automaticamente após expirar o ciclo pago já quitado</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Excluir Conta (com Senha)</strong></td>
+                            <td>Cancela imediatamente</td>
+                            <td>Sites desconectados e sessão encerrada na hora</td>
+                            <td>Imediatamente no momento da confirmação com senha</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h3>10. Posso reativar minha conta durante o período de carência de 90 dias?</h3>
+                <p><strong>Sim!</strong> Durante todo o período de carência de 90 dias, você pode fazer login na plataforma a qualquer momento. O sistema exibirá a tela de <strong>Reativação de Conta</strong>, permitindo que você contrate um novo plano pelo cartão de crédito. Assim que o pagamento for aprovado, sua conta retorna ao status <code>active</code> e <strong>todos os seus sites cadastrados, históricos de segurança, notas de manutenção e análises são totalmente preservados e restaurados</strong>.</p>
+
+                <h3>11. O que acontece após o término dos 90 dias de carência?</h3>
+                <p>Se a conta não for reativada dentro dos 90 dias, a rotina automatizada do sistema (<code>php spark accounts:purge-expired</code>) executa a exclusão definitiva e irreversível de todos os dados dos websites (domínios, diagnósticos, logs de atividade, integridade e configurações). Os dados cadastrais básicos (com status <code>purged</code>), o histórico financeiro de transações e a volumetria de consumo de IA são mantidos estritamente para auditoria legal e relatórios fiscais/DRE dos administradores. O e-mail do usuário volta a ficar liberado para criar uma conta do zero na plataforma.</p>
+
+                <h3>12. Quais são as formas de pagamento aceitas?</h3>
                 <p>A plataforma aceita pagamentos via Cartão de Crédito com processamento seguro e renovação automática, além de Pix Instantâneo conforme a disponibilidade definida pela administração.</p>
 
                 <div class="callout callout-info" style="margin-top:40px;">

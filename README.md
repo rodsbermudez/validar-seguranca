@@ -1,82 +1,151 @@
-# 🛡️ Validar Segurança — WordPress Audit & AI Remediation Platform
+# 🛡️ Vexors — WordPress Audit, Diagnostics & AI Remediation Platform
 
-Uma plataforma completa para **auditoria de segurança**, **triagem inteligente de falhas** e **remediação automatizada via Inteligência Artificial** para ecossistemas WordPress.
+Uma plataforma moderna e robusta para **auditoria de segurança**, **diagnósticos forenses de integridade**, **remediação automatizada com IA** e **gestão de manutenção contínua** para ecossistemas WordPress.
 
 ---
 
-## 🌟 Principais Recursos
+## 🌟 Arquitetura da Plataforma
 
-- **🛡️ Auditoria Automatizada de Segurança**:
-  - Teste remoto de infraestrutura, cabeçalhos HTTP (HSTS, CSP, X-Frame-Options), listagem de diretórios (`/wp-content/uploads/`, `/wp-includes/`), enumeração de usuários (via `/?author=1`, REST API e sitemaps XML em `/wp-sitemap-users-1.xml` e `/author-sitemap.xml`) e detecção de arquivos sensíveis.
-  - **Detecção Avançada em Sitemaps XML**: Identificação de vazamentos de usernames no sitemap nativo e em plugins de SEO (Yoast SEO, Rank Math, All in One SEO), seguindo redirecionamentos HTTP 301/302 automaticamente.
+A plataforma opera com um modelo híbrido e desacoplado:
+1. **Auditoria Externa Não-Invasiva:** Avaliação perimetral de cabeçalhos HTTP, diretórios sensíveis expostos, enumeração de usuários (REST API, sitemaps e query strings) e fingerprinting.
+2. **Plugin Agente WordPress (`vexors-diagnostico`):** Telemetria interna do banco de dados, checksums oficiais do core WordPress.org, monitoramento de logs em tempo real e orquestração de atualizações remotas de temas e plugins.
+3. **Plugin de Blindagem Ativa (`vexors-fixes`):** Plugin independente com controle liga/desliga de proteções individuais em tempo real, tokens embutidos e bypass automático de WAF/ModSecurity.
+4. **Governança SaaS & Gateway Financeiro:** Gestão recorrente com faturamento Asaas, cotas de tokens de IA, add-ons pró-rata, carência automatizada de 90 dias e expurgo em lote.
 
-- **🤖 Remediação Inteligente & Gestão Granular de Fixes (`wp-patropi-fixes`)**:
-  - **Plugin de Correção 100% Autônomo e Desacoplado**: Plugin PHP sob medida (`wp-patropi-fixes`) gerado diretamente para o site com token e ID embutidos (`VS_FIXES_SITE_TOKEN` e `VS_FIXES_SITE_ID`). O plugin não depende do agente de diagnósticos para funcionar e possui sua própria infraestrutura de rotas REST API (`/wp-json/wp-patropi-fixes/v1/status` e `/wp-json/wp-patropi-fixes/v1/toggle`).
-  - **Gestão Granular de Proteções (Toggles em Tempo Real)**: Ativação e desativação individual de cada proteção de segurança implementada (ex: bloqueio de enumeração de autores, ocultação de versão, cabeçalhos de segurança, bloqueio de arquivos sensíveis). A gestão pode ser feita tanto diretamente no painel do WordPress (menu `WP Patropi Fixes`) quanto remotamente no SaaS (seção *Proteções Ativas* na aba Auditoria e Segurança).
-  - **Sincronização Bidirecional & Persistência**: Todas as preferências de ativação são gravadas no banco de dados do WordPress (`wp_options` -> `vs_fixes_active_options`) e refletem instantaneamente no SaaS e vice-versa.
-  - **Resiliência a WAF, ModSecurity e Proxies Reversos**: Suporte a autenticação tolerante a falhas com extração multi-origem e fallback por query param (`?vs_token=` e `?agent_token=`), superando o descarte (stripping) de cabeçalhos `Authorization` ou `X-Validar-Seguranca-Token` comum em provedores de hospedagem com ModSecurity, Apache FastCGI ou Cloudflare.
-  - **Bypass de Filtros REST Externos**: Integração com prioridade máxima (`priority 99`) no hook `rest_authentication_errors` do WordPress, impedindo que plugins de segurança de terceiros (como Wordfence ou iThemes) bloqueiem as requisições legítimas do SaaS.
-  - **Self-Healing de Credenciais**: Auto-sincronização do token de autenticação em `wp_options` caso não exista ou esteja divergente, garantindo compatibilidade retroativa e reparo transparente.
-  - **Geração Determinística Nativa & IA**: Modo nativo canônico de geração (< 1s, código limpo e sem alucinações) e modo estendido com IA Kimi K2.7 Code.
-  - **Processamento em Lote em Tempo Real**: Modal interativo com barra de progresso em tempo real, contadores de estatísticas (Gerados, Reutilizados e Erros) e suporte a re-geração forçada para atualizar todas as falhas e alertas do relatório.
-  - **Detecção Detalhada e Exibição de Erros**: Apresentação transparente da causa exata em caso de falha de requisição (erros HTTP 400, timeouts ou restrições do provedor de IA).
-  - **Re-execução Seletiva de Falhas**: Botão dedicado `⚡ Re-executar Apenas Falhas` para reprocessar exclusivamente os itens com erro sem re-executar os itens gerados com sucesso.
-  - **Triagem Automática**: Separação clara entre falhas corrigíveis via código/plugin e falhas que exigem intervenção de infraestrutura ou ações manuais.
-  - **Guia do Servidor & Ações Manuais**: Instruções passo a passo geradas por IA para edições em `.htaccess`, `nginx.conf`, `php.ini`, `wp-config.php` e rotinas do painel SSH/cPanel. Inclui timeout expandido para 120s, exibição de alerta de erro com causa detalhada na modal e alternância instantânea para Guia Padrão (Sem IA) caso ocorra indisponibilidade da API.
-  - **Cache & Persistência de Guias**: Salvamento automático dos conselhos da IA no banco de dados para carregamento instantâneo sem chamadas redundantes.
+---
 
-- **📝 Logs de Atividades & Diário Técnico Unificado**:
-  - **Timeline Consolidada**: Linha do tempo cronológica que unifica as notas das manutenções mensais e anotações técnicas avulsas realizadas no dia a dia.
-  - **Categorização Visual**: Classificação em badges de status por categorias (`Geral`, `Segurança`, `Otimização`, `Servidor`, `Correção de Bug`, `Ajustes de Layout`).
-  - **Formatação Técnica Rica**: Reconhecimento automático de URLs clicáveis e blocos de código (`code snippets`) com botão de cópia rápida em 1 clique.
-  - **Acesso Colaborativo**: Suporte a equipes com permissão de criação e consulta de notas para todos os membros com acesso ao site.
+## 👤 1. Funcionalidades Gerais (Usuários & Clientes)
 
-- **🔗 Link Público de Visualização para Clientes**:
-  - **Visão Dedicada para o Cliente**: Página pública externa (`/public/logs/:token`) com cabeçalho limpo contendo unicamente a logomarca da Patropi Comunica.
-  - **Modo Estrito de Consulta**: Permite ao cliente final auditar o histórico de manutenções e intervenções técnicas, com pesquisa e filtros, sem capacidade de edição, exclusão ou criação de dados.
-  - **Gestão de Tokens Criptográficos**: Geração de tokens de 64 caracteres com botão no painel para copiar a URL ou regenerar o token a qualquer momento.
+Recursos e ferramentas acessíveis para todos os usuários cadastrados gerenciarem seus sites WordPress:
 
-- **🔍 Verificador Forense de Integridade do Core & Auto-Fix**:
-  - **Compatibilidade Internacional e pt_BR**: Varredura inteligente de checksums compatível com pacotes traduzidos do WordPress (`pt_BR`) e internacional (`en_US`), com normalização de quebras de linha CRLF/LF.
-  - **Auditoria Heurística de Tokens**: Inspeção profunda de tokens PHP no arquivo `wp-includes/version.php`, prevenindo falsos positivos de adulteração enquanto bloqueia rigorosamente injeções maliciosas (`eval`, `base64_decode`, backdoors).
-  - **Restauração em 1 Clique com Preservação de Idioma**: Auto-fix confiável que baixa arquivos oficiais do GitHub/SVN e reconstrói o arquivo autêntico com fidelidade criptográfica total.
-  - **Persistência de Resultados no Banco**: Armazenamento automático da última varredura no banco de dados para evitar relatórios pendentes ao relogar na plataforma.
+### 🛡️ Auditoria Automatizada & Varreduras Perimetrais
+- Testes de infraestrutura e cabeçalhos de segurança (HSTS, CSP, X-Frame-Options, X-Content-Type-Options).
+- Detecção de listagem de diretórios (`/wp-content/uploads/`, `/wp-includes/`) e arquivos críticos expostos (`wp-config.php.bak`, `wp-config.txt`, `.env`, `debug.log`, `error_log`).
+- Bloqueio de enumeração de autores e logins via query strings (`/?author=N`), REST API (`/wp-json/wp/v2/users`) e sitemaps XML de SEO (Yoast, Rank Math, All in One SEO e nativo).
+- Bloqueio de interfaces remotas legadas (`xmlrpc.php`) e ocultação de assinaturas de versão em tags meta HTML.
 
-- **🧭 Nova Interface & Navegação Otimizada**:
-  - **Menu Global com Dropdown Configurações**: Top bar reorganizada com acessos de primeiro nível a `Websites`, `Configurações` (dropdown reunindo Gerais, Usuários e Catálogo de Soluções), `Documentação` e perfil do usuário.
-  - **Dashboard com Radar de Segurança e Integridade**: Monitoramento com destaque em amarelo para sites que não são auditados ou verificados há mais de 30 dias e listagem dos 6 piores sites em cada aspecto para correção prioritária.
-  - **Menu Ferramentas nos Sites**: Barra do site compacta com selo de status de conexão do agente e menu dropdown unificado reunindo todas as abas, relatórios e downloads.
-  - **Modal de Manutenções com Mês de Referência**: Permite selecionar o mês atual ou meses anteriores no modal de conclusão de manutenção para registros retroativos.
+### 🔌 Plugin Agente WordPress (`vexors.app - Diagnóstico`)
+- Instalação via arquivo ZIP personalizado para o site.
+- Diagnóstico interno completo: verificação de administradores padrão ("admin"), quantidade de administradores, modo de depuração (`WP_DEBUG`), integridade de permissões de escrita, prefixo de tabelas MySQL e atualizações pendentes.
+- Botão de auto-reconexão e ressincronização de ponte para restabelecer a comunicação instantaneamente com a plataforma.
 
-- **🔌 Plugin Agente Patropi (WordPress Companion)**:
-  - Integração nativa no painel do WordPress com menu dedicado, histórico de diagnósticos, logs em tempo real e **botão de reconexão/re-sincronização de ponte** para restabelecer a comunicação com a plataforma instantaneamente.
+### 🔍 Verificador Forense de Integridade do Core & Auto-Fix
+- Inspeção criptográfica profunda (MD5) comparando todos os arquivos locais do core do WordPress com os hashes oficiais do repositório WordPress.org.
+- Compatibilidade nativa com pacotes de idioma internacional (`en_US`) e português do Brasil (`pt_BR`), com normalização inteligente de CRLF/LF.
+- Auditoria heurística do arquivo `version.php` prevenindo falsos positivos de adulteração.
+- **Auto-Fix em 1 Clique:** Restauração automatizada de arquivos adulterados ou corrompidos diretamente a partir dos fontes oficiais do WordPress.
 
-- **📊 Catálogo de Soluções Integrado (`SolutionCatalogSeeder`)**:
-  - Mapeamento detalhado de cada teste de segurança (`check_id`) associado a tipos de ação (`PLUGIN_AUTO_FIX`, `SERVER_CONFIG`, `MANUAL_ACTION`), gravidade e instruções de correção (incluindo snippets PHP para desativar sitemaps de autores no Yoast/Rank Math/Nativo e bloquear requisições com HTTP 404).
+### 🤖 Blindagem Ativa & Gestão Granular de Fixes (`vexors.app - Fixes`)
+- Plugin PHP sob medida gerado para o site com constantes de autenticação embutidas (`VS_FIXES_SITE_TOKEN` e `VS_FIXES_SITE_ID`).
+- **Gestão Granular (Toggles em Tempo Real):** Ativação e desativação individual de cada regra de hardening tanto diretamente no wp-admin quanto remotamente pelo painel do SaaS.
+- **Sincronização Bidirecional:** Qualquer alteração no WordPress reflete no SaaS e vice-versa instantaneamente via endpoints REST dedicados (`/wp-json/vexors-fixes/v1/status` e `/toggle`).
+- **Resiliência a WAF e ModSecurity:** Fallback inteligente por query parameter (`?vs_token=`), garantindo funcionamento mesmo em hospedagens que descartam cabeçalhos `Authorization`.
+- **Guia do Servidor & Ações Manuais:** Instruções passo a passo geradas com cache no banco de dados para edições de infraestrutura em `.htaccess`, `nginx.conf` e `php.ini`.
 
-- **📖 Central de Documentação Integrada (`/docs`)**:
-  - Portal completo de documentação da plataforma desenvolvido em CodeIgniter, cobrindo funcionamento de auditoria, agente interno, integridade do core, logs de atividades, links públicos para clientes, remediação por IA e boas práticas, com busca em tempo real e navegação fluida por scroll offset.
+### 📜 Logs de Execução em Tempo Real & Atualizações Remotas
+- Visualização em tempo real do stream de logs de depuração do PHP e do WordPress sem necessidade de acessar o SSH ou cPanel.
+- Aplicação remota de atualizações pendentes de plugins, temas e do core do WordPress em 1 clique com feedback em tempo real.
 
-- **🎨 Identidade Visual Patropi Comunica & Cores Customizadas**:
-  - Integração da nova logo horizontal (`logo-Patropi.png`) e favicon (`favicon.png`).
-  - Paleta de cores em Dark Theme: Primária (`#236baa`), Secundária (`#ec1c66`), Detalhes (`#79c1a8`), Fundo de Tela (`#333333`), Fundo de Cards (`#111111`).
-  - Cards de métricas com números centralizados e bordas realçadas no relatório de segurança e no acordeão de categorias.
+### 📝 Timeline de Atividades & Diário Técnico Unificado
+- Linha do tempo cronológica que unifica as notas das manutenções mensais e os registros de intervenções técnicas avulsas realizadas no dia a dia.
+- Categorização visual com badges (`Geral`, `Segurança`, `Otimização`, `Servidor`, `Correção de Bug`, `Ajustes de Layout`).
+- Reconhecimento automático de URLs e blocos de código com botão de cópia rápida.
 
-- **👥 Gestão de Usuários & Controle de Acesso (RBAC)**:
-  - Níveis de permissão de Administrador e Usuário, com isolamento estrito de relatórios por proprietário e gerenciamento centralizado de usuários.
+### 🔗 Link Público Seguro de Visualização para Clientes
+- Página pública externa (`/public/logs/:token`) com identidade visual limpa dedicada ao cliente final.
+- Modo estrito de auditoria: permite que o cliente acompanhe manutenções e intervenções sem permissões de alteração ou exclusão de dados.
+- Gestão e regeneração de tokens criptográficos de acesso em 1 clique.
 
-- **📊 Relatórios Personalizados**:
-  - Frontend responsivo desenvolvido em React + Mantine UI v7 com tema escuro de alto contraste, tipografia legível e relatórios personalizáveis para impressão ou exportação em PDF.
+### 📦 Gestão do Plano, Assinaturas Recorrentes & Add-ons
+- Acompanhamento do ciclo de faturamento, data exata da próxima renovação e limites de sites e cotas de IA.
+- Contratação simplificada de **Add-ons** (sites adicionais e cotas extras de IA) com **cálculo pró-rata automático** cobrando apenas os dias restantes até o próximo ciclo.
+- Upgrade de plano em 1 clique com liberação imediata de limites.
+- Histórico mensal de consumo de IA discriminando tokens de entrada (prompt), saída (completion) e custo.
+
+### ⏳ Cancelamento de Assinatura com Carência Automática de 90 Dias
+- O usuário pode cancelar a assinatura a qualquer momento na tela Gestão do Plano.
+- A cobrança da próxima mensalidade é cancelada imediatamente no Asaas.
+- O acesso a todos os sites e recursos permanece **100% ativo até o último dia do ciclo já pago** (`current_period_end`).
+- **Após o término do ciclo pago**, a conta entra automaticamente no período de **carência de 90 dias** (`pending_deletion`), desconectando os sites e iniciando a contagem para exclusão definitiva.
+- A qualquer momento durante a carência de 90 dias, o usuário pode reativar a conta contratando um novo plano e restaurando todos os seus dados intactos.
+
+### 🔒 Exclusão de Conta com Confirmação por Senha (LGPD)
+- Exclusão voluntária disponível em *Minha Conta > Excluir Minha Conta*.
+- **Confirmação Obrigatória por Senha:** Exige a senha de acesso atual para autorizar a solicitação.
+- Efeitos imediatos:
+  - Cancelamento da assinatura no Asaas;
+  - Desconexão imediata de todos os sites (`is_connected = 0`);
+  - Conta desativada e colocada em carência de 90 dias (`pending_deletion`).
+- Tentativas de login durante a carência direcionam para a tela de **Reativação de Conta** (recuperando todos os sites e históricos intactos após assinatura).
+- Tentativas de cadastro com o mesmo e-mail durante a carência são bloqueadas, orientando o usuário a reativar sua conta existente.
+
+---
+
+## 👑 2. Funcionalidades Administrativas & Governança (Exclusivo Administradores)
+
+Recursos restritos e protegidos por controle de acesso (RBAC) para a gestão completa da plataforma:
+
+### 📚 Catálogo Central de Soluções & Geração em Lote com IA
+- Mapeamento detalhado de cada vulnerabilidade (`check_id`) com tipo de ação (`PLUGIN_AUTO_FIX`, `SERVER_CONFIG`, `MANUAL_ACTION`).
+- **Geração em Lote com IA:** Botão dedicado para sintetizar e abastecer snippets PHP e regras de servidor para todo o catálogo utilizando o motor de IA em tempo real com barra de progresso.
+
+### 👥 Gestão Centralizada de Usuários (RBAC)
+- Separação clara em abas dedicadas: **Aba Clientes** e **Aba Administradores**, com contadores em tempo real.
+- Menu rápido de ações: *Gestão do Plano*, *Ver como (Impersonação)*, *Editar Dados/Senha*, *Ativar/Desativar* e *Excluir*.
+- Monitoramento do ciclo de vida das contas com badges informativos: `Ativo`, `Em Carência (Exclusão em DD/MM/AAAA)` e `Purgado`.
+
+### 🎭 Impersonação Segura ("Ver Como Cliente")
+- Permite ao administrador navegar na plataforma com a perspectiva exata do cliente selecionado para diagnóstico e suporte avançado, sem necessidade de saber a senha do usuário.
+- Indicador visual em destaque no topo informando o modo de impersonação e botão para retornar à visão de Administrador em 1 clique.
+
+### 📊 Cockpit Financeiro por Cliente: DRE & Margem de Contribuição
+- Cálculo em tempo real do **Faturamento Contratado (R$)** vs. **Custo Real da API de IA Consumida no Mês (R$)**.
+- Exibição da Margem Líquida em R$ e da margem percentual (%) individual por cliente.
+- Configuração personalizada de limites de sites extras e tokens de IA adicionais.
+
+### ⚙️ Catálogo Comercial de Planos & Travas Orçamentárias
+- Criação e parametrização de planos comerciais (Iniciante, Profissional, Full ou planos sob medida).
+- **Salvaguarda Orçamentária Rígida:** Diretriz que proíbe IA ilimitada no sistema para proteger a operação contra custos descontrolados de API.
+
+### 💰 Centro de Comando Financeiro de IA & Precificação Ponderada
+- **Fórmula Ponderada Real de Custo:**
+  $$\text{Custo (R\$)} = \left(\frac{\text{Tokens Entrada}}{1.000} \times \text{Preço Entrada}\right) + \left(\frac{\text{Tokens Saída}}{1.000} \times \text{Preço Saída}\right)$$
+- Cockpit global de faturamento total da carteira vs gasto real com IA, margem líquida consolidada e volume global de tokens.
+- Rankings de auditoria: clientes que mais consumiram, domínios que mais demandaram IA e segmentação por funcionalidade.
+
+### 💳 Gestão de Meios de Pagamento Habilitados & Gateway Asaas
+- Interruptores independentes para habilitar/desabilitar **Cartão de Crédito** e **Pix Instantâneo**.
+- Formulários adaptativos (exibição de seletor ou redirecionamento direto conforme os métodos ativos).
+- Trava de integridade que impede desativar todos os métodos simultaneamente.
+- Integração com Asaas (API Key, Modo Sandbox e Webhooks para conciliação automática).
+
+### ⏰ Rotina Automatizada de Expurgo de Contas (`PurgeExpiredAccounts`)
+- Comando nativo CodeIgniter 4 CLI para automação diária via Cron:
+  ```bash
+  php spark accounts:purge-expired
+  ```
+- **Transição Automática:** Localiza assinaturas canceladas cujo período pago terminou e aplica carência de 90 dias com sites desconectados.
+- **Expurgo Definitivo:** Localiza contas cuja carência de 90 dias expirou e remove permanentemente todos os registros dos sites, mantendo dados cadastrais com status `purged`.
+
+### ⚖️ Preservação e Integridade de Dados Fiscais e Consumo de IA
+- A plataforma assegura a **imutabilidade do histórico financeiro e de consumo de IA**.
+- Mesmo quando uma conta tem seus sites expurgados após os 90 dias, os registros de `ai_usage_logs` e `payment_transactions` permanecem vinculados ao ID do usuário.
+- Garante que relatórios fiscais, relatórios contábeis e o DRE da administração permaneçam 100% corretos e confiáveis ao longo do tempo.
+
+### 📖 Central de Documentação Integrada (`/docs`)
+- Documentação técnica e operacional completa acessível diretamente na plataforma.
+- **Visão Adaptativa por Privilégio:** Usuários comuns visualizam apenas as seções gerais; administradores visualizam as seções restritas de governança, catálogo de soluções, DRE e configurações de gateway.
 
 ---
 
 ## 🛠️ Tecnologias Utilizadas
 
-- **Backend**: PHP 8.2+ | CodeIgniter 4 (API RESTful) | Composer
+- **Backend**: PHP 8.2+ | CodeIgniter 4 (Arquitetura RESTful MVC) | Composer
 - **Frontend**: React 18 | TypeScript | Vite | Mantine UI v7 | Tabler Icons
-- **Inteligência Artificial**: OpenCode Zen API (`kimi-k2.7-code`)
-- **Banco de Dados**: MySQL 8.0+ / MariaDB
-- **Autenticação**: JWT (JSON Web Tokens)
+- **Inteligência Artificial**: OpenCode Zen API (`kimi-k2.7-code`) | DeepSeek API
+- **Banco de Dados**: MySQL 8.0+ / MariaDB 10.11+
+- **Gateway Financeiro**: Asaas API v3 (Cobranças Recorrentes, Cartão e Pix via Webhook)
+- **Autenticação & Segurança**: JWT (JSON Web Tokens) com RBAC
 
 ---
 
@@ -85,13 +154,14 @@ Uma plataforma completa para **auditoria de segurança**, **triagem inteligente 
 ### 1. Requisitos do Sistema
 - PHP 8.2 ou superior (com extensões `curl`, `json`, `mbstring`, `mysqlnd`, `intl`)
 - Node.js 18+ e npm
-- Servidor Web (Apache/XAMPP/LAMPP ou Nginx)
-- MySQL / MariaDB
+- Servidor Web (Nginx ou Apache)
+- MySQL 8.0+ / MariaDB 10.11+
 
 ### 2. Configuração do Backend (CodeIgniter 4)
-1. Clone o repositório no diretório do seu servidor web:
+1. Clone o repositório:
    ```bash
-   cd /opt/lampp/htdocs/validar-seguranca
+   git clone https://github.com/rodsbermudez/validar-seguranca.git
+   cd validar-seguranca
    ```
 2. Instale as dependências via Composer:
    ```bash
@@ -100,13 +170,13 @@ Uma plataforma completa para **auditoria de segurança**, **triagem inteligente 
 3. Configure o arquivo `.env`:
    ```ini
    database.default.hostname = localhost
-   database.default.database = validar-seguranca
-   database.default.username = root
-   database.default.password = 
+   database.default.database = vexors_db
+   database.default.username = seu_usuario
+   database.default.password = sua_senha
    database.default.DBDriver = MySQLi
 
-   # Chave de Integração OpenCode Zen API (IA)
-   OPENCODE_API_KEY=sua_chave_aqui
+   # Integração de IA
+   OPENCODE_API_KEY=sua_chave_opencode
    ```
 4. Execute as migrações do banco de dados:
    ```bash
@@ -114,21 +184,25 @@ Uma plataforma completa para **auditoria de segurança**, **triagem inteligente 
    ```
 
 ### 3. Configuração e Build do Frontend (React)
-1. Acesse a pasta do frontend:
+1. Acesse o diretório do frontend:
    ```bash
    cd frontend
    ```
-2. Instale as dependências do Node:
+2. Instale as dependências e compile:
    ```bash
    npm install
-   ```
-3. Compile o projeto para produção:
-   ```bash
    npm run build
    ```
+   *(Os arquivos compilados são gerados automaticamente em `public/assets/`)*.
+
+### 4. Configuração do Cron Job de Manutenção
+Configure no crontab do servidor para execução diária:
+```bash
+0 3 * * * cd /caminho/do/projeto && php spark accounts:purge-expired >> /dev/null 2>&1
+```
 
 ---
 
 ## 📄 Licença e Uso
 
-Desenvolvido para auditoria e fortificação de ambientes WordPress de forma automatizada e segura.
+Desenvolvido para auditoria, hardening e governança contínua de ecossistemas WordPress.
