@@ -2146,11 +2146,11 @@ export function UserPlanManagementView({
                     )
                   ) : sub.status === 'canceled' && sub.is_period_active ? (
                     <>
-                      Cancelada em {sub.canceled_at ? formatDateOnly(sub.canceled_at) : '—'}. Seu acesso permanece 100% liberado até <b>{nextPaymentDateFmt}</b> ({Math.min(30, sub.days_remaining || daysRemainingInCycle)} dias restantes). Nenhuma nova cobrança será realizada.
+                      Cancelada em {sub.canceled_at ? formatDateOnly(sub.canceled_at) : '—'}. Seu acesso permanece 100% liberado até <b>{nextPaymentDateFmt}</b> ({Math.min(30, sub.days_remaining || daysRemainingInCycle)} dias restantes). Nenhuma nova cobrança será realizada. Após essa data, sua conta entrará em carência de 90 dias para exclusão definitiva caso não seja reativada.
                     </>
                   ) : (
                     <>
-                      O período pago encerrou em {sub.current_period_end ? formatDateOnly(sub.current_period_end) : '—'}. O cadastro de novos sites e os recursos de IA estão bloqueados até uma nova contratação.
+                      O período pago encerrou em {sub.current_period_end ? formatDateOnly(sub.current_period_end) : '—'}. Sua conta está em carência de 90 dias para exclusão definitiva. Contrate ou reative um plano para restaurar todos os seus recursos e sites.
                     </>
                   )}
                 </Text>
@@ -2235,17 +2235,24 @@ export function UserPlanManagementView({
         styles={{ content: { backgroundColor: '#1f2937' }, header: { backgroundColor: '#1f2937' } }}
       >
         <Stack gap="md">
-          <Alert color="yellow" variant="light" icon={<IconAlertTriangle size={18} />} title="Importante sobre o cancelamento:">
+          <Alert color="yellow" variant="light" icon={<IconAlertTriangle size={18} />} title="Importante sobre o cancelamento da assinatura:">
             <Text size="xs">
-              Ao confirmar o cancelamento da assinatura:
+              Ao confirmar o cancelamento da renovação:
             </Text>
-            <ul style={{ margin: '6px 0 0 0', paddingLeft: 18, fontSize: 12 }}>
-              <li>Nenhuma nova fatura de renovação será gerada no Asaas.</li>
+            <ul style={{ margin: '8px 0 0 0', paddingLeft: 18, fontSize: 12, lineHeight: 1.6 }}>
               <li>
-                <b>Você continua com ACESSO COMPLETO</b> a todos os recursos do seu plano até o término do período já pago (
+                <b>Sem novas cobranças:</b> Nenhuma fatura adicional de renovação será gerada no Asaas.
+              </li>
+              <li>
+                <b>Acesso garantido até o fim do ciclo:</b> Você continua com <b>ACESSO TOTAL</b> a todos os recursos do seu plano até o término do período já pago (
                 <b>{sub?.current_period_end ? formatDateOnly(sub.current_period_end) : 'fim do ciclo atual'}</b>, restando {sub?.days_remaining || 0} dias).
               </li>
-              <li>Após essa data, os limites de sites e inteligência artificial serão pausados até uma nova contratação.</li>
+              <li>
+                <b style={{ color: '#f59f00' }}>Carência de 90 dias após o período pago:</b> Assim que os dias pagos terminarem, sua conta entrará automaticamente em <b>período de carência de 90 dias para exclusão definitiva</b> (o mesmo ciclo aplicado ao solicitar exclusão de conta). Seus sites serão desconectados.
+              </li>
+              <li>
+                <b>Prazo para reativação:</b> Durante esses 90 dias de carência, você poderá reativar sua conta e recuperar todos os seus sites a qualquer momento contratando um plano. Se a conta não for reativada dentro dos 90 dias, todos os sites, históricos e dados operacionais serão <b>permanentemente excluídos da plataforma</b>.
+              </li>
             </ul>
           </Alert>
 

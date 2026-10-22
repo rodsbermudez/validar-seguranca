@@ -99,11 +99,63 @@ class UserPlanService
                         $subModel->update($sub['id'], ['status' => 'expired']);
                         $sub['status'] = 'expired';
                     }
+
+                    // REGRA CRÍTICA: Passando os dias já pagos de uma assinatura cancelada,
+                    // a conta entra automaticamente em carência de 90 dias (pending_deletion),
+                    // desconecta os sites e agenda a exclusão definitiva caso não haja reativação.
+                    if (!$isAdmin && ($user['account_status'] ?? 'active') === 'active') {
+                        $periodEndTs = $periodEnd > 0 ? $periodEnd : $now;
+                        $deletionRequestedAt = $sub['current_period_end'] ?? date('Y-m-d H:i:s', $periodEndTs);
+                        $scheduledAt = date('Y-m-d H:i:s', strtotime('+90 days', $periodEndTs));
+                        $userModel->update($userId, [
+                            'account_status'        => 'pending_deletion',
+                            'deletion_requested_at' => $deletionRequestedAt,
+                            'deletion_scheduled_at' => $scheduledAt,
+                            'previous_plan_id'      => $user['plan_id'] ?? null,
+                            'is_active'             => 0,
+                        ]);
+                        $user['account_status'] = 'pending_deletion';
+                        $user['deletion_scheduled_at'] = $scheduledAt;
+                        $user['is_active'] = 0;
+
+                        // Desconectar sites
+                        $websiteModel = new WebsiteModel();
+                        $websiteModel->where('user_id', $userId)->set(['is_connected' => 0])->update();
+
+                        try {
+                            \App\Services\PlatformErrorLogger::log([
+                                'severity'      => 'warning',
+                                'user_id'       => $userId,
+                                'user_email'    => $user['email'] ?? null,
+                                'error_message' => "Período pago de assinatura cancelada expirou. Conta colocada automaticamente em carência de 90 dias para exclusão definitiva (programada para {$scheduledAt}). Sites desconectados.",
+                            ]);
+                        } catch (\Throwable $e) {}
+                    }
                 }
             } elseif ($status === 'expired') {
                 $isSubscriptionActive = false;
                 $isSubscriptionExpired = true;
                 $subscriptionDaysRemaining = 0;
+
+                // Garante que contas de assinaturas expiradas entrem em pending_deletion se ainda ativas
+                if (!$isAdmin && ($user['account_status'] ?? 'active') === 'active') {
+                    $periodEndTs = $periodEnd > 0 ? $periodEnd : strtotime($sub['updated_at'] ?? 'now');
+                    $deletionRequestedAt = $sub['current_period_end'] ?? date('Y-m-d H:i:s', $periodEndTs);
+                    $scheduledAt = date('Y-m-d H:i:s', strtotime('+90 days', $periodEndTs));
+                    $userModel->update($userId, [
+                        'account_status'        => 'pending_deletion',
+                        'deletion_requested_at' => $deletionRequestedAt,
+                        'deletion_scheduled_at' => $scheduledAt,
+                        'previous_plan_id'      => $user['plan_id'] ?? null,
+                        'is_active'             => 0,
+                    ]);
+                    $user['account_status'] = 'pending_deletion';
+                    $user['deletion_scheduled_at'] = $scheduledAt;
+                    $user['is_active'] = 0;
+
+                    $websiteModel = new WebsiteModel();
+                    $websiteModel->where('user_id', $userId)->set(['is_connected' => 0])->update();
+                }
             }
 
             $transModel = new \App\Models\PaymentTransactionModel();

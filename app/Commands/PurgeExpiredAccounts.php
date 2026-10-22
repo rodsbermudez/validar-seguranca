@@ -19,6 +19,34 @@ class PurgeExpiredAccounts extends BaseCommand
         CLI::write("===> Iniciando verificação de carências de 90 dias expiradas: {$now}", 'yellow');
 
         $userModel = new UserModel();
+        $websiteModel = new WebsiteModel();
+
+        // 0. Proativamente colocar contas com período pago expirado em carência de 90 dias (pending_deletion)
+        $subModel = new \App\Models\SubscriptionModel();
+        $expiredSubs = $subModel
+            ->whereIn('status', ['canceled', 'expired'])
+            ->where('current_period_end <=', $now)
+            ->findAll();
+
+        foreach ($expiredSubs as $sub) {
+            $uId = (int) $sub['user_id'];
+            $u = $userModel->find($uId);
+            if ($u && ($u['role'] ?? 'user') !== 'admin' && ($u['account_status'] ?? 'active') === 'active') {
+                $periodEndTs = strtotime($sub['current_period_end'] ?: $now);
+                $scheduledAt = date('Y-m-d H:i:s', strtotime('+90 days', $periodEndTs));
+                $userModel->update($uId, [
+                    'account_status'        => 'pending_deletion',
+                    'deletion_requested_at' => $sub['current_period_end'] ?: $now,
+                    'deletion_scheduled_at' => $scheduledAt,
+                    'previous_plan_id'      => $u['plan_id'] ?? null,
+                    'is_active'             => 0,
+                ]);
+                $websiteModel->where('user_id', $uId)->set(['is_connected' => 0])->update();
+
+                CLI::write("Conta #{$uId} ({$u['email']}) colocada em carência de 90 dias após encerramento do período pago.", 'yellow');
+            }
+        }
+
         $expiredUsers = $userModel
             ->where('account_status', 'pending_deletion')
             ->where('deletion_scheduled_at <=', $now)
