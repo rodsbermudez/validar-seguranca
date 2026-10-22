@@ -3460,6 +3460,7 @@ export function UserPlanManagementView({
           onClose={() => setRenewModalOpen(false)}
           selectedPlan={checkoutPlan || currentPlan || (data?.available_plans?.[0] ?? null)}
           currentUser={initialUser}
+          existingSubscription={sub}
           initialExtraWebsites={checkoutExtraWebsites}
           initialExtraAiPacks={checkoutExtraAiPacks}
           paymentMethods={data?.payment_methods}

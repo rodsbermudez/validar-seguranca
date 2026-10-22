@@ -1199,11 +1199,16 @@ export interface CheckoutInitiateResponse {
   success: boolean;
   billing_type?: 'PIX' | 'CREDIT_CARD';
   activated?: boolean;
+  reactivated?: boolean;
+  is_reactivating_canceled?: boolean;
   free_plan?: boolean;
   transaction_id: number;
   subscription_id: number;
   gateway_transaction_id: string;
   amount: number;
+  monthly_amount?: number;
+  current_period_end?: string;
+  formatted_next_date?: string;
   plan_name: string;
   pix_qr_code?: string;
   pix_copy_paste?: string;
@@ -1219,6 +1224,7 @@ export interface CheckoutInitiateResponse {
     email: string;
     role: string;
   };
+  message?: string;
 }
 
 export interface CheckoutStatusResponse {
@@ -1235,6 +1241,10 @@ export interface CheckEmailResponse {
   can_reactivate?: boolean;
   is_pending_deletion?: boolean;
   is_purged?: boolean;
+  has_active_canceled_sub?: boolean;
+  current_period_end?: string;
+  formatted_end_date?: string;
+  days_remaining?: number;
   user_name?: string;
   message: string;
 }

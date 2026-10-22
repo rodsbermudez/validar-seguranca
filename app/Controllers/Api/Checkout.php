@@ -314,6 +314,37 @@ class Checkout extends ResourceController
             ]);
         }
 
+        $userStatus = $existingUser ? ($existingUser['account_status'] ?? 'active') : 'active';
+        $isPendingDeletion = ($userStatus === 'pending_deletion');
+
+        // REGRA DE NEGÓCIO MANDATÓRIA:
+        // Se a conta NÃO está em exclusão/carência e possui assinatura cancelada cujo período pago AINDA está ativo (current_period_end > now),
+        // trata-se de REATIVAÇÃO DE ASSINATURA CANCELADA:
+        // - Coleta dados do cartão para restabelecer a recorrência futura
+        // - NENHUMA COBRANÇA É EFETUADA HOJE (R$ 0,00 cobrado hoje)
+        // - A primeira cobrança no Asaas (nextDueDate) é agendada para a data original de término do período já pago (current_period_end)
+        // (Diferente da exclusão de conta, onde a cobrança integral é feita na hora e a nova data é calculada a partir de hoje).
+        $canceledSub = $existingUser ? $subscriptionModel->where('user_id', $userId)
+                                                         ->where('status', 'canceled')
+                                                         ->orderBy('id', 'DESC')
+                                                         ->first() : null;
+
+        $isReactivatingCanceled = false;
+        $preservedPeriodEnd = null;
+        if (
+            !$isPendingDeletion &&
+            $canceledSub &&
+            !empty($canceledSub['current_period_end']) &&
+            strtotime($canceledSub['current_period_end']) > time()
+        ) {
+            $isReactivatingCanceled = true;
+            $preservedPeriodEnd = $canceledSub['current_period_end'];
+        }
+
+        if ($isReactivatingCanceled && $billingType === 'PIX') {
+            return $this->fail('Para reativar a sua assinatura aproveitando o período já quitado (sem cobrança hoje), informe os dados do Cartão de Crédito para cadastro da renovação automática futura.', 400);
+        }
+
         // Criar registro de assinatura pendente
         $subId = $subscriptionModel->insert([
             'user_id'                 => $userId,
@@ -363,12 +394,24 @@ class Checkout extends ResourceController
                 'phone'          => $phone,
             ];
 
+            // Define a data da primeira cobrança no Asaas:
+            // Se for reativação com período pago ativo, a primeira cobrança ocorre apenas quando o período original vencer.
+            // Caso contrário (nova assinatura ou exclusão de conta), cobra hoje mesmo.
+            $nextDueDate = date('Y-m-d');
+            if ($isReactivatingCanceled && $preservedPeriodEnd) {
+                $targetDueDate = date('Y-m-d', strtotime($preservedPeriodEnd));
+                if ($targetDueDate <= date('Y-m-d')) {
+                    $targetDueDate = date('Y-m-d', strtotime('+1 day'));
+                }
+                $nextDueDate = $targetDueDate;
+            }
+
             $subRes = $asaasService->createSubscription(
                 $asaasCustomerId ?: 'cus_sim',
                 $totalAmount,
                 $description,
                 $extRef,
-                date('Y-m-d'),
+                $nextDueDate,
                 'CREDIT_CARD',
                 $creditCardPayload,
                 $creditCardHolderInfo
@@ -380,26 +423,46 @@ class Checkout extends ResourceController
 
             $asaasSubId = $subRes['subscription_id'] ?? null;
             $paymentId  = $subRes['payment_id'] ?? ('pay_' . uniqid());
-            $isCardApproved = in_array(strtoupper($subRes['payment_status'] ?? ''), ['CONFIRMED', 'RECEIVED', 'ACTIVE'], true);
+
+            // Na reativação com período quitado, a aprovação do cadastro do cartão no Asaas já ativa imediatamente o plano
+            if ($isReactivatingCanceled && !empty($subRes['success'])) {
+                $isCardApproved = true;
+            } else {
+                $isCardApproved = in_array(strtoupper($subRes['payment_status'] ?? ''), ['CONFIRMED', 'RECEIVED', 'ACTIVE'], true);
+            }
 
             $now = date('Y-m-d H:i:s');
+            $newPeriodStart = $isReactivatingCanceled ? ($canceledSub['current_period_start'] ?? $now) : $now;
+            $newPeriodEnd   = $isReactivatingCanceled ? $preservedPeriodEnd : date('Y-m-d H:i:s', strtotime('+30 days'));
+
             if ($asaasSubId) {
                 $subscriptionModel->update($subId, [
                     'gateway_subscription_id' => $asaasSubId,
                     'status'                  => $isCardApproved ? 'active' : 'pending',
-                    'current_period_start'    => $isCardApproved ? $now : null,
-                    'current_period_end'      => $isCardApproved ? date('Y-m-d H:i:s', strtotime('+30 days')) : null,
+                    'current_period_start'    => $isCardApproved ? $newPeriodStart : null,
+                    'current_period_end'      => $isCardApproved ? $newPeriodEnd : null,
+                    'canceled_at'             => null,
                 ]);
             }
 
+            // Arquivar assinatura cancelada anterior para evitar conflito
+            if ($isReactivatingCanceled && !empty($canceledSub['id']) && (int)$canceledSub['id'] !== (int)$subId) {
+                $subscriptionModel->update($canceledSub['id'], [
+                    'status' => 'replaced',
+                ]);
+            }
+
+            // Registrar a transação financeira
+            // Se for reativação com período pago, o valor cobrado hoje é R$ 0,00!
+            $chargedAmountToday = $isReactivatingCanceled ? 0.00 : $totalAmount;
             $transactionModel = new PaymentTransactionModel();
             $transId = $transactionModel->insert([
                 'user_id'                => $userId,
                 'subscription_id'        => $subId,
                 'plan_id'                => $planId,
                 'gateway'                => 'asaas',
-                'gateway_transaction_id' => $paymentId,
-                'amount'                 => $totalAmount,
+                'gateway_transaction_id' => $paymentId ?: ('sub_reactivate_' . uniqid()),
+                'amount'                 => $chargedAmountToday,
                 'payment_method'         => 'credit_card',
                 'status'                 => $isCardApproved ? 'paid' : 'pending',
                 'paid_at'                => $isCardApproved ? $now : null,
@@ -413,6 +476,8 @@ class Checkout extends ResourceController
                     'extra_websites_price'  => $extraWebsitesPrice,
                     'extra_ai_tokens'       => $extraAiTokens,
                     'extra_ai_tokens_price' => $extraAiTokensPrice,
+                    'is_reactivating'       => $isReactivatingCanceled,
+                    'original_period_end'   => $isReactivatingCanceled ? $preservedPeriodEnd : null,
                     'simulated'             => !empty($subRes['simulated']),
                 ]),
             ]);
@@ -424,30 +489,42 @@ class Checkout extends ResourceController
                     'extra_ai_tokens'       => $extraAiTokens,
                     'extra_ai_tokens_price' => $extraAiTokensPrice,
                 ]);
+
+                // Garante que os websites do usuário estejam conectados
+                $websiteModel = new WebsiteModel();
+                $websiteModel->where('user_id', $userId)->set(['is_connected' => 1])->update();
             }
 
             $token = JWTAuth::generateToken($user);
 
             return $this->respond([
-                'status'                 => 200,
-                'success'                => true,
-                'billing_type'           => 'CREDIT_CARD',
-                'activated'              => $isCardApproved,
-                'transaction_id'         => $transId,
-                'subscription_id'        => $subId,
-                'gateway_transaction_id' => $paymentId,
-                'amount'                 => $totalAmount,
-                'plan_name'              => $plan['name'],
-                'card_last4'             => $subRes['card_last4'] ?? substr($cardNumber, -4),
-                'card_brand'             => $subRes['card_brand'] ?? 'MASTERCARD',
-                'is_simulated'           => !empty($subRes['simulated']),
-                'token'                  => $token,
-                'user'                   => [
+                'status'                   => 200,
+                'success'                  => true,
+                'billing_type'             => 'CREDIT_CARD',
+                'activated'                => $isCardApproved,
+                'reactivated'              => $isReactivatingCanceled,
+                'is_reactivating_canceled' => $isReactivatingCanceled,
+                'transaction_id'           => $transId,
+                'subscription_id'          => $subId,
+                'gateway_transaction_id'   => $paymentId,
+                'amount'                   => $chargedAmountToday,
+                'monthly_amount'           => $totalAmount,
+                'current_period_end'       => $newPeriodEnd,
+                'formatted_next_date'      => date('d/m/Y', strtotime($newPeriodEnd)),
+                'plan_name'                => $plan['name'],
+                'card_last4'               => $subRes['card_last4'] ?? substr($cardNumber, -4),
+                'card_brand'               => $subRes['card_brand'] ?? 'MASTERCARD',
+                'is_simulated'             => !empty($subRes['simulated']),
+                'token'                    => $token,
+                'user'                     => [
                     'id'    => $user['id'],
                     'name'  => $user['name'],
                     'email' => $user['email'],
                     'role'  => $user['role'] ?? 'user',
                 ],
+                'message'                  => $isReactivatingCanceled
+                    ? ('Assinatura reativada com sucesso! Nenhuma cobrança foi realizada hoje, pois seu plano já possui vigência paga até ' . date('d/m/Y', strtotime($newPeriodEnd)) . '. A próxima cobrança de R$ ' . number_format($totalAmount, 2, ',', '.') . ' ocorrerá automaticamente apenas em ' . date('d/m/Y', strtotime($newPeriodEnd)) . '.')
+                    : 'Assinatura contratada com sucesso!',
             ]);
         }
 
@@ -729,13 +806,32 @@ class Checkout extends ResourceController
                 ]);
             }
 
+            // Verificar se o usuário possui assinatura cancelada cujo período pago ainda está vigente
+            $subModel = new SubscriptionModel();
+            $canceledSub = $subModel->where('user_id', $user['id'])
+                                    ->where('status', 'canceled')
+                                    ->orderBy('id', 'DESC')
+                                    ->first();
+            $hasActiveCanceledSub = false;
+            $currentPeriodEnd = null;
+            if ($canceledSub && !empty($canceledSub['current_period_end']) && strtotime($canceledSub['current_period_end']) > time()) {
+                $hasActiveCanceledSub = true;
+                $currentPeriodEnd = $canceledSub['current_period_end'];
+            }
+
             return $this->respond([
-                'status'         => 200,
-                'valid'          => true,
-                'exists'         => true,
-                'can_reactivate' => true,
-                'user_name'      => $user['name'] ?? null,
-                'message'        => 'Este e-mail já possui cadastro. Digite a sua senha de acesso para reativar ou atualizar o plano da sua conta.',
+                'status'                  => 200,
+                'valid'                   => true,
+                'exists'                  => true,
+                'can_reactivate'          => true,
+                'has_active_canceled_sub' => $hasActiveCanceledSub,
+                'current_period_end'      => $currentPeriodEnd,
+                'formatted_end_date'      => $currentPeriodEnd ? date('d/m/Y', strtotime($currentPeriodEnd)) : null,
+                'days_remaining'          => $currentPeriodEnd ? max(0, (int)ceil((strtotime($currentPeriodEnd) - time()) / 86400)) : 0,
+                'user_name'               => $user['name'] ?? null,
+                'message'                 => $hasActiveCanceledSub
+                    ? ('Sua assinatura anterior foi cancelada mas seu plano já está pago até ' . date('d/m/Y', strtotime($currentPeriodEnd)) . '. Ao reativar com cartão, nenhuma cobrança será realizada hoje.')
+                    : 'Este e-mail já possui cadastro. Digite a sua senha de acesso para reativar ou atualizar o plano da sua conta.',
             ]);
         }
 

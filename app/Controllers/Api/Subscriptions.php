@@ -172,6 +172,15 @@ class Subscriptions extends ResourceController
                         ->where('status', 'active')
                         ->orderBy('id', 'DESC')
                         ->first();
+        if (!$sub) {
+            $canceledSub = $subModel->where('user_id', $targetUserId)
+                                    ->where('status', 'canceled')
+                                    ->orderBy('id', 'DESC')
+                                    ->first();
+            if ($canceledSub && !empty($canceledSub['current_period_end']) && strtotime($canceledSub['current_period_end']) > time()) {
+                $sub = $canceledSub;
+            }
+        }
 
         $planModel = new PlanModel();
         $currentPlanId = $user['plan_id'] ?? ($sub['plan_id'] ?? null);

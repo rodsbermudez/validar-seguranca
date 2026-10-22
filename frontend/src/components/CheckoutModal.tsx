@@ -53,6 +53,7 @@ interface CheckoutModalProps {
   onClose: () => void;
   selectedPlan: Plan | null;
   currentUser?: any;
+  existingSubscription?: any;
   initialExtraWebsites?: number;
   initialExtraAiPacks?: number;
   paymentMethods?: PaymentMethodsConfig;
@@ -66,6 +67,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   onClose,
   selectedPlan,
   currentUser,
+  existingSubscription,
   initialExtraWebsites = 0,
   initialExtraAiPacks = 0,
   paymentMethods,
@@ -88,6 +90,11 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [emailChecking, setEmailChecking] = useState(false);
   const [emailExists, setEmailExists] = useState(false);
   const [isPendingDeletion, setIsPendingDeletion] = useState(false);
+  const [activeCanceledSubInfo, setActiveCanceledSubInfo] = useState<{
+    hasActive: boolean;
+    endDate?: string;
+    daysRemaining?: number;
+  } | null>(null);
   const [emailError, setEmailError] = useState<string | null>(null);
 
   // Active payment methods configuration
@@ -170,6 +177,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       setEmailChecking(false);
       setEmailExists(false);
       setIsPendingDeletion(false);
+      setActiveCanceledSubInfo(null);
       setEmailError(null);
       setCheckoutData(null);
       setExtraWebsites(initialExtraWebsites);
@@ -201,6 +209,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         if (currentUser.state) setState(currentUser.state);
         setEmailExists(false);
         setIsPendingDeletion(false);
+        setActiveCanceledSubInfo(null);
         setEmailError(null);
       } else {
         setName('');
@@ -210,6 +219,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         setPassword('');
         setEmailExists(false);
         setIsPendingDeletion(false);
+        setActiveCanceledSubInfo(null);
         setEmailError(null);
       }
     }
@@ -221,6 +231,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     if (!clean || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean)) {
       setEmailExists(false);
       setIsPendingDeletion(false);
+      setActiveCanceledSubInfo(null);
       setEmailError(null);
       return;
     }
@@ -231,6 +242,15 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       if (res.exists) {
         setEmailExists(true);
         setIsPendingDeletion(!!res.is_pending_deletion);
+        if (res.has_active_canceled_sub) {
+          setActiveCanceledSubInfo({
+            hasActive: true,
+            endDate: res.formatted_end_date,
+            daysRemaining: res.days_remaining,
+          });
+        } else {
+          setActiveCanceledSubInfo(null);
+        }
         // Se a conta pode ser reativada ou confirmada via senha, não mostramos erro impeditivo no input
         if (res.can_reactivate || res.is_pending_deletion) {
           setEmailError(null);
@@ -240,6 +260,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       } else {
         setEmailExists(false);
         setIsPendingDeletion(false);
+        setActiveCanceledSubInfo(null);
         setEmailError(null);
       }
     } catch (err) {
@@ -299,6 +320,26 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const extraAiTokens = extraAiPacks * aiPackTokens;
   const extraAiPrice = Math.round(extraAiPacks * aiPackPrice * 100) / 100;
   const totalAmount = basePrice + extraWebsitesPrice + extraAiPrice;
+
+  const isReactivatingFromExistingSub = !!(
+    currentUser &&
+    existingSubscription &&
+    existingSubscription.status === 'canceled' &&
+    existingSubscription.current_period_end &&
+    new Date(existingSubscription.current_period_end).getTime() > Date.now()
+  );
+
+  const isReactivatingCanceled = isReactivatingFromExistingSub || !!activeCanceledSubInfo?.hasActive;
+
+  const preservedPeriodEndDate = isReactivatingFromExistingSub
+    ? new Date(existingSubscription.current_period_end).toLocaleDateString('pt-BR')
+    : activeCanceledSubInfo?.endDate || '';
+
+  useEffect(() => {
+    if (isReactivatingCanceled && paymentMethod !== 'credit_card') {
+      setPaymentMethod('credit_card');
+    }
+  }, [isReactivatingCanceled, paymentMethod]);
 
   // Format CPF/CNPJ mask
   const handleCpfChange = (val: string) => {
@@ -480,10 +521,21 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           if (checkRes.exists) {
             setEmailExists(true);
             setIsPendingDeletion(!!checkRes.is_pending_deletion);
+            if (checkRes.has_active_canceled_sub) {
+              setActiveCanceledSubInfo({
+                hasActive: true,
+                endDate: checkRes.formatted_end_date,
+                daysRemaining: checkRes.days_remaining,
+              });
+            } else {
+              setActiveCanceledSubInfo(null);
+            }
             if (!password) {
               setError(
                 checkRes.is_pending_deletion
                   ? 'Esta conta está em período de carência (90 dias). Digite a senha da sua conta para reativar.'
+                  : checkRes.has_active_canceled_sub
+                  ? `Sua assinatura anterior foi cancelada mas está paga até ${checkRes.formatted_end_date}. Digite a senha para reativar sem cobrança hoje.`
                   : 'Este e-mail já possui cadastro. Digite a senha da sua conta para confirmar a contratação.'
               );
               return;
@@ -564,6 +616,13 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         if (err?.response?.data?.is_pending_deletion) {
           setIsPendingDeletion(true);
         }
+        if (err?.response?.data?.has_active_canceled_sub) {
+          setActiveCanceledSubInfo({
+            hasActive: true,
+            endDate: err?.response?.data?.formatted_end_date,
+            daysRemaining: err?.response?.data?.days_remaining,
+          });
+        }
         if (!err?.response?.data?.can_reactivate) {
           setEmailError('Este e-mail já possui cadastro na plataforma.');
         }
@@ -616,7 +675,9 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           <IconShieldCheck size={22} color="var(--mantine-color-indigo-4)" />
           <Text fw={700} size="lg">
             {step === 'form'
-              ? 'Contratação de Plano'
+              ? isReactivatingCanceled
+                ? 'Reativação de Assinatura'
+                : 'Contratação de Plano'
               : step === 'pix'
               ? 'Pagamento via Pix Instantâneo'
               : 'Assinatura Confirmada com Sucesso!'}
@@ -658,14 +719,50 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             </Text>
           </div>
           <div style={{ textAlign: 'right' }}>
-            <Text size="xs" c="dimmed">Total Mensal</Text>
-            <Title order={3} c={totalAmount <= 0 ? 'emerald.4' : 'indigo.4'}>
-              {totalAmount <= 0 ? 'Grátis' : `R$ ${totalAmount.toFixed(2).replace('.', ',')}`}
-              {totalAmount > 0 && <Text span size="xs" c="dimmed" fw={400}> /mês</Text>}
-            </Title>
+            {isReactivatingCanceled ? (
+              <>
+                <Badge color="teal" variant="filled" size="xs" mb={4}>
+                  Período já pago até {preservedPeriodEndDate}
+                </Badge>
+                <div>
+                  <Text size="xs" c="dimmed">Valor a Pagar Hoje</Text>
+                  <Title order={3} c="teal.4">
+                    R$ 0,00
+                  </Title>
+                </div>
+                <Text size="xs" c="dimmed" mt={2}>
+                  Próxima renovação: R$ {totalAmount.toFixed(2).replace('.', ',')}/mês em {preservedPeriodEndDate}
+                </Text>
+              </>
+            ) : (
+              <>
+                <Text size="xs" c="dimmed">Total Mensal</Text>
+                <Title order={3} c={totalAmount <= 0 ? 'emerald.4' : 'indigo.4'}>
+                  {totalAmount <= 0 ? 'Grátis' : `R$ ${totalAmount.toFixed(2).replace('.', ',')}`}
+                  {totalAmount > 0 && <Text span size="xs" c="dimmed" fw={400}> /mês</Text>}
+                </Title>
+              </>
+            )}
           </div>
         </Group>
       </Paper>
+
+      {isReactivatingCanceled && (
+        <Alert
+          icon={<IconSparkles size={18} />}
+          color="teal"
+          variant="light"
+          title="Reativação com Período Pago Vigente (R$ 0,00 hoje)"
+          radius="md"
+          mb="md"
+        >
+          <Text size="xs">
+            Sua conta possui assinatura anterior que foi cancelada, mas com período pago ativo até <strong>{preservedPeriodEndDate}</strong>.
+            Ao cadastrar o cartão de crédito abaixo para reativar a recorrência, <strong>nenhuma cobrança será feita hoje (R$ 0,00)</strong>.
+            A próxima cobrança mensal de R$ {totalAmount.toFixed(2).replace('.', ',')} ocorrerá automaticamente apenas em <strong>{preservedPeriodEndDate}</strong>.
+          </Text>
+        </Alert>
+      )}
 
       {error && (
         <Alert
@@ -770,10 +867,16 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
             {emailExists && !currentUser && (
               <Alert
-                color={isPendingDeletion ? "teal" : "blue"}
+                color={isPendingDeletion ? "teal" : activeCanceledSubInfo?.hasActive ? "teal" : "blue"}
                 variant="light"
                 icon={<IconInfoCircle size={18} />}
-                title={isPendingDeletion ? "Reativação de Conta em Carência (90 dias)" : "Conta já cadastrada na plataforma"}
+                title={
+                  isPendingDeletion
+                    ? "Reativação de Conta em Carência (90 dias)"
+                    : activeCanceledSubInfo?.hasActive
+                    ? "Reativação com Período Pago Vigente (R$ 0,00 hoje)"
+                    : "Conta já cadastrada na plataforma"
+                }
               >
                 <Stack gap="xs">
                   <Text size="sm">
@@ -781,6 +884,11 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       <>
                         Identificamos que o e-mail <strong>{email}</strong> possui uma conta em período de carência.
                         Digite a <strong>senha da sua conta</strong> abaixo para <strong>reativar sua conta e todos os seus sites</strong> imediatamente com a contratação deste plano.
+                      </>
+                    ) : activeCanceledSubInfo?.hasActive ? (
+                      <>
+                        Identificamos que o e-mail <strong>{email}</strong> possui uma assinatura que foi cancelada, mas com período pago ativo até <strong>{activeCanceledSubInfo.endDate}</strong>.
+                        Digite a <strong>senha da sua conta</strong> abaixo e informe os dados do cartão para restabelecer a renovação automática sem nenhuma cobrança hoje.
                       </>
                     ) : (
                       <>
@@ -794,7 +902,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       <Button
                         size="xs"
                         variant="subtle"
-                        color={isPendingDeletion ? "teal" : "blue"}
+                        color={isPendingDeletion || activeCanceledSubInfo?.hasActive ? "teal" : "blue"}
                         onClick={() => {
                           onClose();
                           onOpenLogin();
@@ -832,6 +940,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   emailExists
                     ? isPendingDeletion
                       ? 'Sua Senha de Acesso (para reativar sua conta)'
+                      : activeCanceledSubInfo?.hasActive
+                      ? 'Sua Senha de Acesso (para reativar sua assinatura)'
                       : 'Sua Senha de Acesso (para confirmar sua conta)'
                     : 'Defina uma Senha de Acesso'
                 }
@@ -844,6 +954,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   emailExists
                     ? isPendingDeletion
                       ? 'Informe a senha da sua conta para validar sua identidade e reativar todos os seus dados e sites com este plano.'
+                      : activeCanceledSubInfo?.hasActive
+                      ? `Informe a senha da sua conta para reativar a recorrência sem cobrança hoje (vigente até ${activeCanceledSubInfo.endDate}).`
                       : 'Informe a senha da sua conta para validar a contratação deste plano.'
                     : 'Você usará este e-mail e senha para acessar sua conta.'
                 }
@@ -932,105 +1044,131 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               <>
                 <Divider label="Forma de Pagamento da Assinatura" labelPosition="center" color="dark.5" />
 
-                {allowCreditCard && allowPix && (
-                  <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs">
-                    <Paper
-                      p="sm"
-                      radius="md"
-                      onClick={() => setPaymentMethod('credit_card')}
-                      style={{
-                        cursor: 'pointer',
-                        background: paymentMethod === 'credit_card' ? 'rgba(26, 127, 134, 0.18)' : 'rgba(30, 41, 59, 0.5)',
-                        border: paymentMethod === 'credit_card' ? '2px solid #1A7F86' : '1px solid rgba(255, 255, 255, 0.08)',
-                        transition: 'all 0.2s ease',
-                      }}
-                    >
-                      <Group justify="space-between" mb={4}>
-                        <Group gap="xs">
-                          <IconCreditCard size={18} color={paymentMethod === 'credit_card' ? '#1A7F86' : '#94a3b8'} />
-                          <Text size="sm" fw={700} c={paymentMethod === 'credit_card' ? 'white' : 'gray.4'}>
-                            Cartão de Crédito
-                          </Text>
-                        </Group>
-                        <Badge size="xs" color="sitehub" variant="light">Automático</Badge>
-                      </Group>
-                      <Text size="xs" c="dimmed">
-                        Cobrança recorrente mensal sem risco de interrupção.
-                      </Text>
-                    </Paper>
-
-                    <Paper
-                      p="sm"
-                      radius="md"
-                      onClick={() => setPaymentMethod('pix')}
-                      style={{
-                        cursor: 'pointer',
-                        background: paymentMethod === 'pix' ? 'rgba(6, 214, 160, 0.15)' : 'rgba(30, 41, 59, 0.5)',
-                        border: paymentMethod === 'pix' ? '2px solid #06d6a0' : '1px solid rgba(255, 255, 255, 0.08)',
-                        transition: 'all 0.2s ease',
-                      }}
-                    >
-                      <Group justify="space-between" mb={4}>
-                        <Group gap="xs">
-                          <IconQrcode size={18} color={paymentMethod === 'pix' ? '#06d6a0' : '#94a3b8'} />
-                          <Text size="sm" fw={700} c={paymentMethod === 'pix' ? 'white' : 'gray.4'}>
-                            Pix Instantâneo
-                          </Text>
-                        </Group>
-                        <Badge size="xs" color="emerald" variant="light">QR Code</Badge>
-                      </Group>
-                      <Text size="xs" c="dimmed">
-                        Pagamento com QR Code instantâneo a cada renovação.
-                      </Text>
-                    </Paper>
-                  </SimpleGrid>
-                )}
-
-                {allowCreditCard && !allowPix && (
-                  <Paper p="sm" radius="md" bg="rgba(26, 127, 134, 0.12)" style={{ border: '1px solid rgba(26, 127, 134, 0.35)' }}>
+                {isReactivatingCanceled ? (
+                  <Paper p="sm" radius="md" bg="rgba(20, 184, 166, 0.12)" style={{ border: '1px solid rgba(20, 184, 166, 0.35)' }}>
                     <Group justify="space-between">
                       <Group gap="xs">
-                        <IconCreditCard size={18} color="#1A7F86" />
+                        <IconCreditCard size={18} color="#14b8a6" />
                         <div>
                           <Text size="sm" fw={700} c="white">
-                            Pagamento via Cartão de Crédito
+                            Cadastro de Cartão para Renovação Futura
                           </Text>
                           <Text size="xs" c="dimmed">
-                            Cobrança mensal recorrente com ativação imediata dos limites.
+                            Cobrança de <b>R$ 0,00 hoje</b>. A primeira cobrança mensal ocorrerá automaticamente apenas em {preservedPeriodEndDate}.
                           </Text>
                         </div>
                       </Group>
-                      <Badge size="xs" color="sitehub" variant="light">Recorrência Automática</Badge>
+                      <Badge size="xs" color="teal" variant="light">R$ 0,00 Hoje</Badge>
                     </Group>
                   </Paper>
-                )}
-
-                {!allowCreditCard && allowPix && (
-                  <Paper p="sm" radius="md" bg="rgba(6, 214, 160, 0.1)" style={{ border: '1px solid rgba(6, 214, 160, 0.35)' }}>
-                    <Group justify="space-between">
-                      <Group gap="xs">
-                        <IconQrcode size={18} color="#06d6a0" />
-                        <div>
-                          <Text size="sm" fw={700} c="white">
-                            Pagamento via Pix Instantâneo
-                          </Text>
+                ) : (
+                  <>
+                    {allowCreditCard && allowPix && (
+                      <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs">
+                        <Paper
+                          p="sm"
+                          radius="md"
+                          onClick={() => setPaymentMethod('credit_card')}
+                          style={{
+                            cursor: 'pointer',
+                            background: paymentMethod === 'credit_card' ? 'rgba(26, 127, 134, 0.18)' : 'rgba(30, 41, 59, 0.5)',
+                            border: paymentMethod === 'credit_card' ? '2px solid #1A7F86' : '1px solid rgba(255, 255, 255, 0.08)',
+                            transition: 'all 0.2s ease',
+                          }}
+                        >
+                          <Group justify="space-between" mb={4}>
+                            <Group gap="xs">
+                              <IconCreditCard size={18} color={paymentMethod === 'credit_card' ? '#1A7F86' : '#94a3b8'} />
+                              <Text size="sm" fw={700} c={paymentMethod === 'credit_card' ? 'white' : 'gray.4'}>
+                                Cartão de Crédito
+                              </Text>
+                            </Group>
+                            <Badge size="xs" color="sitehub" variant="light">Automático</Badge>
+                          </Group>
                           <Text size="xs" c="dimmed">
-                            Geração de QR Code e código Copia e Cola na próxima etapa.
+                            Cobrança recorrente mensal sem risco de interrupção.
                           </Text>
-                        </div>
-                      </Group>
-                      <Badge size="xs" color="emerald" variant="light">QR Code</Badge>
-                    </Group>
-                  </Paper>
+                        </Paper>
+
+                        <Paper
+                          p="sm"
+                          radius="md"
+                          onClick={() => setPaymentMethod('pix')}
+                          style={{
+                            cursor: 'pointer',
+                            background: paymentMethod === 'pix' ? 'rgba(6, 214, 160, 0.15)' : 'rgba(30, 41, 59, 0.5)',
+                            border: paymentMethod === 'pix' ? '2px solid #06d6a0' : '1px solid rgba(255, 255, 255, 0.08)',
+                            transition: 'all 0.2s ease',
+                          }}
+                        >
+                          <Group justify="space-between" mb={4}>
+                            <Group gap="xs">
+                              <IconQrcode size={18} color={paymentMethod === 'pix' ? '#06d6a0' : '#94a3b8'} />
+                              <Text size="sm" fw={700} c={paymentMethod === 'pix' ? 'white' : 'gray.4'}>
+                                Pix Instantâneo
+                              </Text>
+                            </Group>
+                            <Badge size="xs" color="emerald" variant="light">QR Code</Badge>
+                          </Group>
+                          <Text size="xs" c="dimmed">
+                            Pagamento com QR Code instantâneo a cada renovação.
+                          </Text>
+                        </Paper>
+                      </SimpleGrid>
+                    )}
+
+                    {allowCreditCard && !allowPix && (
+                      <Paper p="sm" radius="md" bg="rgba(26, 127, 134, 0.12)" style={{ border: '1px solid rgba(26, 127, 134, 0.35)' }}>
+                        <Group justify="space-between">
+                          <Group gap="xs">
+                            <IconCreditCard size={18} color="#1A7F86" />
+                            <div>
+                              <Text size="sm" fw={700} c="white">
+                                Pagamento via Cartão de Crédito
+                              </Text>
+                              <Text size="xs" c="dimmed">
+                                Cobrança mensal recorrente com ativação imediata dos limites.
+                              </Text>
+                            </div>
+                          </Group>
+                          <Badge size="xs" color="sitehub" variant="light">Recorrência Automática</Badge>
+                        </Group>
+                      </Paper>
+                    )}
+
+                    {!allowCreditCard && allowPix && (
+                      <Paper p="sm" radius="md" bg="rgba(6, 214, 160, 0.1)" style={{ border: '1px solid rgba(6, 214, 160, 0.35)' }}>
+                        <Group justify="space-between">
+                          <Group gap="xs">
+                            <IconQrcode size={18} color="#06d6a0" />
+                            <div>
+                              <Text size="sm" fw={700} c="white">
+                                Pagamento via Pix Instantâneo
+                              </Text>
+                              <Text size="xs" c="dimmed">
+                                Geração de QR Code e código Copia e Cola na próxima etapa.
+                              </Text>
+                            </div>
+                          </Group>
+                          <Badge size="xs" color="emerald" variant="light">QR Code</Badge>
+                        </Group>
+                      </Paper>
+                    )}
+                  </>
                 )}
 
                 {/* Campos de Cartão de Crédito */}
                 {paymentMethod === 'credit_card' && (
-                  <Card p="sm" radius="md" bg="rgba(15, 23, 42, 0.6)" style={{ border: '1px solid rgba(26, 127, 134, 0.3)' }}>
+                  <Card p="sm" radius="md" bg="rgba(15, 23, 42, 0.6)" style={{ border: isReactivatingCanceled ? '1px solid rgba(20, 184, 166, 0.4)' : '1px solid rgba(26, 127, 134, 0.3)' }}>
                     <Stack gap="xs">
-                      <Text size="xs" fw={700} c="sitehub.4" style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                        Dados do Cartão de Crédito
-                      </Text>
+                      <Group justify="space-between">
+                        <Text size="xs" fw={700} c={isReactivatingCanceled ? "teal.4" : "sitehub.4"} style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                          Dados do Cartão de Crédito
+                        </Text>
+                        {isReactivatingCanceled && (
+                          <Badge size="xs" color="teal" variant="light">R$ 0,00 Cobrado Hoje</Badge>
+                        )}
+                      </Group>
 
                       <TextInput
                         label="Nome Impresso no Cartão"
@@ -1078,11 +1216,13 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             <Button
               type="submit"
               size="md"
-              color={totalAmount <= 0 ? 'emerald' : 'sitehub'}
+              color={totalAmount <= 0 ? 'emerald' : isReactivatingCanceled ? 'teal' : 'sitehub'}
               variant="gradient"
               gradient={
                 totalAmount <= 0
                   ? { from: '#06d6a0', to: '#118ab2' }
+                  : isReactivatingCanceled
+                  ? { from: '#0d9488', to: '#14b8a6' }
                   : paymentMethod === 'credit_card'
                   ? { from: '#1A7F86', to: '#118ab2' }
                   : { from: '#1A7F86', to: '#06d6a0' }
@@ -1090,10 +1230,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               leftSection={
                 totalAmount <= 0 ? (
                   <IconRocket size={18} />
-                ) : paymentMethod === 'credit_card' ? (
-                  <IconCreditCard size={18} />
                 ) : (
-                  <IconQrcode size={18} />
+                  <IconCreditCard size={18} />
                 )
               }
               loading={loading}
@@ -1102,6 +1240,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             >
               {totalAmount <= 0
                 ? 'Começar Gratuitamente'
+                : isReactivatingCanceled
+                ? 'Cadastrar Cartão e Reativar Assinatura (R$ 0,00 hoje)'
                 : paymentMethod === 'credit_card'
                 ? `Assinar no Cartão (R$ ${totalAmount.toFixed(2).replace('.', ',')}/mês)`
                 : `Gerar Pix para Pagamento (R$ ${totalAmount.toFixed(2).replace('.', ',')})`}
@@ -1110,6 +1250,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             <Text size="xs" c="dimmed" ta="center">
               {totalAmount <= 0
                 ? '🔒 Ativação instantânea do plano gratuito. Nenhum dado bancário é solicitado.'
+                : isReactivatingCanceled
+                ? `🔒 Transação segura. Nenhuma cobrança hoje. A recorrência de R$ ${totalAmount.toFixed(2).replace('.', ',')}/mês iniciará em ${preservedPeriodEndDate} via Asaas.`
                 : paymentMethod === 'credit_card'
                 ? '🔒 Transação criptografada de ponta a ponta. Recorrência automática processada pelo Asaas.'
                 : '🔒 Pagamento seguro processado via gateway Asaas. Liberação automática via Pix.'}
@@ -1266,10 +1408,18 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
           <div style={{ textAlign: 'center' }}>
             <Title order={3} c="white">
-              {totalAmount <= 0 ? 'Conta Criada com Sucesso!' : 'Parabéns! Sua Assinatura está Ativa!'}
+              {(checkoutData?.is_reactivating_canceled || checkoutData?.reactivated || isReactivatingCanceled)
+                ? 'Assinatura Reativada com Sucesso!'
+                : totalAmount <= 0
+                ? 'Conta Criada com Sucesso!'
+                : 'Parabéns! Sua Assinatura está Ativa!'}
             </Title>
-            <Text size="sm" c="dimmed" mt={4} maw={420}>
-              {totalAmount <= 0 ? (
+            <Text size="sm" c="dimmed" mt={4} maw={440}>
+              {(checkoutData?.is_reactivating_canceled || checkoutData?.reactivated || isReactivatingCanceled) ? (
+                <>
+                  Seu cartão de crédito foi cadastrado com sucesso para manter sua assinatura ativa sem interrupções. Como seu plano já possui vigência paga até <b>{checkoutData?.formatted_next_date || preservedPeriodEndDate}</b>, <b>nenhuma cobrança foi realizada hoje (R$ 0,00 cobrado)</b>. A próxima renovação automática de R$ {(checkoutData?.monthly_amount || totalAmount).toFixed(2).replace('.', ',')}/mês ocorrerá apenas em <b>{checkoutData?.formatted_next_date || preservedPeriodEndDate}</b>.
+                </>
+              ) : totalAmount <= 0 ? (
                 <>Seu acesso ao <b>Plano {selectedPlan.name}</b> está liberado! Você já pode cadastrar seu primeiro site e realizar diagnósticos de segurança.</>
               ) : (
                 <>O pagamento do <b>Plano {selectedPlan.name}</b> foi confirmado e todos os recursos de auditoria e IA já foram liberados para sua conta.</>
@@ -1284,9 +1434,15 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 <Text size="sm" fw={600} c="white">{selectedPlan.name}</Text>
               </div>
               <div>
-                <Text size="xs" c="dimmed">Valor Mensal</Text>
+                <Text size="xs" c="dimmed">
+                  {(checkoutData?.is_reactivating_canceled || checkoutData?.reactivated || isReactivatingCanceled) ? 'Cobrado Hoje' : 'Valor Mensal'}
+                </Text>
                 <Text size="sm" fw={600} c="green.4">
-                  {totalAmount <= 0 ? 'Grátis (R$ 0,00)' : `R$ ${totalAmount.toFixed(2).replace('.', ',')}`}
+                  {(checkoutData?.is_reactivating_canceled || checkoutData?.reactivated || isReactivatingCanceled)
+                    ? 'R$ 0,00 (Período Quitado)'
+                    : totalAmount <= 0
+                    ? 'Grátis (R$ 0,00)'
+                    : `R$ ${totalAmount.toFixed(2).replace('.', ',')}`}
                 </Text>
               </div>
               <div>
@@ -1301,7 +1457,11 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               </div>
               <div>
                 <Text size="xs" c="dimmed">Status</Text>
-                <Badge color="green" variant="light" size="sm">Assinatura Ativa</Badge>
+                <Badge color="green" variant="light" size="sm">
+                  {(checkoutData?.is_reactivating_canceled || checkoutData?.reactivated || isReactivatingCanceled)
+                    ? 'Assinatura Reativada'
+                    : 'Assinatura Ativa'}
+                </Badge>
               </div>
               <div>
                 <Text size="xs" c="dimmed">Capacidade de Sites</Text>
@@ -1320,13 +1480,19 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             </SimpleGrid>
           </Paper>
 
-          {checkoutData?.billing_type === 'CREDIT_CARD' && (
+          {(checkoutData?.is_reactivating_canceled || checkoutData?.reactivated || isReactivatingCanceled) ? (
+            <Alert color="teal" variant="light" w="100%">
+              <Text size="xs">
+                <b>Próxima Cobrança Agendada:</b> A mensalidade de R$ {(checkoutData?.monthly_amount || totalAmount).toFixed(2).replace('.', ',')} será cobrada no seu cartão apenas em <b>{checkoutData?.formatted_next_date || preservedPeriodEndDate}</b>. Até lá, você usufrui de todos os recursos da plataforma sem qualquer custo adicional.
+              </Text>
+            </Alert>
+          ) : checkoutData?.billing_type === 'CREDIT_CARD' ? (
             <Alert color="indigo" variant="light" w="100%">
               <Text size="xs">
                 <b>Renovação Automática:</b> O plano será renovado mensalmente de forma automática em seu cartão de crédito. Você pode gerenciar ou cancelar sua assinatura a qualquer momento na tela de <b>Gestão do Plano</b>, com acesso assegurado até o fim do ciclo pago.
               </Text>
             </Alert>
-          )}
+          ) : null}
 
           <Button
             size="lg"
