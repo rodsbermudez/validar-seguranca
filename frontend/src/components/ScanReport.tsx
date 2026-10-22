@@ -17,7 +17,6 @@ import {
   Alert,
   Modal,
   Textarea,
-  Tooltip,
   Box,
   Switch,
   Table,
@@ -33,14 +32,12 @@ import {
   IconRotateClockwise,
   IconPlugConnected,
   IconDownload,
-  IconSparkles,
   IconShieldPlus,
   IconServer,
   IconUserCheck,
   IconPlug,
   IconPrinter,
   IconRefresh,
-  IconLock,
 } from '@tabler/icons-react';
 import { api, getWebsiteFixes, toggleWebsiteFix, WebsiteFixesResponse } from '../api';
 import { formatDateTime } from '../utils/date';
@@ -72,9 +69,6 @@ export const ScanReport: React.FC<ScanReportProps> = ({
 
   // Remediation & Solutions State
   const [catalogSolutions, setCatalogSolutions] = useState<Record<string, any>>({});
-
-  // Single Check AI Generation State
-  const [generatingCheckId, setGeneratingCheckId] = useState<string | null>(null);
 
   // Remediation Plugin Modal State
   const [remediationModalOpen, setRemediationModalOpen] = useState(false);
@@ -246,26 +240,6 @@ export const ScanReport: React.FC<ScanReportProps> = ({
       alert('Erro ao baixar o plugin agente do WordPress.');
     } finally {
       setDownloadLoading(false);
-    }
-  };
-
-  // Generate single check AI solution (available to user/admin if missing from catalog)
-  const handleGenerateSingleSolution = async (check: any) => {
-    const checkId = check.id || check.check_id;
-    setGeneratingCheckId(checkId);
-    try {
-      await api.post('/solutions/generate-single', {
-        check_id: checkId,
-        check_name: check.name || check.check_name,
-        details: check.details || check.description || '',
-        severity: check.severity || 'medium',
-        website_id: website.id,
-      });
-      await fetchSolutionsCatalog();
-    } catch (err: any) {
-      alert(err.response?.data?.messages?.error || err.response?.data?.message || err.message || 'Erro ao gerar solução para esta falha.');
-    } finally {
-      setGeneratingCheckId(null);
     }
   };
 
@@ -611,7 +585,7 @@ export const ScanReport: React.FC<ScanReportProps> = ({
         <Center style={{ minHeight: 300 }}>
           <Stack align="center">
             <Loader color="indigo" size="lg" />
-            <Text c="dimmed">Carregando relatório de auditoria e soluções...</Text>
+            <Text c="dimmed">Carregando relatório de auditoria...</Text>
           </Stack>
         </Center>
       </Paper>
@@ -883,94 +857,28 @@ export const ScanReport: React.FC<ScanReportProps> = ({
                     {category.checks && category.checks.length > 0 ? (
                       category.checks.map((check: any) => {
                         const checkId = check.id || check.check_id;
-                        const sol = catalogSolutions[checkId];
                         const isFailed = check.status === 'FAIL' || check.status === 'WARN' || check.status === 'WARNING' || check.status === 'ALERTA' || check.status === 'FALHA';
 
                         return (
                           <Paper key={checkId} p="sm" radius="sm" bg="dark.7" withBorder style={{ borderColor: isFailed ? '#991B1B' : '#2C2E33' }}>
-                            <Group justify="space-between" align="flex-start">
-                              <div style={{ flex: 1 }}>
-                                <Group gap="xs" mb={4}>
-                                  {getStatusBadge(check.status)}
-                                  <Text fw={600} size="sm">{check.name}</Text>
-                                  <Badge size="xs" variant="outline" color={check.severity === 'CRITICAL' || check.severity === 'HIGH' ? 'red' : 'gray'}>
-                                    {check.severity}
-                                  </Badge>
-                                  {getActionBadge(checkId)}
-                                </Group>
+                            <div>
+                              <Group gap="xs" mb={4}>
+                                {getStatusBadge(check.status)}
+                                <Text fw={600} size="sm">{check.name}</Text>
+                                <Badge size="xs" variant="outline" color={check.severity === 'CRITICAL' || check.severity === 'HIGH' ? 'red' : 'gray'}>
+                                  {check.severity}
+                                </Badge>
+                                {getActionBadge(checkId)}
+                              </Group>
 
-                                <Text size="xs" c="dimmed">
-                                  {check.description}
-                                </Text>
-                                <Divider my={6} style={{ opacity: 0.1 }} />
-                                <Text size="xs" fw={500} color={isFailed ? 'red.3' : 'gray.4'}>
-                                  👉 {check.details}
-                                </Text>
-
-                                {/* Solution Catalog Info Card if Available */}
-                                {sol && (
-                                  toolsEnabled === false ? (
-                                    <Paper p="xs" mt="xs" bg="dark.8" radius="xs" style={{ borderLeft: '3px solid #f59e0b' }}>
-                                      <Group justify="space-between" align="center" mb={2}>
-                                        <Group gap="xs">
-                                          <IconLock size={14} color="#f59e0b" />
-                                          <Text size="xs" fw={700} c="yellow.4">
-                                            💡 Solução Recomendada (Exclusiva Planos Pagos)
-                                          </Text>
-                                        </Group>
-                                        {onNavigateToPlans && (
-                                          <Button size="compact-xs" variant="light" color="sitehub" onClick={onNavigateToPlans}>
-                                            Ver Planos 🚀
-                                          </Button>
-                                        )}
-                                      </Group>
-                                      <Text size="xs" c="dimmed" style={{ filter: 'blur(3px)', userSelect: 'none' }}>
-                                        {sol.solution_instructions ? sol.solution_instructions.slice(0, 120) : 'Passo a passo detalhado e scripts de correção automática.'}
-                                      </Text>
-                                    </Paper>
-                                  ) : (
-                                    <Paper p="xs" mt="xs" bg="dark.8" radius="xs" style={{ borderLeft: '3px solid #4C6EF5' }}>
-                                      <Text size="xs" fw={700} c="indigo.3">
-                                        💡 Solução Recomendada: {sol.solution_title}
-                                      </Text>
-                                      <Text size="xs" c="gray.3" mt={2} style={{ whitespace: 'pre-line' }}>
-                                        {sol.solution_instructions}
-                                      </Text>
-                                    </Paper>
-                                  )
-                                )}
-                              </div>
-
-                              {/* Action Button for Single Check AI Generation */}
-                              {isFailed && !catalogSolutions[checkId] && (
-                                toolsEnabled === false ? (
-                                  <Tooltip label="Geração de solução com IA exclusiva para planos pagos.">
-                                    <Button
-                                      size="xs"
-                                      variant="subtle"
-                                      color="gray"
-                                      leftSection={<IconLock size={12} />}
-                                      onClick={onNavigateToPlans}
-                                    >
-                                      Gerar Solução (Free)
-                                    </Button>
-                                  </Tooltip>
-                                ) : (
-                                  <Tooltip label="Gerar solução específica com IA (consome cota de tokens)">
-                                    <Button
-                                      size="xs"
-                                      variant="light"
-                                      color="violet"
-                                      leftSection={<IconSparkles size={12} />}
-                                      loading={generatingCheckId === checkId}
-                                      onClick={() => handleGenerateSingleSolution(check)}
-                                    >
-                                      Gerar Solução (IA)
-                                    </Button>
-                                  </Tooltip>
-                                )
-                              )}
-                            </Group>
+                              <Text size="xs" c="dimmed">
+                                {check.description}
+                              </Text>
+                              <Divider my={6} style={{ opacity: 0.1 }} />
+                              <Text size="xs" fw={500} color={isFailed ? 'red.3' : 'gray.4'}>
+                                👉 {check.details}
+                              </Text>
+                            </div>
                           </Paper>
                         );
                       })
