@@ -701,68 +701,64 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     >
       {/* Resumo do Plano Selecionado */}
       <Paper p="md" radius="md" bg="rgba(30, 41, 59, 0.5)" mb="md" style={{ border: '1px solid rgba(255, 255, 255, 0.08)' }}>
-        <Group justify="space-between" align="center">
-          <div>
-            <Group gap="xs">
-              <Title order={4} c="white">
-                Plano {selectedPlan.name}
-              </Title>
-              <Badge color="indigo" variant="light">
-                {selectedPlan.max_websites === null ? 'Sites Ilimitados' : `Até ${selectedPlan.max_websites} Sites`}
-              </Badge>
-              <Badge color="violet" variant="outline">
-                {(selectedPlan.ai_monthly_tokens / 1000).toLocaleString('pt-BR')}k Tokens IA
-              </Badge>
-            </Group>
-            <Text size="xs" c="dimmed" mt={4}>
-              {selectedPlan.description || 'Auditoria contínua, telemetria em tempo real e remediação com IA.'}
-            </Text>
-          </div>
-          <div style={{ textAlign: 'right' }}>
-            {isReactivatingCanceled ? (
-              <>
-                <Badge color="teal" variant="filled" size="xs" mb={4}>
-                  Período já pago até {preservedPeriodEndDate}
+        <Stack gap="sm">
+          <Group justify="space-between" align="flex-start" wrap="nowrap">
+            <Box style={{ flex: 1, minWidth: 0 }}>
+              <Group gap="xs" wrap="wrap" mb={4}>
+                <Title order={4} c="white">
+                  Plano {selectedPlan.name}
+                </Title>
+                <Badge color="indigo" variant="light" size="sm">
+                  {selectedPlan.max_websites === null ? 'Sites Ilimitados' : `Até ${selectedPlan.max_websites} Sites`}
                 </Badge>
-                <div>
-                  <Text size="xs" c="dimmed">Valor a Pagar Hoje</Text>
-                  <Title order={3} c="teal.4">
-                    R$ 0,00
-                  </Title>
-                </div>
-                <Text size="xs" c="dimmed" mt={2}>
+                <Badge color="violet" variant="outline" size="sm">
+                  {(selectedPlan.ai_monthly_tokens / 1000).toLocaleString('pt-BR')}k Tokens IA
+                </Badge>
+              </Group>
+              <Text size="xs" c="dimmed">
+                {selectedPlan.description || 'Auditoria contínua, telemetria em tempo real e remediação com IA.'}
+              </Text>
+            </Box>
+
+            <Box style={{ textAlign: 'right', flexShrink: 0, paddingLeft: 16 }}>
+              <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
+                {isReactivatingCanceled ? 'A Pagar Hoje' : 'Total Mensal'}
+              </Text>
+              <Title
+                order={3}
+                c={isReactivatingCanceled ? 'teal.4' : totalAmount <= 0 ? 'emerald.4' : 'indigo.4'}
+                style={{ whiteSpace: 'nowrap', lineHeight: 1.2 }}
+              >
+                {isReactivatingCanceled ? 'R$ 0,00' : totalAmount <= 0 ? 'Grátis' : `R$ ${totalAmount.toFixed(2).replace('.', ',')}`}
+                {!isReactivatingCanceled && totalAmount > 0 && <Text span size="xs" c="dimmed" fw={400}> /mês</Text>}
+              </Title>
+            </Box>
+          </Group>
+
+          {isReactivatingCanceled && (
+            <Paper
+              p="xs"
+              radius="sm"
+              bg="rgba(20, 184, 166, 0.12)"
+              style={{ border: '1px solid rgba(20, 184, 166, 0.28)' }}
+            >
+              <Group justify="space-between" align="center" wrap="wrap" gap="xs">
+                <Group gap="xs">
+                  <Badge color="teal" variant="filled" size="sm">
+                    Período Pago Ativo
+                  </Badge>
+                  <Text size="xs" c="gray.2">
+                    Vigência já quitada até <strong>{preservedPeriodEndDate}</strong>
+                  </Text>
+                </Group>
+                <Text size="xs" c="teal.3" fw={600}>
                   Próxima renovação: R$ {totalAmount.toFixed(2).replace('.', ',')}/mês em {preservedPeriodEndDate}
                 </Text>
-              </>
-            ) : (
-              <>
-                <Text size="xs" c="dimmed">Total Mensal</Text>
-                <Title order={3} c={totalAmount <= 0 ? 'emerald.4' : 'indigo.4'}>
-                  {totalAmount <= 0 ? 'Grátis' : `R$ ${totalAmount.toFixed(2).replace('.', ',')}`}
-                  {totalAmount > 0 && <Text span size="xs" c="dimmed" fw={400}> /mês</Text>}
-                </Title>
-              </>
-            )}
-          </div>
-        </Group>
+              </Group>
+            </Paper>
+          )}
+        </Stack>
       </Paper>
-
-      {isReactivatingCanceled && (
-        <Alert
-          icon={<IconSparkles size={18} />}
-          color="teal"
-          variant="light"
-          title="Reativação com Período Pago Vigente (R$ 0,00 hoje)"
-          radius="md"
-          mb="md"
-        >
-          <Text size="xs">
-            Sua conta possui assinatura anterior que foi cancelada, mas com período pago ativo até <strong>{preservedPeriodEndDate}</strong>.
-            Ao cadastrar o cartão de crédito abaixo para reativar a recorrência, <strong>nenhuma cobrança será feita hoje (R$ 0,00)</strong>.
-            A próxima cobrança mensal de R$ {totalAmount.toFixed(2).replace('.', ',')} ocorrerá automaticamente apenas em <strong>{preservedPeriodEndDate}</strong>.
-          </Text>
-        </Alert>
-      )}
 
       {error && (
         <Alert
