@@ -54,6 +54,8 @@ $routes->group('api', function ($routes) {
         $routes->post('websites/(:num)/logs/clear', 'Api\Websites::clearLogs/$1');
         $routes->get('websites/(:num)/updates', 'Api\Websites::updates/$1');
         $routes->post('websites/(:num)/updates/apply', 'Api\Websites::applyUpdate/$1');
+        $routes->get('websites/(:num)/updates/history', 'Api\Websites::updatesHistory/$1');
+        $routes->post('websites/(:num)/updates/rollback', 'Api\Websites::rollbackUpdate/$1');
         $routes->get('websites/(:num)/integrity', 'Api\Websites::integrity/$1');
         $routes->post('websites/(:num)/integrity/scan', 'Api\Websites::scanIntegrity/$1');
         $routes->post('websites/(:num)/integrity/ignore', 'Api\Websites::ignoreIntegrityIssue/$1');

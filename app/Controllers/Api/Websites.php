@@ -1162,8 +1162,16 @@ class Websites extends ResourceController
             return $this->fail('ID do website não informado.', 400);
         }
 
-        $type = $this->request->getVar('type');
-        $item = $this->request->getVar('item');
+        $type            = $this->request->getVar('type');
+        $item            = $this->request->getVar('item');
+        $fromVersion     = $this->request->getVar('from_version');
+        $toVersion       = $this->request->getVar('to_version');
+        $itemName        = $this->request->getVar('item_name') ?? $item;
+        $hadWarnings     = (int) ($this->request->getVar('had_warnings') ? 1 : 0);
+        $warningsDetails = $this->request->getVar('warnings_details');
+        if (is_array($warningsDetails)) {
+            $warningsDetails = json_encode($warningsDetails, JSON_UNESCAPED_UNICODE);
+        }
 
         if (empty($type)) {
             return $this->fail('Tipo de atualização não informado.', 400);
@@ -1203,6 +1211,37 @@ class Websites extends ResourceController
         }
 
         $rawMessages = $res['body']['messages'] ?? ($res['body']['data']['messages'] ?? []);
+        $agentData   = $res['body']['data'] ?? [];
+        $backupFile  = $agentData['backup_file'] ?? null;
+        $detectedFrom = $agentData['from_version'] ?? ($fromVersion ?: '');
+
+        // Registra a atualização no histórico para permitir Rollback em 1 clique
+        $slug = ($type === 'plugin') ? dirname($item) : $item;
+        if ($slug === '.' || empty($slug)) {
+            $slug = basename($item, '.php');
+        }
+
+        try {
+            $historyModel = new \App\Models\WebsiteUpdateHistoryModel();
+            $historyModel->ensureTableExists();
+            $historyModel->insert([
+                'website_id'       => (int) $id,
+                'user_id'          => $effectiveUserId ?: null,
+                'item_type'        => $type,
+                'item_slug'        => $slug,
+                'item_name'        => $itemName,
+                'file_path'        => $item,
+                'from_version'     => $detectedFrom ?: ($fromVersion ?: 'unknown'),
+                'to_version'       => $toVersion ?: '',
+                'backup_file'      => $backupFile,
+                'backup_created'   => !empty($backupFile) ? 1 : 0,
+                'had_warnings'     => $hadWarnings,
+                'warnings_details' => $warningsDetails,
+                'status'           => 'applied',
+            ]);
+        } catch (\Throwable $th) {
+            log_message('error', 'Erro ao gravar historico de updates: ' . $th->getMessage());
+        }
 
         // Após aplicar atualização com sucesso, consulta imediatamente o estado fresco de updates
         // e persiste no banco de dados do SaaS
@@ -1219,6 +1258,136 @@ class Websites extends ResourceController
 
         if (!empty($rawMessages)) {
             $res['body']['messages'] = $rawMessages;
+        }
+
+        return $this->respond($res['body']);
+    }
+
+    public function updatesHistory($id = null)
+    {
+        if (!$id) {
+            return $this->fail('ID do website não informado.', 400);
+        }
+
+        $effectiveUserId = (int) ($this->request->effectiveUserId ?? ($this->request->userData->id ?? 0));
+        $userData        = $this->request->userData ?? null;
+        $isImpersonating = $this->request->isImpersonating ?? false;
+        $isAdmin         = (($userData->role ?? 'user') === 'admin') && !$isImpersonating;
+
+        $websiteModel = new WebsiteModel();
+        $website = $websiteModel->find($id);
+
+        if (!$website) {
+            return $this->failNotFound('Website não encontrado.');
+        }
+
+        if (!$websiteModel->canUserAccess((int)$id, $effectiveUserId, $isAdmin)) {
+            return $this->failForbidden('Você não tem permissão para acessar este website.');
+        }
+
+        $historyModel = new \App\Models\WebsiteUpdateHistoryModel();
+        $history = $historyModel->getHistoryForWebsite((int)$id, 30);
+
+        return $this->respond([
+            'status'  => 200,
+            'success' => true,
+            'data'    => $history,
+        ]);
+    }
+
+    public function rollbackUpdate($id = null)
+    {
+        if (!$id) {
+            return $this->fail('ID do website não informado.', 400);
+        }
+
+        $effectiveUserId = (int) ($this->request->effectiveUserId ?? ($this->request->userData->id ?? 0));
+        $userData        = $this->request->userData ?? null;
+        $isImpersonating = $this->request->isImpersonating ?? false;
+        $isAdmin         = (($userData->role ?? 'user') === 'admin') && !$isImpersonating;
+
+        $websiteModel = new WebsiteModel();
+        $website = $websiteModel->find($id);
+
+        if (!$website) {
+            return $this->failNotFound('Website não encontrado.');
+        }
+
+        if (!$websiteModel->canUserAccess((int)$id, $effectiveUserId, $isAdmin)) {
+            return $this->failForbidden('Você não tem permissão para alterar este website.');
+        }
+
+        if (!$isAdmin && !UserPlanService::canUserUseRemediationTools($effectiveUserId)) {
+            return $this->failForbidden('A reversão de atualizações não está disponível no plano atual. Faça o upgrade para um plano pago para desbloquear.');
+        }
+
+        if (empty($website['agent_token'])) {
+            return $this->fail('Este website não possui token do agente configurado.', 400);
+        }
+
+        $historyId     = $this->request->getVar('history_id');
+        $type          = $this->request->getVar('type');
+        $item          = $this->request->getVar('item');
+        $targetVersion = $this->request->getVar('target_version');
+        $backupFile    = $this->request->getVar('backup_file');
+
+        $historyModel = new \App\Models\WebsiteUpdateHistoryModel();
+        $historyRecord = null;
+
+        if ($historyId) {
+            $historyRecord = $historyModel->find($historyId);
+            if ($historyRecord && (int)$historyRecord['website_id'] === (int)$id) {
+                $type          = $historyRecord['item_type'];
+                $item          = $historyRecord['file_path'];
+                $targetVersion = $historyRecord['from_version'];
+                $backupFile    = $historyRecord['backup_file'];
+            }
+        }
+
+        if (empty($type) || empty($item)) {
+            return $this->fail('Tipo ou item não informado para reversão.', 400);
+        }
+
+        // Chama o endpoint de rollback no agente WordPress
+        $res = $this->makeAgentRequestWithFallback($website['url'], '/updates/rollback', 'POST', $website['agent_token'], [
+            'type'           => $type,
+            'item'           => $item,
+            'target_version' => $targetVersion,
+            'backup_file'    => $backupFile,
+        ]);
+
+        if (empty($res['body']) || $res['status'] !== 200) {
+            return $this->failAgentResponse($res, 'Falha ao reverter atualização no WordPress');
+        }
+
+        // Marca registro de histórico como revertido
+        if ($historyRecord) {
+            $historyModel->update($historyRecord['id'], [
+                'status'         => 'rolled_back',
+                'rolled_back_at' => date('Y-m-d H:i:s'),
+            ]);
+        } else {
+            $slug = ($type === 'plugin') ? dirname($item) : $item;
+            if ($slug === '.' || empty($slug)) {
+                $slug = basename($item, '.php');
+            }
+            $latest = $historyModel->getLatestRollbackableItem((int)$id, $type, $slug);
+            if ($latest) {
+                $historyModel->update($latest['id'], [
+                    'status'         => 'rolled_back',
+                    'rolled_back_at' => date('Y-m-d H:i:s'),
+                ]);
+            }
+        }
+
+        // Consulta imediatamente o novo estado fresco das atualizações
+        $freshUpdates = $this->makeAgentRequestWithFallback($website['url'], '/updates', 'GET', $website['agent_token']);
+        if (!empty($freshUpdates['body']) && $freshUpdates['status'] === 200) {
+            $data = $freshUpdates['body']['data'] ?? $freshUpdates['body'];
+            if (!empty($data) && is_array($data)) {
+                $this->persistUpdatesCheck((int)$id, $data);
+                $res['body']['fresh_updates'] = $data;
+            }
         }
 
         return $this->respond($res['body']);

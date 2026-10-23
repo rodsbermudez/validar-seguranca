@@ -18,6 +18,7 @@ import {
   Modal,
   Progress,
   Tooltip,
+  Tabs,
 } from '@mantine/core';
 import {
   IconRefresh,
@@ -34,6 +35,10 @@ import {
   IconX,
   IconChevronDown,
   IconChevronUp,
+  IconHistory,
+  IconRotateDot,
+  IconArchive,
+  IconArrowBackUp,
 } from '@tabler/icons-react';
 import { api } from '../api';
 import { extractErrorMessage } from '../utils/formatError';
@@ -126,6 +131,75 @@ export interface UpdateModalState {
 interface ExecutionStep {
   label: string;
   detail: string;
+}
+
+export interface UpdateHistoryItem {
+  id: number;
+  website_id: number;
+  user_id?: number | null;
+  item_type: 'plugin' | 'theme' | 'core';
+  item_slug: string;
+  item_name?: string;
+  file_path: string;
+  from_version: string;
+  to_version: string;
+  backup_file?: string | null;
+  backup_created: number;
+  had_warnings: number;
+  warnings_details?: string | null;
+  status: 'applied' | 'rolled_back' | 'failed';
+  rolled_back_at?: string | null;
+  created_at: string;
+  updated_at?: string;
+  user_name?: string | null;
+  user_email?: string | null;
+}
+
+export interface RollbackModalState {
+  isOpen: boolean;
+  phase: 'confirm' | 'rolling_back' | 'finished';
+  item: UpdateHistoryItem | null;
+  stepIndex: number;
+  logs: string[];
+  error: string | null;
+  successMessage: string | null;
+}
+
+const ROLLBACK_STEPS: ExecutionStep[] = [
+  {
+    label: 'Conectando ao agente WordPress',
+    detail: 'Enviando comando seguro de reversão e inicializando salvaguardas...',
+  },
+  {
+    label: 'Localizando snapshot de segurança',
+    detail: 'Buscando pacote local em wp-content/uploads/vexors-backups/ ou repositório oficial...',
+  },
+  {
+    label: 'Restaurando arquivos da versão anterior',
+    detail: 'Substituindo os diretórios e restaurando o código estável anterior...',
+  },
+  {
+    label: 'Reativando e testando integridade',
+    detail: 'Confirmando status de ativação e revalidando resposta operacional do site...',
+  },
+];
+
+/** Formata data e hora no padrão brasileiro DD/MM/AAAA HH:mm */
+function formatDateTime(dateStr?: string): string {
+  if (!dateStr) return '-';
+  try {
+    const d = new Date(dateStr.replace(' ', 'T'));
+    if (isNaN(d.getTime())) return dateStr;
+    return d.toLocaleString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return dateStr;
+  }
 }
 
 const UPDATE_STEPS: ExecutionStep[] = [
@@ -245,6 +319,21 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
+  // Estados de Abas & Histórico / Rollback (Passo 3)
+  const [activeTab, setActiveTab] = useState<string>('available');
+  const [historyList, setHistoryList] = useState<UpdateHistoryItem[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState<boolean>(false);
+  const [rollbackModal, setRollbackModal] = useState<RollbackModalState>({
+    isOpen: false,
+    phase: 'confirm',
+    item: null,
+    stepIndex: 0,
+    logs: [],
+    error: null,
+    successMessage: null,
+  });
+  const [showRollbackLogs, setShowRollbackLogs] = useState<boolean>(false);
+
   // Estados de Feedback em Tempo Real das Etapas
   const [currentStepIndex, setCurrentStepIndex] = useState<number>(0);
   const [batchCurrentStep, setBatchCurrentStep] = useState<string>('Checando versões e conectando...');
@@ -266,6 +355,7 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
 
   const isAnyUpdating =
     (updateModal.isOpen && updateModal.phase === 'updating') ||
+    (rollbackModal.isOpen && rollbackModal.phase === 'rolling_back') ||
     updatingItem !== null ||
     updatingAllPlugins ||
     refreshing ||
@@ -275,12 +365,26 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
     if (updateModal.isOpen && updateModal.phase === 'updating') return;
     setUpdateModal((prev) => ({ ...prev, isOpen: false }));
     await fetchUpdates(true);
+    await fetchHistory();
   };
 
   const onUpdatesChangedRef = useRef(onUpdatesChanged);
   useEffect(() => {
     onUpdatesChangedRef.current = onUpdatesChanged;
   }, [onUpdatesChanged]);
+
+  const fetchHistory = useCallback(async () => {
+    setLoadingHistory(true);
+    try {
+      const res = await api.get(`/websites/${website.id}/updates/history`);
+      const items = res.data?.data || [];
+      setHistoryList(Array.isArray(items) ? items : []);
+    } catch (err) {
+      console.warn('Falha ao carregar histórico de atualizações:', err);
+    } finally {
+      setLoadingHistory(false);
+    }
+  }, [website.id]);
 
   const fetchUpdates = useCallback(async (isManualRefresh = false) => {
     if (isManualRefresh || updatesData) {
@@ -311,11 +415,21 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
 
   useEffect(() => {
     fetchUpdates();
+    fetchHistory();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [website.id]);
 
   /** Execução direta da atualização individual no backend com feedback passo a passo */
-  const executeSingleUpdate = async (itemKey: string, type: 'plugin' | 'theme' | 'core') => {
+  const executeSingleUpdate = async (
+    itemKey: string,
+    type: 'plugin' | 'theme' | 'core',
+    meta?: {
+      name?: string;
+      currentVersion?: string;
+      newVersion?: string;
+      warnings?: CompatibilityWarning[];
+    }
+  ) => {
     setUpdatingItem(itemKey);
     setCurrentStepIndex(0);
     setRealLogs([]);
@@ -327,14 +441,20 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
       items: prev.items.map((it) => ({ ...it, status: 'updating' })),
     }));
 
-    // Simulação visual sincronizada enquanto a requisição HTTP trafega e o WP executa
     const timer1 = setTimeout(() => setCurrentStepIndex(1), 600);
     const timer2 = setTimeout(() => setCurrentStepIndex(2), 1600);
+
+    const itemMeta = meta || updateModal.items.find((it) => it.id === itemKey) || updateModal.items[0];
 
     try {
       const res = await api.post(`/websites/${website.id}/updates/apply`, {
         type,
         item: itemKey,
+        from_version: itemMeta?.currentVersion || '',
+        to_version: itemMeta?.newVersion || '',
+        item_name: itemMeta?.name || '',
+        had_warnings: (itemMeta?.warnings?.length || 0) > 0 ? 1 : 0,
+        warnings_details: itemMeta?.warnings || [],
       });
 
       clearTimeout(timer1);
@@ -364,6 +484,9 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
           message,
         })),
       }));
+
+      // Atualiza o histórico em segundo plano
+      fetchHistory();
     } catch (err: any) {
       clearTimeout(timer1);
       clearTimeout(timer2);
@@ -448,7 +571,12 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
         overallErrorCount: 0,
         warningsCount: 0,
       });
-      executeSingleUpdate(itemKey, type);
+      executeSingleUpdate(itemKey, type, {
+        name: displayName,
+        currentVersion: currVer,
+        newVersion: newVer,
+        warnings,
+      });
     }
   };
 
@@ -491,6 +619,11 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
         const res = await api.post(`/websites/${website.id}/updates/apply`, {
           type: item.type,
           item: item.id,
+          from_version: item.currentVersion || '',
+          to_version: item.newVersion || '',
+          item_name: item.name || '',
+          had_warnings: (item.warnings?.length || 0) > 0 ? 1 : 0,
+          warnings_details: item.warnings || [],
         });
 
         clearTimeout(t1);
@@ -539,6 +672,84 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
       ...prev,
       phase: 'finished',
     }));
+    fetchHistory();
+  };
+
+  /** Abre o modal de confirmação e execução de rollback */
+  const handleOpenRollbackModal = (item: UpdateHistoryItem) => {
+    if (isAnyUpdating) return;
+    setRollbackModal({
+      isOpen: true,
+      phase: 'confirm',
+      item,
+      stepIndex: 0,
+      logs: [],
+      error: null,
+      successMessage: null,
+    });
+  };
+
+  /** Execução do Rollback em 1 clique chamando o agente e a API */
+  const executeRollback = async () => {
+    if (!rollbackModal.item) return;
+    const historyItem = rollbackModal.item;
+
+    setRollbackModal((prev) => ({
+      ...prev,
+      phase: 'rolling_back',
+      stepIndex: 0,
+      logs: [],
+      error: null,
+      successMessage: null,
+    }));
+
+    const timer1 = setTimeout(() => setRollbackModal((prev) => ({ ...prev, stepIndex: 1 })), 600);
+    const timer2 = setTimeout(() => setRollbackModal((prev) => ({ ...prev, stepIndex: 2 })), 1600);
+
+    try {
+      const res = await api.post(`/websites/${website.id}/updates/rollback`, {
+        history_id: historyItem.id,
+        type: historyItem.item_type,
+        item: historyItem.file_path,
+        target_version: historyItem.from_version,
+        backup_file: historyItem.backup_file,
+      });
+
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+
+      setRollbackModal((prev) => ({ ...prev, stepIndex: 3 }));
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      const msg =
+        res.data?.message ||
+        `Reversão para a versão ${historyItem.from_version} concluída com sucesso!`;
+      const rawMessages = Array.isArray(res.data?.messages)
+        ? res.data.messages
+        : Array.isArray(res.data?.data?.messages)
+        ? res.data.data.messages
+        : [];
+
+      setRollbackModal((prev) => ({
+        ...prev,
+        phase: 'finished',
+        logs: rawMessages,
+        successMessage: msg,
+      }));
+
+      // Recarrega atualizações e histórico
+      fetchUpdates(true);
+      fetchHistory();
+    } catch (err: any) {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+      const errMsg = extractErrorMessage(err, 'Falha ao reverter versão no WordPress.');
+      setRollbackModal((prev) => ({
+        ...prev,
+        phase: 'finished',
+        error: errMsg,
+      }));
+    }
   };
 
   /** Dispara a verificação prévia em lote para todos os plugins pendentes */
@@ -805,408 +1016,888 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
             </Paper>
           )}
 
-          {/* Summary Cards Row */}
-          <Grid>
-            <Grid.Col span={{ base: 12, md: 4 }}>
-              <Card padding="md" radius="md" withBorder bg="dark.7">
-                <Group justify="space-between" mb="xs">
-                  <Text size="xs" fw={700} c="dimmed" tt="uppercase">
-                    WordPress Core
-                  </Text>
-                  <ThemeIcon color={coreData.has_update ? 'orange' : 'green'} variant="light" radius="xl">
-                    <IconWorld size={18} />
-                  </ThemeIcon>
-                </Group>
-                <Text fw={700} size="md">
-                  Versão {coreData.current_version || 'N/A'}
-                </Text>
-                <Text size="xs" c="dimmed" mb="sm">
-                  {coreData.has_update
-                    ? `Nova versão disponível: ${coreData.new_version}`
-                    : 'Seu WordPress está na versão mais recente.'}
-                </Text>
-
-                {coreData.has_update ? (
-                  toolsEnabled === false ? (
-                    <Badge
-                      color="gray"
-                      variant="light"
-                      fullWidth
-                      leftSection={<IconLock size={12} />}
-                      style={{ cursor: onNavigateToPlans ? 'pointer' : 'default' }}
-                      onClick={onNavigateToPlans}
-                    >
-                      Atualização Bloqueada (Free)
+          {/* Navegação por Abas: Atualizações Disponíveis vs Histórico & Rollback */}
+          <Tabs
+            value={activeTab}
+            onChange={(v) => setActiveTab(v || 'available')}
+            color="indigo"
+            variant="outline"
+            radius="md"
+          >
+            <Tabs.List mb="md">
+              <Tabs.Tab
+                value="available"
+                leftSection={<IconArrowUpCircle size={16} />}
+                rightSection={
+                  updatesData?.summary?.total_pending !== undefined &&
+                  updatesData.summary.total_pending > 0 ? (
+                    <Badge size="xs" color="orange" variant="filled">
+                      {updatesData.summary.total_pending}
                     </Badge>
-                  ) : (
-                    <Button
-                      size="xs"
-                      color="orange"
-                      fullWidth
-                      loading={updatingItem === 'core'}
-                      disabled={isAnyUpdating}
-                      leftSection={<IconArrowUpCircle size={14} />}
-                      onClick={() =>
-                        handleApplyUpdate(
-                          'core',
-                          'core',
-                          'WordPress Core',
-                          coreData.current_version,
-                          coreData.new_version
+                  ) : undefined
+                }
+              >
+                Atualizações Disponíveis
+              </Tabs.Tab>
+
+              <Tabs.Tab
+                value="history"
+                leftSection={<IconHistory size={16} />}
+                rightSection={
+                  historyList.length > 0 ? (
+                    <Badge size="xs" color="gray" variant="light">
+                      {historyList.length}
+                    </Badge>
+                  ) : undefined
+                }
+              >
+                Histórico & Rollback
+              </Tabs.Tab>
+            </Tabs.List>
+
+            {/* ABA 1: ATUALIZAÇÕES DISPONÍVEIS */}
+            <Tabs.Panel value="available">
+              <Stack gap="lg">
+                {/* Summary Cards Row */}
+                <Grid>
+                  <Grid.Col span={{ base: 12, md: 4 }}>
+                    <Card padding="md" radius="md" withBorder bg="dark.7">
+                      <Group justify="space-between" mb="xs">
+                        <Text size="xs" fw={700} c="dimmed" tt="uppercase">
+                          WordPress Core
+                        </Text>
+                        <ThemeIcon
+                          color={coreData.has_update ? 'orange' : 'green'}
+                          variant="light"
+                          radius="xl"
+                        >
+                          <IconWorld size={18} />
+                        </ThemeIcon>
+                      </Group>
+                      <Text fw={700} size="md">
+                        Versão {coreData.current_version || 'N/A'}
+                      </Text>
+                      <Text size="xs" c="dimmed" mb="sm">
+                        {coreData.has_update
+                          ? `Nova versão disponível: ${coreData.new_version}`
+                          : 'Seu WordPress está na versão mais recente.'}
+                      </Text>
+
+                      {coreData.has_update ? (
+                        toolsEnabled === false ? (
+                          <Badge
+                            color="gray"
+                            variant="light"
+                            fullWidth
+                            leftSection={<IconLock size={12} />}
+                            style={{ cursor: onNavigateToPlans ? 'pointer' : 'default' }}
+                            onClick={onNavigateToPlans}
+                          >
+                            Atualização Bloqueada (Free)
+                          </Badge>
+                        ) : (
+                          <Button
+                            size="xs"
+                            color="orange"
+                            fullWidth
+                            loading={updatingItem === 'core'}
+                            disabled={isAnyUpdating}
+                            leftSection={<IconArrowUpCircle size={14} />}
+                            onClick={() =>
+                              handleApplyUpdate(
+                                'core',
+                                'core',
+                                'WordPress Core',
+                                coreData.current_version,
+                                coreData.new_version
+                              )
+                            }
+                          >
+                            Atualizar para {coreData.new_version}
+                          </Button>
                         )
-                      }
+                      ) : (
+                        <Badge color="green" variant="light" fullWidth>
+                          SISTEMA ATUALIZADO
+                        </Badge>
+                      )}
+                    </Card>
+                  </Grid.Col>
+
+                  <Grid.Col span={{ base: 12, md: 4 }}>
+                    <Card padding="md" radius="md" withBorder bg="dark.7">
+                      <Group justify="space-between" mb="xs">
+                        <Text size="xs" fw={700} c="dimmed" tt="uppercase">
+                          Plugins Instalados
+                        </Text>
+                        <ThemeIcon
+                          color={pendingPlugins.length > 0 ? 'orange' : 'green'}
+                          variant="light"
+                          radius="xl"
+                        >
+                          <IconPlug size={18} />
+                        </ThemeIcon>
+                      </Group>
+                      <Text fw={700} size="md">
+                        {pluginsList.length} Plugins no Total
+                      </Text>
+                      <Text size="xs" c="dimmed" mb="sm">
+                        {pendingPlugins.length > 0
+                          ? `${pendingPlugins.length} necessita(m) de atualização.`
+                          : 'Todos os plugins estão atualizados.'}
+                      </Text>
+                      {pendingPlugins.length > 0 ? (
+                        <Button
+                          size="xs"
+                          color="indigo"
+                          fullWidth
+                          loading={updatingAllPlugins}
+                          disabled={isAnyUpdating}
+                          leftSection={<IconArrowUpCircle size={14} />}
+                          onClick={handleUpdateAllPlugins}
+                        >
+                          Atualizar Todos os Plugins ({pendingPlugins.length})
+                        </Button>
+                      ) : (
+                        <Badge color="green" variant="light" fullWidth>
+                          PLUGINS EM DIA
+                        </Badge>
+                      )}
+                    </Card>
+                  </Grid.Col>
+
+                  <Grid.Col span={{ base: 12, md: 4 }}>
+                    <Card padding="md" radius="md" withBorder bg="dark.7">
+                      <Group justify="space-between" mb="xs">
+                        <Text size="xs" fw={700} c="dimmed" tt="uppercase">
+                          Temas Instalados
+                        </Text>
+                        <ThemeIcon
+                          color={pendingThemes.length > 0 ? 'orange' : 'green'}
+                          variant="light"
+                          radius="xl"
+                        >
+                          <IconPalette size={18} />
+                        </ThemeIcon>
+                      </Group>
+                      <Text fw={700} size="md">
+                        {themesList.length} Temas no Total
+                      </Text>
+                      <Text size="xs" c="dimmed" mb="sm">
+                        {pendingThemes.length > 0
+                          ? `${pendingThemes.length} tema(s) desatualizado(s).`
+                          : 'Todos os temas estão atualizados.'}
+                      </Text>
+                      <Badge
+                        color={pendingThemes.length > 0 ? 'orange' : 'green'}
+                        variant="light"
+                        fullWidth
+                      >
+                        {pendingThemes.length > 0
+                          ? `${pendingThemes.length} Pendente(s)`
+                          : 'TEMAS EM DIA'}
+                      </Badge>
+                    </Card>
+                  </Grid.Col>
+                </Grid>
+
+                {/* Section: Plugins Table */}
+                <Paper p="md" radius="md" bg="dark.7" withBorder>
+                  <Group justify="space-between" mb="md">
+                    <div>
+                      <Title order={5}>🔌 Plugins ({pluginsList.length})</Title>
+                      <Text size="xs" c="dimmed">
+                        Lista de plugins instalados no WordPress, requisitos informados e versões disponíveis.
+                      </Text>
+                    </div>
+
+                    {pendingPlugins.length > 0 &&
+                      (toolsEnabled === false ? (
+                        <Badge
+                          color="gray"
+                          variant="light"
+                          size="sm"
+                          leftSection={<IconLock size={12} />}
+                          style={{ cursor: onNavigateToPlans ? 'pointer' : 'default' }}
+                          onClick={onNavigateToPlans}
+                        >
+                          Atualização em Lote Bloqueada (Free)
+                        </Badge>
+                      ) : (
+                        <Button
+                          size="xs"
+                          color="blue"
+                          loading={updatingAllPlugins}
+                          disabled={isAnyUpdating}
+                          leftSection={<IconArrowUpCircle size={14} />}
+                          onClick={handleUpdateAllPlugins}
+                        >
+                          Atualizar Todos os Pendentes
+                        </Button>
+                      ))}
+                  </Group>
+
+                  {pluginsList.length === 0 ? (
+                    <Text size="xs" c="dimmed" ta="center" py="md">
+                      Nenhum plugin encontrado no site.
+                    </Text>
+                  ) : (
+                    <Table verticalSpacing="xs" highlightOnHover>
+                      <Table.Thead>
+                        <Table.Tr>
+                          <Table.Th>Nome do Plugin</Table.Th>
+                          <Table.Th>Status WP</Table.Th>
+                          <Table.Th>Versão Atual</Table.Th>
+                          <Table.Th>Nova Versão</Table.Th>
+                          <Table.Th style={{ textAlign: 'right' }}>Ação</Table.Th>
+                        </Table.Tr>
+                      </Table.Thead>
+                      <Table.Tbody>
+                        {pluginsList.map((plugin) => {
+                          const isTestedOutdated =
+                            plugin.tested_wp &&
+                            serverEnv?.wp_version &&
+                            compareVersions(serverEnv.wp_version, plugin.tested_wp) > 0;
+
+                          // Verifica se existe snapshot/histórico disponível para rollback
+                          const rollbackItem = historyList.find(
+                            (h) =>
+                              (h.item_slug === plugin.slug || h.file_path === plugin.file) &&
+                              h.status === 'applied'
+                          );
+
+                          return (
+                            <Table.Tr key={plugin.file}>
+                              <Table.Td>
+                                <Group gap="xs">
+                                  <div>
+                                    <Group gap="xs">
+                                      <Text size="sm" fw={600}>
+                                        {plugin.name}
+                                      </Text>
+                                      <Code c="dimmed">{plugin.slug}</Code>
+                                    </Group>
+
+                                    {/* Badges de Compatibilidade Pré-Flight */}
+                                    {plugin.has_update && (
+                                      <Group gap={6} mt={3}>
+                                        {plugin.tested_wp && (
+                                          <Tooltip
+                                            label={
+                                              isTestedOutdated
+                                                ? `O autor testou até o WP ${plugin.tested_wp}. Seu site está no WP ${serverEnv?.wp_version}.`
+                                                : `Homologado para sua versão do WordPress.`
+                                            }
+                                            position="bottom"
+                                            withArrow
+                                          >
+                                            <Badge
+                                              size="xs"
+                                              color={isTestedOutdated ? 'yellow' : 'gray'}
+                                              variant={isTestedOutdated ? 'filled' : 'subtle'}
+                                              leftSection={
+                                                isTestedOutdated ? (
+                                                  <IconAlertTriangle size={10} />
+                                                ) : undefined
+                                              }
+                                            >
+                                              Testado até WP {plugin.tested_wp}
+                                            </Badge>
+                                          </Tooltip>
+                                        )}
+                                        {plugin.requires_php && (
+                                          <Badge size="xs" color="gray" variant="subtle">
+                                            PHP ≥ {plugin.requires_php}
+                                          </Badge>
+                                        )}
+                                      </Group>
+                                    )}
+                                  </div>
+                                </Group>
+                              </Table.Td>
+                              <Table.Td>
+                                {plugin.is_active ? (
+                                  <Badge size="xs" color="green" variant="light">
+                                    🟢 Ativo
+                                  </Badge>
+                                ) : (
+                                  <Badge size="xs" color="gray" variant="subtle">
+                                    ⚪ Inativo
+                                  </Badge>
+                                )}
+                              </Table.Td>
+                              <Table.Td>
+                                <Badge size="xs" color="gray" variant="outline">
+                                  {plugin.current_version}
+                                </Badge>
+                              </Table.Td>
+                              <Table.Td>
+                                {plugin.has_update ? (
+                                  <Badge size="xs" color="orange" variant="filled">
+                                    {plugin.new_version}
+                                  </Badge>
+                                ) : (
+                                  <Badge size="xs" color="green" variant="light">
+                                    {plugin.current_version} (Mais Recente)
+                                  </Badge>
+                                )}
+                              </Table.Td>
+                              <Table.Td style={{ textAlign: 'right' }}>
+                                <Group gap="xs" justify="flex-end" wrap="nowrap">
+                                  {/* Botão de Rollback inteligente se houver snapshot de versão anterior */}
+                                  {rollbackItem &&
+                                    (toolsEnabled === false ? (
+                                      <Badge
+                                        color="gray"
+                                        variant="light"
+                                        size="xs"
+                                        leftSection={<IconLock size={10} />}
+                                        style={{
+                                          cursor: onNavigateToPlans ? 'pointer' : 'default',
+                                        }}
+                                        onClick={onNavigateToPlans}
+                                      >
+                                        Reversão Bloqueada
+                                      </Badge>
+                                    ) : (
+                                      <Tooltip
+                                        label={`Reverter para a versão anterior v${rollbackItem.from_version} (backup preservado)`}
+                                        position="left"
+                                        withArrow
+                                      >
+                                        <Button
+                                          size="xs"
+                                          color="orange"
+                                          variant="light"
+                                          disabled={isAnyUpdating}
+                                          leftSection={<IconRotateDot size={12} />}
+                                          onClick={() => handleOpenRollbackModal(rollbackItem)}
+                                        >
+                                          Reverter p/ v{rollbackItem.from_version}
+                                        </Button>
+                                      </Tooltip>
+                                    ))}
+
+                                  {plugin.has_update ? (
+                                    toolsEnabled === false ? (
+                                      <Badge
+                                        color="gray"
+                                        variant="light"
+                                        size="xs"
+                                        leftSection={<IconLock size={10} />}
+                                        style={{
+                                          cursor: onNavigateToPlans ? 'pointer' : 'default',
+                                        }}
+                                        onClick={onNavigateToPlans}
+                                      >
+                                        Bloqueado (Free)
+                                      </Badge>
+                                    ) : (
+                                      <Button
+                                        size="xs"
+                                        color="indigo"
+                                        loading={updatingItem === plugin.file}
+                                        disabled={isAnyUpdating}
+                                        leftSection={<IconArrowUpCircle size={14} />}
+                                        onClick={() =>
+                                          handleApplyUpdate(
+                                            'plugin',
+                                            plugin.file,
+                                            plugin.name,
+                                            plugin.current_version,
+                                            plugin.new_version,
+                                            plugin.requires_php,
+                                            plugin.requires_wp,
+                                            plugin.tested_wp
+                                          )
+                                        }
+                                      >
+                                        Atualizar
+                                      </Button>
+                                    )
+                                  ) : !rollbackItem ? (
+                                    <Badge size="xs" color="gray" variant="subtle">
+                                      Atualizado
+                                    </Badge>
+                                  ) : null}
+                                </Group>
+                              </Table.Td>
+                            </Table.Tr>
+                          );
+                        })}
+                      </Table.Tbody>
+                    </Table>
+                  )}
+                </Paper>
+
+                {/* Section: Themes Table */}
+                <Paper p="md" radius="md" bg="dark.7" withBorder>
+                  <Title order={5} mb="xs">
+                    🎨 Temas ({themesList.length})
+                  </Title>
+                  <Text size="xs" c="dimmed" mb="md">
+                    Lista de temas instalados no WordPress.
+                  </Text>
+
+                  {themesList.length === 0 ? (
+                    <Text size="xs" c="dimmed" ta="center" py="md">
+                      Nenhum tema encontrado no site.
+                    </Text>
+                  ) : (
+                    <Table verticalSpacing="xs" highlightOnHover>
+                      <Table.Thead>
+                        <Table.Tr>
+                          <Table.Th>Nome do Tema</Table.Th>
+                          <Table.Th>Versão Atual</Table.Th>
+                          <Table.Th>Nova Versão</Table.Th>
+                          <Table.Th style={{ textAlign: 'right' }}>Ação</Table.Th>
+                        </Table.Tr>
+                      </Table.Thead>
+                      <Table.Tbody>
+                        {themesList.map((theme) => {
+                          const rollbackItem = historyList.find(
+                            (h) =>
+                              (h.item_slug === theme.slug || h.file_path === theme.slug) &&
+                              h.status === 'applied'
+                          );
+
+                          return (
+                            <Table.Tr key={theme.slug}>
+                              <Table.Td>
+                                <div>
+                                  <Text size="sm" fw={600}>
+                                    {theme.name}
+                                  </Text>
+                                  <Code c="dimmed">{theme.slug}</Code>
+                                </div>
+                              </Table.Td>
+                              <Table.Td>
+                                <Badge size="xs" color="gray" variant="outline">
+                                  {theme.current_version}
+                                </Badge>
+                              </Table.Td>
+                              <Table.Td>
+                                {theme.has_update ? (
+                                  <Badge size="xs" color="orange" variant="filled">
+                                    {theme.new_version}
+                                  </Badge>
+                                ) : (
+                                  <Badge size="xs" color="green" variant="light">
+                                    {theme.current_version} (Mais Recente)
+                                  </Badge>
+                                )}
+                              </Table.Td>
+                              <Table.Td style={{ textAlign: 'right' }}>
+                                <Group gap="xs" justify="flex-end" wrap="nowrap">
+                                  {rollbackItem &&
+                                    (toolsEnabled === false ? (
+                                      <Badge
+                                        color="gray"
+                                        variant="light"
+                                        size="xs"
+                                        leftSection={<IconLock size={10} />}
+                                        style={{
+                                          cursor: onNavigateToPlans ? 'pointer' : 'default',
+                                        }}
+                                        onClick={onNavigateToPlans}
+                                      >
+                                        Reversão Bloqueada
+                                      </Badge>
+                                    ) : (
+                                      <Tooltip
+                                        label={`Reverter para a versão anterior v${rollbackItem.from_version}`}
+                                        position="left"
+                                        withArrow
+                                      >
+                                        <Button
+                                          size="xs"
+                                          color="orange"
+                                          variant="light"
+                                          disabled={isAnyUpdating}
+                                          leftSection={<IconRotateDot size={12} />}
+                                          onClick={() => handleOpenRollbackModal(rollbackItem)}
+                                        >
+                                          Reverter p/ v{rollbackItem.from_version}
+                                        </Button>
+                                      </Tooltip>
+                                    ))}
+
+                                  {theme.has_update ? (
+                                    toolsEnabled === false ? (
+                                      <Badge
+                                        color="gray"
+                                        variant="light"
+                                        size="xs"
+                                        leftSection={<IconLock size={10} />}
+                                        style={{
+                                          cursor: onNavigateToPlans ? 'pointer' : 'default',
+                                        }}
+                                        onClick={onNavigateToPlans}
+                                      >
+                                        Bloqueado (Free)
+                                      </Badge>
+                                    ) : (
+                                      <Button
+                                        size="xs"
+                                        color="indigo"
+                                        loading={updatingItem === theme.slug}
+                                        disabled={isAnyUpdating}
+                                        leftSection={<IconArrowUpCircle size={14} />}
+                                        onClick={() =>
+                                          handleApplyUpdate(
+                                            'theme',
+                                            theme.slug,
+                                            theme.name,
+                                            theme.current_version,
+                                            theme.new_version,
+                                            theme.requires_php,
+                                            theme.requires_wp
+                                          )
+                                        }
+                                      >
+                                        Atualizar
+                                      </Button>
+                                    )
+                                  ) : !rollbackItem ? (
+                                    <Badge size="xs" color="gray" variant="subtle">
+                                      Atualizado
+                                    </Badge>
+                                  ) : null}
+                                </Group>
+                              </Table.Td>
+                            </Table.Tr>
+                          );
+                        })}
+                      </Table.Tbody>
+                    </Table>
+                  )}
+                </Paper>
+              </Stack>
+            </Tabs.Panel>
+
+            {/* ABA 2: HISTÓRICO DE ATUALIZAÇÕES & ROLLBACK */}
+            <Tabs.Panel value="history">
+              <Stack gap="md">
+                {/* Banner de Explicação de Segurança */}
+                <Paper
+                  p="sm"
+                  radius="md"
+                  bg="dark.7"
+                  withBorder
+                  style={{ borderColor: '#2C2E33' }}
+                >
+                  <Group justify="space-between" align="center">
+                    <Group gap="sm" wrap="nowrap">
+                      <ThemeIcon color="teal" variant="light" size="lg" radius="sm">
+                        <IconShieldCheck size={22} />
+                      </ThemeIcon>
+                      <div>
+                        <Text size="sm" fw={700} c="white">
+                          Sistema de Snapshots Locais & Rollback Automático
+                        </Text>
+                        <Text size="xs" c="dimmed">
+                          Antes de qualquer atualização, o agente Vexors cria um snapshot ZIP dos arquivos originais em{' '}
+                          <Code c="teal.3">wp-content/uploads/vexors-backups/plugins/</Code> com retenção automática de 7 dias.
+                          Se alguma atualização causar instabilidade, reverta instantaneamente para a versão anterior sem precisar lembrar o número da versão.
+                        </Text>
+                      </div>
+                    </Group>
+                    <Button
+                      variant="light"
+                      color="gray"
+                      size="xs"
+                      loading={loadingHistory}
+                      leftSection={<IconRefresh size={14} />}
+                      onClick={fetchHistory}
                     >
-                      Atualizar para {coreData.new_version}
+                      Recarregar Histórico
                     </Button>
-                  )
-                ) : (
-                  <Badge color="green" variant="light" fullWidth>
-                    SISTEMA ATUALIZADO
-                  </Badge>
-                )}
-              </Card>
-            </Grid.Col>
+                  </Group>
+                </Paper>
 
-            <Grid.Col span={{ base: 12, md: 4 }}>
-              <Card padding="md" radius="md" withBorder bg="dark.7">
-                <Group justify="space-between" mb="xs">
-                  <Text size="xs" fw={700} c="dimmed" tt="uppercase">
-                    Plugins Instalados
+                {/* Cards de Resumo do Histórico */}
+                <Grid>
+                  <Grid.Col span={{ base: 12, sm: 4 }}>
+                    <Paper
+                      p="xs"
+                      bg="dark.7"
+                      radius="sm"
+                      withBorder
+                      style={{ borderColor: '#2C2E33' }}
+                    >
+                      <Text size="11px" c="dimmed">
+                        Total de Atualizações
+                      </Text>
+                      <Text size="lg" fw={700} c="white" mt={2}>
+                        {historyList.length}
+                      </Text>
+                    </Paper>
+                  </Grid.Col>
+                  <Grid.Col span={{ base: 12, sm: 4 }}>
+                    <Paper
+                      p="xs"
+                      bg="dark.7"
+                      radius="sm"
+                      withBorder
+                      style={{ borderColor: '#2C2E33' }}
+                    >
+                      <Text size="11px" c="dimmed">
+                        Snapshots Locais Preservados
+                      </Text>
+                      <Text size="lg" fw={700} c="teal.4" mt={2}>
+                        {historyList.filter((h) => h.backup_created).length}
+                      </Text>
+                    </Paper>
+                  </Grid.Col>
+                  <Grid.Col span={{ base: 12, sm: 4 }}>
+                    <Paper
+                      p="xs"
+                      bg="dark.7"
+                      radius="sm"
+                      withBorder
+                      style={{ borderColor: '#2C2E33' }}
+                    >
+                      <Text size="11px" c="dimmed">
+                        Reversões (Rollbacks) Concluídas
+                      </Text>
+                      <Text size="lg" fw={700} c="orange.4" mt={2}>
+                        {historyList.filter((h) => h.status === 'rolled_back').length}
+                      </Text>
+                    </Paper>
+                  </Grid.Col>
+                </Grid>
+
+                {/* Tabela do Histórico */}
+                <Paper
+                  p="md"
+                  radius="md"
+                  bg="dark.7"
+                  withBorder
+                  style={{ borderColor: '#2C2E33' }}
+                >
+                  <Title order={5} mb="xs">
+                    📜 Registro de Atualizações
+                  </Title>
+                  <Text size="xs" c="dimmed" mb="md">
+                    Histórico cronológico das atualizações disparadas para este website com opção de reversão em 1 clique.
                   </Text>
-                  <ThemeIcon color={pendingPlugins.length > 0 ? 'orange' : 'green'} variant="light" radius="xl">
-                    <IconPlug size={18} />
-                  </ThemeIcon>
-                </Group>
-                <Text fw={700} size="md">
-                  {pluginsList.length} Plugins no Total
-                </Text>
-                <Text size="xs" c="dimmed" mb="sm">
-                  {pendingPlugins.length > 0
-                    ? `${pendingPlugins.length} necessita(m) de atualização.`
-                    : 'Todos os plugins estão atualizados.'}
-                </Text>
-                {pendingPlugins.length > 0 ? (
-                  <Button
-                    size="xs"
-                    color="indigo"
-                    fullWidth
-                    loading={updatingAllPlugins}
-                    disabled={isAnyUpdating}
-                    leftSection={<IconArrowUpCircle size={14} />}
-                    onClick={handleUpdateAllPlugins}
-                  >
-                    Atualizar Todos os Plugins ({pendingPlugins.length})
-                  </Button>
-                ) : (
-                  <Badge color="green" variant="light" fullWidth>
-                    PLUGINS EM DIA
-                  </Badge>
-                )}
-              </Card>
-            </Grid.Col>
 
-            <Grid.Col span={{ base: 12, md: 4 }}>
-              <Card padding="md" radius="md" withBorder bg="dark.7">
-                <Group justify="space-between" mb="xs">
-                  <Text size="xs" fw={700} c="dimmed" tt="uppercase">
-                    Temas Instalados
-                  </Text>
-                  <ThemeIcon color={pendingThemes.length > 0 ? 'orange' : 'green'} variant="light" radius="xl">
-                    <IconPalette size={18} />
-                  </ThemeIcon>
-                </Group>
-                <Text fw={700} size="md">
-                  {themesList.length} Temas no Total
-                </Text>
-                <Text size="xs" c="dimmed" mb="sm">
-                  {pendingThemes.length > 0
-                    ? `${pendingThemes.length} tema(s) desatualizado(s).`
-                    : 'Todos os temas estão atualizados.'}
-                </Text>
-                <Badge color={pendingThemes.length > 0 ? 'orange' : 'green'} variant="light" fullWidth>
-                  {pendingThemes.length > 0 ? `${pendingThemes.length} Pendente(s)` : 'TEMAS EM DIA'}
-                </Badge>
-              </Card>
-            </Grid.Col>
-          </Grid>
+                  {loadingHistory && historyList.length === 0 ? (
+                    <Center p="xl">
+                      <Loader color="indigo" size="md" />
+                    </Center>
+                  ) : historyList.length === 0 ? (
+                    <Paper p="xl" ta="center" bg="dark.8" radius="sm">
+                      <IconHistory size={40} style={{ opacity: 0.3 }} />
+                      <Text size="sm" fw={600} mt="xs">
+                        Nenhuma atualização registrada ainda neste site.
+                      </Text>
+                      <Text size="xs" c="dimmed" mt={4}>
+                        Quando você atualizar um plugin ou tema pelo painel, os snapshots de segurança e a opção de reversão ficarão disponíveis aqui.
+                      </Text>
+                    </Paper>
+                  ) : (
+                    <Table verticalSpacing="xs" highlightOnHover>
+                      <Table.Thead>
+                        <Table.Tr>
+                          <Table.Th>Data / Hora</Table.Th>
+                          <Table.Th>Item Atualizado</Table.Th>
+                          <Table.Th>Transição de Versão</Table.Th>
+                          <Table.Th>Tipo de Snapshot</Table.Th>
+                          <Table.Th>Status</Table.Th>
+                          <Table.Th>Usuário</Table.Th>
+                          <Table.Th style={{ textAlign: 'right' }}>Ação de Reversão</Table.Th>
+                        </Table.Tr>
+                      </Table.Thead>
+                      <Table.Tbody>
+                        {historyList.map((item) => {
+                          const isApplied = item.status === 'applied';
+                          const isRolledBack = item.status === 'rolled_back';
+                          const isFailed = item.status === 'failed';
 
-          {/* Section: Plugins Table */}
-          <Paper p="md" radius="md" bg="dark.7" withBorder>
-            <Group justify="space-between" mb="md">
-              <div>
-                <Title order={5}>🔌 Plugins ({pluginsList.length})</Title>
-                <Text size="xs" c="dimmed">
-                  Lista de plugins instalados no WordPress, requisitos informados e versões disponíveis.
-                </Text>
-              </div>
-
-              {pendingPlugins.length > 0 &&
-                (toolsEnabled === false ? (
-                  <Badge
-                    color="gray"
-                    variant="light"
-                    size="sm"
-                    leftSection={<IconLock size={12} />}
-                    style={{ cursor: onNavigateToPlans ? 'pointer' : 'default' }}
-                    onClick={onNavigateToPlans}
-                  >
-                    Atualização em Lote Bloqueada (Free)
-                  </Badge>
-                ) : (
-                  <Button
-                    size="xs"
-                    color="blue"
-                    loading={updatingAllPlugins}
-                    disabled={isAnyUpdating}
-                    leftSection={<IconArrowUpCircle size={14} />}
-                    onClick={handleUpdateAllPlugins}
-                  >
-                    Atualizar Todos os Pendentes
-                  </Button>
-                ))}
-            </Group>
-
-            {pluginsList.length === 0 ? (
-              <Text size="xs" c="dimmed" ta="center" py="md">
-                Nenhum plugin encontrado no site.
-              </Text>
-            ) : (
-              <Table verticalSpacing="xs" highlightOnHover>
-                <Table.Thead>
-                  <Table.Tr>
-                    <Table.Th>Nome do Plugin</Table.Th>
-                    <Table.Th>Status WP</Table.Th>
-                    <Table.Th>Versão Atual</Table.Th>
-                    <Table.Th>Nova Versão</Table.Th>
-                    <Table.Th style={{ textAlign: 'right' }}>Ação</Table.Th>
-                  </Table.Tr>
-                </Table.Thead>
-                <Table.Tbody>
-                  {pluginsList.map((plugin) => {
-                    const isTestedOutdated =
-                      plugin.tested_wp &&
-                      serverEnv?.wp_version &&
-                      compareVersions(serverEnv.wp_version, plugin.tested_wp) > 0;
-
-                    return (
-                      <Table.Tr key={plugin.file}>
-                        <Table.Td>
-                          <Group gap="xs">
-                            <div>
-                              <Group gap="xs">
-                                <Text size="sm" fw={600}>
-                                  {plugin.name}
+                          return (
+                            <Table.Tr key={item.id}>
+                              <Table.Td>
+                                <Text size="xs" fw={500} c="dimmed">
+                                  {formatDateTime(item.created_at)}
                                 </Text>
-                                <Code c="dimmed">{plugin.slug}</Code>
-                              </Group>
+                              </Table.Td>
 
-                              {/* Badges de Compatibilidade Pré-Flight */}
-                              {plugin.has_update && (
-                                <Group gap={6} mt={3}>
-                                  {plugin.tested_wp && (
+                              <Table.Td>
+                                <Group gap="xs" wrap="nowrap">
+                                  <ThemeIcon
+                                    size="sm"
+                                    radius="sm"
+                                    color={
+                                      item.item_type === 'plugin'
+                                        ? 'indigo'
+                                        : item.item_type === 'theme'
+                                        ? 'pink'
+                                        : 'blue'
+                                    }
+                                    variant="light"
+                                  >
+                                    {item.item_type === 'plugin' ? (
+                                      <IconPlug size={14} />
+                                    ) : item.item_type === 'theme' ? (
+                                      <IconPalette size={14} />
+                                    ) : (
+                                      <IconWorld size={14} />
+                                    )}
+                                  </ThemeIcon>
+                                  <div>
+                                    <Text size="xs" fw={600} c="white">
+                                      {item.item_name || item.item_slug}
+                                    </Text>
+                                    <Code c="dimmed" style={{ fontSize: '10px' }}>
+                                      {item.file_path || item.item_slug}
+                                    </Code>
+                                  </div>
+                                </Group>
+                              </Table.Td>
+
+                              <Table.Td>
+                                <Group gap={4} wrap="nowrap">
+                                  <Badge size="xs" color="gray" variant="outline">
+                                    v{item.from_version}
+                                  </Badge>
+                                  <Text size="xs" c="dimmed">
+                                    →
+                                  </Text>
+                                  <Badge size="xs" color="indigo" variant="filled">
+                                    v{item.to_version || '?'}
+                                  </Badge>
+                                </Group>
+                              </Table.Td>
+
+                              <Table.Td>
+                                <Group gap={4} wrap="nowrap">
+                                  {item.backup_created ? (
                                     <Tooltip
-                                      label={
-                                        isTestedOutdated
-                                          ? `O autor testou até o WP ${plugin.tested_wp}. Seu site está no WP ${serverEnv?.wp_version}.`
-                                          : `Homologado para sua versão do WordPress.`
-                                      }
+                                      label={`Snapshot ZIP local gerado: ${item.backup_file || 'Automático'} (retenção 7 dias)`}
                                       position="bottom"
                                       withArrow
                                     >
                                       <Badge
                                         size="xs"
-                                        color={isTestedOutdated ? 'yellow' : 'gray'}
-                                        variant={isTestedOutdated ? 'filled' : 'subtle'}
-                                        leftSection={isTestedOutdated ? <IconAlertTriangle size={10} /> : undefined}
+                                        color="green"
+                                        variant="light"
+                                        leftSection={<IconArchive size={10} />}
                                       >
-                                        Testado até WP {plugin.tested_wp}
+                                        Snapshot Local (ZIP)
+                                      </Badge>
+                                    </Tooltip>
+                                  ) : (
+                                    <Tooltip
+                                      label="Reversão via repositório oficial WordPress.org"
+                                      position="bottom"
+                                      withArrow
+                                    >
+                                      <Badge
+                                        size="xs"
+                                        color="gray"
+                                        variant="subtle"
+                                        leftSection={<IconWorld size={10} />}
+                                      >
+                                        Repositório WP.org
                                       </Badge>
                                     </Tooltip>
                                   )}
-                                  {plugin.requires_php && (
-                                    <Badge size="xs" color="gray" variant="subtle">
-                                      PHP ≥ {plugin.requires_php}
-                                    </Badge>
-                                  )}
+                                  {item.had_warnings ? (
+                                    <Tooltip
+                                      label="Esta atualização foi aplicada mesmo com avisos de compatibilidade"
+                                      position="bottom"
+                                      withArrow
+                                    >
+                                      <Badge size="xs" color="yellow" variant="dot">
+                                        Com Avisos
+                                      </Badge>
+                                    </Tooltip>
+                                  ) : null}
                                 </Group>
-                              )}
-                            </div>
-                          </Group>
-                        </Table.Td>
-                        <Table.Td>
-                          {plugin.is_active ? (
-                            <Badge size="xs" color="green" variant="light">
-                              🟢 Ativo
-                            </Badge>
-                          ) : (
-                            <Badge size="xs" color="gray" variant="subtle">
-                              ⚪ Inativo
-                            </Badge>
-                          )}
-                        </Table.Td>
-                        <Table.Td>
-                          <Badge size="xs" color="gray" variant="outline">
-                            {plugin.current_version}
-                          </Badge>
-                        </Table.Td>
-                        <Table.Td>
-                          {plugin.has_update ? (
-                            <Badge size="xs" color="orange" variant="filled">
-                              {plugin.new_version}
-                            </Badge>
-                          ) : (
-                            <Badge size="xs" color="green" variant="light">
-                              {plugin.current_version} (Mais Recente)
-                            </Badge>
-                          )}
-                        </Table.Td>
-                        <Table.Td style={{ textAlign: 'right' }}>
-                          {plugin.has_update ? (
-                            toolsEnabled === false ? (
-                              <Badge
-                                color="gray"
-                                variant="light"
-                                size="xs"
-                                leftSection={<IconLock size={10} />}
-                                style={{ cursor: onNavigateToPlans ? 'pointer' : 'default' }}
-                                onClick={onNavigateToPlans}
-                              >
-                                Bloqueado (Free)
-                              </Badge>
-                            ) : (
-                              <Button
-                                size="xs"
-                                color="indigo"
-                                loading={updatingItem === plugin.file}
-                                disabled={isAnyUpdating}
-                                leftSection={<IconArrowUpCircle size={14} />}
-                                onClick={() =>
-                                  handleApplyUpdate(
-                                    'plugin',
-                                    plugin.file,
-                                    plugin.name,
-                                    plugin.current_version,
-                                    plugin.new_version,
-                                    plugin.requires_php,
-                                    plugin.requires_wp,
-                                    plugin.tested_wp
+                              </Table.Td>
+
+                              <Table.Td>
+                                {isApplied && (
+                                  <Badge size="xs" color="green" variant="filled">
+                                    ✓ Aplicado
+                                  </Badge>
+                                )}
+                                {isRolledBack && (
+                                  <Tooltip
+                                    label={
+                                      item.rolled_back_at
+                                        ? `Revertido em ${formatDateTime(item.rolled_back_at)}`
+                                        : 'Reversão concluída'
+                                    }
+                                    position="bottom"
+                                    withArrow
+                                  >
+                                    <Badge size="xs" color="orange" variant="light">
+                                      ↺ Revertido
+                                    </Badge>
+                                  </Tooltip>
+                                )}
+                                {isFailed && (
+                                  <Badge size="xs" color="red" variant="filled">
+                                    ✕ Falhou
+                                  </Badge>
+                                )}
+                              </Table.Td>
+
+                              <Table.Td>
+                                <Text size="xs" c="dimmed">
+                                  {item.user_name || 'Sistema'}
+                                </Text>
+                              </Table.Td>
+
+                              <Table.Td style={{ textAlign: 'right' }}>
+                                {isApplied ? (
+                                  toolsEnabled === false ? (
+                                    <Badge
+                                      color="gray"
+                                      variant="light"
+                                      size="xs"
+                                      leftSection={<IconLock size={10} />}
+                                      style={{
+                                        cursor: onNavigateToPlans ? 'pointer' : 'default',
+                                      }}
+                                      onClick={onNavigateToPlans}
+                                    >
+                                      Bloqueado (Free)
+                                    </Badge>
+                                  ) : (
+                                    <Button
+                                      size="xs"
+                                      color="orange"
+                                      variant="light"
+                                      disabled={isAnyUpdating}
+                                      leftSection={<IconRotateDot size={12} />}
+                                      onClick={() => handleOpenRollbackModal(item)}
+                                    >
+                                      Reverter p/ v{item.from_version}
+                                    </Button>
                                   )
-                                }
-                              >
-                                Atualizar
-                              </Button>
-                            )
-                          ) : (
-                            <Badge size="xs" color="gray" variant="subtle">
-                              Atualizado
-                            </Badge>
-                          )}
-                        </Table.Td>
-                      </Table.Tr>
-                    );
-                  })}
-                </Table.Tbody>
-              </Table>
-            )}
-          </Paper>
-
-          {/* Section: Themes Table */}
-          <Paper p="md" radius="md" bg="dark.7" withBorder>
-            <Title order={5} mb="xs">
-              🎨 Temas ({themesList.length})
-            </Title>
-            <Text size="xs" c="dimmed" mb="md">
-              Lista de temas instalados no WordPress.
-            </Text>
-
-            {themesList.length === 0 ? (
-              <Text size="xs" c="dimmed" ta="center" py="md">
-                Nenhum tema encontrado no site.
-              </Text>
-            ) : (
-              <Table verticalSpacing="xs" highlightOnHover>
-                <Table.Thead>
-                  <Table.Tr>
-                    <Table.Th>Nome do Tema</Table.Th>
-                    <Table.Th>Versão Atual</Table.Th>
-                    <Table.Th>Nova Versão</Table.Th>
-                    <Table.Th style={{ textAlign: 'right' }}>Ação</Table.Th>
-                  </Table.Tr>
-                </Table.Thead>
-                <Table.Tbody>
-                  {themesList.map((theme) => (
-                    <Table.Tr key={theme.slug}>
-                      <Table.Td>
-                        <div>
-                          <Text size="sm" fw={600}>
-                            {theme.name}
-                          </Text>
-                          <Code c="dimmed">{theme.slug}</Code>
-                        </div>
-                      </Table.Td>
-                      <Table.Td>
-                        <Badge size="xs" color="gray" variant="outline">
-                          {theme.current_version}
-                        </Badge>
-                      </Table.Td>
-                      <Table.Td>
-                        {theme.has_update ? (
-                          <Badge size="xs" color="orange" variant="filled">
-                            {theme.new_version}
-                          </Badge>
-                        ) : (
-                          <Badge size="xs" color="green" variant="light">
-                            {theme.current_version} (Mais Recente)
-                          </Badge>
-                        )}
-                      </Table.Td>
-                      <Table.Td style={{ textAlign: 'right' }}>
-                        {theme.has_update ? (
-                          toolsEnabled === false ? (
-                            <Badge
-                              color="gray"
-                              variant="light"
-                              size="xs"
-                              leftSection={<IconLock size={10} />}
-                              style={{ cursor: onNavigateToPlans ? 'pointer' : 'default' }}
-                              onClick={onNavigateToPlans}
-                            >
-                              Bloqueado (Free)
-                            </Badge>
-                          ) : (
-                            <Button
-                              size="xs"
-                              color="indigo"
-                              loading={updatingItem === theme.slug}
-                              disabled={isAnyUpdating}
-                              leftSection={<IconArrowUpCircle size={14} />}
-                              onClick={() =>
-                                handleApplyUpdate(
-                                  'theme',
-                                  theme.slug,
-                                  theme.name,
-                                  theme.current_version,
-                                  theme.new_version,
-                                  theme.requires_php,
-                                  theme.requires_wp
-                                )
-                              }
-                            >
-                              Atualizar
-                            </Button>
-                          )
-                        ) : (
-                          <Badge size="xs" color="gray" variant="subtle">
-                            Atualizado
-                          </Badge>
-                        )}
-                      </Table.Td>
-                    </Table.Tr>
-                  ))}
-                </Table.Tbody>
-              </Table>
-            )}
-          </Paper>
+                                ) : isRolledBack ? (
+                                  <Text size="xs" c="dimmed">
+                                    Revertido
+                                  </Text>
+                                ) : (
+                                  <Text size="xs" c="dimmed">
+                                    -
+                                  </Text>
+                                )}
+                              </Table.Td>
+                            </Table.Tr>
+                          );
+                        })}
+                      </Table.Tbody>
+                    </Table>
+                  )}
+                </Paper>
+              </Stack>
+            </Tabs.Panel>
+          </Tabs>
         </Stack>
       )}
 
@@ -1333,7 +2024,16 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
                       size="sm"
                       leftSection={<IconArrowUpCircle size={16} />}
                       onClick={() =>
-                        executeSingleUpdate(updateModal.items[0].id, updateModal.items[0].type)
+                        executeSingleUpdate(
+                          updateModal.items[0].id,
+                          updateModal.items[0].type,
+                          {
+                            name: updateModal.items[0].name,
+                            currentVersion: updateModal.items[0].currentVersion,
+                            newVersion: updateModal.items[0].newVersion,
+                            warnings: updateModal.items[0].warnings,
+                          }
+                        )
                       }
                     >
                       Atualizar Mesmo Assim
@@ -1854,6 +2554,310 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
                 </Button>
               )}
             </>
+          )}
+        </Stack>
+      </Modal>
+
+      {/* Modal de Reversão / Rollback em 1 Clique (Passo 3) */}
+      <Modal
+        opened={rollbackModal.isOpen}
+        onClose={() => {
+          if (rollbackModal.phase === 'rolling_back') return;
+          setRollbackModal((prev) => ({ ...prev, isOpen: false }));
+        }}
+        closeOnClickOutside={false}
+        closeOnEscape={rollbackModal.phase !== 'rolling_back'}
+        withCloseButton={rollbackModal.phase !== 'rolling_back'}
+        title={
+          <Group gap="xs">
+            <ThemeIcon
+              color={
+                rollbackModal.error
+                  ? 'red'
+                  : rollbackModal.phase === 'finished'
+                  ? 'green'
+                  : 'orange'
+              }
+              variant="light"
+              size="md"
+              radius="sm"
+            >
+              <IconRotateDot size={20} />
+            </ThemeIcon>
+            <Text fw={700} size="md" c="white">
+              {rollbackModal.phase === 'confirm'
+                ? `Confirmar Reversão: ${rollbackModal.item?.item_name || rollbackModal.item?.item_slug}`
+                : rollbackModal.phase === 'rolling_back'
+                ? `Revertendo ${rollbackModal.item?.item_name || rollbackModal.item?.item_slug}...`
+                : 'Resultado da Reversão'}
+            </Text>
+          </Group>
+        }
+        size="md"
+        radius="md"
+        centered
+        styles={{
+          header: {
+            backgroundColor: '#1A1B1E',
+            borderBottom: '1px solid #2C2E33',
+            padding: '14px 20px',
+          },
+          body: {
+            backgroundColor: '#141517',
+            padding: '20px',
+          },
+          content: {
+            backgroundColor: '#141517',
+            border: '1px solid #2C2E33',
+          },
+        }}
+      >
+        <Stack gap="md">
+          {/* CONFIRMAÇÃO */}
+          {rollbackModal.phase === 'confirm' && rollbackModal.item && (
+            <>
+              <Paper p="sm" bg="dark.8" radius="sm" withBorder style={{ borderColor: '#2C2E33' }}>
+                <Group justify="space-between">
+                  <div>
+                    <Text size="sm" fw={700} c="white">
+                      {rollbackModal.item.item_name || rollbackModal.item.item_slug}
+                    </Text>
+                    <Text size="xs" c="dimmed">
+                      {rollbackModal.item.file_path}
+                    </Text>
+                  </div>
+                  <Group gap={4}>
+                    <Badge size="xs" color="indigo" variant="filled">
+                      Atual: v{rollbackModal.item.to_version || 'Nova'}
+                    </Badge>
+                    <Text size="xs" c="dimmed">
+                      →
+                    </Text>
+                    <Badge size="xs" color="orange" variant="filled">
+                      Destino: v{rollbackModal.item.from_version}
+                    </Badge>
+                  </Group>
+                </Group>
+              </Paper>
+
+              <Alert
+                color="orange"
+                icon={<IconAlertTriangle size={18} />}
+                title="Procedimento de Segurança de Reversão"
+                radius="sm"
+              >
+                <Text size="xs">
+                  Esta ação irá restaurar com segurança os arquivos da versão estável anterior (
+                  <strong>v{rollbackModal.item.from_version}</strong>) e validar o funcionamento do site.
+                </Text>
+              </Alert>
+
+              <Paper p="xs" bg="dark.8" radius="sm">
+                <Group gap="xs" wrap="nowrap" align="flex-start">
+                  <ThemeIcon color="teal" variant="light" size="sm" radius="xl" mt={2}>
+                    <IconShieldCheck size={14} />
+                  </ThemeIcon>
+                  <Text size="xs" c="dimmed">
+                    {rollbackModal.item.backup_created ? (
+                      <>
+                        <strong style={{ color: '#fff' }}>Snapshot Local Preservado:</strong> Os arquivos originais salvos antes da atualização serão descompactados diretamente no servidor.
+                      </>
+                    ) : (
+                      <>
+                        <strong style={{ color: '#fff' }}>Repositório Oficial:</strong> O pacote oficial v{rollbackModal.item.from_version} será baixado e aplicado diretamente do WordPress.org.
+                      </>
+                    )}
+                  </Text>
+                </Group>
+              </Paper>
+
+              <Group justify="flex-end" gap="sm" mt="xs">
+                <Button
+                  variant="subtle"
+                  color="gray"
+                  size="sm"
+                  onClick={() => setRollbackModal((prev) => ({ ...prev, isOpen: false }))}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  color="orange"
+                  variant="filled"
+                  size="sm"
+                  leftSection={<IconArrowBackUp size={16} />}
+                  onClick={executeRollback}
+                >
+                  Confirmar e Reverter para v{rollbackModal.item.from_version}
+                </Button>
+              </Group>
+            </>
+          )}
+
+          {/* EM ANDAMENTO */}
+          {rollbackModal.phase === 'rolling_back' && (
+            <Paper p="md" bg="dark.8" radius="sm" withBorder style={{ borderColor: '#2C2E33' }}>
+              <Stack gap="md">
+                <Group justify="space-between" align="center">
+                  <div>
+                    <Text size="sm" fw={700} c="white">
+                      Revertendo para v{rollbackModal.item?.from_version}
+                    </Text>
+                    <Text size="xs" c="dimmed">
+                      {rollbackModal.item?.item_name || rollbackModal.item?.item_slug}
+                    </Text>
+                  </div>
+                  <Badge size="xs" color="orange" variant="light">
+                    Modo de Restauração
+                  </Badge>
+                </Group>
+
+                <Stack gap="xs">
+                  {ROLLBACK_STEPS.map((step, idx) => {
+                    const isDone = idx < rollbackModal.stepIndex;
+                    const isCurrent = idx === rollbackModal.stepIndex;
+
+                    return (
+                      <Paper
+                        key={idx}
+                        p="xs"
+                        radius="sm"
+                        bg={isCurrent ? 'dark.7' : 'dark.9'}
+                        withBorder
+                        style={{
+                          borderColor: isCurrent ? '#fd7e14' : isDone ? '#2b8a3e44' : '#25262B',
+                          transition: 'all 0.25s ease',
+                        }}
+                      >
+                        <Group gap="xs" wrap="nowrap" align="flex-start">
+                          <ThemeIcon
+                            size="sm"
+                            radius="xl"
+                            color={isDone ? 'green' : isCurrent ? 'orange' : 'gray'}
+                            variant={isDone || isCurrent ? 'light' : 'subtle'}
+                            mt={2}
+                          >
+                            {isDone ? (
+                              <IconCheck size={14} />
+                            ) : isCurrent ? (
+                              <Loader size={12} color="orange" />
+                            ) : (
+                              <Text size="10px" c="dimmed">
+                                ⚪
+                              </Text>
+                            )}
+                          </ThemeIcon>
+
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <Group justify="space-between" wrap="nowrap">
+                              <Text
+                                size="xs"
+                                fw={isCurrent ? 700 : 500}
+                                c={isDone ? 'green.4' : isCurrent ? 'white' : 'dimmed'}
+                              >
+                                {step.label}
+                              </Text>
+                              {isDone && (
+                                <Badge size="xs" color="green" variant="subtle">
+                                  Restaurado
+                                </Badge>
+                              )}
+                              {isCurrent && (
+                                <Badge size="xs" color="orange" variant="light">
+                                  Executando...
+                                </Badge>
+                              )}
+                            </Group>
+                            <Text size="11px" c="dimmed" mt={1}>
+                              {step.detail}
+                            </Text>
+                          </div>
+                        </Group>
+                      </Paper>
+                    );
+                  })}
+                </Stack>
+
+                <Text size="11px" c="dimmed" ta="center">
+                  Restaurando arquivos estáveis no WordPress. Aguarde alguns segundos.
+                </Text>
+              </Stack>
+            </Paper>
+          )}
+
+          {/* CONCLUÍDO */}
+          {rollbackModal.phase === 'finished' && (
+            <Stack gap="sm">
+              {!rollbackModal.error ? (
+                <Alert
+                  color="green"
+                  icon={<IconCheck size={20} />}
+                  title="Reversão Realizada com Sucesso!"
+                  radius="sm"
+                >
+                  <Text size="sm">
+                    {rollbackModal.successMessage ||
+                      `${rollbackModal.item?.item_name || rollbackModal.item?.item_slug} foi revertido para a versão anterior com sucesso!`}
+                  </Text>
+                </Alert>
+              ) : (
+                <Alert
+                  color="red"
+                  icon={<IconAlertCircle size={20} />}
+                  title="Falha ao Reverter Versão"
+                  radius="sm"
+                >
+                  <Text size="sm">{rollbackModal.error}</Text>
+                </Alert>
+              )}
+
+              {rollbackModal.logs.length > 0 && (
+                <div>
+                  <Button
+                    variant="subtle"
+                    color="gray"
+                    size="xs"
+                    fullWidth
+                    rightSection={
+                      showRollbackLogs ? <IconChevronUp size={14} /> : <IconChevronDown size={14} />
+                    }
+                    onClick={() => setShowRollbackLogs((prev) => !prev)}
+                  >
+                    {showRollbackLogs
+                      ? 'Ocultar detalhes técnicos'
+                      : `Ver log técnico da restauração (${rollbackModal.logs.length} etapas)`}
+                  </Button>
+                  {showRollbackLogs && (
+                    <Paper
+                      p="xs"
+                      bg="dark.9"
+                      radius="sm"
+                      mt="xs"
+                      withBorder
+                      style={{ borderColor: '#25262B', maxHeight: 150, overflowY: 'auto' }}
+                    >
+                      <Stack gap={4}>
+                        {rollbackModal.logs.map((log, i) => (
+                          <Text key={i} size="11px" c="dimmed" style={{ fontFamily: 'monospace' }}>
+                            • {log}
+                          </Text>
+                        ))}
+                      </Stack>
+                    </Paper>
+                  )}
+                </div>
+              )}
+
+              <Button
+                color={!rollbackModal.error ? 'green' : 'gray'}
+                variant="filled"
+                fullWidth
+                onClick={() => {
+                  setRollbackModal((prev) => ({ ...prev, isOpen: false }));
+                }}
+              >
+                Fechar e Atualizar Dados
+              </Button>
+            </Stack>
           )}
         </Stack>
       </Modal>

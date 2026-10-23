@@ -51,6 +51,12 @@ class VS_Agent_REST_API {
                 'permission_callback' => array($this, 'check_permission'),
             ));
 
+            register_rest_route($ns, '/updates/rollback', array(
+                'methods'             => array('POST', 'GET'),
+                'callback'            => array($this, 'handle_rollback_update'),
+                'permission_callback' => array($this, 'check_permission'),
+            ));
+
             register_rest_route($ns, '/integrity', array(
                 'methods'             => array('GET', 'POST'),
                 'callback'            => array($this, 'handle_get_integrity'),
@@ -321,6 +327,51 @@ class VS_Agent_REST_API {
             'status'  => 200,
             'success' => true,
             'message' => isset($res['message']) ? $res['message'] : 'Atualização realizada com sucesso.',
+            'data'    => $res,
+        ), 200);
+    }
+
+    public function handle_rollback_update($request) {
+        $type           = $request->get_param('type');
+        $item           = $request->get_param('item');
+        $target_version = $request->get_param('target_version');
+        $backup_file    = $request->get_param('backup_file');
+
+        if (empty($type)) {
+            $json = $request->get_json_params();
+            if (!empty($json)) {
+                $type           = isset($json['type']) ? $json['type'] : null;
+                $item           = isset($json['item']) ? $json['item'] : null;
+                $target_version = isset($json['target_version']) ? $json['target_version'] : null;
+                $backup_file    = isset($json['backup_file']) ? $json['backup_file'] : null;
+            }
+        }
+
+        if (empty($type) || empty($item)) {
+            return new WP_REST_Response(array(
+                'status'  => 400,
+                'success' => false,
+                'message' => 'Parâmetros tipo e item são obrigatórios para rollback.',
+            ), 400);
+        }
+
+        $upgrader = new VS_Agent_Upgrader();
+        $res      = $upgrader->rollback($type, $item, $target_version, $backup_file);
+
+        if (is_wp_error($res)) {
+            $status = is_array($res->get_error_data()) && isset($res->get_error_data()['status']) ? $res->get_error_data()['status'] : 500;
+            return new WP_REST_Response(array(
+                'status'  => $status,
+                'success' => false,
+                'message' => $res->get_error_message(),
+            ), $status);
+        }
+
+        return new WP_REST_Response(array(
+            'status'  => 200,
+            'success' => true,
+            'message' => isset($res['message']) ? $res['message'] : 'Reversão concluída com sucesso.',
+            'data'    => $res,
         ), 200);
     }
 
