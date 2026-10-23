@@ -278,8 +278,9 @@ class VS_Agent_Upgrader {
             }
 
             return array(
-                'success' => true,
-                'message' => 'Plugin ' . esc_html($item) . ' atualizado com sucesso (status de ativação mantido).',
+                'success'  => true,
+                'message'  => 'Plugin ' . esc_html($item) . ' atualizado com sucesso (status de ativação mantido).',
+                'messages' => !empty($skin->messages) ? $skin->messages : array(),
             );
         }
 
@@ -309,8 +310,9 @@ class VS_Agent_Upgrader {
             }
 
             return array(
-                'success' => true,
-                'message' => 'Tema ' . esc_html($item) . ' atualizado com sucesso.',
+                'success'  => true,
+                'message'  => 'Tema ' . esc_html($item) . ' atualizado com sucesso.',
+                'messages' => !empty($skin->messages) ? $skin->messages : array(),
             );
         }
 
@@ -335,8 +337,9 @@ class VS_Agent_Upgrader {
             }
 
             return array(
-                'success' => true,
-                'message' => 'WordPress Core atualizado com sucesso para a versão ' . esc_html($offer->current),
+                'success'  => true,
+                'message'  => 'WordPress Core atualizado com sucesso para a versão ' . esc_html($offer->current),
+                'messages' => !empty($skin->messages) ? $skin->messages : array(),
             );
         }
 

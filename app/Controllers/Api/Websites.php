@@ -1202,6 +1202,8 @@ class Websites extends ResourceController
             return $this->failAgentResponse($res, 'Falha ao aplicar atualização');
         }
 
+        $rawMessages = $res['body']['messages'] ?? ($res['body']['data']['messages'] ?? []);
+
         // Após aplicar atualização com sucesso, consulta imediatamente o estado fresco de updates
         // e persiste no banco de dados do SaaS
         $freshUpdates = $this->makeAgentRequestWithFallback($website['url'], '/updates', 'GET', $website['agent_token']);
@@ -1213,6 +1215,10 @@ class Websites extends ResourceController
             }
         } elseif (!empty($res['body']['data']['summary'])) {
             $this->persistUpdatesCheck((int)$id, $res['body']['data']);
+        }
+
+        if (!empty($rawMessages)) {
+            $res['body']['messages'] = $rawMessages;
         }
 
         return $this->respond($res['body']);

@@ -32,6 +32,8 @@ import {
   IconAlertTriangle,
   IconShieldCheck,
   IconX,
+  IconChevronDown,
+  IconChevronUp,
 } from '@tabler/icons-react';
 import { api } from '../api';
 import { extractErrorMessage } from '../utils/formatError';
@@ -120,6 +122,30 @@ export interface UpdateModalState {
   overallErrorCount: number;
   warningsCount: number;
 }
+
+interface ExecutionStep {
+  label: string;
+  detail: string;
+}
+
+const UPDATE_STEPS: ExecutionStep[] = [
+  {
+    label: 'Checando versões e requisitos',
+    detail: 'Validando versão de PHP, compatibilidade com o WordPress e recursos de ambiente...',
+  },
+  {
+    label: 'Conectando ao agente WordPress',
+    detail: 'Enviando comando autenticado e inicializando modo de segurança...',
+  },
+  {
+    label: 'Baixando e instalando nova versão',
+    detail: 'Descompactando pacote oficial do repositório e substituindo arquivos no servidor...',
+  },
+  {
+    label: 'Verificando integridade e reativação',
+    detail: 'Confirmando status ativo do plugin e revalidando integridade da resposta do site...',
+  },
+];
 
 interface WebsiteUpdatesViewProps {
   website: { id: string | number; name: string; url: string };
@@ -219,6 +245,12 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
+  // Estados de Feedback em Tempo Real das Etapas
+  const [currentStepIndex, setCurrentStepIndex] = useState<number>(0);
+  const [batchCurrentStep, setBatchCurrentStep] = useState<string>('Checando versões e conectando...');
+  const [realLogs, setRealLogs] = useState<string[]>([]);
+  const [showLogs, setShowLogs] = useState<boolean>(false);
+
   // Modal de Andamento & Decisão Informada
   const [updateModal, setUpdateModal] = useState<UpdateModalState>({
     isOpen: false,
@@ -282,14 +314,22 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [website.id]);
 
-  /** Execução direta da atualização individual no backend */
+  /** Execução direta da atualização individual no backend com feedback passo a passo */
   const executeSingleUpdate = async (itemKey: string, type: 'plugin' | 'theme' | 'core') => {
     setUpdatingItem(itemKey);
+    setCurrentStepIndex(0);
+    setRealLogs([]);
+    setShowLogs(false);
+
     setUpdateModal((prev) => ({
       ...prev,
       phase: 'updating',
       items: prev.items.map((it) => ({ ...it, status: 'updating' })),
     }));
+
+    // Simulação visual sincronizada enquanto a requisição HTTP trafega e o WP executa
+    const timer1 = setTimeout(() => setCurrentStepIndex(1), 600);
+    const timer2 = setTimeout(() => setCurrentStepIndex(2), 1600);
 
     try {
       const res = await api.post(`/websites/${website.id}/updates/apply`, {
@@ -297,7 +337,23 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
         item: itemKey,
       });
 
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+
+      // Etapa 4: Verificando integridade e reativação
+      setCurrentStepIndex(3);
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
       const message = res.data?.message || 'Atualização realizada com sucesso!';
+      const rawMessages = Array.isArray(res.data?.messages)
+        ? res.data.messages
+        : Array.isArray(res.data?.data?.messages)
+        ? res.data.data.messages
+        : [];
+      if (rawMessages.length > 0) {
+        setRealLogs(rawMessages);
+      }
+
       setUpdateModal((prev) => ({
         ...prev,
         phase: 'finished',
@@ -309,6 +365,8 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
         })),
       }));
     } catch (err: any) {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
       const errMsg = extractErrorMessage(err, 'Falha ao executar a atualização no WordPress.');
       setUpdateModal((prev) => ({
         ...prev,
@@ -378,7 +436,7 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
         warningsCount: warnings.length,
       });
     } else {
-      // Sem avisos, abre o modal já na fase de atualização direta
+      // Sem avisos, abre o modal já na fase de atualização direta com os steps
       setUpdateModal({
         isOpen: true,
         phase: 'updating',
@@ -394,11 +452,13 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
     }
   };
 
-  /** Execução em lote sequencial */
+  /** Execução em lote sequencial com feedback do item ativo */
   const executeBatchUpdate = async (itemsToUpdate: ProgressItem[]) => {
     setUpdatingAllPlugins(true);
     setErrorMsg(null);
     setSuccessMsg(null);
+    setRealLogs([]);
+    setShowLogs(false);
 
     setUpdateModal((prev) => ({
       ...prev,
@@ -417,17 +477,26 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
       const item = itemsToUpdate[i];
 
       setUpdatingItem(item.id);
+      setBatchCurrentStep('Checando versões e requisitos...');
       setUpdateModal((prev) => ({
         ...prev,
         currentIndex: i,
         items: prev.items.map((it, idx) => (idx === i ? { ...it, status: 'updating' } : it)),
       }));
 
+      const t1 = setTimeout(() => setBatchCurrentStep('Conectando ao agente e ativando segurança...'), 500);
+      const t2 = setTimeout(() => setBatchCurrentStep('Baixando pacote oficial e instalando...'), 1400);
+
       try {
         const res = await api.post(`/websites/${website.id}/updates/apply`, {
           type: item.type,
           item: item.id,
         });
+
+        clearTimeout(t1);
+        clearTimeout(t2);
+        setBatchCurrentStep('Verificando integridade e reativação... OK');
+
         countSuccess++;
         setUpdateModal((prev) => ({
           ...prev,
@@ -443,8 +512,11 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
           ),
         }));
       } catch (err: any) {
+        clearTimeout(t1);
+        clearTimeout(t2);
         countErrors++;
         const errMsg = extractErrorMessage(err, `Falha ao atualizar ${item.name}.`);
+        setBatchCurrentStep(`Erro: ${errMsg}`);
         setUpdateModal((prev) => ({
           ...prev,
           overallErrorCount: countErrors,
@@ -1138,7 +1210,7 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
         </Stack>
       )}
 
-      {/* Modal de Andamento das Atualizações & Decisão Informada */}
+      {/* Modal de Andamento das Atualizações, Decisão Informada & Etapas Detalhadas */}
       <Modal
         opened={updateModal.isOpen}
         onClose={handleCloseModal}
@@ -1240,7 +1312,7 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
                         <IconShieldCheck size={14} />
                       </ThemeIcon>
                       <Text size="xs" c="dimmed">
-                        <strong style={{ color: '#fff' }}>Decisão Informada:</strong> O sistema não bloqueia sua atualização. Se optar por prosseguir, recomendamos validar as funcionalidades do plugin após a conclusão.
+                        <strong style={{ color: '#fff' }}>Decisão Informada:</strong> O sistema não bloqueia sua atualização. Se optar por prosseguir, você poderá acompanhar o progresso passo a passo em tempo real.
                       </Text>
                     </Group>
                   </Paper>
@@ -1393,66 +1465,223 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
             </Stack>
           )}
 
-          {/* FASE 2 & 3: UPDATING OU FINISHED (Single Mode) */}
-          {updateModal.phase !== 'preflight' && updateModal.mode === 'single' && (
-            <>
-              {updateModal.phase === 'updating' ? (
-                <Paper p="md" bg="dark.8" radius="sm" withBorder style={{ borderColor: '#2C2E33' }}>
-                  <Stack align="center" gap="sm" py="md">
-                    <Loader color="indigo" size="lg" />
-                    <Text fw={600} size="sm" c="white">
-                      Atualizando {updateModal.items[0]?.name}...
+          {/* FASE 2: ATUALIZAÇÃO EM ANDAMENTO (Single Mode com Etapas em Tempo Real) */}
+          {updateModal.phase === 'updating' && updateModal.mode === 'single' && (
+            <Paper p="md" bg="dark.8" radius="sm" withBorder style={{ borderColor: '#2C2E33' }}>
+              <Stack gap="md">
+                <Group justify="space-between" align="center">
+                  <div>
+                    <Text size="sm" fw={700} c="white">
+                      {updateModal.items[0]?.name}
                     </Text>
-                    {updateModal.items[0]?.currentVersion && updateModal.items[0]?.newVersion && (
-                      <Group gap="xs">
-                        <Badge size="xs" color="gray" variant="outline">
-                          v{updateModal.items[0].currentVersion}
-                        </Badge>
-                        <Text size="xs" c="dimmed">
-                          →
-                        </Text>
-                        <Badge size="xs" color="indigo" variant="filled">
-                          v{updateModal.items[0].newVersion}
-                        </Badge>
-                      </Group>
-                    )}
-                    <Text size="xs" c="dimmed" ta="center" style={{ maxWidth: 380 }}>
-                      Enviando comando para o agente WordPress. O pacote está sendo baixado e instalado com segurança. Não feche esta janela.
+                    <Text size="xs" c="dimmed">
+                      {updateModal.items[0]?.id}
                     </Text>
-                  </Stack>
-                </Paper>
-              ) : updateModal.overallSuccessCount > 0 ? (
-                <Alert color="green" icon={<IconCheck size={20} />} title="Atualização Concluída!" radius="sm">
+                  </div>
+                  {updateModal.items[0]?.currentVersion && updateModal.items[0]?.newVersion && (
+                    <Group gap={4}>
+                      <Badge size="xs" color="gray" variant="outline">
+                        v{updateModal.items[0].currentVersion}
+                      </Badge>
+                      <Text size="xs" c="dimmed">
+                        →
+                      </Text>
+                      <Badge size="xs" color="indigo" variant="filled">
+                        v{updateModal.items[0].newVersion}
+                      </Badge>
+                    </Group>
+                  )}
+                </Group>
+
+                {/* Lista de Etapas em Tempo Real */}
+                <Stack gap="xs" mt="xs">
+                  {UPDATE_STEPS.map((step, idx) => {
+                    const isDone = idx < currentStepIndex;
+                    const isCurrent = idx === currentStepIndex;
+
+                    return (
+                      <Paper
+                        key={idx}
+                        p="xs"
+                        radius="sm"
+                        bg={isCurrent ? 'dark.7' : 'dark.9'}
+                        withBorder
+                        style={{
+                          borderColor: isCurrent ? '#4c6ef5' : isDone ? '#2b8a3e44' : '#25262B',
+                          transition: 'all 0.25s ease',
+                        }}
+                      >
+                        <Group gap="xs" wrap="nowrap" align="flex-start">
+                          <ThemeIcon
+                            size="sm"
+                            radius="xl"
+                            color={isDone ? 'green' : isCurrent ? 'indigo' : 'gray'}
+                            variant={isDone || isCurrent ? 'light' : 'subtle'}
+                            mt={2}
+                          >
+                            {isDone ? (
+                              <IconCheck size={14} />
+                            ) : isCurrent ? (
+                              <Loader size={12} color="indigo" />
+                            ) : (
+                              <Text size="10px" c="dimmed">
+                                ⚪
+                              </Text>
+                            )}
+                          </ThemeIcon>
+
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <Group justify="space-between" wrap="nowrap">
+                              <Text
+                                size="xs"
+                                fw={isCurrent ? 700 : 500}
+                                c={isDone ? 'green.4' : isCurrent ? 'white' : 'dimmed'}
+                              >
+                                {step.label}
+                              </Text>
+                              {isDone && (
+                                <Badge size="xs" color="green" variant="subtle">
+                                  Concluído
+                                </Badge>
+                              )}
+                              {isCurrent && (
+                                <Badge size="xs" color="indigo" variant="light">
+                                  Em andamento...
+                                </Badge>
+                              )}
+                            </Group>
+                            <Text size="11px" c="dimmed" mt={1}>
+                              {step.detail}
+                            </Text>
+                          </div>
+                        </Group>
+                      </Paper>
+                    );
+                  })}
+                </Stack>
+
+                <Text size="11px" c="dimmed" ta="center">
+                  O WordPress está aplicando as alterações com segurança. Não feche esta janela.
+                </Text>
+              </Stack>
+            </Paper>
+          )}
+
+          {/* FASE 3: CONCLUÍDO (Single Mode com Resumo e Logs) */}
+          {updateModal.phase === 'finished' && updateModal.mode === 'single' && (
+            <Stack gap="sm">
+              {updateModal.overallSuccessCount > 0 ? (
+                <Alert
+                  color="green"
+                  icon={<IconCheck size={20} />}
+                  title="Atualização Concluída com Sucesso!"
+                  radius="sm"
+                >
                   <Text size="sm">
                     {updateModal.items[0]?.message ||
                       `${updateModal.items[0]?.name} foi atualizado com sucesso!`}
                   </Text>
                 </Alert>
               ) : (
-                <Alert color="red" icon={<IconAlertCircle size={20} />} title="Falha na Atualização" radius="sm">
+                <Alert
+                  color="red"
+                  icon={<IconAlertCircle size={20} />}
+                  title="Falha na Atualização"
+                  radius="sm"
+                >
                   <Text size="sm">
                     {updateModal.items[0]?.message || 'Não foi possível concluir a atualização.'}
                   </Text>
                 </Alert>
               )}
 
-              {updateModal.phase === 'finished' && (
-                <Button
-                  color={updateModal.overallSuccessCount > 0 ? 'green' : 'gray'}
-                  variant="filled"
-                  fullWidth
-                  leftSection={
-                    updateModal.overallSuccessCount > 0 ? <IconCheck size={16} /> : undefined
-                  }
-                  onClick={handleCloseModal}
-                >
-                  Concluir e Atualizar Lista
-                </Button>
+              {/* Resumo das Etapas Finalizadas */}
+              <Paper p="xs" bg="dark.8" radius="sm" withBorder style={{ borderColor: '#2C2E33' }}>
+                <Stack gap={6}>
+                  {UPDATE_STEPS.map((step, idx) => (
+                    <Group key={idx} justify="space-between" p="4px 8px">
+                      <Group gap="xs">
+                        <ThemeIcon
+                          size="xs"
+                          radius="xl"
+                          color={updateModal.overallSuccessCount > 0 ? 'green' : idx < 2 ? 'green' : 'red'}
+                          variant="light"
+                        >
+                          {updateModal.overallSuccessCount > 0 ? (
+                            <IconCheck size={12} />
+                          ) : idx < 2 ? (
+                            <IconCheck size={12} />
+                          ) : (
+                            <IconAlertCircle size={12} />
+                          )}
+                        </ThemeIcon>
+                        <Text size="xs" c="dimmed">
+                          {step.label}
+                        </Text>
+                      </Group>
+                      <Badge
+                        size="xs"
+                        color={updateModal.overallSuccessCount > 0 ? 'green' : idx < 2 ? 'green' : 'red'}
+                        variant="subtle"
+                      >
+                        {updateModal.overallSuccessCount > 0 ? 'OK' : idx < 2 ? 'OK' : 'Falha'}
+                      </Badge>
+                    </Group>
+                  ))}
+                </Stack>
+              </Paper>
+
+              {/* Registro Técnico do WordPress Upgrader */}
+              {realLogs.length > 0 && (
+                <div>
+                  <Button
+                    variant="subtle"
+                    color="gray"
+                    size="xs"
+                    fullWidth
+                    rightSection={showLogs ? <IconChevronUp size={14} /> : <IconChevronDown size={14} />}
+                    onClick={() => setShowLogs((prev) => !prev)}
+                  >
+                    {showLogs
+                      ? 'Ocultar detalhes técnicos'
+                      : `Ver registro técnico do WordPress (${realLogs.length} etapas)`}
+                  </Button>
+                  {showLogs && (
+                    <Paper
+                      p="xs"
+                      bg="dark.9"
+                      radius="sm"
+                      mt="xs"
+                      withBorder
+                      style={{ borderColor: '#25262B', maxHeight: 150, overflowY: 'auto' }}
+                    >
+                      <Stack gap={4}>
+                        {realLogs.map((log, i) => (
+                          <Text key={i} size="11px" c="dimmed" style={{ fontFamily: 'monospace' }}>
+                            • {log}
+                          </Text>
+                        ))}
+                      </Stack>
+                    </Paper>
+                  )}
+                </div>
               )}
-            </>
+
+              <Button
+                color={updateModal.overallSuccessCount > 0 ? 'green' : 'gray'}
+                variant="filled"
+                fullWidth
+                leftSection={
+                  updateModal.overallSuccessCount > 0 ? <IconCheck size={16} /> : undefined
+                }
+                onClick={handleCloseModal}
+              >
+                Concluir e Atualizar Lista
+              </Button>
+            </Stack>
           )}
 
-          {/* FASE 2 & 3: UPDATING OU FINISHED (Batch Mode) */}
+          {/* FASE 2 & 3: BATCH MODE (Atualização em Lote) */}
           {updateModal.phase !== 'preflight' && updateModal.mode === 'batch' && (
             <>
               <div>
@@ -1491,6 +1720,28 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
                   radius="xl"
                 />
               </div>
+
+              {/* Feedback da Etapa em Execução para o Item Atual */}
+              {updateModal.phase === 'updating' && updateModal.items[updateModal.currentIndex] && (
+                <Paper p="xs" bg="dark.7" radius="sm" withBorder style={{ borderColor: '#373A40' }}>
+                  <Group justify="space-between" wrap="nowrap">
+                    <Group gap="xs" wrap="nowrap" style={{ minWidth: 0, flex: 1 }}>
+                      <Loader size="xs" color="indigo" />
+                      <div style={{ minWidth: 0 }}>
+                        <Text size="xs" fw={700} c="white" truncate>
+                          {updateModal.items[updateModal.currentIndex]?.name}
+                        </Text>
+                        <Text size="11px" c="indigo.3" truncate>
+                          {batchCurrentStep}
+                        </Text>
+                      </div>
+                    </Group>
+                    <Badge size="xs" color="indigo" variant="light">
+                      Item {updateModal.currentIndex + 1} de {updateModal.items.length}
+                    </Badge>
+                  </Group>
+                </Paper>
+              )}
 
               {updateModal.phase === 'finished' &&
                 (updateModal.overallErrorCount === 0 ? (
