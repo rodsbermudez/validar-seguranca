@@ -15,6 +15,8 @@ import {
   Card,
   ThemeIcon,
   Code,
+  Modal,
+  Progress,
 } from '@mantine/core';
 import {
   IconRefresh,
@@ -68,6 +70,27 @@ export interface UpdatesData {
   themes: ThemeUpdateItem[];
 }
 
+export interface ProgressItem {
+  id: string;
+  name: string;
+  type: 'plugin' | 'theme' | 'core';
+  currentVersion: string;
+  newVersion: string;
+  status: 'pending' | 'updating' | 'success' | 'error';
+  message?: string;
+}
+
+export interface UpdateModalState {
+  isOpen: boolean;
+  isProcessing: boolean;
+  title: string;
+  mode: 'single' | 'batch';
+  items: ProgressItem[];
+  currentIndex: number;
+  overallSuccessCount: number;
+  overallErrorCount: number;
+}
+
 interface WebsiteUpdatesViewProps {
   website: { id: string | number; name: string; url: string };
   onBack?: () => void;
@@ -89,6 +112,26 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
   const [updatingAllPlugins, setUpdatingAllPlugins] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  // Modal de Andamento das Atualizações & Trava de Concorrência
+  const [updateModal, setUpdateModal] = useState<UpdateModalState>({
+    isOpen: false,
+    isProcessing: false,
+    title: '',
+    mode: 'single',
+    items: [],
+    currentIndex: 0,
+    overallSuccessCount: 0,
+    overallErrorCount: 0,
+  });
+
+  const isAnyUpdating = updateModal.isProcessing || updatingItem !== null || updatingAllPlugins || refreshing || loading;
+
+  const handleCloseModal = async () => {
+    if (updateModal.isProcessing) return;
+    setUpdateModal((prev) => ({ ...prev, isOpen: false }));
+    await fetchUpdates(true);
+  };
 
   const onUpdatesChangedRef = useRef(onUpdatesChanged);
   useEffect(() => {
@@ -127,10 +170,40 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [website.id]);
 
-  const handleApplyUpdate = async (type: 'plugin' | 'theme' | 'core', itemKey: string) => {
+  const handleApplyUpdate = async (
+    type: 'plugin' | 'theme' | 'core',
+    itemKey: string,
+    itemName?: string,
+    currentVersion?: string,
+    newVersion?: string
+  ) => {
+    if (isAnyUpdating) return;
+
+    const displayName = itemName || (type === 'core' ? 'WordPress Core' : itemKey);
+    const currVer = currentVersion || '';
+    const newVer = newVersion || '';
+
     setUpdatingItem(itemKey);
     setErrorMsg(null);
     setSuccessMsg(null);
+
+    setUpdateModal({
+      isOpen: true,
+      isProcessing: true,
+      title: `Atualizando ${type === 'core' ? 'WordPress Core' : type === 'plugin' ? 'Plugin' : 'Tema'}: ${displayName}`,
+      mode: 'single',
+      items: [{
+        id: itemKey,
+        name: displayName,
+        type,
+        currentVersion: currVer,
+        newVersion: newVer,
+        status: 'updating',
+      }],
+      currentIndex: 0,
+      overallSuccessCount: 0,
+      overallErrorCount: 0,
+    });
 
     try {
       const res = await api.post(`/websites/${website.id}/updates/apply`, {
@@ -139,17 +212,35 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
       });
 
       const message = res.data?.message || 'Atualização realizada com sucesso!';
-      setSuccessMsg(message);
-      setTimeout(() => setSuccessMsg(null), 5000);
-      await fetchUpdates(true);
+      setUpdateModal((prev) => ({
+        ...prev,
+        isProcessing: false,
+        overallSuccessCount: 1,
+        items: prev.items.map((it) => ({
+          ...it,
+          status: 'success',
+          message,
+        })),
+      }));
     } catch (err: any) {
-      setErrorMsg(extractErrorMessage(err, 'Falha ao executar a atualização no WordPress.'));
+      const errMsg = extractErrorMessage(err, 'Falha ao executar a atualização no WordPress.');
+      setUpdateModal((prev) => ({
+        ...prev,
+        isProcessing: false,
+        overallErrorCount: 1,
+        items: prev.items.map((it) => ({
+          ...it,
+          status: 'error',
+          message: errMsg,
+        })),
+      }));
     } finally {
       setUpdatingItem(null);
     }
   };
 
   const handleUpdateAllPlugins = async () => {
+    if (isAnyUpdating) return;
     if (!updatesData || !updatesData.plugins) return;
     const pendingPlugins = updatesData.plugins.filter((p) => p.has_update);
     if (pendingPlugins.length === 0) return;
@@ -158,36 +249,75 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
     setErrorMsg(null);
     setSuccessMsg(null);
 
+    const initialItems: ProgressItem[] = pendingPlugins.map((p, idx) => ({
+      id: p.file,
+      name: p.name,
+      type: 'plugin',
+      currentVersion: p.current_version,
+      newVersion: p.new_version,
+      status: idx === 0 ? 'updating' : 'pending',
+    }));
+
+    setUpdateModal({
+      isOpen: true,
+      isProcessing: true,
+      title: `Atualizando Plugins Pendentes (${pendingPlugins.length} itens)`,
+      mode: 'batch',
+      items: initialItems,
+      currentIndex: 0,
+      overallSuccessCount: 0,
+      overallErrorCount: 0,
+    });
+
     let countSuccess = 0;
     let countErrors = 0;
 
-    for (const plugin of pendingPlugins) {
+    for (let i = 0; i < pendingPlugins.length; i++) {
+      const plugin = pendingPlugins[i];
+
       setUpdatingItem(plugin.file);
+      setUpdateModal((prev) => ({
+        ...prev,
+        currentIndex: i,
+        items: prev.items.map((it, idx) => idx === i ? { ...it, status: 'updating' } : it),
+      }));
+
       try {
-        await api.post(`/websites/${website.id}/updates/apply`, {
+        const res = await api.post(`/websites/${website.id}/updates/apply`, {
           type: 'plugin',
           item: plugin.file,
         });
         countSuccess++;
-      } catch (err) {
+        setUpdateModal((prev) => ({
+          ...prev,
+          overallSuccessCount: countSuccess,
+          items: prev.items.map((it, idx) => idx === i ? {
+            ...it,
+            status: 'success',
+            message: res.data?.message || 'Atualizado com sucesso!',
+          } : it),
+        }));
+      } catch (err: any) {
         countErrors++;
+        const errMsg = extractErrorMessage(err, `Falha ao atualizar ${plugin.name}.`);
+        setUpdateModal((prev) => ({
+          ...prev,
+          overallErrorCount: countErrors,
+          items: prev.items.map((it, idx) => idx === i ? {
+            ...it,
+            status: 'error',
+            message: errMsg,
+          } : it),
+        }));
       }
     }
 
     setUpdatingItem(null);
     setUpdatingAllPlugins(false);
-
-    if (countErrors === 0) {
-      setSuccessMsg(`Todos os ${countSuccess} plugins foram atualizados com sucesso!`);
-    } else {
-      setErrorMsg(`${countSuccess} plugins atualizados com sucesso e ${countErrors} com erro.`);
-    }
-    setTimeout(() => {
-      setSuccessMsg(null);
-      setErrorMsg(null);
-    }, 6000);
-
-    await fetchUpdates(true);
+    setUpdateModal((prev) => ({
+      ...prev,
+      isProcessing: false,
+    }));
   };
 
   const coreData = updatesData?.core || { current_version: '', new_version: '', has_update: false };
@@ -226,6 +356,7 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
             color="indigo"
             size="xs"
             loading={refreshing}
+            disabled={isAnyUpdating}
             leftSection={<IconRefresh size={14} />}
             onClick={() => fetchUpdates(true)}
           >
@@ -326,8 +457,9 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
                       color="orange"
                       fullWidth
                       loading={updatingItem === 'core'}
+                      disabled={isAnyUpdating}
                       leftSection={<IconArrowUpCircle size={14} />}
-                      onClick={() => handleApplyUpdate('core', 'core')}
+                      onClick={() => handleApplyUpdate('core', 'core', 'WordPress Core', coreData.current_version, coreData.new_version)}
                     >
                       Atualizar para {coreData.new_version}
                     </Button>
@@ -364,6 +496,7 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
                     color="indigo"
                     fullWidth
                     loading={updatingAllPlugins}
+                    disabled={isAnyUpdating}
                     leftSection={<IconArrowUpCircle size={14} />}
                     onClick={handleUpdateAllPlugins}
                   >
@@ -429,6 +562,7 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
                     size="xs"
                     color="blue"
                     loading={updatingAllPlugins}
+                    disabled={isAnyUpdating}
                     leftSection={<IconArrowUpCircle size={14} />}
                     onClick={handleUpdateAllPlugins}
                   >
@@ -511,9 +645,9 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
                               size="xs"
                               color="indigo"
                               loading={updatingItem === plugin.file}
-                              disabled={updatingAllPlugins}
+                              disabled={isAnyUpdating}
                               leftSection={<IconArrowUpCircle size={14} />}
-                              onClick={() => handleApplyUpdate('plugin', plugin.file)}
+                              onClick={() => handleApplyUpdate('plugin', plugin.file, plugin.name, plugin.current_version, plugin.new_version)}
                             >
                               Atualizar
                             </Button>
@@ -596,8 +730,9 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
                               size="xs"
                               color="indigo"
                               loading={updatingItem === theme.slug}
+                              disabled={isAnyUpdating}
                               leftSection={<IconArrowUpCircle size={14} />}
-                              onClick={() => handleApplyUpdate('theme', theme.slug)}
+                              onClick={() => handleApplyUpdate('theme', theme.slug, theme.name, theme.current_version, theme.new_version)}
                             >
                               Atualizar
                             </Button>
@@ -616,6 +751,207 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
           </Paper>
         </Stack>
       )}
+
+      {/* Modal de Andamento das Atualizações & Trava de Concorrência */}
+      <Modal
+        opened={updateModal.isOpen}
+        onClose={handleCloseModal}
+        closeOnClickOutside={false}
+        closeOnEscape={!updateModal.isProcessing}
+        withCloseButton={!updateModal.isProcessing}
+        title={
+          <Group gap="xs">
+            <ThemeIcon color="indigo" variant="light" size="md" radius="sm">
+              <IconArrowUpCircle size={20} />
+            </ThemeIcon>
+            <Text fw={700} size="md" c="white">
+              {updateModal.title}
+            </Text>
+          </Group>
+        }
+        size={updateModal.mode === 'batch' ? 'lg' : 'md'}
+        radius="md"
+        centered
+        styles={{
+          header: {
+            backgroundColor: '#1A1B1E',
+            borderBottom: '1px solid #2C2E33',
+            padding: '14px 20px',
+          },
+          body: {
+            backgroundColor: '#141517',
+            padding: '20px',
+          },
+          content: {
+            backgroundColor: '#141517',
+            border: '1px solid #2C2E33',
+          },
+        }}
+      >
+        <Stack gap="md">
+          {/* MODO SINGLE: Update individual */}
+          {updateModal.mode === 'single' && (
+            <>
+              {updateModal.isProcessing ? (
+                <Paper p="md" bg="dark.8" radius="sm" withBorder style={{ borderColor: '#2C2E33' }}>
+                  <Stack align="center" gap="sm" py="md">
+                    <Loader color="indigo" size="lg" />
+                    <Text fw={600} size="sm" c="white">
+                      Atualizando {updateModal.items[0]?.name}...
+                    </Text>
+                    {updateModal.items[0]?.currentVersion && updateModal.items[0]?.newVersion && (
+                      <Group gap="xs">
+                        <Badge size="xs" color="gray" variant="outline">
+                          v{updateModal.items[0].currentVersion}
+                        </Badge>
+                        <Text size="xs" c="dimmed">→</Text>
+                        <Badge size="xs" color="indigo" variant="filled">
+                          v{updateModal.items[0].newVersion}
+                        </Badge>
+                      </Group>
+                    )}
+                    <Text size="xs" c="dimmed" ta="center" style={{ maxWidth: 380 }}>
+                      Enviando comando para o agente WordPress. O pacote está sendo baixado e instalado com segurança. Não feche esta janela.
+                    </Text>
+                  </Stack>
+                </Paper>
+              ) : updateModal.overallSuccessCount > 0 ? (
+                <Alert color="green" icon={<IconCheck size={20} />} title="Atualização Concluída!" radius="sm">
+                  <Text size="sm">
+                    {updateModal.items[0]?.message || `${updateModal.items[0]?.name} foi atualizado com sucesso!`}
+                  </Text>
+                </Alert>
+              ) : (
+                <Alert color="red" icon={<IconAlertCircle size={20} />} title="Falha na Atualização" radius="sm">
+                  <Text size="sm">
+                    {updateModal.items[0]?.message || 'Não foi possível concluir a atualização.'}
+                  </Text>
+                </Alert>
+              )}
+
+              {!updateModal.isProcessing && (
+                <Button
+                  color={updateModal.overallSuccessCount > 0 ? 'green' : 'gray'}
+                  variant="filled"
+                  fullWidth
+                  leftSection={updateModal.overallSuccessCount > 0 ? <IconCheck size={16} /> : undefined}
+                  onClick={handleCloseModal}
+                >
+                  Concluir e Atualizar Lista
+                </Button>
+              )}
+            </>
+          )}
+
+          {/* MODO BATCH: Atualizar Todos */}
+          {updateModal.mode === 'batch' && (
+            <>
+              <div>
+                <Group justify="space-between" mb={6}>
+                  <Text size="xs" fw={600} c="dimmed">
+                    {updateModal.isProcessing
+                      ? `Progresso: ${updateModal.currentIndex + 1} de ${updateModal.items.length}`
+                      : `Concluído: ${updateModal.items.length} de ${updateModal.items.length} itens processados`}
+                  </Text>
+                  <Text size="xs" fw={700} c={updateModal.isProcessing ? 'indigo.3' : 'green.4'}>
+                    {Math.round(
+                      ((updateModal.isProcessing
+                        ? updateModal.currentIndex
+                        : updateModal.items.length) /
+                        updateModal.items.length) *
+                        100
+                    )}%
+                  </Text>
+                </Group>
+                <Progress
+                  value={
+                    ((updateModal.isProcessing
+                      ? updateModal.currentIndex + 0.3
+                      : updateModal.items.length) /
+                      updateModal.items.length) *
+                    100
+                  }
+                  color={updateModal.isProcessing ? 'indigo' : 'green'}
+                  animated={updateModal.isProcessing}
+                  size="md"
+                  radius="xl"
+                />
+              </div>
+
+              {!updateModal.isProcessing && (
+                updateModal.overallErrorCount === 0 ? (
+                  <Alert color="green" icon={<IconCheck size={18} />} title="Todos os Plugins Atualizados!" radius="sm">
+                    <Text size="sm">
+                      Todos os {updateModal.overallSuccessCount} plugins foram atualizados com sucesso e o site segue em perfeito funcionamento.
+                    </Text>
+                  </Alert>
+                ) : (
+                  <Alert color="yellow" icon={<IconAlertCircle size={18} />} title="Processamento Concluído com Avisos" radius="sm">
+                    <Text size="sm">
+                      {updateModal.overallSuccessCount} plugin(s) atualizado(s) com sucesso e {updateModal.overallErrorCount} com erro. Verifique a lista abaixo.
+                    </Text>
+                  </Alert>
+                )
+              )}
+
+              {/* Lista com o status de cada item em tempo real */}
+              <Paper
+                p="xs"
+                bg="dark.8"
+                radius="sm"
+                withBorder
+                style={{ borderColor: '#2C2E33', maxHeight: 260, overflowY: 'auto' }}
+              >
+                <Stack gap={6}>
+                  {updateModal.items.map((item, idx) => (
+                    <Group key={item.id} justify="space-between" wrap="nowrap" p="xs" style={{ borderBottom: idx < updateModal.items.length - 1 ? '1px solid #25262B' : 'none' }}>
+                      <Group gap="xs" wrap="nowrap" style={{ minWidth: 0, flex: 1 }}>
+                        {item.status === 'updating' && <Loader size="xs" color="indigo" />}
+                        {item.status === 'success' && <IconCheck size={16} color="#12b886" />}
+                        {item.status === 'error' && <IconAlertCircle size={16} color="#fa5252" />}
+                        {item.status === 'pending' && <Text size="xs" c="dimmed">⏳</Text>}
+
+                        <div style={{ minWidth: 0 }}>
+                          <Text size="xs" fw={600} truncate c={item.status === 'updating' ? 'indigo.3' : item.status === 'error' ? 'red.4' : 'white'}>
+                            {item.name}
+                          </Text>
+                          {item.message && (
+                            <Text size="11px" c={item.status === 'error' ? 'red.3' : 'dimmed'} truncate>
+                              {item.message}
+                            </Text>
+                          )}
+                        </div>
+                      </Group>
+
+                      <Group gap={4} wrap="nowrap">
+                        <Badge size="xs" color="gray" variant="outline">
+                          v{item.currentVersion}
+                        </Badge>
+                        <Text size="xs" c="dimmed">→</Text>
+                        <Badge size="xs" color={item.status === 'success' ? 'green' : 'indigo'} variant={item.status === 'success' ? 'filled' : 'outline'}>
+                          v{item.newVersion}
+                        </Badge>
+                      </Group>
+                    </Group>
+                  ))}
+                </Stack>
+              </Paper>
+
+              {!updateModal.isProcessing && (
+                <Button
+                  color={updateModal.overallErrorCount === 0 ? 'green' : 'indigo'}
+                  variant="filled"
+                  fullWidth
+                  leftSection={<IconCheck size={16} />}
+                  onClick={handleCloseModal}
+                >
+                  Concluir e Atualizar Lista
+                </Button>
+              )}
+            </>
+          )}
+        </Stack>
+      </Modal>
     </Stack>
   );
 };
