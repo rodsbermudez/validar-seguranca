@@ -84,14 +84,35 @@ class VS_Agent_Upgrader {
                 $update_item = $has_update ? $plugin_responses[$file] : null;
                 $new_version = $data['Version'];
                 $slug        = sanitize_title($data['Name']);
+                $requires_php = !empty($data['RequiresPHP']) ? $data['RequiresPHP'] : null;
+                $requires_wp  = !empty($data['RequiresWP']) ? $data['RequiresWP'] : null;
+                $tested_wp    = null;
 
                 if ($has_update && !empty($update_item)) {
                     if (is_object($update_item)) {
                         $new_version = !empty($update_item->new_version) ? $update_item->new_version : $data['Version'];
                         $slug        = !empty($update_item->slug) ? $update_item->slug : $slug;
+                        if (!empty($update_item->requires_php)) {
+                            $requires_php = (string) $update_item->requires_php;
+                        }
+                        if (!empty($update_item->requires)) {
+                            $requires_wp = (string) $update_item->requires;
+                        }
+                        if (!empty($update_item->tested)) {
+                            $tested_wp = (string) $update_item->tested;
+                        }
                     } elseif (is_array($update_item)) {
                         $new_version = !empty($update_item['new_version']) ? $update_item['new_version'] : $data['Version'];
                         $slug        = !empty($update_item['slug']) ? $update_item['slug'] : $slug;
+                        if (!empty($update_item['requires_php'])) {
+                            $requires_php = (string) $update_item['requires_php'];
+                        }
+                        if (!empty($update_item['requires'])) {
+                            $requires_wp = (string) $update_item['requires'];
+                        }
+                        if (!empty($update_item['tested'])) {
+                            $tested_wp = (string) $update_item['tested'];
+                        }
                     }
                 }
 
@@ -105,6 +126,9 @@ class VS_Agent_Upgrader {
                     'name'            => $data['Name'],
                     'current_version' => $data['Version'],
                     'new_version'     => $new_version,
+                    'requires_php'    => $requires_php,
+                    'requires_wp'     => $requires_wp,
+                    'tested_wp'       => $tested_wp,
                     'has_update'      => $has_update,
                     'is_active'       => $is_active,
                 );
@@ -121,12 +145,26 @@ class VS_Agent_Upgrader {
                 $has_update  = isset($theme_responses[$slug]);
                 $theme_item  = $has_update ? $theme_responses[$slug] : null;
                 $new_version = $theme->get('Version');
+                $requires_php = $theme->get('RequiresPHP') ?: null;
+                $requires_wp  = $theme->get('RequiresWP') ?: null;
 
                 if ($has_update && !empty($theme_item)) {
-                    if (is_array($theme_item) && !empty($theme_item['new_version'])) {
-                        $new_version = $theme_item['new_version'];
-                    } elseif (is_object($theme_item) && !empty($theme_item->new_version)) {
-                        $new_version = $theme_item->new_version;
+                    if (is_array($theme_item)) {
+                        $new_version = !empty($theme_item['new_version']) ? $theme_item['new_version'] : $new_version;
+                        if (!empty($theme_item['requires_php'])) {
+                            $requires_php = (string) $theme_item['requires_php'];
+                        }
+                        if (!empty($theme_item['requires'])) {
+                            $requires_wp = (string) $theme_item['requires'];
+                        }
+                    } elseif (is_object($theme_item)) {
+                        $new_version = !empty($theme_item->new_version) ? $theme_item->new_version : $new_version;
+                        if (!empty($theme_item->requires_php)) {
+                            $requires_php = (string) $theme_item->requires_php;
+                        }
+                        if (!empty($theme_item->requires)) {
+                            $requires_wp = (string) $theme_item->requires;
+                        }
                     }
                 }
 
@@ -138,13 +176,15 @@ class VS_Agent_Upgrader {
                     'name'            => $theme->get('Name'),
                     'current_version' => $theme->get('Version'),
                     'new_version'     => $new_version,
+                    'requires_php'    => $requires_php,
+                    'requires_wp'     => $requires_wp,
                     'has_update'      => $has_update,
                 );
             }
         }
 
         // Process Core
-        global $wp_version;
+        global $wp_version, $wpdb;
         $core_new_version = $wp_version;
         $core_has_update  = false;
 
@@ -158,6 +198,20 @@ class VS_Agent_Upgrader {
             }
         }
 
+        // Collect Server Environment Diagnostics
+        $disk_free = function_exists('disk_free_space') ? @disk_free_space(ABSPATH) : false;
+        $disk_total = function_exists('disk_total_space') ? @disk_total_space(ABSPATH) : false;
+
+        $server_env = array(
+            'php_version'     => PHP_VERSION,
+            'mysql_version'   => (isset($wpdb) && method_exists($wpdb, 'db_version')) ? $wpdb->db_version() : null,
+            'wp_version'      => get_bloginfo('version'),
+            'server_software' => !empty($_SERVER['SERVER_SOFTWARE']) ? $_SERVER['SERVER_SOFTWARE'] : '',
+            'memory_limit'    => ini_get('memory_limit'),
+            'disk_free_mb'    => ($disk_free !== false) ? round($disk_free / 1048576) : null,
+            'disk_total_mb'   => ($disk_total !== false) ? round($disk_total / 1048576) : null,
+        );
+
         return array(
             'summary' => array(
                 'total_pending'   => $pending_plugins_count + $pending_themes_count + ($core_has_update ? 1 : 0),
@@ -165,6 +219,7 @@ class VS_Agent_Upgrader {
                 'pending_themes'  => $pending_themes_count,
                 'pending_core'    => $core_has_update ? 1 : 0,
             ),
+            'server_environment' => $server_env,
             'core'    => array(
                 'current_version' => $wp_version,
                 'new_version'     => $core_new_version,

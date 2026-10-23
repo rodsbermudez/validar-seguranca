@@ -17,6 +17,7 @@ import {
   Code,
   Modal,
   Progress,
+  Tooltip,
 } from '@mantine/core';
 import {
   IconRefresh,
@@ -27,10 +28,31 @@ import {
   IconPlug,
   IconPalette,
   IconLock,
+  IconServer,
+  IconAlertTriangle,
+  IconShieldCheck,
+  IconX,
 } from '@tabler/icons-react';
 import { api } from '../api';
 import { extractErrorMessage } from '../utils/formatError';
 import { UpgradeGateBanner } from './UpgradeGateBanner';
+
+export interface ServerEnvironment {
+  php_version?: string;
+  mysql_version?: string;
+  wp_version?: string;
+  server_software?: string;
+  memory_limit?: string;
+  disk_free_mb?: number;
+  disk_total_mb?: number;
+}
+
+export interface CompatibilityWarning {
+  type: 'php' | 'wp_core' | 'wp_tested' | 'disk';
+  title: string;
+  message: string;
+  severity: 'warning' | 'danger';
+}
 
 interface PluginUpdateItem {
   file: string;
@@ -38,6 +60,9 @@ interface PluginUpdateItem {
   name: string;
   current_version: string;
   new_version: string;
+  requires_php?: string;
+  requires_wp?: string;
+  tested_wp?: string;
   has_update: boolean;
   is_active?: boolean;
 }
@@ -47,6 +72,8 @@ interface ThemeUpdateItem {
   name: string;
   current_version: string;
   new_version: string;
+  requires_php?: string;
+  requires_wp?: string;
   has_update: boolean;
 }
 
@@ -65,6 +92,7 @@ export interface UpdatesSummary {
 
 export interface UpdatesData {
   summary: UpdatesSummary;
+  server_environment?: ServerEnvironment;
   core: CoreUpdateData;
   plugins: PluginUpdateItem[];
   themes: ThemeUpdateItem[];
@@ -78,17 +106,19 @@ export interface ProgressItem {
   newVersion: string;
   status: 'pending' | 'updating' | 'success' | 'error';
   message?: string;
+  warnings?: CompatibilityWarning[];
 }
 
 export interface UpdateModalState {
   isOpen: boolean;
-  isProcessing: boolean;
+  phase: 'preflight' | 'updating' | 'finished';
   title: string;
   mode: 'single' | 'batch';
   items: ProgressItem[];
   currentIndex: number;
   overallSuccessCount: number;
   overallErrorCount: number;
+  warningsCount: number;
 }
 
 interface WebsiteUpdatesViewProps {
@@ -97,6 +127,82 @@ interface WebsiteUpdatesViewProps {
   toolsEnabled?: boolean;
   onNavigateToPlans?: () => void;
   onUpdatesChanged?: (summary?: UpdatesSummary, fullData?: UpdatesData) => void;
+}
+
+/** Compara semanticamente duas versões numéricas no formato X.Y.Z */
+function compareVersions(v1?: string, v2?: string): number {
+  if (!v1 || !v2) return 0;
+  const p1 = v1.replace(/[^0-9.]/g, '').split('.').map((n) => parseInt(n, 10) || 0);
+  const p2 = v2.replace(/[^0-9.]/g, '').split('.').map((n) => parseInt(n, 10) || 0);
+  const len = Math.max(p1.length, p2.length);
+  for (let i = 0; i < len; i++) {
+    const num1 = p1[i] || 0;
+    const num2 = p2[i] || 0;
+    if (num1 > num2) return 1;
+    if (num1 < num2) return -1;
+  }
+  return 0;
+}
+
+/** Avalia compatibilidade pré-flight e produz avisos instrutivos sem bloqueio rígido */
+function evaluateItemCompatibility(
+  item: { name: string; requires_php?: string; requires_wp?: string; tested_wp?: string },
+  serverEnv?: ServerEnvironment,
+  currentCoreVersion?: string
+): CompatibilityWarning[] {
+  const warnings: CompatibilityWarning[] = [];
+  const wpVersion = serverEnv?.wp_version || currentCoreVersion;
+  const phpVersion = serverEnv?.php_version;
+
+  // 1. Homologação WordPress (Versão testada pelo autor vs Versão atual do WP)
+  if (item.tested_wp && wpVersion) {
+    if (compareVersions(wpVersion, item.tested_wp) > 0) {
+      warnings.push({
+        type: 'wp_tested',
+        title: 'Aviso de Homologação WordPress',
+        message: `O autor certificou esta versão até o WordPress ${item.tested_wp}, e seu site está rodando o WordPress ${wpVersion}. Na grande maioria dos casos o plugin funciona perfeitamente, mas a homologação oficial para a sua versão ainda não foi emitida.`,
+        severity: 'warning',
+      });
+    }
+  }
+
+  // 2. Requisito Mínimo de PHP
+  if (item.requires_php && phpVersion) {
+    if (compareVersions(phpVersion, item.requires_php) < 0) {
+      warnings.push({
+        type: 'php',
+        title: 'Requisito de PHP Superior',
+        message: `O plugin recomenda PHP ${item.requires_php} ou superior, mas seu servidor está com PHP ${phpVersion}.`,
+        severity: 'danger',
+      });
+    }
+  }
+
+  // 3. Requisito Mínimo de WordPress Core
+  if (item.requires_wp && wpVersion) {
+    if (compareVersions(wpVersion, item.requires_wp) < 0) {
+      warnings.push({
+        type: 'wp_core',
+        title: 'Requisito Mínimo de WordPress',
+        message: `Exige no mínimo o WordPress ${item.requires_wp}, enquanto seu site roda ${wpVersion}. Recomendamos atualizar o WordPress antes.`,
+        severity: 'warning',
+      });
+    }
+  }
+
+  // 4. Espaço em Disco
+  if (serverEnv?.disk_free_mb !== undefined && serverEnv.disk_free_mb !== null) {
+    if (serverEnv.disk_free_mb < 300) {
+      warnings.push({
+        type: 'disk',
+        title: 'Espaço em Disco Reduzido',
+        message: `O servidor possui apenas ${serverEnv.disk_free_mb} MB livres. A descompactação de arquivos pode falhar se o disco atingir 100%.`,
+        severity: 'danger',
+      });
+    }
+  }
+
+  return warnings;
 }
 
 export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
@@ -113,22 +219,28 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  // Modal de Andamento das Atualizações & Trava de Concorrência
+  // Modal de Andamento & Decisão Informada
   const [updateModal, setUpdateModal] = useState<UpdateModalState>({
     isOpen: false,
-    isProcessing: false,
+    phase: 'preflight',
     title: '',
     mode: 'single',
     items: [],
     currentIndex: 0,
     overallSuccessCount: 0,
     overallErrorCount: 0,
+    warningsCount: 0,
   });
 
-  const isAnyUpdating = updateModal.isProcessing || updatingItem !== null || updatingAllPlugins || refreshing || loading;
+  const isAnyUpdating =
+    (updateModal.isOpen && updateModal.phase === 'updating') ||
+    updatingItem !== null ||
+    updatingAllPlugins ||
+    refreshing ||
+    loading;
 
   const handleCloseModal = async () => {
-    if (updateModal.isProcessing) return;
+    if (updateModal.isOpen && updateModal.phase === 'updating') return;
     setUpdateModal((prev) => ({ ...prev, isOpen: false }));
     await fetchUpdates(true);
   };
@@ -170,40 +282,14 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [website.id]);
 
-  const handleApplyUpdate = async (
-    type: 'plugin' | 'theme' | 'core',
-    itemKey: string,
-    itemName?: string,
-    currentVersion?: string,
-    newVersion?: string
-  ) => {
-    if (isAnyUpdating) return;
-
-    const displayName = itemName || (type === 'core' ? 'WordPress Core' : itemKey);
-    const currVer = currentVersion || '';
-    const newVer = newVersion || '';
-
+  /** Execução direta da atualização individual no backend */
+  const executeSingleUpdate = async (itemKey: string, type: 'plugin' | 'theme' | 'core') => {
     setUpdatingItem(itemKey);
-    setErrorMsg(null);
-    setSuccessMsg(null);
-
-    setUpdateModal({
-      isOpen: true,
-      isProcessing: true,
-      title: `Atualizando ${type === 'core' ? 'WordPress Core' : type === 'plugin' ? 'Plugin' : 'Tema'}: ${displayName}`,
-      mode: 'single',
-      items: [{
-        id: itemKey,
-        name: displayName,
-        type,
-        currentVersion: currVer,
-        newVersion: newVer,
-        status: 'updating',
-      }],
-      currentIndex: 0,
-      overallSuccessCount: 0,
-      overallErrorCount: 0,
-    });
+    setUpdateModal((prev) => ({
+      ...prev,
+      phase: 'updating',
+      items: prev.items.map((it) => ({ ...it, status: 'updating' })),
+    }));
 
     try {
       const res = await api.post(`/websites/${website.id}/updates/apply`, {
@@ -214,7 +300,7 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
       const message = res.data?.message || 'Atualização realizada com sucesso!';
       setUpdateModal((prev) => ({
         ...prev,
-        isProcessing: false,
+        phase: 'finished',
         overallSuccessCount: 1,
         items: prev.items.map((it) => ({
           ...it,
@@ -226,7 +312,7 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
       const errMsg = extractErrorMessage(err, 'Falha ao executar a atualização no WordPress.');
       setUpdateModal((prev) => ({
         ...prev,
-        isProcessing: false,
+        phase: 'finished',
         overallErrorCount: 1,
         items: prev.items.map((it) => ({
           ...it,
@@ -239,75 +325,138 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
     }
   };
 
-  const handleUpdateAllPlugins = async () => {
+  /** Dispara a verificação prévia de compatibilidade para 1 item */
+  const handleApplyUpdate = (
+    type: 'plugin' | 'theme' | 'core',
+    itemKey: string,
+    itemName?: string,
+    currentVersion?: string,
+    newVersion?: string,
+    requiresPhp?: string,
+    requiresWp?: string,
+    testedWp?: string
+  ) => {
     if (isAnyUpdating) return;
-    if (!updatesData || !updatesData.plugins) return;
-    const pendingPlugins = updatesData.plugins.filter((p) => p.has_update);
-    if (pendingPlugins.length === 0) return;
 
+    const displayName = itemName || (type === 'core' ? 'WordPress Core' : itemKey);
+    const currVer = currentVersion || '';
+    const newVer = newVersion || '';
+
+    // Avaliação Pré-Flight
+    const warnings = evaluateItemCompatibility(
+      {
+        name: displayName,
+        requires_php: requiresPhp,
+        requires_wp: requiresWp,
+        tested_wp: testedWp,
+      },
+      updatesData?.server_environment,
+      updatesData?.core?.current_version
+    );
+
+    const progressItem: ProgressItem = {
+      id: itemKey,
+      name: displayName,
+      type,
+      currentVersion: currVer,
+      newVersion: newVer,
+      status: 'pending',
+      warnings,
+    };
+
+    if (warnings.length > 0) {
+      // Exibe modal em fase de pré-flight para Decisão Informada
+      setUpdateModal({
+        isOpen: true,
+        phase: 'preflight',
+        title: `Verificação de Compatibilidade: ${displayName}`,
+        mode: 'single',
+        items: [progressItem],
+        currentIndex: 0,
+        overallSuccessCount: 0,
+        overallErrorCount: 0,
+        warningsCount: warnings.length,
+      });
+    } else {
+      // Sem avisos, abre o modal já na fase de atualização direta
+      setUpdateModal({
+        isOpen: true,
+        phase: 'updating',
+        title: `Atualizando ${type === 'core' ? 'WordPress Core' : type === 'plugin' ? 'Plugin' : 'Tema'}: ${displayName}`,
+        mode: 'single',
+        items: [{ ...progressItem, status: 'updating' }],
+        currentIndex: 0,
+        overallSuccessCount: 0,
+        overallErrorCount: 0,
+        warningsCount: 0,
+      });
+      executeSingleUpdate(itemKey, type);
+    }
+  };
+
+  /** Execução em lote sequencial */
+  const executeBatchUpdate = async (itemsToUpdate: ProgressItem[]) => {
     setUpdatingAllPlugins(true);
     setErrorMsg(null);
     setSuccessMsg(null);
 
-    const initialItems: ProgressItem[] = pendingPlugins.map((p, idx) => ({
-      id: p.file,
-      name: p.name,
-      type: 'plugin',
-      currentVersion: p.current_version,
-      newVersion: p.new_version,
-      status: idx === 0 ? 'updating' : 'pending',
-    }));
-
-    setUpdateModal({
-      isOpen: true,
-      isProcessing: true,
-      title: `Atualizando Plugins Pendentes (${pendingPlugins.length} itens)`,
+    setUpdateModal((prev) => ({
+      ...prev,
+      phase: 'updating',
       mode: 'batch',
-      items: initialItems,
+      items: itemsToUpdate.map((it, idx) => ({ ...it, status: idx === 0 ? 'updating' : 'pending' })),
       currentIndex: 0,
       overallSuccessCount: 0,
       overallErrorCount: 0,
-    });
+    }));
 
     let countSuccess = 0;
     let countErrors = 0;
 
-    for (let i = 0; i < pendingPlugins.length; i++) {
-      const plugin = pendingPlugins[i];
+    for (let i = 0; i < itemsToUpdate.length; i++) {
+      const item = itemsToUpdate[i];
 
-      setUpdatingItem(plugin.file);
+      setUpdatingItem(item.id);
       setUpdateModal((prev) => ({
         ...prev,
         currentIndex: i,
-        items: prev.items.map((it, idx) => idx === i ? { ...it, status: 'updating' } : it),
+        items: prev.items.map((it, idx) => (idx === i ? { ...it, status: 'updating' } : it)),
       }));
 
       try {
         const res = await api.post(`/websites/${website.id}/updates/apply`, {
-          type: 'plugin',
-          item: plugin.file,
+          type: item.type,
+          item: item.id,
         });
         countSuccess++;
         setUpdateModal((prev) => ({
           ...prev,
           overallSuccessCount: countSuccess,
-          items: prev.items.map((it, idx) => idx === i ? {
-            ...it,
-            status: 'success',
-            message: res.data?.message || 'Atualizado com sucesso!',
-          } : it),
+          items: prev.items.map((it, idx) =>
+            idx === i
+              ? {
+                  ...it,
+                  status: 'success',
+                  message: res.data?.message || 'Atualizado com sucesso!',
+                }
+              : it
+          ),
         }));
       } catch (err: any) {
         countErrors++;
-        const errMsg = extractErrorMessage(err, `Falha ao atualizar ${plugin.name}.`);
+        const errMsg = extractErrorMessage(err, `Falha ao atualizar ${item.name}.`);
         setUpdateModal((prev) => ({
           ...prev,
           overallErrorCount: countErrors,
-          items: prev.items.map((it, idx) => idx === i ? {
-            ...it,
-            status: 'error',
-            message: errMsg,
-          } : it),
+          items: prev.items.map((it, idx) =>
+            idx === i
+              ? {
+                  ...it,
+                  status: 'error',
+                  message: errMsg,
+                }
+              : it
+          ),
         }));
       }
     }
@@ -316,8 +465,60 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
     setUpdatingAllPlugins(false);
     setUpdateModal((prev) => ({
       ...prev,
-      isProcessing: false,
+      phase: 'finished',
     }));
+  };
+
+  /** Dispara a verificação prévia em lote para todos os plugins pendentes */
+  const handleUpdateAllPlugins = () => {
+    if (isAnyUpdating) return;
+    if (!updatesData || !updatesData.plugins) return;
+    const pendingPlugins = updatesData.plugins.filter((p) => p.has_update);
+    if (pendingPlugins.length === 0) return;
+
+    // Avalia compatibilidade de todos os itens da fila
+    const batchItems: ProgressItem[] = pendingPlugins.map((plugin) => {
+      const warnings = evaluateItemCompatibility(
+        {
+          name: plugin.name,
+          requires_php: plugin.requires_php,
+          requires_wp: plugin.requires_wp,
+          tested_wp: plugin.tested_wp,
+        },
+        updatesData.server_environment,
+        updatesData.core?.current_version
+      );
+
+      return {
+        id: plugin.file,
+        name: plugin.name,
+        type: 'plugin',
+        currentVersion: plugin.current_version,
+        newVersion: plugin.new_version,
+        status: 'pending',
+        warnings,
+      };
+    });
+
+    const totalWarnings = batchItems.reduce((acc, it) => acc + (it.warnings?.length || 0), 0);
+
+    if (totalWarnings > 0) {
+      // Abre modal de triagem e decisão informada
+      setUpdateModal({
+        isOpen: true,
+        phase: 'preflight',
+        title: `Verificação em Lote (${pendingPlugins.length} plugins)`,
+        mode: 'batch',
+        items: batchItems,
+        currentIndex: 0,
+        overallSuccessCount: 0,
+        overallErrorCount: 0,
+        warningsCount: totalWarnings,
+      });
+    } else {
+      // 100% dos plugins são compatíveis, inicia direto
+      executeBatchUpdate(batchItems);
+    }
   };
 
   const coreData = updatesData?.core || { current_version: '', new_version: '', has_update: false };
@@ -325,6 +526,7 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
   const themesList = updatesData?.themes || [];
   const pendingPlugins = pluginsList.filter((p) => p.has_update);
   const pendingThemes = themesList.filter((t) => t.has_update);
+  const serverEnv = updatesData?.server_environment;
 
   return (
     <Stack gap="md">
@@ -347,7 +549,7 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
               )}
             </Group>
             <Text size="xs" c="dimmed" mt={2}>
-              Gerencie e aplique atualizações no WordPress Core, Plugins e Temas diretamente pelo SaaS.
+              Audite e aplique atualizações no WordPress Core, Plugins e Temas com validação prévia de compatibilidade.
             </Text>
           </div>
 
@@ -418,6 +620,119 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
             />
           )}
 
+          {/* Card de Diagnóstico do Servidor (Passo 2) */}
+          {serverEnv && (
+            <Paper p="md" radius="md" bg="dark.7" withBorder style={{ borderColor: '#2C2E33' }}>
+              <Group justify="space-between" mb="xs">
+                <Group gap="xs">
+                  <ThemeIcon color="teal" variant="light" size="sm" radius="sm">
+                    <IconServer size={16} />
+                  </ThemeIcon>
+                  <Text size="xs" fw={700} c="dimmed" tt="uppercase">
+                    Diagnóstico de Recursos do Servidor (Pre-Flight Data)
+                  </Text>
+                </Group>
+                <Badge size="xs" color="teal" variant="light">
+                  Status Coletado
+                </Badge>
+              </Group>
+
+              <Grid gutter="xs">
+                {/* PHP */}
+                <Grid.Col span={{ base: 6, sm: 3, md: 2.4 }}>
+                  <Paper p="xs" bg="dark.8" radius="sm" withBorder style={{ borderColor: '#25262B' }}>
+                    <Text size="11px" c="dimmed">
+                      PHP Instalado
+                    </Text>
+                    <Group gap={6} align="center" mt={2}>
+                      <Text size="sm" fw={700} c="white">
+                        v{serverEnv.php_version || 'N/A'}
+                      </Text>
+                      {serverEnv.php_version && (
+                        <Badge
+                          size="xs"
+                          color={compareVersions(serverEnv.php_version, '8.0.0') >= 0 ? 'green' : 'orange'}
+                          variant="dot"
+                        >
+                          {compareVersions(serverEnv.php_version, '8.0.0') >= 0 ? 'OK' : 'Legado'}
+                        </Badge>
+                      )}
+                    </Group>
+                  </Paper>
+                </Grid.Col>
+
+                {/* MySQL */}
+                <Grid.Col span={{ base: 6, sm: 3, md: 2.4 }}>
+                  <Paper p="xs" bg="dark.8" radius="sm" withBorder style={{ borderColor: '#25262B' }}>
+                    <Text size="11px" c="dimmed">
+                      Banco de Dados
+                    </Text>
+                    <Text size="sm" fw={700} c="white" mt={2} truncate>
+                      {serverEnv.mysql_version || 'MySQL / MariaDB'}
+                    </Text>
+                  </Paper>
+                </Grid.Col>
+
+                {/* Core WP */}
+                <Grid.Col span={{ base: 6, sm: 3, md: 2.4 }}>
+                  <Paper p="xs" bg="dark.8" radius="sm" withBorder style={{ borderColor: '#25262B' }}>
+                    <Text size="11px" c="dimmed">
+                      WordPress Core
+                    </Text>
+                    <Text size="sm" fw={700} c="white" mt={2}>
+                      v{serverEnv.wp_version || coreData.current_version || 'N/A'}
+                    </Text>
+                  </Paper>
+                </Grid.Col>
+
+                {/* Memory Limit */}
+                <Grid.Col span={{ base: 6, sm: 3, md: 2.4 }}>
+                  <Paper p="xs" bg="dark.8" radius="sm" withBorder style={{ borderColor: '#25262B' }}>
+                    <Text size="11px" c="dimmed">
+                      Limite de Memória
+                    </Text>
+                    <Text size="sm" fw={700} c="white" mt={2}>
+                      {serverEnv.memory_limit || 'Padrão'}
+                    </Text>
+                  </Paper>
+                </Grid.Col>
+
+                {/* Disk Space */}
+                <Grid.Col span={{ base: 12, sm: 12, md: 2.4 }}>
+                  <Paper p="xs" bg="dark.8" radius="sm" withBorder style={{ borderColor: '#25262B' }}>
+                    <Group justify="space-between">
+                      <Text size="11px" c="dimmed">
+                        Espaço em Disco
+                      </Text>
+                      {serverEnv.disk_free_mb !== undefined && serverEnv.disk_free_mb !== null && (
+                        <Text
+                          size="11px"
+                          fw={700}
+                          c={serverEnv.disk_free_mb < 500 ? 'red.4' : 'green.4'}
+                        >
+                          {serverEnv.disk_free_mb > 1024
+                            ? `${(serverEnv.disk_free_mb / 1024).toFixed(1)} GB livres`
+                            : `${serverEnv.disk_free_mb} MB livres`}
+                        </Text>
+                      )}
+                    </Group>
+                    {serverEnv.disk_total_mb && serverEnv.disk_free_mb && (
+                      <Progress
+                        mt={6}
+                        size="xs"
+                        value={Math.round(
+                          ((serverEnv.disk_total_mb - serverEnv.disk_free_mb) / serverEnv.disk_total_mb) * 100
+                        )}
+                        color={serverEnv.disk_free_mb < 500 ? 'red' : 'teal'}
+                        radius="xl"
+                      />
+                    )}
+                  </Paper>
+                </Grid.Col>
+              </Grid>
+            </Paper>
+          )}
+
           {/* Summary Cards Row */}
           <Grid>
             <Grid.Col span={{ base: 12, md: 4 }}>
@@ -459,7 +774,15 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
                       loading={updatingItem === 'core'}
                       disabled={isAnyUpdating}
                       leftSection={<IconArrowUpCircle size={14} />}
-                      onClick={() => handleApplyUpdate('core', 'core', 'WordPress Core', coreData.current_version, coreData.new_version)}
+                      onClick={() =>
+                        handleApplyUpdate(
+                          'core',
+                          'core',
+                          'WordPress Core',
+                          coreData.current_version,
+                          coreData.new_version
+                        )
+                      }
                     >
                       Atualizar para {coreData.new_version}
                     </Button>
@@ -541,12 +864,12 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
               <div>
                 <Title order={5}>🔌 Plugins ({pluginsList.length})</Title>
                 <Text size="xs" c="dimmed">
-                  Lista de plugins instalados no WordPress e versões disponíveis no repositório.
+                  Lista de plugins instalados no WordPress, requisitos informados e versões disponíveis.
                 </Text>
               </div>
 
-              {pendingPlugins.length > 0 && (
-                toolsEnabled === false ? (
+              {pendingPlugins.length > 0 &&
+                (toolsEnabled === false ? (
                   <Badge
                     color="gray"
                     variant="light"
@@ -568,8 +891,7 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
                   >
                     Atualizar Todos os Pendentes
                   </Button>
-                )
-              )}
+                ))}
             </Group>
 
             {pluginsList.length === 0 ? (
@@ -588,78 +910,129 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
-                  {pluginsList.map((plugin) => (
-                    <Table.Tr key={plugin.file}>
-                      <Table.Td>
-                        <Group gap="xs">
-                          <Text size="sm" fw={600}>
-                            {plugin.name}
-                          </Text>
-                          <Code c="dimmed">
-                            {plugin.slug}
-                          </Code>
-                        </Group>
-                      </Table.Td>
-                      <Table.Td>
-                        {plugin.is_active ? (
-                          <Badge size="xs" color="green" variant="light">
-                            🟢 Ativo
-                          </Badge>
-                        ) : (
-                          <Badge size="xs" color="gray" variant="subtle">
-                            ⚪ Inativo
-                          </Badge>
-                        )}
-                      </Table.Td>
-                      <Table.Td>
-                        <Badge size="xs" color="gray" variant="outline">
-                          {plugin.current_version}
-                        </Badge>
-                      </Table.Td>
-                      <Table.Td>
-                        {plugin.has_update ? (
-                          <Badge size="xs" color="orange" variant="filled">
-                            {plugin.new_version}
-                          </Badge>
-                        ) : (
-                          <Badge size="xs" color="green" variant="light">
-                            {plugin.current_version} (Mais Recente)
-                          </Badge>
-                        )}
-                      </Table.Td>
-                      <Table.Td style={{ textAlign: 'right' }}>
-                        {plugin.has_update ? (
-                          toolsEnabled === false ? (
-                            <Badge
-                              color="gray"
-                              variant="light"
-                              size="xs"
-                              leftSection={<IconLock size={10} />}
-                              style={{ cursor: onNavigateToPlans ? 'pointer' : 'default' }}
-                              onClick={onNavigateToPlans}
-                            >
-                              Bloqueado (Free)
+                  {pluginsList.map((plugin) => {
+                    const isTestedOutdated =
+                      plugin.tested_wp &&
+                      serverEnv?.wp_version &&
+                      compareVersions(serverEnv.wp_version, plugin.tested_wp) > 0;
+
+                    return (
+                      <Table.Tr key={plugin.file}>
+                        <Table.Td>
+                          <Group gap="xs">
+                            <div>
+                              <Group gap="xs">
+                                <Text size="sm" fw={600}>
+                                  {plugin.name}
+                                </Text>
+                                <Code c="dimmed">{plugin.slug}</Code>
+                              </Group>
+
+                              {/* Badges de Compatibilidade Pré-Flight */}
+                              {plugin.has_update && (
+                                <Group gap={6} mt={3}>
+                                  {plugin.tested_wp && (
+                                    <Tooltip
+                                      label={
+                                        isTestedOutdated
+                                          ? `O autor testou até o WP ${plugin.tested_wp}. Seu site está no WP ${serverEnv?.wp_version}.`
+                                          : `Homologado para sua versão do WordPress.`
+                                      }
+                                      position="bottom"
+                                      withArrow
+                                    >
+                                      <Badge
+                                        size="xs"
+                                        color={isTestedOutdated ? 'yellow' : 'gray'}
+                                        variant={isTestedOutdated ? 'filled' : 'subtle'}
+                                        leftSection={isTestedOutdated ? <IconAlertTriangle size={10} /> : undefined}
+                                      >
+                                        Testado até WP {plugin.tested_wp}
+                                      </Badge>
+                                    </Tooltip>
+                                  )}
+                                  {plugin.requires_php && (
+                                    <Badge size="xs" color="gray" variant="subtle">
+                                      PHP ≥ {plugin.requires_php}
+                                    </Badge>
+                                  )}
+                                </Group>
+                              )}
+                            </div>
+                          </Group>
+                        </Table.Td>
+                        <Table.Td>
+                          {plugin.is_active ? (
+                            <Badge size="xs" color="green" variant="light">
+                              🟢 Ativo
                             </Badge>
                           ) : (
-                            <Button
-                              size="xs"
-                              color="indigo"
-                              loading={updatingItem === plugin.file}
-                              disabled={isAnyUpdating}
-                              leftSection={<IconArrowUpCircle size={14} />}
-                              onClick={() => handleApplyUpdate('plugin', plugin.file, plugin.name, plugin.current_version, plugin.new_version)}
-                            >
-                              Atualizar
-                            </Button>
-                          )
-                        ) : (
-                          <Badge color="green" variant="subtle" size="xs">
-                            Atualizado
+                            <Badge size="xs" color="gray" variant="subtle">
+                              ⚪ Inativo
+                            </Badge>
+                          )}
+                        </Table.Td>
+                        <Table.Td>
+                          <Badge size="xs" color="gray" variant="outline">
+                            {plugin.current_version}
                           </Badge>
-                        )}
-                      </Table.Td>
-                    </Table.Tr>
-                  ))}
+                        </Table.Td>
+                        <Table.Td>
+                          {plugin.has_update ? (
+                            <Badge size="xs" color="orange" variant="filled">
+                              {plugin.new_version}
+                            </Badge>
+                          ) : (
+                            <Badge size="xs" color="green" variant="light">
+                              {plugin.current_version} (Mais Recente)
+                            </Badge>
+                          )}
+                        </Table.Td>
+                        <Table.Td style={{ textAlign: 'right' }}>
+                          {plugin.has_update ? (
+                            toolsEnabled === false ? (
+                              <Badge
+                                color="gray"
+                                variant="light"
+                                size="xs"
+                                leftSection={<IconLock size={10} />}
+                                style={{ cursor: onNavigateToPlans ? 'pointer' : 'default' }}
+                                onClick={onNavigateToPlans}
+                              >
+                                Bloqueado (Free)
+                              </Badge>
+                            ) : (
+                              <Button
+                                size="xs"
+                                color="indigo"
+                                loading={updatingItem === plugin.file}
+                                disabled={isAnyUpdating}
+                                leftSection={<IconArrowUpCircle size={14} />}
+                                onClick={() =>
+                                  handleApplyUpdate(
+                                    'plugin',
+                                    plugin.file,
+                                    plugin.name,
+                                    plugin.current_version,
+                                    plugin.new_version,
+                                    plugin.requires_php,
+                                    plugin.requires_wp,
+                                    plugin.tested_wp
+                                  )
+                                }
+                              >
+                                Atualizar
+                              </Button>
+                            )
+                          ) : (
+                            <Badge size="xs" color="gray" variant="subtle">
+                              Atualizado
+                            </Badge>
+                          )}
+                        </Table.Td>
+                      </Table.Tr>
+                    );
+                  })}
                 </Table.Tbody>
               </Table>
             )}
@@ -692,9 +1065,12 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
                   {themesList.map((theme) => (
                     <Table.Tr key={theme.slug}>
                       <Table.Td>
-                        <Text size="sm" fw={600}>
-                          {theme.name}
-                        </Text>
+                        <div>
+                          <Text size="sm" fw={600}>
+                            {theme.name}
+                          </Text>
+                          <Code c="dimmed">{theme.slug}</Code>
+                        </div>
                       </Table.Td>
                       <Table.Td>
                         <Badge size="xs" color="gray" variant="outline">
@@ -732,13 +1108,23 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
                               loading={updatingItem === theme.slug}
                               disabled={isAnyUpdating}
                               leftSection={<IconArrowUpCircle size={14} />}
-                              onClick={() => handleApplyUpdate('theme', theme.slug, theme.name, theme.current_version, theme.new_version)}
+                              onClick={() =>
+                                handleApplyUpdate(
+                                  'theme',
+                                  theme.slug,
+                                  theme.name,
+                                  theme.current_version,
+                                  theme.new_version,
+                                  theme.requires_php,
+                                  theme.requires_wp
+                                )
+                              }
                             >
                               Atualizar
                             </Button>
                           )
                         ) : (
-                          <Badge color="green" variant="subtle" size="xs">
+                          <Badge size="xs" color="gray" variant="subtle">
                             Atualizado
                           </Badge>
                         )}
@@ -752,24 +1138,39 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
         </Stack>
       )}
 
-      {/* Modal de Andamento das Atualizações & Trava de Concorrência */}
+      {/* Modal de Andamento das Atualizações & Decisão Informada */}
       <Modal
         opened={updateModal.isOpen}
         onClose={handleCloseModal}
         closeOnClickOutside={false}
-        closeOnEscape={!updateModal.isProcessing}
-        withCloseButton={!updateModal.isProcessing}
+        closeOnEscape={updateModal.phase !== 'updating'}
+        withCloseButton={updateModal.phase !== 'updating'}
         title={
           <Group gap="xs">
-            <ThemeIcon color="indigo" variant="light" size="md" radius="sm">
-              <IconArrowUpCircle size={20} />
+            <ThemeIcon
+              color={
+                updateModal.phase === 'preflight'
+                  ? 'yellow'
+                  : updateModal.overallErrorCount > 0
+                  ? 'red'
+                  : 'indigo'
+              }
+              variant="light"
+              size="md"
+              radius="sm"
+            >
+              {updateModal.phase === 'preflight' ? (
+                <IconAlertTriangle size={20} />
+              ) : (
+                <IconArrowUpCircle size={20} />
+              )}
             </ThemeIcon>
             <Text fw={700} size="md" c="white">
               {updateModal.title}
             </Text>
           </Group>
         }
-        size={updateModal.mode === 'batch' ? 'lg' : 'md'}
+        size={updateModal.mode === 'batch' || updateModal.phase === 'preflight' ? 'lg' : 'md'}
         radius="md"
         centered
         styles={{
@@ -789,10 +1190,213 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
         }}
       >
         <Stack gap="md">
-          {/* MODO SINGLE: Update individual */}
-          {updateModal.mode === 'single' && (
+          {/* FASE 1: PRE-FLIGHT CHECK (Decisão Informada) */}
+          {updateModal.phase === 'preflight' && (
+            <Stack gap="md">
+              {updateModal.mode === 'single' && (
+                <>
+                  <Paper p="sm" bg="dark.8" radius="sm" withBorder style={{ borderColor: '#2C2E33' }}>
+                    <Group justify="space-between">
+                      <div>
+                        <Text size="sm" fw={700} c="white">
+                          {updateModal.items[0]?.name}
+                        </Text>
+                        <Text size="xs" c="dimmed">
+                          {updateModal.items[0]?.id}
+                        </Text>
+                      </div>
+                      <Group gap={4}>
+                        <Badge size="xs" color="gray" variant="outline">
+                          v{updateModal.items[0]?.currentVersion}
+                        </Badge>
+                        <Text size="xs" c="dimmed">
+                          →
+                        </Text>
+                        <Badge size="xs" color="orange" variant="filled">
+                          v{updateModal.items[0]?.newVersion}
+                        </Badge>
+                      </Group>
+                    </Group>
+                  </Paper>
+
+                  {/* Avisos Identificados */}
+                  <Stack gap="xs">
+                    {updateModal.items[0]?.warnings?.map((warn, i) => (
+                      <Alert
+                        key={i}
+                        color={warn.severity === 'danger' ? 'red' : 'yellow'}
+                        icon={<IconAlertTriangle size={18} />}
+                        title={warn.title}
+                        radius="sm"
+                      >
+                        <Text size="xs">{warn.message}</Text>
+                      </Alert>
+                    ))}
+                  </Stack>
+
+                  <Paper p="xs" bg="dark.8" radius="sm">
+                    <Group gap="xs" wrap="nowrap" align="flex-start">
+                      <ThemeIcon color="teal" variant="light" size="sm" radius="xl" mt={2}>
+                        <IconShieldCheck size={14} />
+                      </ThemeIcon>
+                      <Text size="xs" c="dimmed">
+                        <strong style={{ color: '#fff' }}>Decisão Informada:</strong> O sistema não bloqueia sua atualização. Se optar por prosseguir, recomendamos validar as funcionalidades do plugin após a conclusão.
+                      </Text>
+                    </Group>
+                  </Paper>
+
+                  <Group justify="flex-end" gap="sm" mt="xs">
+                    <Button
+                      variant="subtle"
+                      color="gray"
+                      size="sm"
+                      leftSection={<IconX size={16} />}
+                      onClick={handleCloseModal}
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      color="orange"
+                      variant="filled"
+                      size="sm"
+                      leftSection={<IconArrowUpCircle size={16} />}
+                      onClick={() =>
+                        executeSingleUpdate(updateModal.items[0].id, updateModal.items[0].type)
+                      }
+                    >
+                      Atualizar Mesmo Assim
+                    </Button>
+                  </Group>
+                </>
+              )}
+
+              {updateModal.mode === 'batch' && (
+                <>
+                  <Alert
+                    color="yellow"
+                    icon={<IconAlertTriangle size={18} />}
+                    title="Avisos de Compatibilidade Identificados"
+                    radius="sm"
+                  >
+                    <Text size="xs">
+                      Encontramos {updateModal.warningsCount} aviso(s) de compatibilidade ou homologação na fila de atualização. Você pode atualizar todos mesmo assim ou selecionar apenas os 100% seguros.
+                    </Text>
+                  </Alert>
+
+                  <Paper
+                    p="xs"
+                    bg="dark.8"
+                    radius="sm"
+                    withBorder
+                    style={{ borderColor: '#2C2E33', maxHeight: 260, overflowY: 'auto' }}
+                  >
+                    <Stack gap={6}>
+                      {updateModal.items.map((item, idx) => {
+                        const hasWarn = (item.warnings?.length || 0) > 0;
+                        return (
+                          <Group
+                            key={item.id}
+                            justify="space-between"
+                            wrap="nowrap"
+                            p="xs"
+                            style={{
+                              borderBottom:
+                                idx < updateModal.items.length - 1 ? '1px solid #25262B' : 'none',
+                            }}
+                          >
+                            <div style={{ minWidth: 0, flex: 1 }}>
+                              <Group gap="xs">
+                                <Text size="xs" fw={600} truncate c={hasWarn ? 'yellow.4' : 'white'}>
+                                  {item.name}
+                                </Text>
+                                {hasWarn ? (
+                                  <Badge size="xs" color="yellow" variant="light">
+                                    {item.warnings![0].title}
+                                  </Badge>
+                                ) : (
+                                  <Badge size="xs" color="green" variant="subtle">
+                                    ✓ 100% Compatível
+                                  </Badge>
+                                )}
+                              </Group>
+                              {hasWarn && (
+                                <Text size="11px" c="dimmed" mt={2}>
+                                  {item.warnings![0].message}
+                                </Text>
+                              )}
+                            </div>
+
+                            <Group gap={4} wrap="nowrap">
+                              <Badge size="xs" color="gray" variant="outline">
+                                v{item.currentVersion}
+                              </Badge>
+                              <Text size="xs" c="dimmed">
+                                →
+                              </Text>
+                              <Badge size="xs" color="indigo" variant="outline">
+                                v{item.newVersion}
+                              </Badge>
+                            </Group>
+                          </Group>
+                        );
+                      })}
+                    </Stack>
+                  </Paper>
+
+                  <Group justify="space-between" gap="sm" mt="xs">
+                    <Button
+                      variant="subtle"
+                      color="gray"
+                      size="xs"
+                      leftSection={<IconX size={14} />}
+                      onClick={handleCloseModal}
+                    >
+                      Cancelar
+                    </Button>
+
+                    <Group gap="xs">
+                      {updateModal.items.some((it) => (it.warnings?.length || 0) === 0) && (
+                        <Button
+                          color="green"
+                          variant="light"
+                          size="xs"
+                          leftSection={<IconShieldCheck size={14} />}
+                          onClick={() => {
+                            const safeItems = updateModal.items.filter(
+                              (it) => (it.warnings?.length || 0) === 0
+                            );
+                            executeBatchUpdate(safeItems);
+                          }}
+                        >
+                          Atualizar Apenas os 100% Seguros (
+                          {
+                            updateModal.items.filter((it) => (it.warnings?.length || 0) === 0)
+                              .length
+                          }
+                          )
+                        </Button>
+                      )}
+
+                      <Button
+                        color="orange"
+                        variant="filled"
+                        size="xs"
+                        leftSection={<IconArrowUpCircle size={14} />}
+                        onClick={() => executeBatchUpdate(updateModal.items)}
+                      >
+                        Atualizar Todos Mesmo com Avisos
+                      </Button>
+                    </Group>
+                  </Group>
+                </>
+              )}
+            </Stack>
+          )}
+
+          {/* FASE 2 & 3: UPDATING OU FINISHED (Single Mode) */}
+          {updateModal.phase !== 'preflight' && updateModal.mode === 'single' && (
             <>
-              {updateModal.isProcessing ? (
+              {updateModal.phase === 'updating' ? (
                 <Paper p="md" bg="dark.8" radius="sm" withBorder style={{ borderColor: '#2C2E33' }}>
                   <Stack align="center" gap="sm" py="md">
                     <Loader color="indigo" size="lg" />
@@ -804,7 +1408,9 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
                         <Badge size="xs" color="gray" variant="outline">
                           v{updateModal.items[0].currentVersion}
                         </Badge>
-                        <Text size="xs" c="dimmed">→</Text>
+                        <Text size="xs" c="dimmed">
+                          →
+                        </Text>
                         <Badge size="xs" color="indigo" variant="filled">
                           v{updateModal.items[0].newVersion}
                         </Badge>
@@ -818,7 +1424,8 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
               ) : updateModal.overallSuccessCount > 0 ? (
                 <Alert color="green" icon={<IconCheck size={20} />} title="Atualização Concluída!" radius="sm">
                   <Text size="sm">
-                    {updateModal.items[0]?.message || `${updateModal.items[0]?.name} foi atualizado com sucesso!`}
+                    {updateModal.items[0]?.message ||
+                      `${updateModal.items[0]?.name} foi atualizado com sucesso!`}
                   </Text>
                 </Alert>
               ) : (
@@ -829,12 +1436,14 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
                 </Alert>
               )}
 
-              {!updateModal.isProcessing && (
+              {updateModal.phase === 'finished' && (
                 <Button
                   color={updateModal.overallSuccessCount > 0 ? 'green' : 'gray'}
                   variant="filled"
                   fullWidth
-                  leftSection={updateModal.overallSuccessCount > 0 ? <IconCheck size={16} /> : undefined}
+                  leftSection={
+                    updateModal.overallSuccessCount > 0 ? <IconCheck size={16} /> : undefined
+                  }
                   onClick={handleCloseModal}
                 >
                   Concluir e Atualizar Lista
@@ -843,56 +1452,71 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
             </>
           )}
 
-          {/* MODO BATCH: Atualizar Todos */}
-          {updateModal.mode === 'batch' && (
+          {/* FASE 2 & 3: UPDATING OU FINISHED (Batch Mode) */}
+          {updateModal.phase !== 'preflight' && updateModal.mode === 'batch' && (
             <>
               <div>
                 <Group justify="space-between" mb={6}>
                   <Text size="xs" fw={600} c="dimmed">
-                    {updateModal.isProcessing
+                    {updateModal.phase === 'updating'
                       ? `Progresso: ${updateModal.currentIndex + 1} de ${updateModal.items.length}`
                       : `Concluído: ${updateModal.items.length} de ${updateModal.items.length} itens processados`}
                   </Text>
-                  <Text size="xs" fw={700} c={updateModal.isProcessing ? 'indigo.3' : 'green.4'}>
+                  <Text
+                    size="xs"
+                    fw={700}
+                    c={updateModal.phase === 'updating' ? 'indigo.3' : 'green.4'}
+                  >
                     {Math.round(
-                      ((updateModal.isProcessing
+                      ((updateModal.phase === 'updating'
                         ? updateModal.currentIndex
                         : updateModal.items.length) /
                         updateModal.items.length) *
                         100
-                    )}%
+                    )}
+                    %
                   </Text>
                 </Group>
                 <Progress
                   value={
-                    ((updateModal.isProcessing
+                    ((updateModal.phase === 'updating'
                       ? updateModal.currentIndex + 0.3
                       : updateModal.items.length) /
                       updateModal.items.length) *
                     100
                   }
-                  color={updateModal.isProcessing ? 'indigo' : 'green'}
-                  animated={updateModal.isProcessing}
+                  color={updateModal.phase === 'updating' ? 'indigo' : 'green'}
+                  animated={updateModal.phase === 'updating'}
                   size="md"
                   radius="xl"
                 />
               </div>
 
-              {!updateModal.isProcessing && (
-                updateModal.overallErrorCount === 0 ? (
-                  <Alert color="green" icon={<IconCheck size={18} />} title="Todos os Plugins Atualizados!" radius="sm">
+              {updateModal.phase === 'finished' &&
+                (updateModal.overallErrorCount === 0 ? (
+                  <Alert
+                    color="green"
+                    icon={<IconCheck size={18} />}
+                    title="Todos os Itens Atualizados!"
+                    radius="sm"
+                  >
                     <Text size="sm">
-                      Todos os {updateModal.overallSuccessCount} plugins foram atualizados com sucesso e o site segue em perfeito funcionamento.
+                      Todos os {updateModal.overallSuccessCount} plugins selecionados foram atualizados com sucesso e o site segue em perfeito funcionamento.
                     </Text>
                   </Alert>
                 ) : (
-                  <Alert color="yellow" icon={<IconAlertCircle size={18} />} title="Processamento Concluído com Avisos" radius="sm">
+                  <Alert
+                    color="yellow"
+                    icon={<IconAlertCircle size={18} />}
+                    title="Processamento Concluído com Avisos"
+                    radius="sm"
+                  >
                     <Text size="sm">
-                      {updateModal.overallSuccessCount} plugin(s) atualizado(s) com sucesso e {updateModal.overallErrorCount} com erro. Verifique a lista abaixo.
+                      {updateModal.overallSuccessCount} item(ns) atualizado(s) com sucesso e{' '}
+                      {updateModal.overallErrorCount} com erro. Verifique a lista abaixo.
                     </Text>
                   </Alert>
-                )
-              )}
+                ))}
 
               {/* Lista com o status de cada item em tempo real */}
               <Paper
@@ -904,7 +1528,16 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
               >
                 <Stack gap={6}>
                   {updateModal.items.map((item, idx) => (
-                    <Group key={item.id} justify="space-between" wrap="nowrap" p="xs" style={{ borderBottom: idx < updateModal.items.length - 1 ? '1px solid #25262B' : 'none' }}>
+                    <Group
+                      key={item.id}
+                      justify="space-between"
+                      wrap="nowrap"
+                      p="xs"
+                      style={{
+                        borderBottom:
+                          idx < updateModal.items.length - 1 ? '1px solid #25262B' : 'none',
+                      }}
+                    >
                       <Group gap="xs" wrap="nowrap" style={{ minWidth: 0, flex: 1 }}>
                         {item.status === 'updating' && <Loader size="xs" color="indigo" />}
                         {item.status === 'success' && <IconCheck size={16} color="#12b886" />}
@@ -912,11 +1545,26 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
                         {item.status === 'pending' && <Text size="xs" c="dimmed">⏳</Text>}
 
                         <div style={{ minWidth: 0 }}>
-                          <Text size="xs" fw={600} truncate c={item.status === 'updating' ? 'indigo.3' : item.status === 'error' ? 'red.4' : 'white'}>
+                          <Text
+                            size="xs"
+                            fw={600}
+                            truncate
+                            c={
+                              item.status === 'updating'
+                                ? 'indigo.3'
+                                : item.status === 'error'
+                                ? 'red.4'
+                                : 'white'
+                            }
+                          >
                             {item.name}
                           </Text>
                           {item.message && (
-                            <Text size="11px" c={item.status === 'error' ? 'red.3' : 'dimmed'} truncate>
+                            <Text
+                              size="11px"
+                              c={item.status === 'error' ? 'red.3' : 'dimmed'}
+                              truncate
+                            >
                               {item.message}
                             </Text>
                           )}
@@ -927,8 +1575,14 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
                         <Badge size="xs" color="gray" variant="outline">
                           v{item.currentVersion}
                         </Badge>
-                        <Text size="xs" c="dimmed">→</Text>
-                        <Badge size="xs" color={item.status === 'success' ? 'green' : 'indigo'} variant={item.status === 'success' ? 'filled' : 'outline'}>
+                        <Text size="xs" c="dimmed">
+                          →
+                        </Text>
+                        <Badge
+                          size="xs"
+                          color={item.status === 'success' ? 'green' : 'indigo'}
+                          variant={item.status === 'success' ? 'filled' : 'outline'}
+                        >
                           v{item.newVersion}
                         </Badge>
                       </Group>
@@ -937,7 +1591,7 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
                 </Stack>
               </Paper>
 
-              {!updateModal.isProcessing && (
+              {updateModal.phase === 'finished' && (
                 <Button
                   color={updateModal.overallErrorCount === 0 ? 'green' : 'indigo'}
                   variant="filled"

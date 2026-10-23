@@ -1021,10 +1021,11 @@ class Websites extends ResourceController
                         'success' => true,
                         'cached'  => true,
                         'data'    => [
-                            'summary' => $summary,
-                            'core'    => $cached['core'] ?? ['current_version' => '', 'new_version' => '', 'has_update' => false],
-                            'plugins' => $cached['plugins'] ?? [],
-                            'themes'  => $cached['themes'] ?? [],
+                            'summary'            => $summary,
+                            'server_environment' => $cached['server_environment'] ?? null,
+                            'core'               => $cached['core'] ?? ['current_version' => '', 'new_version' => '', 'has_update' => false],
+                            'plugins'            => $cached['plugins'] ?? [],
+                            'themes'             => $cached['themes'] ?? [],
                         ],
                         'message' => 'Serviço do site desconectado. Exibindo dados da última checagem salva.',
                     ]);
@@ -1061,15 +1062,16 @@ class Websites extends ResourceController
                     'success' => true,
                     'cached'  => true,
                     'data'    => [
-                        'summary' => $cached['summary'] ?? [
+                        'summary'            => $cached['summary'] ?? [
                             'total_pending'   => $pendingCount,
                             'pending_plugins' => 0,
                             'pending_themes'  => 0,
                             'pending_core'    => 0,
                         ],
-                        'core'    => $cached['core'] ?? ['current_version' => '', 'new_version' => '', 'has_update' => false],
-                        'plugins' => $cached['plugins'] ?? [],
-                        'themes'  => $cached['themes'] ?? [],
+                        'server_environment' => $cached['server_environment'] ?? null,
+                        'core'               => $cached['core'] ?? ['current_version' => '', 'new_version' => '', 'has_update' => false],
+                        'plugins'            => $cached['plugins'] ?? [],
+                        'themes'             => $cached['themes'] ?? [],
                     ],
                     'message' => 'Exibindo dados da última checagem recente.',
                 ]);
@@ -1093,10 +1095,11 @@ class Websites extends ResourceController
                     'success' => true,
                     'cached'  => true,
                     'data'    => [
-                        'summary' => $summary,
-                        'core'    => $cached['core'] ?? ['current_version' => '', 'new_version' => '', 'has_update' => false],
-                        'plugins' => $cached['plugins'] ?? [],
-                        'themes'  => $cached['themes'] ?? [],
+                        'summary'            => $summary,
+                        'server_environment' => $cached['server_environment'] ?? null,
+                        'core'               => $cached['core'] ?? ['current_version' => '', 'new_version' => '', 'has_update' => false],
+                        'plugins'            => $cached['plugins'] ?? [],
+                        'themes'             => $cached['themes'] ?? [],
                     ],
                     'message' => 'Uma checagem já está em andamento. Exibindo dados em cache.',
                 ]);
@@ -1127,10 +1130,11 @@ class Websites extends ResourceController
                         'success' => true,
                         'cached'  => true,
                         'data'    => [
-                            'summary' => $summary,
-                            'core'    => $cached['core'] ?? ['current_version' => '', 'new_version' => '', 'has_update' => false],
-                            'plugins' => $cached['plugins'] ?? [],
-                            'themes'  => $cached['themes'] ?? [],
+                            'summary'            => $summary,
+                            'server_environment' => $cached['server_environment'] ?? null,
+                            'core'               => $cached['core'] ?? ['current_version' => '', 'new_version' => '', 'has_update' => false],
+                            'plugins'            => $cached['plugins'] ?? [],
+                            'themes'             => $cached['themes'] ?? [],
                         ],
                         'message' => 'Exibindo dados da última checagem salva (agente não respondeu no momento).',
                     ]);
@@ -1252,10 +1256,11 @@ class Websites extends ResourceController
         $checkedAt = date('Y-m-d H:i:s');
 
         $fullPayload = [
-            'summary' => $summary,
-            'core'    => $data['core'] ?? ['current_version' => '', 'new_version' => '', 'has_update' => false],
-            'plugins' => $data['plugins'] ?? [],
-            'themes'  => $data['themes'] ?? [],
+            'summary'            => $summary,
+            'server_environment' => $data['server_environment'] ?? null,
+            'core'               => $data['core'] ?? ['current_version' => '', 'new_version' => '', 'has_update' => false],
+            'plugins'            => $data['plugins'] ?? [],
+            'themes'             => $data['themes'] ?? [],
         ];
 
         $updateData = [
