@@ -680,13 +680,13 @@
                     <li class="nav-item"><a href="#remediacao-e-ia"><span class="nav-icon">🤖</span> Remediação & Fixes WP</a></li>
                     <li class="nav-item"><a href="#gestao-plano-cliente"><span class="nav-icon">📦</span> Gestão do Plano & Assinaturas</a></li>
                     <li class="nav-item"><a href="#exclusao-conta-carencia"><span class="nav-icon">🔒</span> Exclusão de Conta & Carência (90 Dias)</a></li>
-                    <li class="nav-item"><a href="#segregacao-dados-cliente-adm"><span class="nav-icon">⚖️</span> Segregação: Clientes vs Administração</a></li>
                 </ul>
             </div>
 
             <div class="nav-group admin-only">
                 <div class="nav-title">Administração & Governança (Restrito)</div>
                 <ul class="nav-list">
+                    <li class="nav-item admin-only"><a href="#segregacao-dados-cliente-adm"><span class="nav-icon">⚖️</span> Segregação: Clientes vs Administração</a></li>
                     <li class="nav-item admin-only"><a href="#catalogo-de-solucoes"><span class="nav-icon">📚</span> Catálogo de Soluções</a></li>
                     <li class="nav-item admin-only"><a href="#gestao-de-usuarios"><span class="nav-icon">👥</span> Gestão de Usuários, Planos & Expurgo</a></li>
                     <li class="nav-item admin-only"><a href="#configuracao-planos-ia"><span class="nav-icon">⚙️</span> Catálogo de Planos & Motores de IA</a></li>
@@ -2384,8 +2384,8 @@ location ~* /(wp-config\.php|readme\.html|license\.txt) {
             </section>
 
             <!-- Segregação Rigorosa: Dados de Clientes vs Administração -->
-            <section id="segregacao-dados-cliente-adm" class="doc-section">
-                <h1>⚖️ Segregação de Dados: Clientes (Públicos) vs. Administração (Restritos)</h1>
+            <section id="segregacao-dados-cliente-adm" class="doc-section admin-only">
+                <h1>⚖️ Segregação de Dados: Clientes vs. Administração (Área Restrita Admin)</h1>
                 <p>Um dos pilares arquiteturais do <strong>Vexors</strong> é a estrita separação entre as informações operacionais de cada website (que podem ser compartilhadas com o cliente final para prestação de contas) e os dados gerenciais, financeiros e de governança do SaaS (exclusivos dos administradores da plataforma).</p>
 
                 <div class="callout callout-info">

@@ -153,14 +153,7 @@ Recursos restritos e protegidos por controle de acesso (RBAC) para a gestão com
 - Mesmo quando uma conta tem seus sites expurgados após os 90 dias, os registros de `ai_usage_logs` e `payment_transactions` permanecem vinculados ao ID do usuário.
 - Garante que relatórios fiscais, relatórios contábeis e o DRE da administração permaneçam 100% corretos e confiáveis ao longo do tempo.
 
-### 📖 Central de Documentação Integrada (`/docs`)
-- Documentação técnica e operacional completa acessível diretamente na plataforma.
-- **Visão Adaptativa por Privilégio:** Usuários comuns visualizam apenas as seções gerais; administradores visualizam as seções restritas de governança, catálogo de soluções, DRE e configurações de gateway.
-
----
-
-## ⚖️ 3. Segregação de Dados: Clientes (Públicos) vs. Administração (Restritos)
-
+### ⚖️ Segregação de Dados: Clientes (Públicos) vs. Administração (Restritos)
 A plataforma implementa isolamento multi-tenant rigoroso e governança de dados pautada no princípio do menor privilégio:
 
 | Camada de Acesso | Público-Alvo | Dados & Recursos Acessíveis | Restrições & Blindagens de Segurança |
@@ -168,6 +161,10 @@ A plataforma implementa isolamento multi-tenant rigoroso e governança de dados 
 | **Visão do Cliente Final** | Cliente final da agência / dono do site | • **Relatório Diagnóstico Executivo (Web & PDF):** Nota, checklist completo de testes checados (Resolvido vs Pendente), telemetria e inventário.<br>• **Link Público de Atividades (`/public/logs/:token`):** Timeline cronológica das manutenções e intervenções do site. | • Modo **estritamente somente leitura** (sem permissão de edição, exclusão ou criação).<br>• Protegido por token criptográfico de 64 caracteres.<br>• Nenhum dado financeiro, chave de API ou custo é exposto. |
 | **Usuário do SaaS (Dono do Site)** | Usuário logado / Agência | • Painel de gestão dos seus próprios websites.<br>• Varreduras, auto-fix do core, atualizações remotas e fixes.<br>• Gestão da sua própria assinatura, add-ons pró-rata e volumetria do seu próprio consumo de IA. | • Isolamento por `user_id` em todas as consultas SQL.<br>• Não visualiza custos de atacado de IA nem margens de contribuição.<br>• Sem acesso à gestão de usuários, catálogo global ou expurgo. |
 | **Administração & Governança** | Gestores do SaaS (Admin) | • **Cockpit Financeiro por Cliente (DRE):** Faturamento contratado vs Custo real de IA consumido (R$) e margem líquida.<br>• **Centro de Comando Global de IA:** Volumetria total de tokens e rankings de consumo.<br>• **Catálogo Global de Soluções com IA em Lote.**<br>• **Gestão de Usuários RBAC, Impersonação, Carência de 90 Dias e Expurgo CLI.**<br>• **Catálogo de Planos com Travas Orçamentárias** e **Gateway Asaas (Cartão/Pix).** | • Autenticação restrita via JWT com claim `role: 'admin'`.<br>• Validação server-side em todos os endpoints REST da API.<br>• Seções restritas da documentação (`.admin-only`) ocultadas para não-administradores. |
+
+### 📖 Central de Documentação Integrada (`/docs`)
+- Documentação técnica e operacional completa acessível diretamente na plataforma.
+- **Visão Adaptativa por Privilégio:** Usuários comuns visualizam apenas as seções gerais; administradores visualizam as seções restritas de governança, catálogo de soluções, DRE e configurações de gateway.
 
 ---
 
