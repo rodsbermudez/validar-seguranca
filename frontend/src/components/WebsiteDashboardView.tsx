@@ -662,17 +662,22 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
     }
   };
 
+  const handleWebsiteUpdatedFromDiagnostic = useCallback(
+    (updated: any) => {
+      setCurrentWebsite((prev) => ({ ...prev, ...updated }));
+      if (onUpdateWebsite) {
+        onUpdateWebsite(updated);
+      }
+    },
+    [onUpdateWebsite]
+  );
+
   if (viewingDiagnostic) {
     return (
       <WebsiteDiagnosticReportView
         website={currentWebsite}
         onBack={() => setViewingDiagnostic(false)}
-        onWebsiteUpdated={(updated) => {
-          setCurrentWebsite(updated);
-          if (onUpdateWebsite) {
-            onUpdateWebsite(updated);
-          }
-        }}
+        onWebsiteUpdated={handleWebsiteUpdatedFromDiagnostic}
       />
     );
   }

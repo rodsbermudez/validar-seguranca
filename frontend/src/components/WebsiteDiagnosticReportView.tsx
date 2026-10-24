@@ -16,6 +16,7 @@ import {
   Divider,
   Box,
   RingProgress,
+  Progress,
 } from '@mantine/core';
 import {
   IconArrowLeft,
@@ -32,6 +33,11 @@ import {
   IconPlug,
   IconPalette,
   IconRadar,
+  IconServer,
+  IconCpu,
+  IconDatabase,
+  IconActivity,
+  IconShieldCheck,
 } from '@tabler/icons-react';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -40,10 +46,34 @@ import { VEXORS_LOGO_BASE64 } from '../assets/logoBase64';
 import { formatDateTime } from '../utils/date';
 
 interface WebsiteDiagnosticReportViewProps {
-  website: { id: string | number; name: string; url: string; environment?: string; is_connected?: number | boolean };
+  website: {
+    id: string | number;
+    name: string;
+    url: string;
+    environment?: string;
+    is_connected?: number | boolean;
+    agent_version?: string | null;
+    latest_agent_version?: string | null;
+    is_agent_outdated?: boolean | null;
+  };
   onBack: () => void;
   onWebsiteUpdated?: (updated: any) => void;
 }
+
+// Helper para comparar versões semânticas (ex: 1.0.5 < 1.0.6)
+const isVersionOlder = (current?: string | null, target?: string | null): boolean => {
+  if (!current || !target) return false;
+  if (current === target) return false;
+  const cParts = current.split('.').map((n) => parseInt(n, 10) || 0);
+  const tParts = target.split('.').map((n) => parseInt(n, 10) || 0);
+  for (let i = 0; i < Math.max(cParts.length, tParts.length); i++) {
+    const c = cParts[i] || 0;
+    const t = tParts[i] || 0;
+    if (c < t) return true;
+    if (c > t) return false;
+  }
+  return false;
+};
 
 export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewProps> = ({
   website,
@@ -56,14 +86,20 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
   const [reconnecting, setReconnecting] = useState<boolean>(false);
   const [reconnectAlert, setReconnectAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
+  // Mantém referência estável do callback onWebsiteUpdated para evitar loop infinito de re-renderização
+  const onWebsiteUpdatedRef = useRef(onWebsiteUpdated);
+  useEffect(() => {
+    onWebsiteUpdatedRef.current = onWebsiteUpdated;
+  }, [onWebsiteUpdated]);
+
   const fetchReport = useCallback(async () => {
     setLoading(true);
     setErrorMsg(null);
     try {
       const data = await getDiagnosticSummary(website.id);
       setReport(data);
-      if (data?.website && onWebsiteUpdated) {
-        onWebsiteUpdated(data.website);
+      if (data?.website && onWebsiteUpdatedRef.current) {
+        onWebsiteUpdatedRef.current(data.website);
       }
     } catch (err: any) {
       setErrorMsg(
@@ -75,7 +111,7 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
     } finally {
       setLoading(false);
     }
-  }, [website.id, onWebsiteUpdated]);
+  }, [website.id]);
 
   const handleReconnect = async () => {
     setReconnecting(true);
@@ -193,6 +229,7 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
   const logs48h = report?.data?.logs_48h;
   const integrity = report?.data?.integrity;
   const updates = report?.data?.updates;
+  const serverEnv = updates?.server_environment;
 
   const score = latestScan?.score !== undefined && latestScan?.score !== null ? Number(latestScan.score) : null;
   const grade = latestScan?.grade ?? (score !== null ? (score >= 90 ? 'A' : score >= 75 ? 'B' : score >= 60 ? 'C' : score >= 40 ? 'D' : 'F') : 'N/A');
@@ -210,9 +247,151 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
   const rawScanDate = latestScan?.scanned_at || latestScan?.executed_at;
   const formattedScanDate = formatDateTime(rawScanDate, 'DATA N/D');
 
-  const pendingPlugins = updates?.plugins?.filter((p) => p.has_update) || [];
-  const pendingThemes = updates?.themes?.filter((t) => t.has_update) || [];
+  // Métricas de Infraestrutura & Recursos do Servidor
+  // 1. Armazenamento em Disco (HD)
+  const diskTotalMb = serverEnv?.disk_total_mb ?? null;
+  const diskFreeMb = serverEnv?.disk_free_mb ?? null;
+  const diskUsedPct = serverEnv?.disk_used_pct ?? (
+    diskTotalMb && diskFreeMb !== null && diskTotalMb > 0
+      ? Math.round(((diskTotalMb - diskFreeMb) / diskTotalMb) * 100)
+      : null
+  );
+  const diskColor = diskUsedPct !== null
+    ? (diskUsedPct >= 90 ? 'red' : diskUsedPct >= 75 ? 'yellow' : 'teal')
+    : 'gray';
+  const diskStatusBadge = diskUsedPct !== null
+    ? (diskUsedPct >= 90 ? 'Espaço Crítico' : diskUsedPct >= 75 ? 'Espaço Baixo' : 'Espaço Saudável')
+    : 'Aguardando Sincronização';
+  const diskFreeFormatted = diskFreeMb !== null
+    ? (diskFreeMb >= 1024 ? `${(diskFreeMb / 1024).toFixed(1)} GB Livres` : `${diskFreeMb} MB Livres`)
+    : 'Armazenamento N/D';
+  const diskTotalFormatted = diskTotalMb !== null
+    ? `${(diskTotalMb / 1024).toFixed(1)} GB Total`
+    : null;
+
+  // 2. PHP & Banco de Dados (MySQL)
+  const phpVersion = serverEnv?.php_version;
+  const mysqlVersion = serverEnv?.mysql_version;
+  const serverSoftware = serverEnv?.server_software;
+  const parsePhp = (ver?: string) => {
+    if (!ver) return null;
+    const m = ver.match(/^(\d+)\.(\d+)/);
+    return m ? parseFloat(`${m[1]}.${m[2]}`) : null;
+  };
+  const phpNum = parsePhp(phpVersion);
+  let phpColor = 'gray';
+  let phpBadge = 'Aguardando';
+  let phpStatusDesc = 'Versões do PHP e MySQL ativas no ambiente WordPress.';
+  if (phpNum !== null) {
+    if (phpNum >= 8.2) {
+      phpColor = 'teal';
+      phpBadge = 'PHP Moderno (Seguro)';
+      phpStatusDesc = 'Versão com suporte ativo e atualizações contínuas de segurança.';
+    } else if (phpNum >= 8.0) {
+      phpColor = 'yellow';
+      phpBadge = 'Fim de Suporte Ativo';
+      phpStatusDesc = 'Apenas patches de segurança críticos. Recomendado planejar upgrade para PHP 8.2+.';
+    } else {
+      phpColor = 'red';
+      phpBadge = 'PHP Obsoleto (Risco)';
+      phpStatusDesc = 'Versão descontinuada sem patches de segurança. Risco elevado de incompatibilidade e invasão.';
+    }
+  }
+
+  // 3. Memória RAM (WordPress)
+  const memUsageMb = serverEnv?.memory_usage_mb ?? null;
+  const memLimit = serverEnv?.memory_limit ?? '';
+  const memPeakMb = serverEnv?.memory_peak_mb ?? null;
+  const memUsedPct = serverEnv?.memory_used_pct ?? null;
+  const ramColor = memUsedPct !== null
+    ? (memUsedPct >= 85 ? 'red' : memUsedPct >= 70 ? 'yellow' : 'teal')
+    : 'gray';
+  const ramBadge = memUsedPct !== null
+    ? (memUsedPct >= 85 ? 'Limite Próximo' : memUsedPct >= 70 ? 'Moderado' : 'Estável')
+    : 'Aguardando';
+  const ramStatusDesc = memLimit
+    ? `Limite PHP: ${memLimit}${memPeakMb ? ` · Pico: ${memPeakMb} MB` : ''}.`
+    : 'Consumo de memória alocado para a execução dos scripts do WordPress.';
+
+  // 4. Carga de Processamento (CPU)
+  const cpuAvailable = serverEnv?.cpu_available ?? null;
+  const cpuLoadPct = serverEnv?.cpu_load_pct ?? null;
+  const cpuLoad1m = serverEnv?.cpu_load_1m ?? null;
+  const cpuLoad5m = serverEnv?.cpu_load_5m ?? null;
+  const cpuCores = serverEnv?.cpu_cores ?? 1;
+  let cpuColor = 'gray';
+  let cpuBadge = 'Aguardando';
+  let cpuDescText = 'Média de processamento do servidor web.';
+  if (cpuAvailable === false) {
+    cpuColor = 'indigo';
+    cpuBadge = 'Hospedagem Compartilhada';
+    cpuDescText = 'Métricas de CPU restritas pelas políticas de isolamento do provedor de hospedagem.';
+  } else if (cpuLoadPct !== null) {
+    if (cpuLoadPct >= 85) {
+      cpuColor = 'red';
+      cpuBadge = 'Sobrecarga de CPU';
+    } else if (cpuLoadPct >= 60) {
+      cpuColor = 'yellow';
+      cpuBadge = 'Carga Elevada';
+    } else {
+      cpuColor = 'teal';
+      cpuBadge = 'Normal';
+    }
+    cpuDescText = `Load: 1m: ${cpuLoad1m ?? '—'}, 5m: ${cpuLoad5m ?? '—'} (${cpuCores} Core${cpuCores > 1 ? 's' : ''}).`;
+  }
+
+  // Componentes & Ciclo de Atualizações
+  const allPlugins = updates?.plugins || [];
+  const allThemes = updates?.themes || [];
   const coreHasUpdate = !!updates?.core?.has_update;
+
+  const pendingPlugins = allPlugins.filter((p) => p.has_update);
+  const upToDatePlugins = allPlugins.filter((p) => !p.has_update);
+  const activePlugins = allPlugins.filter((p) => p.is_active);
+  const inactivePlugins = allPlugins.filter((p) => !p.is_active);
+
+  const pendingThemes = allThemes.filter((t) => t.has_update);
+  const upToDateThemes = allThemes.filter((t) => !t.has_update);
+  const activeTheme = allThemes.find((t) => t.is_active);
+
+  const totalPending = (updates?.summary?.total_pending ?? 0) || (pendingPlugins.length + pendingThemes.length + (coreHasUpdate ? 1 : 0));
+
+  // Ordenação com itens desatualizados no topo para destaque visual imediato
+  const sortedPlugins = [...allPlugins].sort((a, b) => {
+    if (a.has_update && !b.has_update) return -1;
+    if (!a.has_update && b.has_update) return 1;
+    if (a.is_active && !b.is_active) return -1;
+    if (!a.is_active && b.is_active) return 1;
+    return a.name.localeCompare(b.name);
+  });
+
+  const sortedThemes = [...allThemes].sort((a, b) => {
+    if (a.has_update && !b.has_update) return -1;
+    if (!a.has_update && b.has_update) return 1;
+    if (a.is_active && !b.is_active) return -1;
+    if (!a.is_active && b.is_active) return 1;
+    return a.name.localeCompare(b.name);
+  });
+
+  const currentAgentVersion =
+    serverEnv?.agent_version ||
+    allPlugins.find((p) => p.is_protected || p.file?.includes('validar-seguranca') || p.file?.includes('vexors'))?.current_version ||
+    report?.website?.agent_version ||
+    website.agent_version ||
+    null;
+
+  const latestAgentVersion =
+    report?.data?.agent_status?.latest_version ||
+    report?.website?.latest_agent_version ||
+    website.latest_agent_version ||
+    '1.0.6';
+
+  const isAgentOutdated = Boolean(
+    report?.data?.agent_status?.is_outdated ??
+    report?.website?.is_agent_outdated ??
+    website.is_agent_outdated ??
+    (currentAgentVersion ? isVersionOlder(currentAgentVersion, latestAgentVersion) : false)
+  );
 
   return (
     <>
@@ -625,7 +804,218 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
               )}
             </Box>
 
-            {/* 2. SEÇÃO: LOGS DE ERROS FATAIS (ÚLTIMAS 48 HORAS) */}
+            {/* 2. SEÇÃO: INFRAESTRUTURA & SAÚDE DO SERVIDOR */}
+            <Box mb="xl" className="report-card" p="md" style={{ borderRadius: 8 }}>
+              <Group justify="space-between" align="center" mb="sm">
+                <Group gap="xs">
+                  <ThemeIcon color="teal" variant="light" radius="md">
+                    <IconServer size={20} />
+                  </ThemeIcon>
+                  <div>
+                    <Title order={4}>2. Infraestrutura & Recursos do Servidor</Title>
+                    <Text size="xs" c="dimmed" className="print-text-muted">
+                      Telemetria de armazenamento em disco, memória RAM, processamento e ambiente de execução
+                    </Text>
+                  </div>
+                </Group>
+
+                <Badge
+                  color={
+                    diskColor === 'red' || phpColor === 'red' || ramColor === 'red' || cpuColor === 'red'
+                      ? 'red'
+                      : diskColor === 'yellow' || phpColor === 'yellow' || ramColor === 'yellow' || cpuColor === 'yellow'
+                      ? 'yellow'
+                      : 'teal'
+                  }
+                  size="md"
+                  variant="filled"
+                >
+                  {diskColor === 'red' || phpColor === 'red' || ramColor === 'red' || cpuColor === 'red'
+                    ? 'REQUER ATENÇÃO NO SERVIDOR'
+                    : diskColor === 'yellow' || phpColor === 'yellow' || ramColor === 'yellow' || cpuColor === 'yellow'
+                    ? 'ALERTAS DE RECURSOS'
+                    : 'INFRAESTRUTURA SAUDÁVEL'}
+                </Badge>
+              </Group>
+
+              <Grid mt="xs">
+                {/* Card 1: Armazenamento em Disco (HD) */}
+                <Grid.Col span={{ base: 12, sm: 6, lg: 3 }}>
+                  <Paper
+                    p="sm"
+                    radius="md"
+                    bg="dark.6"
+                    withBorder
+                    h="100%"
+                    className="report-card"
+                    style={{ display: 'flex', flexDirection: 'column', borderColor: '#373A40' }}
+                  >
+                    <Group justify="space-between" align="center" mb={6}>
+                      <Text size="xs" fw={700} c="dimmed" tt="uppercase">
+                        Disco / Armazenamento
+                      </Text>
+                      <ThemeIcon color={diskColor} variant="light" size="sm" radius="xl">
+                        <IconDatabase size={14} />
+                      </ThemeIcon>
+                    </Group>
+                    <Text fw={800} fz={18} c="white" className="print-text-dark">
+                      {diskFreeFormatted}
+                    </Text>
+                    <Group justify="space-between" align="center" mt={4}>
+                      <Badge size="xs" color={diskColor} variant="light">
+                        {diskStatusBadge}
+                      </Badge>
+                      {diskTotalFormatted && (
+                        <Text size="xs" c="dimmed" className="print-text-muted">
+                          {diskTotalFormatted}
+                        </Text>
+                      )}
+                    </Group>
+                    {diskUsedPct !== null && (
+                      <Progress value={diskUsedPct} color={diskColor} size="xs" radius="xl" mt="xs" />
+                    )}
+                    <Text size="xs" c="dimmed" mt="xs" className="print-text-muted" style={{ flex: 1 }}>
+                      {diskTotalMb !== null
+                        ? `Consumo de ${diskUsedPct ?? 0}% do volume total alocado.`
+                        : 'Espaço em disco para uploads, banco de dados e arquivos do sistema.'}
+                    </Text>
+                  </Paper>
+                </Grid.Col>
+
+                {/* Card 2: PHP & Banco de Dados */}
+                <Grid.Col span={{ base: 12, sm: 6, lg: 3 }}>
+                  <Paper
+                    p="sm"
+                    radius="md"
+                    bg="dark.6"
+                    withBorder
+                    h="100%"
+                    className="report-card"
+                    style={{ display: 'flex', flexDirection: 'column', borderColor: '#373A40' }}
+                  >
+                    <Group justify="space-between" align="center" mb={6}>
+                      <Text size="xs" fw={700} c="dimmed" tt="uppercase">
+                        PHP & Banco de Dados
+                      </Text>
+                      <ThemeIcon color={phpColor} variant="light" size="sm" radius="xl">
+                        <IconServer size={14} />
+                      </ThemeIcon>
+                    </Group>
+                    <Text fw={800} fz={18} c="white" className="print-text-dark">
+                      {phpVersion ? `PHP ${phpVersion}` : 'PHP Não Informado'}
+                    </Text>
+                    <Group justify="space-between" align="center" mt={4}>
+                      <Badge size="xs" color={phpColor} variant="light">
+                        {phpBadge}
+                      </Badge>
+                      {mysqlVersion && (
+                        <Text size="xs" c="dimmed" className="print-text-muted" fw={600}>
+                          MySQL {mysqlVersion}
+                        </Text>
+                      )}
+                    </Group>
+                    <Text size="xs" c="dimmed" mt="xs" className="print-text-muted" style={{ flex: 1 }}>
+                      {phpStatusDesc}
+                    </Text>
+                    {serverSoftware && (
+                      <Text size="10px" c="dimmed" mt={4} className="print-text-muted">
+                        Web: {serverSoftware}
+                      </Text>
+                    )}
+                  </Paper>
+                </Grid.Col>
+
+                {/* Card 3: Memória RAM */}
+                <Grid.Col span={{ base: 12, sm: 6, lg: 3 }}>
+                  <Paper
+                    p="sm"
+                    radius="md"
+                    bg="dark.6"
+                    withBorder
+                    h="100%"
+                    className="report-card"
+                    style={{ display: 'flex', flexDirection: 'column', borderColor: '#373A40' }}
+                  >
+                    <Group justify="space-between" align="center" mb={6}>
+                      <Text size="xs" fw={700} c="dimmed" tt="uppercase">
+                        Memória RAM (WordPress)
+                      </Text>
+                      <ThemeIcon color={ramColor} variant="light" size="sm" radius="xl">
+                        <IconCpu size={14} />
+                      </ThemeIcon>
+                    </Group>
+                    <Text fw={800} fz={18} c="white" className="print-text-dark">
+                      {memUsageMb !== null ? `${memUsageMb} MB em Uso` : 'Memória N/D'}
+                    </Text>
+                    <Group justify="space-between" align="center" mt={4}>
+                      <Badge size="xs" color={ramColor} variant="light">
+                        {ramBadge}
+                      </Badge>
+                      {memUsedPct !== null && (
+                        <Text size="xs" c="dimmed" className="print-text-muted">
+                          {memUsedPct}% alocado
+                        </Text>
+                      )}
+                    </Group>
+                    {memUsedPct !== null && (
+                      <Progress value={memUsedPct} color={ramColor} size="xs" radius="xl" mt="xs" />
+                    )}
+                    <Text size="xs" c="dimmed" mt="xs" className="print-text-muted" style={{ flex: 1 }}>
+                      {ramStatusDesc}
+                    </Text>
+                  </Paper>
+                </Grid.Col>
+
+                {/* Card 4: Processador (CPU) */}
+                <Grid.Col span={{ base: 12, sm: 6, lg: 3 }}>
+                  <Paper
+                    p="sm"
+                    radius="md"
+                    bg="dark.6"
+                    withBorder
+                    h="100%"
+                    className="report-card"
+                    style={{ display: 'flex', flexDirection: 'column', borderColor: '#373A40' }}
+                  >
+                    <Group justify="space-between" align="center" mb={6}>
+                      <Text size="xs" fw={700} c="dimmed" tt="uppercase">
+                        Carga da CPU
+                      </Text>
+                      <ThemeIcon color={cpuColor} variant="light" size="sm" radius="xl">
+                        <IconActivity size={14} />
+                      </ThemeIcon>
+                    </Group>
+                    <Text fw={800} fz={18} c="white" className="print-text-dark">
+                      {cpuAvailable === false
+                        ? 'Compartilhada'
+                        : cpuLoadPct !== null
+                        ? `${cpuLoadPct}% de Carga`
+                        : cpuLoad1m !== null
+                        ? `Load: ${cpuLoad1m}`
+                        : 'CPU N/D'}
+                    </Text>
+                    <Group justify="space-between" align="center" mt={4}>
+                      <Badge size="xs" color={cpuColor} variant="light">
+                        {cpuBadge}
+                      </Badge>
+                      {cpuCores && cpuAvailable !== false && (
+                        <Text size="xs" c="dimmed" className="print-text-muted">
+                          {cpuCores} Core{cpuCores > 1 ? 's' : ''}
+                        </Text>
+                      )}
+                    </Group>
+                    {cpuLoadPct !== null && (
+                      <Progress value={cpuLoadPct} color={cpuColor} size="xs" radius="xl" mt="xs" />
+                    )}
+                    <Text size="xs" c="dimmed" mt="xs" className="print-text-muted" style={{ flex: 1 }}>
+                      {cpuDescText}
+                    </Text>
+                  </Paper>
+                </Grid.Col>
+              </Grid>
+            </Box>
+
+            {/* 3. SEÇÃO: LOGS DE ERROS FATAIS (ÚLTIMAS 48 HORAS) */}
             <Box mb="xl" className="report-card" p="md" style={{ borderRadius: 8 }}>
               <Group justify="space-between" align="center" mb="sm">
                 <Group gap="xs">
@@ -633,7 +1023,7 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
                     <IconTerminal size={20} />
                   </ThemeIcon>
                   <div>
-                    <Title order={4}>2. Monitoramento de Erros Fatais (Últimas 48 Horas)</Title>
+                    <Title order={4}>3. Monitoramento de Erros Fatais (Últimas 48 Horas)</Title>
                     <Text size="xs" c="dimmed" className="print-text-muted">
                       Detecção de quebras de execução PHP, incompatibilidades e paradas de serviço
                     </Text>
@@ -705,7 +1095,7 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
               )}
             </Box>
 
-            {/* 3. SEÇÃO: INTEGRIDADE DO CORE DO WORDPRESS */}
+            {/* 4. SEÇÃO: INTEGRIDADE DO CORE DO WORDPRESS */}
             <Box mb="xl" className="report-card" p="md" style={{ borderRadius: 8 }}>
               <Group justify="space-between" align="center" mb="sm">
                 <Group gap="xs">
@@ -713,7 +1103,7 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
                     <IconFileCheck size={20} />
                   </ThemeIcon>
                   <div>
-                    <Title order={4}>3. Verificação Forense de Integridade do Core</Title>
+                    <Title order={4}>4. Verificação Forense de Integridade do Core</Title>
                     <Text size="xs" c="dimmed" className="print-text-muted">
                       Confronto dos arquivos locais contra os hashes criptográficos oficiais do WordPress.org
                     </Text>
@@ -844,7 +1234,7 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
               )}
             </Box>
 
-            {/* 4. SEÇÃO: ESTADO DAS ATUALIZAÇÕES (CORE, PLUGINS & TEMAS) */}
+            {/* 5. SEÇÃO: ESTADO DAS ATUALIZAÇÕES & INVENTÁRIO COMPLETO */}
             <Box mb="xl" className="report-card" p="md" style={{ borderRadius: 8 }}>
               <Group justify="space-between" align="center" mb="sm">
                 <Group gap="xs">
@@ -852,21 +1242,21 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
                     <IconRefresh size={20} />
                   </ThemeIcon>
                   <div>
-                    <Title order={4}>4. Ciclo de Atualizações & Manutenção</Title>
+                    <Title order={4}>5. Ciclo de Atualizações & Inventário de Componentes</Title>
                     <Text size="xs" c="dimmed" className="print-text-muted">
-                      Verificação da versão do WordPress Core, Temas e Plugins instalados
+                      Diagnóstico e inventário completo de versão do WordPress Core, Temas e Plugins instalados
                     </Text>
                   </div>
                 </Group>
 
                 {updates?.summary && (
                   <Badge
-                    color={updates.summary.total_pending > 0 ? 'orange' : 'green'}
+                    color={totalPending > 0 ? 'orange' : 'green'}
                     size="md"
                     variant="filled"
                   >
-                    {updates.summary.total_pending > 0
-                      ? `${updates.summary.total_pending} ITEM(NS) DESATUALIZADO(S)`
+                    {totalPending > 0
+                      ? `${totalPending} ITEM(NS) COM ATUALIZAÇÃO DISPONÍVEL`
                       : 'SISTEMA 100% ATUALIZADO'}
                   </Badge>
                 )}
@@ -874,21 +1264,155 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
 
               {updates ? (
                 <>
-                  {/* WordPress Core Status Card */}
-                  <Paper p="sm" radius="sm" bg="dark.6" withBorder mb="md" className="report-card">
-                    <Group justify="space-between" align="center">
+                  {/* Resumo Geral de Componentes (4 Cards de Indicadores) */}
+                  <Grid mb="md">
+                    {/* WP Core Summary */}
+                    <Grid.Col span={{ base: 12, sm: 6, lg: 3 }}>
+                      <Paper p="xs" px="sm" radius="sm" bg="dark.6" withBorder className="report-card" style={{ borderColor: '#373A40' }}>
+                        <Group justify="space-between" align="center">
+                          <Text size="xs" c="dimmed" fw={600} className="print-text-muted">
+                            WordPress Core
+                          </Text>
+                          <Badge size="xs" color={coreHasUpdate ? 'orange' : 'green'} variant="light">
+                            {coreHasUpdate ? 'Upgrade Pendente' : 'Atualizado'}
+                          </Badge>
+                        </Group>
+                        <Text size="md" fw={700} mt={2} className="print-text-dark">
+                          v{updates.core.current_version || 'N/D'}
+                        </Text>
+                        {coreHasUpdate && (
+                          <Text size="xs" c="orange.4" fw={600}>
+                            Nova versão: v{updates.core.new_version}
+                          </Text>
+                        )}
+                      </Paper>
+                    </Grid.Col>
+
+                    {/* Plugins Summary */}
+                    <Grid.Col span={{ base: 12, sm: 6, lg: 3 }}>
+                      <Paper p="xs" px="sm" radius="sm" bg="dark.6" withBorder className="report-card" style={{ borderColor: '#373A40' }}>
+                        <Group justify="space-between" align="center">
+                          <Text size="xs" c="dimmed" fw={600} className="print-text-muted">
+                            Plugins Instalados
+                          </Text>
+                          <Badge size="xs" color={pendingPlugins.length > 0 ? 'orange' : 'green'} variant="light">
+                            {pendingPlugins.length > 0 ? `${pendingPlugins.length} Desatualizado(s)` : 'Todos em Dia'}
+                          </Badge>
+                        </Group>
+                        <Text size="md" fw={700} mt={2} className="print-text-dark">
+                          {allPlugins.length} Plugins
+                        </Text>
+                        <Text size="xs" c="dimmed" className="print-text-muted">
+                          {upToDatePlugins.length} em dia · {activePlugins.length} ativos / {inactivePlugins.length} inativos
+                        </Text>
+                      </Paper>
+                    </Grid.Col>
+
+                    {/* Temas Summary */}
+                    <Grid.Col span={{ base: 12, sm: 6, lg: 3 }}>
+                      <Paper p="xs" px="sm" radius="sm" bg="dark.6" withBorder className="report-card" style={{ borderColor: '#373A40' }}>
+                        <Group justify="space-between" align="center">
+                          <Text size="xs" c="dimmed" fw={600} className="print-text-muted">
+                            Temas Instalados
+                          </Text>
+                          <Badge size="xs" color={pendingThemes.length > 0 ? 'orange' : 'green'} variant="light">
+                            {pendingThemes.length > 0 ? `${pendingThemes.length} Desatualizado(s)` : 'Todos em Dia'}
+                          </Badge>
+                        </Group>
+                        <Text size="md" fw={700} mt={2} className="print-text-dark">
+                          {allThemes.length} Temas
+                        </Text>
+                        <Text size="xs" c="dimmed" className="print-text-muted">
+                          {activeTheme ? `Ativo: ${activeTheme.name}` : `${upToDateThemes.length} atualizados`}
+                        </Text>
+                      </Paper>
+                    </Grid.Col>
+
+                    {/* Agente Vexors Guard Summary */}
+                    <Grid.Col span={{ base: 12, sm: 6, lg: 3 }}>
+                      <Paper p="xs" px="sm" radius="sm" bg="dark.6" withBorder className="report-card" style={{ borderColor: '#373A40' }}>
+                        <Group justify="space-between" align="center">
+                          <Text size="xs" c="dimmed" fw={600} className="print-text-muted">
+                            Agente Vexors Guard
+                          </Text>
+                          <Badge size="xs" color={isAgentOutdated ? 'yellow' : 'teal'} variant="light">
+                            {isAgentOutdated ? 'Atualização Disponível' : 'Protegido'}
+                          </Badge>
+                        </Group>
+                        <Text size="md" fw={700} mt={2} className="print-text-dark">
+                          v{currentAgentVersion || '1.0.6'}
+                        </Text>
+                        <Text size="xs" c="dimmed" className="print-text-muted">
+                          {isAgentOutdated ? `Disponível: v${latestAgentVersion}` : 'Telemetria e blindagem ativas'}
+                        </Text>
+                      </Paper>
+                    </Grid.Col>
+                  </Grid>
+
+                  {/* Destaque de Atenção Imediata se houver pendências */}
+                  {totalPending > 0 ? (
+                    <Alert
+                      icon={<IconAlertTriangle size={18} />}
+                      color="orange"
+                      variant="light"
+                      radius="md"
+                      mb="md"
+                      title="Atenção Recomendada: Atualizações Disponíveis para Aplicação"
+                    >
+                      <Text size="xs">
+                        Foram identificadas <b>{totalPending} atualização(ões) pendente(s)</b> ({pendingPlugins.length} plugin(s), {pendingThemes.length} tema(s){coreHasUpdate ? ', Core do WordPress' : ''}). No inventário abaixo, os itens que requerem atenção estão destacados em laranja para fácil localização e planejamento de manutenção preventiva.
+                      </Text>
+                    </Alert>
+                  ) : (
+                    <Paper p="md" radius="sm" bg="rgba(6, 214, 160, 0.1)" withBorder style={{ borderColor: '#06d6a0' }} mb="md">
+                      <Group gap="sm">
+                        <ThemeIcon color="emerald" radius="xl" size="md">
+                          <IconCheck size={18} />
+                        </ThemeIcon>
+                        <div>
+                          <Text size="sm" fw={700} c="green.4">
+                            Todos os plugins, temas e o Core do WordPress estão 100% atualizados!
+                          </Text>
+                          <Text size="xs" c="dimmed" className="print-text-muted">
+                            Manutenção preventiva rigorosamente em dia, minimizando superfície de ataque e garantindo estabilidade operacional.
+                          </Text>
+                        </div>
+                      </Group>
+                    </Paper>
+                  )}
+
+                  {/* WordPress Core Banner */}
+                  <Paper
+                    p="sm"
+                    radius="sm"
+                    bg="dark.6"
+                    withBorder
+                    mb="md"
+                    className="report-card"
+                    style={{ borderColor: coreHasUpdate ? '#f59f00' : '#373A40' }}
+                  >
+                    <Group justify="space-between" align="center" wrap="wrap">
                       <Group gap="sm">
                         <ThemeIcon color={coreHasUpdate ? 'orange' : 'green'} size="lg" radius="md">
                           <IconWorld size={20} />
                         </ThemeIcon>
                         <div>
-                          <Text size="sm" fw={700}>
-                            WordPress Core (Motor Principal)
-                          </Text>
-                          <Text size="xs" c="dimmed" className="print-text-muted">
-                            Versão Instalada: <b>{updates.core.current_version}</b>
+                          <Group gap="xs" align="center">
+                            <Text size="sm" fw={700}>
+                              WordPress Core (Núcleo da Aplicação)
+                            </Text>
                             {coreHasUpdate && (
-                              <span> | Nova versão disponível no WordPress.org: <b style={{ color: '#edae49' }}>{updates.core.new_version}</b></span>
+                              <Badge color="orange" size="xs" variant="filled">
+                                AÇÃO REQUERIDA
+                              </Badge>
+                            )}
+                          </Group>
+                          <Text size="xs" c="dimmed" className="print-text-muted">
+                            Versão Instalada: <b>{updates.core.current_version || 'N/D'}</b>
+                            {coreHasUpdate ? (
+                              <span> · Nova versão disponível no WordPress.org: <b style={{ color: '#edae49' }}>{updates.core.new_version}</b></span>
+                            ) : (
+                              <span> · Versão estável mais recente suportada.</span>
                             )}
                           </Text>
                         </div>
@@ -900,91 +1424,224 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
                     </Group>
                   </Paper>
 
-                  {/* Plugins / Temas Tables */}
-                  {pendingPlugins.length > 0 || pendingThemes.length > 0 ? (
-                    <div>
-                      <Text size="xs" fw={700} c="dimmed" mb={4} tt="uppercase">
-                        Itens com Atualização Pendente no Servidor:
+                  {/* Inventário Completo de Plugins */}
+                  <Box mb="md">
+                    <Group justify="space-between" align="center" mb={6}>
+                      <Text size="xs" fw={700} c="dimmed" tt="uppercase">
+                        Inventário Completo de Plugins ({allPlugins.length})
                       </Text>
+                      <Group gap="xs">
+                        <Badge size="xs" color="green" variant="light">
+                          {upToDatePlugins.length} Atualizados
+                        </Badge>
+                        {pendingPlugins.length > 0 && (
+                          <Badge size="xs" color="orange" variant="filled">
+                            {pendingPlugins.length} Requerem Atualização
+                          </Badge>
+                        )}
+                      </Group>
+                    </Group>
+
+                    {sortedPlugins.length > 0 ? (
                       <Table striped highlightOnHover withTableBorder style={{ fontSize: 12 }}>
                         <Table.Thead>
                           <Table.Tr>
-                            <Table.Th>Tipo</Table.Th>
-                            <Table.Th>Nome do Componente</Table.Th>
-                            <Table.Th style={{ width: 130 }}>Versão Instalada</Table.Th>
-                            <Table.Th style={{ width: 130 }}>Nova Versão</Table.Th>
+                            <Table.Th style={{ width: 180 }}>Status de Atualização</Table.Th>
+                            <Table.Th>Plugin / Extensão</Table.Th>
+                            <Table.Th style={{ width: 110 }}>Versão Atual</Table.Th>
+                            <Table.Th style={{ width: 140 }}>Versão Mais Recente</Table.Th>
+                            <Table.Th style={{ width: 100 }}>Estado no WP</Table.Th>
                           </Table.Tr>
                         </Table.Thead>
                         <Table.Tbody>
-                          {pendingPlugins.map((plugin, idx) => (
-                            <Table.Tr key={`p-${idx}`}>
+                          {sortedPlugins.map((plugin, idx) => (
+                            <Table.Tr
+                              key={`p-${idx}`}
+                              style={
+                                plugin.has_update
+                                  ? { backgroundColor: 'rgba(245, 159, 0, 0.08)' }
+                                  : undefined
+                              }
+                            >
                               <Table.Td>
-                                <Badge size="xs" color="indigo" variant="light" leftSection={<IconPlug size={10} />}>
-                                  PLUGIN
-                                </Badge>
+                                {plugin.has_update ? (
+                                  <Badge
+                                    size="xs"
+                                    color="orange"
+                                    variant="filled"
+                                    leftSection={<IconAlertTriangle size={10} />}
+                                  >
+                                    Atualização Disponível
+                                  </Badge>
+                                ) : (
+                                  <Badge
+                                    size="xs"
+                                    color="green"
+                                    variant="light"
+                                    leftSection={<IconCheck size={10} />}
+                                  >
+                                    Atualizado
+                                  </Badge>
+                                )}
                               </Table.Td>
                               <Table.Td>
-                                <Text size="xs" fw={600}>
-                                  {plugin.name}
+                                <Group gap="xs" align="center">
+                                  <IconPlug size={14} style={{ opacity: 0.7 }} />
+                                  <Text size="xs" fw={plugin.has_update ? 700 : 500}>
+                                    {plugin.name}
+                                  </Text>
+                                  {plugin.is_protected && (
+                                    <Badge size="xs" color="blue" variant="outline" leftSection={<IconShieldCheck size={10} />}>
+                                      Vexors Guard
+                                    </Badge>
+                                  )}
+                                </Group>
+                                <Text size="10px" c="dimmed">
+                                  {plugin.slug || plugin.file}
                                 </Text>
                               </Table.Td>
                               <Table.Td>
-                                <Text size="xs" c="dimmed">
+                                <Text size="xs" fw={plugin.has_update ? 600 : 400}>
                                   {plugin.current_version}
                                 </Text>
                               </Table.Td>
                               <Table.Td>
-                                <Text size="xs" fw={700} c="orange.4">
-                                  {plugin.new_version}
-                                </Text>
+                                {plugin.has_update ? (
+                                  <Text size="xs" fw={700} c="orange.4">
+                                    {plugin.new_version}
+                                  </Text>
+                                ) : (
+                                  <Text size="xs" c="dimmed">
+                                    {plugin.current_version} (Mais Recente)
+                                  </Text>
+                                )}
                               </Table.Td>
-                            </Table.Tr>
-                          ))}
-
-                          {pendingThemes.map((theme, idx) => (
-                            <Table.Tr key={`t-${idx}`}>
                               <Table.Td>
-                                <Badge size="xs" color="grape" variant="light" leftSection={<IconPalette size={10} />}>
-                                  TEMA
+                                <Badge
+                                  size="xs"
+                                  color={plugin.is_active ? 'teal' : 'gray'}
+                                  variant={plugin.is_active ? 'light' : 'outline'}
+                                >
+                                  {plugin.is_active ? 'Ativo' : 'Inativo'}
                                 </Badge>
-                              </Table.Td>
-                              <Table.Td>
-                                <Text size="xs" fw={600}>
-                                  {theme.name}
-                                </Text>
-                              </Table.Td>
-                              <Table.Td>
-                                <Text size="xs" c="dimmed">
-                                  {theme.current_version}
-                                </Text>
-                              </Table.Td>
-                              <Table.Td>
-                                <Text size="xs" fw={700} c="orange.4">
-                                  {theme.new_version}
-                                </Text>
                               </Table.Td>
                             </Table.Tr>
                           ))}
                         </Table.Tbody>
                       </Table>
-                    </div>
-                  ) : (
-                    <Paper p="md" radius="sm" bg="rgba(6, 214, 160, 0.1)" withBorder style={{ borderColor: '#06d6a0' }}>
-                      <Group gap="sm">
-                        <ThemeIcon color="emerald" radius="xl" size="md">
-                          <IconCheck size={18} />
-                        </ThemeIcon>
-                        <div>
-                          <Text size="sm" fw={700} c="green.4">
-                            Todos os plugins e temas instalados estão em suas versões mais recentes!
-                          </Text>
-                          <Text size="xs" c="dimmed" className="print-text-muted">
-                            Manutenção preventiva em dia, minimizando exposição a brechas conhecidas e CVEs públicas.
-                          </Text>
-                        </div>
+                    ) : (
+                      <Text size="xs" c="dimmed">
+                        Nenhum plugin identificado no ambiente.
+                      </Text>
+                    )}
+                  </Box>
+
+                  {/* Inventário Completo de Temas */}
+                  <Box>
+                    <Group justify="space-between" align="center" mb={6}>
+                      <Text size="xs" fw={700} c="dimmed" tt="uppercase">
+                        Inventário Completo de Temas ({allThemes.length})
+                      </Text>
+                      <Group gap="xs">
+                        <Badge size="xs" color="green" variant="light">
+                          {upToDateThemes.length} Atualizados
+                        </Badge>
+                        {pendingThemes.length > 0 && (
+                          <Badge size="xs" color="orange" variant="filled">
+                            {pendingThemes.length} Requerem Atualização
+                          </Badge>
+                        )}
                       </Group>
-                    </Paper>
-                  )}
+                    </Group>
+
+                    {sortedThemes.length > 0 ? (
+                      <Table striped highlightOnHover withTableBorder style={{ fontSize: 12 }}>
+                        <Table.Thead>
+                          <Table.Tr>
+                            <Table.Th style={{ width: 180 }}>Status de Atualização</Table.Th>
+                            <Table.Th>Tema</Table.Th>
+                            <Table.Th style={{ width: 110 }}>Versão Atual</Table.Th>
+                            <Table.Th style={{ width: 140 }}>Versão Mais Recente</Table.Th>
+                            <Table.Th style={{ width: 100 }}>Estado no WP</Table.Th>
+                          </Table.Tr>
+                        </Table.Thead>
+                        <Table.Tbody>
+                          {sortedThemes.map((theme, idx) => (
+                            <Table.Tr
+                              key={`t-${idx}`}
+                              style={
+                                theme.has_update
+                                  ? { backgroundColor: 'rgba(245, 159, 0, 0.08)' }
+                                  : undefined
+                              }
+                            >
+                              <Table.Td>
+                                {theme.has_update ? (
+                                  <Badge
+                                    size="xs"
+                                    color="orange"
+                                    variant="filled"
+                                    leftSection={<IconAlertTriangle size={10} />}
+                                  >
+                                    Atualização Disponível
+                                  </Badge>
+                                ) : (
+                                  <Badge
+                                    size="xs"
+                                    color="green"
+                                    variant="light"
+                                    leftSection={<IconCheck size={10} />}
+                                  >
+                                    Atualizado
+                                  </Badge>
+                                )}
+                              </Table.Td>
+                              <Table.Td>
+                                <Group gap="xs" align="center">
+                                  <IconPalette size={14} style={{ opacity: 0.7 }} />
+                                  <Text size="xs" fw={theme.has_update ? 700 : 500}>
+                                    {theme.name}
+                                  </Text>
+                                </Group>
+                                <Text size="10px" c="dimmed">
+                                  {theme.slug}
+                                </Text>
+                              </Table.Td>
+                              <Table.Td>
+                                <Text size="xs" fw={theme.has_update ? 600 : 400}>
+                                  {theme.current_version}
+                                </Text>
+                              </Table.Td>
+                              <Table.Td>
+                                {theme.has_update ? (
+                                  <Text size="xs" fw={700} c="orange.4">
+                                    {theme.new_version}
+                                  </Text>
+                                ) : (
+                                  <Text size="xs" c="dimmed">
+                                    {theme.current_version} (Mais Recente)
+                                  </Text>
+                                )}
+                              </Table.Td>
+                              <Table.Td>
+                                <Badge
+                                  size="xs"
+                                  color={theme.is_active ? 'indigo' : 'gray'}
+                                  variant={theme.is_active ? 'filled' : 'outline'}
+                                >
+                                  {theme.is_active ? 'Tema Ativo' : 'Inativo'}
+                                </Badge>
+                              </Table.Td>
+                            </Table.Tr>
+                          ))}
+                        </Table.Tbody>
+                      </Table>
+                    ) : (
+                      <Text size="xs" c="dimmed">
+                        Nenhum tema identificado no ambiente.
+                      </Text>
+                    )}
+                  </Box>
                 </>
               ) : (
                 <Text size="xs" c="dimmed">
