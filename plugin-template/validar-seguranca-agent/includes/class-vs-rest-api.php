@@ -57,6 +57,24 @@ class VS_Agent_REST_API {
                 'permission_callback' => array($this, 'check_permission'),
             ));
 
+            register_rest_route($ns, '/plugins/status', array(
+                'methods'             => array('POST', 'GET'),
+                'callback'            => array($this, 'handle_toggle_plugin_status'),
+                'permission_callback' => array($this, 'check_permission'),
+            ));
+
+            register_rest_route($ns, '/plugins/delete', array(
+                'methods'             => array('POST', 'GET'),
+                'callback'            => array($this, 'handle_delete_plugin'),
+                'permission_callback' => array($this, 'check_permission'),
+            ));
+
+            register_rest_route($ns, '/themes/delete', array(
+                'methods'             => array('POST', 'GET'),
+                'callback'            => array($this, 'handle_delete_theme'),
+                'permission_callback' => array($this, 'check_permission'),
+            ));
+
             register_rest_route($ns, '/integrity', array(
                 'methods'             => array('GET', 'POST'),
                 'callback'            => array($this, 'handle_get_integrity'),
@@ -372,6 +390,131 @@ class VS_Agent_REST_API {
             'success' => true,
             'message' => isset($res['message']) ? $res['message'] : 'Reversão concluída com sucesso.',
             'data'    => $res,
+        ), 200);
+    }
+
+    public function handle_toggle_plugin_status($request) {
+        $plugin = $request->get_param('plugin');
+        $action = $request->get_param('action');
+
+        if (empty($plugin)) {
+            $json = $request->get_json_params();
+            if (!empty($json)) {
+                $plugin = isset($json['plugin']) ? $json['plugin'] : null;
+                $action = isset($json['action']) ? $json['action'] : null;
+            }
+        }
+
+        if (empty($plugin) || empty($action)) {
+            return new WP_REST_Response(array(
+                'status'  => 400,
+                'success' => false,
+                'message' => 'Parâmetros plugin e action (activate/deactivate) são obrigatórios.',
+            ), 400);
+        }
+
+        $upgrader = new VS_Agent_Upgrader();
+        $res      = $upgrader->toggle_plugin_status($plugin, $action);
+
+        if (is_wp_error($res)) {
+            $status = is_array($res->get_error_data()) && isset($res->get_error_data()['status']) ? $res->get_error_data()['status'] : 500;
+            return new WP_REST_Response(array(
+                'status'  => $status,
+                'success' => false,
+                'message' => $res->get_error_message(),
+            ), $status);
+        }
+
+        $fresh = $upgrader->get_updates();
+
+        return new WP_REST_Response(array(
+            'status'        => 200,
+            'success'       => true,
+            'message'       => isset($res['message']) ? $res['message'] : 'Status do plugin alterado com sucesso.',
+            'data'          => $res,
+            'fresh_updates' => $fresh,
+        ), 200);
+    }
+
+    public function handle_delete_plugin($request) {
+        $plugin = $request->get_param('plugin');
+
+        if (empty($plugin)) {
+            $json = $request->get_json_params();
+            if (!empty($json)) {
+                $plugin = isset($json['plugin']) ? $json['plugin'] : null;
+            }
+        }
+
+        if (empty($plugin)) {
+            return new WP_REST_Response(array(
+                'status'  => 400,
+                'success' => false,
+                'message' => 'Parâmetro plugin não informado para exclusão.',
+            ), 400);
+        }
+
+        $upgrader = new VS_Agent_Upgrader();
+        $res      = $upgrader->delete_plugin($plugin);
+
+        if (is_wp_error($res)) {
+            $status = is_array($res->get_error_data()) && isset($res->get_error_data()['status']) ? $res->get_error_data()['status'] : 500;
+            return new WP_REST_Response(array(
+                'status'  => $status,
+                'success' => false,
+                'message' => $res->get_error_message(),
+            ), $status);
+        }
+
+        $fresh = $upgrader->get_updates();
+
+        return new WP_REST_Response(array(
+            'status'        => 200,
+            'success'       => true,
+            'message'       => isset($res['message']) ? $res['message'] : 'Plugin removido com sucesso.',
+            'data'          => $res,
+            'fresh_updates' => $fresh,
+        ), 200);
+    }
+
+    public function handle_delete_theme($request) {
+        $theme = $request->get_param('theme');
+
+        if (empty($theme)) {
+            $json = $request->get_json_params();
+            if (!empty($json)) {
+                $theme = isset($json['theme']) ? $json['theme'] : null;
+            }
+        }
+
+        if (empty($theme)) {
+            return new WP_REST_Response(array(
+                'status'  => 400,
+                'success' => false,
+                'message' => 'Parâmetro theme não informado para exclusão.',
+            ), 400);
+        }
+
+        $upgrader = new VS_Agent_Upgrader();
+        $res      = $upgrader->delete_theme($theme);
+
+        if (is_wp_error($res)) {
+            $status = is_array($res->get_error_data()) && isset($res->get_error_data()['status']) ? $res->get_error_data()['status'] : 500;
+            return new WP_REST_Response(array(
+                'status'  => $status,
+                'success' => false,
+                'message' => $res->get_error_message(),
+            ), $status);
+        }
+
+        $fresh = $upgrader->get_updates();
+
+        return new WP_REST_Response(array(
+            'status'        => 200,
+            'success'       => true,
+            'message'       => isset($res['message']) ? $res['message'] : 'Tema removido com sucesso.',
+            'data'          => $res,
+            'fresh_updates' => $fresh,
         ), 200);
     }
 

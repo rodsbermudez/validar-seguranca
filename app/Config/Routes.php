@@ -56,6 +56,9 @@ $routes->group('api', function ($routes) {
         $routes->post('websites/(:num)/updates/apply', 'Api\Websites::applyUpdate/$1');
         $routes->get('websites/(:num)/updates/history', 'Api\Websites::updatesHistory/$1');
         $routes->post('websites/(:num)/updates/rollback', 'Api\Websites::rollbackUpdate/$1');
+        $routes->post('websites/(:num)/plugins/status', 'Api\Websites::togglePluginStatus/$1');
+        $routes->post('websites/(:num)/plugins/delete', 'Api\Websites::deletePlugin/$1');
+        $routes->post('websites/(:num)/themes/delete', 'Api\Websites::deleteTheme/$1');
         $routes->get('websites/(:num)/integrity', 'Api\Websites::integrity/$1');
         $routes->post('websites/(:num)/integrity/scan', 'Api\Websites::scanIntegrity/$1');
         $routes->post('websites/(:num)/integrity/ignore', 'Api\Websites::ignoreIntegrityIssue/$1');

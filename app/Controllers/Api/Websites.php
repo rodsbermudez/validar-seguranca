@@ -1360,10 +1360,11 @@ class Websites extends ResourceController
             return $this->failAgentResponse($res, 'Falha ao reverter atualização no WordPress');
         }
 
-        // Marca registro de histórico como revertido
+        // Marca registro de histórico como revertido ou restaurado
+        $newStatus = ($historyRecord && $historyRecord['status'] === 'deleted') ? 'restored' : 'rolled_back';
         if ($historyRecord) {
             $historyModel->update($historyRecord['id'], [
-                'status'         => 'rolled_back',
+                'status'         => $newStatus,
                 'rolled_back_at' => date('Y-m-d H:i:s'),
             ]);
         } else {
@@ -1373,14 +1374,257 @@ class Websites extends ResourceController
             }
             $latest = $historyModel->getLatestRollbackableItem((int)$id, $type, $slug);
             if ($latest) {
+                $statusToSet = ($latest['status'] === 'deleted') ? 'restored' : 'rolled_back';
                 $historyModel->update($latest['id'], [
-                    'status'         => 'rolled_back',
+                    'status'         => $statusToSet,
                     'rolled_back_at' => date('Y-m-d H:i:s'),
                 ]);
             }
         }
 
         // Consulta imediatamente o novo estado fresco das atualizações
+        $freshUpdates = $this->makeAgentRequestWithFallback($website['url'], '/updates', 'GET', $website['agent_token']);
+        if (!empty($freshUpdates['body']) && $freshUpdates['status'] === 200) {
+            $data = $freshUpdates['body']['data'] ?? $freshUpdates['body'];
+            if (!empty($data) && is_array($data)) {
+                $this->persistUpdatesCheck((int)$id, $data);
+                $res['body']['fresh_updates'] = $data;
+            }
+        }
+
+        return $this->respond($res['body']);
+    }
+
+    public function togglePluginStatus($id = null)
+    {
+        if (!$id) {
+            return $this->fail('ID do website não informado.', 400);
+        }
+
+        $plugin = $this->request->getVar('plugin');
+        $action = $this->request->getVar('action');
+
+        if (empty($plugin) || empty($action)) {
+            return $this->fail('Plugin ou ação não informados.', 400);
+        }
+
+        if (!in_array($action, ['activate', 'deactivate'], true)) {
+            return $this->fail('Ação inválida. Use activate ou deactivate.', 400);
+        }
+
+        $effectiveUserId = (int) ($this->request->effectiveUserId ?? ($this->request->userData->id ?? 0));
+        $userData        = $this->request->userData ?? null;
+        $isImpersonating = $this->request->isImpersonating ?? false;
+        $isAdmin         = (($userData->role ?? 'user') === 'admin') && !$isImpersonating;
+
+        $websiteModel = new WebsiteModel();
+        $website = $websiteModel->find($id);
+
+        if (!$website) {
+            return $this->failNotFound('Website não encontrado.');
+        }
+
+        if (!$websiteModel->canUserAccess((int)$id, $effectiveUserId, $isAdmin)) {
+            return $this->failForbidden('Você não tem permissão para alterar este website.');
+        }
+
+        if (!$isAdmin && !UserPlanService::canUserUseRemediationTools($effectiveUserId)) {
+            return $this->failForbidden('A alteração de status de plugins não está disponível no plano atual. Faça o upgrade para um plano pago para desbloquear.');
+        }
+
+        if (empty($website['agent_token'])) {
+            return $this->fail('Este website não possui token do agente configurado.', 400);
+        }
+
+        $res = $this->makeAgentRequestWithFallback($website['url'], '/plugins/status', 'POST', $website['agent_token'], [
+            'plugin'        => $plugin,
+            'status_action' => $action,
+        ]);
+
+        if (empty($res['body']) || $res['status'] !== 200) {
+            return $this->failAgentResponse($res, 'Falha ao alterar status do plugin no WordPress');
+        }
+
+        // Atualiza cache de updates
+        $freshUpdates = $this->makeAgentRequestWithFallback($website['url'], '/updates', 'GET', $website['agent_token']);
+        if (!empty($freshUpdates['body']) && $freshUpdates['status'] === 200) {
+            $data = $freshUpdates['body']['data'] ?? $freshUpdates['body'];
+            if (!empty($data) && is_array($data)) {
+                $this->persistUpdatesCheck((int)$id, $data);
+                $res['body']['fresh_updates'] = $data;
+            }
+        }
+
+        return $this->respond($res['body']);
+    }
+
+    public function deletePlugin($id = null)
+    {
+        if (!$id) {
+            return $this->fail('ID do website não informado.', 400);
+        }
+
+        $plugin   = $this->request->getVar('plugin');
+        $itemName = $this->request->getVar('item_name') ?: $plugin;
+        $version  = $this->request->getVar('version') ?: '';
+
+        if (empty($plugin)) {
+            return $this->fail('Plugin não informado para exclusão.', 400);
+        }
+
+        $effectiveUserId = (int) ($this->request->effectiveUserId ?? ($this->request->userData->id ?? 0));
+        $userData        = $this->request->userData ?? null;
+        $isImpersonating = $this->request->isImpersonating ?? false;
+        $isAdmin         = (($userData->role ?? 'user') === 'admin') && !$isImpersonating;
+
+        $websiteModel = new WebsiteModel();
+        $website = $websiteModel->find($id);
+
+        if (!$website) {
+            return $this->failNotFound('Website não encontrado.');
+        }
+
+        if (!$websiteModel->canUserAccess((int)$id, $effectiveUserId, $isAdmin)) {
+            return $this->failForbidden('Você não tem permissão para alterar este website.');
+        }
+
+        if (!$isAdmin && !UserPlanService::canUserUseRemediationTools($effectiveUserId)) {
+            return $this->failForbidden('A exclusão remota de plugins não está disponível no plano atual. Faça o upgrade para um plano pago para desbloquear.');
+        }
+
+        if (empty($website['agent_token'])) {
+            return $this->fail('Este website não possui token do agente configurado.', 400);
+        }
+
+        $res = $this->makeAgentRequestWithFallback($website['url'], '/plugins/delete', 'POST', $website['agent_token'], [
+            'plugin' => $plugin,
+        ]);
+
+        if (empty($res['body']) || $res['status'] !== 200) {
+            return $this->failAgentResponse($res, 'Falha ao excluir plugin no WordPress');
+        }
+
+        $agentData  = $res['body']['data'] ?? [];
+        $backupFile = $agentData['backup_file'] ?? null;
+        $detectedVersion = $agentData['version'] ?? ($version ?: 'unknown');
+        $detectedName    = $agentData['name'] ?? ($itemName ?: $plugin);
+
+        $slug = dirname($plugin);
+        if ($slug === '.' || empty($slug)) {
+            $slug = basename($plugin, '.php');
+        }
+
+        // Grava no histórico para permitir restauração com 1 clique
+        try {
+            $historyModel = new \App\Models\WebsiteUpdateHistoryModel();
+            $historyModel->ensureTableExists();
+            $historyModel->insert([
+                'website_id'       => (int) $id,
+                'user_id'          => $effectiveUserId ?: null,
+                'item_type'        => 'plugin',
+                'item_slug'        => $slug,
+                'item_name'        => $detectedName,
+                'file_path'        => $plugin,
+                'from_version'     => $detectedVersion,
+                'to_version'       => 'deleted',
+                'backup_file'      => $backupFile,
+                'backup_created'   => !empty($backupFile) ? 1 : 0,
+                'had_warnings'     => 0,
+                'warnings_details' => null,
+                'status'           => 'deleted',
+            ]);
+        } catch (\Throwable $th) {
+            log_message('error', 'Erro ao gravar historico de exclusao de plugin: ' . $th->getMessage());
+        }
+
+        // Atualiza cache de updates
+        $freshUpdates = $this->makeAgentRequestWithFallback($website['url'], '/updates', 'GET', $website['agent_token']);
+        if (!empty($freshUpdates['body']) && $freshUpdates['status'] === 200) {
+            $data = $freshUpdates['body']['data'] ?? $freshUpdates['body'];
+            if (!empty($data) && is_array($data)) {
+                $this->persistUpdatesCheck((int)$id, $data);
+                $res['body']['fresh_updates'] = $data;
+            }
+        }
+
+        return $this->respond($res['body']);
+    }
+
+    public function deleteTheme($id = null)
+    {
+        if (!$id) {
+            return $this->fail('ID do website não informado.', 400);
+        }
+
+        $theme    = $this->request->getVar('theme');
+        $itemName = $this->request->getVar('item_name') ?: $theme;
+        $version  = $this->request->getVar('version') ?: '';
+
+        if (empty($theme)) {
+            return $this->fail('Tema não informado para exclusão.', 400);
+        }
+
+        $effectiveUserId = (int) ($this->request->effectiveUserId ?? ($this->request->userData->id ?? 0));
+        $userData        = $this->request->userData ?? null;
+        $isImpersonating = $this->request->isImpersonating ?? false;
+        $isAdmin         = (($userData->role ?? 'user') === 'admin') && !$isImpersonating;
+
+        $websiteModel = new WebsiteModel();
+        $website = $websiteModel->find($id);
+
+        if (!$website) {
+            return $this->failNotFound('Website não encontrado.');
+        }
+
+        if (!$websiteModel->canUserAccess((int)$id, $effectiveUserId, $isAdmin)) {
+            return $this->failForbidden('Você não tem permissão para alterar este website.');
+        }
+
+        if (!$isAdmin && !UserPlanService::canUserUseRemediationTools($effectiveUserId)) {
+            return $this->failForbidden('A exclusão remota de temas não está disponível no plano atual. Faça o upgrade para um plano pago para desbloquear.');
+        }
+
+        if (empty($website['agent_token'])) {
+            return $this->fail('Este website não possui token do agente configurado.', 400);
+        }
+
+        $res = $this->makeAgentRequestWithFallback($website['url'], '/themes/delete', 'POST', $website['agent_token'], [
+            'theme' => $theme,
+        ]);
+
+        if (empty($res['body']) || $res['status'] !== 200) {
+            return $this->failAgentResponse($res, 'Falha ao excluir tema no WordPress');
+        }
+
+        $agentData  = $res['body']['data'] ?? [];
+        $backupFile = $agentData['backup_file'] ?? null;
+        $detectedVersion = $agentData['version'] ?? ($version ?: 'unknown');
+        $detectedName    = $agentData['name'] ?? ($itemName ?: $theme);
+
+        // Grava no histórico para permitir restauração com 1 clique
+        try {
+            $historyModel = new \App\Models\WebsiteUpdateHistoryModel();
+            $historyModel->ensureTableExists();
+            $historyModel->insert([
+                'website_id'       => (int) $id,
+                'user_id'          => $effectiveUserId ?: null,
+                'item_type'        => 'theme',
+                'item_slug'        => $theme,
+                'item_name'        => $detectedName,
+                'file_path'        => $theme,
+                'from_version'     => $detectedVersion,
+                'to_version'       => 'deleted',
+                'backup_file'      => $backupFile,
+                'backup_created'   => !empty($backupFile) ? 1 : 0,
+                'had_warnings'     => 0,
+                'warnings_details' => null,
+                'status'           => 'deleted',
+            ]);
+        } catch (\Throwable $th) {
+            log_message('error', 'Erro ao gravar historico de exclusao de tema: ' . $th->getMessage());
+        }
+
+        // Atualiza cache de updates
         $freshUpdates = $this->makeAgentRequestWithFallback($website['url'], '/updates', 'GET', $website['agent_token']);
         if (!empty($freshUpdates['body']) && $freshUpdates['status'] === 200) {
             $data = $freshUpdates['body']['data'] ?? $freshUpdates['body'];

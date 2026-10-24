@@ -39,6 +39,8 @@ import {
   IconRotateDot,
   IconArchive,
   IconArrowBackUp,
+  IconTrash,
+  IconPower,
 } from '@tabler/icons-react';
 import { api } from '../api';
 import { extractErrorMessage } from '../utils/formatError';
@@ -72,6 +74,7 @@ interface PluginUpdateItem {
   tested_wp?: string;
   has_update: boolean;
   is_active?: boolean;
+  is_protected?: boolean;
 }
 
 interface ThemeUpdateItem {
@@ -82,6 +85,8 @@ interface ThemeUpdateItem {
   requires_php?: string;
   requires_wp?: string;
   has_update: boolean;
+  is_active?: boolean;
+  is_protected?: boolean;
 }
 
 interface CoreUpdateData {
@@ -147,12 +152,22 @@ export interface UpdateHistoryItem {
   backup_created: number;
   had_warnings: number;
   warnings_details?: string | null;
-  status: 'applied' | 'rolled_back' | 'failed';
+  status: 'applied' | 'rolled_back' | 'deleted' | 'restored' | 'failed';
   rolled_back_at?: string | null;
   created_at: string;
   updated_at?: string;
   user_name?: string | null;
   user_email?: string | null;
+}
+
+export interface DeleteModalState {
+  isOpen: boolean;
+  isDeleting: boolean;
+  itemType: 'plugin' | 'theme';
+  itemKey: string;
+  itemName: string;
+  version: string;
+  error: string | null;
 }
 
 export interface RollbackModalState {
@@ -353,9 +368,22 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
     warningsCount: 0,
   });
 
+  const [togglingPlugin, setTogglingPlugin] = useState<string | null>(null);
+  const [deleteModal, setDeleteModal] = useState<DeleteModalState>({
+    isOpen: false,
+    isDeleting: false,
+    itemType: 'plugin',
+    itemKey: '',
+    itemName: '',
+    version: '',
+    error: null,
+  });
+
   const isAnyUpdating =
     (updateModal.isOpen && updateModal.phase === 'updating') ||
     (rollbackModal.isOpen && rollbackModal.phase === 'rolling_back') ||
+    deleteModal.isDeleting ||
+    togglingPlugin !== null ||
     updatingItem !== null ||
     updatingAllPlugins ||
     refreshing ||
@@ -749,6 +777,103 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
         phase: 'finished',
         error: errMsg,
       }));
+    }
+  };
+
+  /** Ativa ou desativa um plugin no WordPress via agente */
+  const handleTogglePluginStatus = async (pluginFile: string, action: 'activate' | 'deactivate') => {
+    if (isAnyUpdating) return;
+    setTogglingPlugin(pluginFile);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    try {
+      const res = await api.post(`/websites/${website.id}/plugins/status`, {
+        plugin: pluginFile,
+        action,
+      });
+
+      const actionLabel = action === 'activate' ? 'ativado' : 'desativado';
+      setSuccessMsg(res.data?.message || `Plugin ${actionLabel} com sucesso no WordPress!`);
+
+      if (res.data?.fresh_updates) {
+        setUpdatesData(res.data.fresh_updates);
+      } else {
+        await fetchUpdates(true);
+      }
+    } catch (err: any) {
+      setErrorMsg(extractErrorMessage(err, `Falha ao ${action === 'activate' ? 'ativar' : 'desativar'} o plugin.`));
+    } finally {
+      setTogglingPlugin(null);
+    }
+  };
+
+  /** Abre o modal de confirmação de exclusão segura com backup prévio */
+  const handleOpenDeleteModal = (
+    itemType: 'plugin' | 'theme',
+    itemKey: string,
+    itemName: string,
+    version: string
+  ) => {
+    if (isAnyUpdating) return;
+    setDeleteModal({
+      isOpen: true,
+      isDeleting: false,
+      itemType,
+      itemKey,
+      itemName,
+      version,
+      error: null,
+    });
+  };
+
+  /** Executa a exclusão com criação prévia de snapshot pelo agente */
+  const handleExecuteDelete = async () => {
+    if (!deleteModal.itemKey || deleteModal.isDeleting) return;
+
+    setDeleteModal((prev) => ({ ...prev, isDeleting: true, error: null }));
+    try {
+      const endpoint =
+        deleteModal.itemType === 'plugin'
+          ? `/websites/${website.id}/plugins/delete`
+          : `/websites/${website.id}/themes/delete`;
+
+      const payload =
+        deleteModal.itemType === 'plugin'
+          ? {
+              plugin: deleteModal.itemKey,
+              item_name: deleteModal.itemName,
+              version: deleteModal.version,
+            }
+          : {
+              theme: deleteModal.itemKey,
+              item_name: deleteModal.itemName,
+              version: deleteModal.version,
+            };
+
+      const res = await api.post(endpoint, payload);
+
+      setSuccessMsg(
+        res.data?.message ||
+          `${
+            deleteModal.itemType === 'plugin' ? 'Plugin' : 'Tema'
+          } excluído com sucesso! Snapshot de segurança salvo para restauração.`
+      );
+
+      setDeleteModal((prev) => ({ ...prev, isOpen: false, isDeleting: false }));
+
+      if (res.data?.fresh_updates) {
+        setUpdatesData(res.data.fresh_updates);
+      } else {
+        await fetchUpdates(true);
+      }
+      await fetchHistory();
+    } catch (err: any) {
+      const errMsg = extractErrorMessage(
+        err,
+        `Falha ao excluir ${deleteModal.itemType === 'plugin' ? 'plugin' : 'tema'}.`
+      );
+      setDeleteModal((prev) => ({ ...prev, isDeleting: false, error: errMsg }));
     }
   };
 
@@ -1316,14 +1441,50 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
                                 </Group>
                               </Table.Td>
                               <Table.Td>
-                                {plugin.is_active ? (
-                                  <Badge size="xs" color="green" variant="light">
-                                    🟢 Ativo
+                                {plugin.is_protected ? (
+                                  <Badge size="xs" color="indigo" variant="light" leftSection={<IconLock size={10} />}>
+                                    🔒 Agente Vexors (Protegido)
                                   </Badge>
                                 ) : (
-                                  <Badge size="xs" color="gray" variant="subtle">
-                                    ⚪ Inativo
-                                  </Badge>
+                                  <Group gap={6} wrap="nowrap">
+                                    {plugin.is_active ? (
+                                      <Badge size="xs" color="green" variant="light">
+                                        🟢 Ativo
+                                      </Badge>
+                                    ) : (
+                                      <Badge size="xs" color="gray" variant="subtle">
+                                        ⚪ Inativo
+                                      </Badge>
+                                    )}
+                                    {toolsEnabled === false ? null : (
+                                      <Tooltip
+                                        label={
+                                          plugin.is_active
+                                            ? 'Desativar este plugin no WordPress'
+                                            : 'Ativar este plugin no WordPress'
+                                        }
+                                        position="top"
+                                        withArrow
+                                      >
+                                        <Button
+                                          size="compact-xs"
+                                          variant="subtle"
+                                          color={plugin.is_active ? 'gray' : 'teal'}
+                                          loading={togglingPlugin === plugin.file}
+                                          disabled={isAnyUpdating}
+                                          leftSection={<IconPower size={11} />}
+                                          onClick={() =>
+                                            handleTogglePluginStatus(
+                                              plugin.file,
+                                              plugin.is_active ? 'deactivate' : 'activate'
+                                            )
+                                          }
+                                        >
+                                          {plugin.is_active ? 'Desativar' : 'Ativar'}
+                                        </Button>
+                                      </Tooltip>
+                                    )}
+                                  </Group>
                                 )}
                               </Table.Td>
                               <Table.Td>
@@ -1420,6 +1581,46 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
                                       Atualizado
                                     </Badge>
                                   ) : null}
+
+                                  {/* Botão de exclusão se o plugin estiver inativo e não for protegido */}
+                                  {!plugin.is_active && !plugin.is_protected && (
+                                    toolsEnabled === false ? (
+                                      <Badge
+                                        color="gray"
+                                        variant="light"
+                                        size="xs"
+                                        leftSection={<IconLock size={10} />}
+                                        style={{ cursor: onNavigateToPlans ? 'pointer' : 'default' }}
+                                        onClick={onNavigateToPlans}
+                                      >
+                                        Exclusão Bloqueada
+                                      </Badge>
+                                    ) : (
+                                      <Tooltip
+                                        label="Excluir plugin inativo (cria snapshot de segurança antes da remoção)"
+                                        position="left"
+                                        withArrow
+                                      >
+                                        <Button
+                                          size="xs"
+                                          color="red"
+                                          variant="subtle"
+                                          disabled={isAnyUpdating}
+                                          leftSection={<IconTrash size={12} />}
+                                          onClick={() =>
+                                            handleOpenDeleteModal(
+                                              'plugin',
+                                              plugin.file,
+                                              plugin.name,
+                                              plugin.current_version
+                                            )
+                                          }
+                                        >
+                                          Excluir
+                                        </Button>
+                                      </Tooltip>
+                                    )
+                                  )}
                                 </Group>
                               </Table.Td>
                             </Table.Tr>
@@ -1448,6 +1649,7 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
                       <Table.Thead>
                         <Table.Tr>
                           <Table.Th>Nome do Tema</Table.Th>
+                          <Table.Th>Status WP</Table.Th>
                           <Table.Th>Versão Atual</Table.Th>
                           <Table.Th>Nova Versão</Table.Th>
                           <Table.Th style={{ textAlign: 'right' }}>Ação</Table.Th>
@@ -1470,6 +1672,17 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
                                   </Text>
                                   <Code c="dimmed">{theme.slug}</Code>
                                 </div>
+                              </Table.Td>
+                              <Table.Td>
+                                {theme.is_active ? (
+                                  <Badge size="xs" color="green" variant="light">
+                                    🟢 Tema Ativo
+                                  </Badge>
+                                ) : (
+                                  <Badge size="xs" color="gray" variant="subtle">
+                                    ⚪ Inativo
+                                  </Badge>
+                                )}
                               </Table.Td>
                               <Table.Td>
                                 <Badge size="xs" color="gray" variant="outline">
@@ -1563,6 +1776,46 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
                                       Atualizado
                                     </Badge>
                                   ) : null}
+
+                                  {/* Botão de exclusão se o tema estiver inativo e não for protegido */}
+                                  {!theme.is_active && !theme.is_protected && (
+                                    toolsEnabled === false ? (
+                                      <Badge
+                                        color="gray"
+                                        variant="light"
+                                        size="xs"
+                                        leftSection={<IconLock size={10} />}
+                                        style={{ cursor: onNavigateToPlans ? 'pointer' : 'default' }}
+                                        onClick={onNavigateToPlans}
+                                      >
+                                        Exclusão Bloqueada
+                                      </Badge>
+                                    ) : (
+                                      <Tooltip
+                                        label="Excluir tema inativo (cria snapshot de segurança antes da remoção)"
+                                        position="left"
+                                        withArrow
+                                      >
+                                        <Button
+                                          size="xs"
+                                          color="red"
+                                          variant="subtle"
+                                          disabled={isAnyUpdating}
+                                          leftSection={<IconTrash size={12} />}
+                                          onClick={() =>
+                                            handleOpenDeleteModal(
+                                              'theme',
+                                              theme.slug,
+                                              theme.name,
+                                              theme.current_version
+                                            )
+                                          }
+                                        >
+                                          Excluir
+                                        </Button>
+                                      </Tooltip>
+                                    )
+                                  )}
                                 </Group>
                               </Table.Td>
                             </Table.Tr>
@@ -1658,10 +1911,10 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
                       style={{ borderColor: '#2C2E33' }}
                     >
                       <Text size="11px" c="dimmed">
-                        Reversões (Rollbacks) Concluídas
+                        Reversões & Restaurações
                       </Text>
                       <Text size="lg" fw={700} c="orange.4" mt={2}>
-                        {historyList.filter((h) => h.status === 'rolled_back').length}
+                        {historyList.filter((h) => h.status === 'rolled_back' || h.status === 'restored').length}
                       </Text>
                     </Paper>
                   </Grid.Col>
@@ -1713,6 +1966,8 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
                         {historyList.map((item) => {
                           const isApplied = item.status === 'applied';
                           const isRolledBack = item.status === 'rolled_back';
+                          const isDeleted = item.status === 'deleted';
+                          const isRestored = item.status === 'restored';
                           const isFailed = item.status === 'failed';
 
                           return (
@@ -1757,17 +2012,43 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
                               </Table.Td>
 
                               <Table.Td>
-                                <Group gap={4} wrap="nowrap">
-                                  <Badge size="xs" color="gray" variant="outline">
-                                    v{item.from_version}
-                                  </Badge>
-                                  <Text size="xs" c="dimmed">
-                                    →
-                                  </Text>
-                                  <Badge size="xs" color="indigo" variant="filled">
-                                    v{item.to_version || '?'}
-                                  </Badge>
-                                </Group>
+                                {isDeleted ? (
+                                  <Group gap={4} wrap="nowrap">
+                                    <Badge size="xs" color="gray" variant="outline">
+                                      v{item.from_version}
+                                    </Badge>
+                                    <Text size="xs" c="red">
+                                      →
+                                    </Text>
+                                    <Badge size="xs" color="red" variant="light">
+                                      Excluído
+                                    </Badge>
+                                  </Group>
+                                ) : isRestored ? (
+                                  <Group gap={4} wrap="nowrap">
+                                    <Badge size="xs" color="red" variant="outline">
+                                      Excluído
+                                    </Badge>
+                                    <Text size="xs" c="teal">
+                                      →
+                                    </Text>
+                                    <Badge size="xs" color="teal" variant="light">
+                                      v{item.from_version} (Restaurado)
+                                    </Badge>
+                                  </Group>
+                                ) : (
+                                  <Group gap={4} wrap="nowrap">
+                                    <Badge size="xs" color="gray" variant="outline">
+                                      v{item.from_version}
+                                    </Badge>
+                                    <Text size="xs" c="dimmed">
+                                      →
+                                    </Text>
+                                    <Badge size="xs" color="indigo" variant="filled">
+                                      v{item.to_version || '?'}
+                                    </Badge>
+                                  </Group>
+                                )}
                               </Table.Td>
 
                               <Table.Td>
@@ -1838,6 +2119,26 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
                                     </Badge>
                                   </Tooltip>
                                 )}
+                                {isDeleted && (
+                                  <Badge size="xs" color="red" variant="filled">
+                                    🗑️ Excluído
+                                  </Badge>
+                                )}
+                                {isRestored && (
+                                  <Tooltip
+                                    label={
+                                      item.rolled_back_at
+                                        ? `Restaurado em ${formatDateTime(item.rolled_back_at)}`
+                                        : 'Restauração concluída'
+                                    }
+                                    position="bottom"
+                                    withArrow
+                                  >
+                                    <Badge size="xs" color="teal" variant="filled">
+                                      ✓ Restaurado
+                                    </Badge>
+                                  </Tooltip>
+                                )}
                                 {isFailed && (
                                   <Badge size="xs" color="red" variant="filled">
                                     ✕ Falhou
@@ -1878,9 +2179,45 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
                                       Reverter p/ v{item.from_version}
                                     </Button>
                                   )
+                                ) : isDeleted ? (
+                                  toolsEnabled === false ? (
+                                    <Badge
+                                      color="gray"
+                                      variant="light"
+                                      size="xs"
+                                      leftSection={<IconLock size={10} />}
+                                      style={{
+                                        cursor: onNavigateToPlans ? 'pointer' : 'default',
+                                      }}
+                                      onClick={onNavigateToPlans}
+                                    >
+                                      Bloqueado (Free)
+                                    </Badge>
+                                  ) : (
+                                    <Tooltip
+                                      label={`Reinstalar e restaurar arquivos a partir do snapshot local (v${item.from_version})`}
+                                      position="left"
+                                      withArrow
+                                    >
+                                      <Button
+                                        size="xs"
+                                        color="teal"
+                                        variant="light"
+                                        disabled={isAnyUpdating}
+                                        leftSection={<IconArrowBackUp size={12} />}
+                                        onClick={() => handleOpenRollbackModal(item)}
+                                      >
+                                        Restaurar v{item.from_version}
+                                      </Button>
+                                    </Tooltip>
+                                  )
                                 ) : isRolledBack ? (
                                   <Text size="xs" c="dimmed">
                                     Revertido
+                                  </Text>
+                                ) : isRestored ? (
+                                  <Text size="xs" c="teal" fw={600}>
+                                    Restaurado
                                   </Text>
                                 ) : (
                                   <Text size="xs" c="dimmed">
@@ -2585,7 +2922,13 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
               <IconRotateDot size={20} />
             </ThemeIcon>
             <Text fw={700} size="md" c="white">
-              {rollbackModal.phase === 'confirm'
+              {rollbackModal.item?.status === 'deleted'
+                ? rollbackModal.phase === 'confirm'
+                  ? `Confirmar Restauração: ${rollbackModal.item?.item_name || rollbackModal.item?.item_slug}`
+                  : rollbackModal.phase === 'rolling_back'
+                  ? `Restaurando ${rollbackModal.item?.item_name || rollbackModal.item?.item_slug}...`
+                  : 'Resultado da Restauração'
+                : rollbackModal.phase === 'confirm'
                 ? `Confirmar Reversão: ${rollbackModal.item?.item_name || rollbackModal.item?.item_slug}`
                 : rollbackModal.phase === 'rolling_back'
                 ? `Revertendo ${rollbackModal.item?.item_name || rollbackModal.item?.item_slug}...`
@@ -2627,28 +2970,64 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
                     </Text>
                   </div>
                   <Group gap={4}>
-                    <Badge size="xs" color="indigo" variant="filled">
-                      Atual: v{rollbackModal.item.to_version || 'Nova'}
-                    </Badge>
-                    <Text size="xs" c="dimmed">
-                      →
-                    </Text>
-                    <Badge size="xs" color="orange" variant="filled">
-                      Destino: v{rollbackModal.item.from_version}
-                    </Badge>
+                    {rollbackModal.item.status === 'deleted' ? (
+                      <>
+                        <Badge size="xs" color="red" variant="filled">
+                          Excluído
+                        </Badge>
+                        <Text size="xs" c="dimmed">
+                          →
+                        </Text>
+                        <Badge size="xs" color="teal" variant="filled">
+                          Restaurar: v{rollbackModal.item.from_version}
+                        </Badge>
+                      </>
+                    ) : (
+                      <>
+                        <Badge size="xs" color="indigo" variant="filled">
+                          Atual: v{rollbackModal.item.to_version || 'Nova'}
+                        </Badge>
+                        <Text size="xs" c="dimmed">
+                          →
+                        </Text>
+                        <Badge size="xs" color="orange" variant="filled">
+                          Destino: v{rollbackModal.item.from_version}
+                        </Badge>
+                      </>
+                    )}
                   </Group>
                 </Group>
               </Paper>
 
               <Alert
-                color="orange"
-                icon={<IconAlertTriangle size={18} />}
-                title="Procedimento de Segurança de Reversão"
+                color={rollbackModal.item.status === 'deleted' ? 'teal' : 'orange'}
+                icon={
+                  rollbackModal.item.status === 'deleted' ? (
+                    <IconShieldCheck size={18} />
+                  ) : (
+                    <IconAlertTriangle size={18} />
+                  )
+                }
+                title={
+                  rollbackModal.item.status === 'deleted'
+                    ? 'Procedimento de Restauração Segura'
+                    : 'Procedimento de Segurança de Reversão'
+                }
                 radius="sm"
               >
                 <Text size="xs">
-                  Esta ação irá restaurar com segurança os arquivos da versão estável anterior (
-                  <strong>v{rollbackModal.item.from_version}</strong>) e validar o funcionamento do site.
+                  {rollbackModal.item.status === 'deleted' ? (
+                    <>
+                      Esta ação irá descompactar e reinstalar com segurança os arquivos da versão estável (
+                      <strong>v{rollbackModal.item.from_version}</strong>) que foram preservados no snapshot
+                      preventivo antes da exclusão.
+                    </>
+                  ) : (
+                    <>
+                      Esta ação irá restaurar com segurança os arquivos da versão estável anterior (
+                      <strong>v{rollbackModal.item.from_version}</strong>) e validar o funcionamento do site.
+                    </>
+                  )}
                 </Text>
               </Alert>
 
@@ -2660,7 +3039,7 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
                   <Text size="xs" c="dimmed">
                     {rollbackModal.item.backup_created ? (
                       <>
-                        <strong style={{ color: '#fff' }}>Snapshot Local Preservado:</strong> Os arquivos originais salvos antes da atualização serão descompactados diretamente no servidor.
+                        <strong style={{ color: '#fff' }}>Snapshot Local Preservado:</strong> Os arquivos originais salvos antes da operação serão descompactados diretamente no servidor.
                       </>
                     ) : (
                       <>
@@ -2681,13 +3060,15 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
                   Cancelar
                 </Button>
                 <Button
-                  color="orange"
+                  color={rollbackModal.item.status === 'deleted' ? 'teal' : 'orange'}
                   variant="filled"
                   size="sm"
                   leftSection={<IconArrowBackUp size={16} />}
                   onClick={executeRollback}
                 >
-                  Confirmar e Reverter para v{rollbackModal.item.from_version}
+                  {rollbackModal.item.status === 'deleted'
+                    ? `Confirmar Restauração (Reinstalar v${rollbackModal.item.from_version})`
+                    : `Confirmar e Reverter para v${rollbackModal.item.from_version}`}
                 </Button>
               </Group>
             </>
@@ -2700,13 +3081,13 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
                 <Group justify="space-between" align="center">
                   <div>
                     <Text size="sm" fw={700} c="white">
-                      Revertendo para v{rollbackModal.item?.from_version}
+                      {rollbackModal.item?.status === 'deleted' ? 'Restaurando' : 'Revertendo'} para v{rollbackModal.item?.from_version}
                     </Text>
                     <Text size="xs" c="dimmed">
                       {rollbackModal.item?.item_name || rollbackModal.item?.item_slug}
                     </Text>
                   </div>
-                  <Badge size="xs" color="orange" variant="light">
+                  <Badge size="xs" color={rollbackModal.item?.status === 'deleted' ? 'teal' : 'orange'} variant="light">
                     Modo de Restauração
                   </Badge>
                 </Group>
@@ -2859,6 +3240,124 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
               </Button>
             </Stack>
           )}
+        </Stack>
+      </Modal>
+
+      {/* Modal de Exclusão Segura com Snapshot Preventivo */}
+      <Modal
+        opened={deleteModal.isOpen}
+        onClose={() => {
+          if (deleteModal.isDeleting) return;
+          setDeleteModal((prev) => ({ ...prev, isOpen: false }));
+        }}
+        closeOnClickOutside={!deleteModal.isDeleting}
+        closeOnEscape={!deleteModal.isDeleting}
+        withCloseButton={!deleteModal.isDeleting}
+        title={
+          <Group gap="xs">
+            <ThemeIcon color="red" variant="light" size="md" radius="sm">
+              <IconTrash size={20} />
+            </ThemeIcon>
+            <Text fw={700} size="md" c="white">
+              Excluir {deleteModal.itemType === 'plugin' ? 'Plugin' : 'Tema'}: {deleteModal.itemName}
+            </Text>
+          </Group>
+        }
+        size="md"
+        radius="md"
+        centered
+        styles={{
+          header: {
+            backgroundColor: '#1A1B1E',
+            borderBottom: '1px solid #2C2E33',
+            padding: '14px 20px',
+          },
+          body: {
+            backgroundColor: '#141517',
+            padding: '20px',
+          },
+          content: {
+            backgroundColor: '#141517',
+            border: '1px solid #2C2E33',
+          },
+        }}
+      >
+        <Stack gap="md">
+          <Paper p="sm" bg="dark.8" radius="sm" withBorder style={{ borderColor: '#2C2E33' }}>
+            <Group justify="space-between">
+              <div>
+                <Text size="sm" fw={700} c="white">
+                  {deleteModal.itemName}
+                </Text>
+                <Code c="dimmed" style={{ fontSize: '11px' }}>
+                  {deleteModal.itemKey}
+                </Code>
+              </div>
+              {deleteModal.version && (
+                <Badge size="xs" color="gray" variant="outline">
+                  v{deleteModal.version}
+                </Badge>
+              )}
+            </Group>
+          </Paper>
+
+          <Alert
+            color="red"
+            icon={<IconAlertTriangle size={18} />}
+            title="Atenção: Remoção do Diretório no Servidor"
+            radius="sm"
+          >
+            <Text size="xs">
+              Tem certeza de que deseja excluir este {deleteModal.itemType === 'plugin' ? 'plugin' : 'tema'} inativo?
+              Os arquivos correspondentes serão removidos do servidor WordPress.
+            </Text>
+          </Alert>
+
+          <Paper p="xs" bg="dark.8" radius="sm">
+            <Group gap="xs" wrap="nowrap" align="flex-start">
+              <ThemeIcon color="teal" variant="light" size="sm" radius="xl" mt={2}>
+                <IconShieldCheck size={14} />
+              </ThemeIcon>
+              <div>
+                <Text size="xs" fw={600} c="white">
+                  Snapshot Preventivo Automático
+                </Text>
+                <Text size="xs" c="dimmed">
+                  Antes de excluir, o Agente Vexors criará automaticamente um arquivo ZIP local com todos os arquivos
+                  deste item. Você poderá <strong>reinstalar e restaurar com 1 clique</strong> a qualquer momento
+                  na aba <strong>Histórico & Rollback</strong>.
+                </Text>
+              </div>
+            </Group>
+          </Paper>
+
+          {deleteModal.error && (
+            <Alert color="red" icon={<IconAlertCircle size={16} />} radius="sm">
+              <Text size="xs">{deleteModal.error}</Text>
+            </Alert>
+          )}
+
+          <Group justify="flex-end" gap="sm" mt="xs">
+            <Button
+              variant="subtle"
+              color="gray"
+              size="sm"
+              disabled={deleteModal.isDeleting}
+              onClick={() => setDeleteModal((prev) => ({ ...prev, isOpen: false }))}
+            >
+              Cancelar
+            </Button>
+            <Button
+              color="red"
+              variant="filled"
+              size="sm"
+              loading={deleteModal.isDeleting}
+              leftSection={<IconTrash size={16} />}
+              onClick={handleExecuteDelete}
+            >
+              Confirmar Exclusão com Backup
+            </Button>
+          </Group>
         </Stack>
       </Modal>
     </Stack>

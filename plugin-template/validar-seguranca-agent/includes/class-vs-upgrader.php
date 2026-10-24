@@ -117,6 +117,7 @@ class VS_Agent_Upgrader {
                 }
 
                 $is_active = function_exists('is_plugin_active') ? is_plugin_active($file) : in_array($file, $active_plugins, true);
+                $is_protected = (strpos($file, 'validar-seguranca') !== false || strpos($file, 'vexors') !== false);
                 if ($has_update) {
                     $pending_plugins_count++;
                 }
@@ -131,6 +132,7 @@ class VS_Agent_Upgrader {
                     'tested_wp'       => $tested_wp,
                     'has_update'      => $has_update,
                     'is_active'       => $is_active,
+                    'is_protected'    => $is_protected,
                 );
             }
         }
@@ -139,6 +141,10 @@ class VS_Agent_Upgrader {
         $all_themes = function_exists('wp_get_themes') ? wp_get_themes() : array();
         $themes_out = array();
         $pending_themes_count = 0;
+
+        $current_theme = function_exists('wp_get_theme') ? wp_get_theme() : null;
+        $active_stylesheet = $current_theme ? $current_theme->get_stylesheet() : (function_exists('get_stylesheet') ? get_stylesheet() : '');
+        $active_template   = $current_theme ? $current_theme->get_template() : (function_exists('get_template') ? get_template() : '');
 
         if (!empty($all_themes)) {
             foreach ($all_themes as $slug => $theme) {
@@ -171,6 +177,9 @@ class VS_Agent_Upgrader {
                 if ($has_update) {
                     $pending_themes_count++;
                 }
+
+                $is_theme_active = ($slug === $active_stylesheet || $slug === $active_template);
+
                 $themes_out[] = array(
                     'slug'            => $slug,
                     'name'            => $theme->get('Name'),
@@ -179,6 +188,8 @@ class VS_Agent_Upgrader {
                     'requires_php'    => $requires_php,
                     'requires_wp'     => $requires_wp,
                     'has_update'      => $has_update,
+                    'is_active'       => $is_theme_active,
+                    'is_protected'    => $is_theme_active,
                 );
             }
         }
@@ -548,6 +559,134 @@ class VS_Agent_Upgrader {
             'message'       => 'Reversão concluída com sucesso! ' . esc_html($item) . ' foi restaurado para a versão anterior ' . ($target_version ? 'v' . esc_html($target_version) : '') . ' via ' . $source_label . '.',
             'restored_from' => $restored_from,
             'version'       => $target_version,
+        );
+    }
+
+    /**
+     * Ativa ou desativa um plugin no WordPress.
+     */
+    public function toggle_plugin_status($plugin_file, $action) {
+        require_once ABSPATH . 'wp-admin/includes/plugin.php';
+
+        if (!file_exists(WP_PLUGIN_DIR . '/' . $plugin_file)) {
+            return new WP_Error('vs_plugin_not_found', 'Plugin não encontrado no servidor: ' . esc_html($plugin_file), array('status' => 404));
+        }
+
+        // Proteção: não permitir desativar o próprio agente Vexors
+        $is_agent = (strpos($plugin_file, 'validar-seguranca') !== false || strpos($plugin_file, 'vexors') !== false);
+        if ($is_agent && $action === 'deactivate') {
+            return new WP_Error('vs_plugin_protected', 'O agente Vexors é essencial para a conexão com o painel e não pode ser desativado.', array('status' => 403));
+        }
+
+        if ($action === 'activate') {
+            $result = activate_plugin($plugin_file);
+            if (is_wp_error($result)) {
+                return $result;
+            }
+            return array(
+                'success' => true,
+                'message' => 'Plugin ativado com sucesso!',
+                'status'  => 'active',
+                'plugin'  => $plugin_file,
+            );
+        } elseif ($action === 'deactivate') {
+            deactivate_plugins(array($plugin_file));
+            return array(
+                'success' => true,
+                'message' => 'Plugin desativado com sucesso.',
+                'status'  => 'inactive',
+                'plugin'  => $plugin_file,
+            );
+        }
+
+        return new WP_Error('vs_invalid_action', 'Ação inválida. Use activate ou deactivate.', array('status' => 400));
+    }
+
+    /**
+     * Remove um plugin inativo do servidor, gerando snapshot preventivo de segurança antes.
+     */
+    public function delete_plugin($plugin_file) {
+        require_once ABSPATH . 'wp-admin/includes/plugin.php';
+        require_once ABSPATH . 'wp-admin/includes/file.php';
+
+        if (!file_exists(WP_PLUGIN_DIR . '/' . $plugin_file)) {
+            return new WP_Error('vs_plugin_not_found', 'Plugin não encontrado no servidor: ' . esc_html($plugin_file), array('status' => 404));
+        }
+
+        // Proteção: não permitir excluir o próprio agente Vexors
+        $is_agent = (strpos($plugin_file, 'validar-seguranca') !== false || strpos($plugin_file, 'vexors') !== false);
+        if ($is_agent) {
+            return new WP_Error('vs_plugin_protected', 'O agente Vexors é protegido e não pode ser removido pelo painel.', array('status' => 403));
+        }
+
+        // Obter dados e versão do plugin
+        $plugin_data = get_plugin_data(WP_PLUGIN_DIR . '/' . $plugin_file, false, false);
+        $version = !empty($plugin_data['Version']) ? $plugin_data['Version'] : 'unknown';
+        $name    = !empty($plugin_data['Name']) ? $plugin_data['Name'] : $plugin_file;
+
+        // Se o plugin estiver ativo, desativa antes de deletar
+        if (is_plugin_active($plugin_file)) {
+            deactivate_plugins(array($plugin_file));
+        }
+
+        // 1. Snapshot Preventivo Local
+        $backup_file = $this->create_local_snapshot('plugin', $plugin_file, $version);
+
+        // 2. Exclusão segura nativa do WordPress
+        $del_result = delete_plugins(array($plugin_file));
+        if (is_wp_error($del_result)) {
+            return $del_result;
+        }
+
+        return array(
+            'success'        => true,
+            'message'        => 'Plugin ' . esc_html($name) . ' removido com sucesso.',
+            'plugin'         => $plugin_file,
+            'name'           => $name,
+            'version'        => $version,
+            'backup_file'    => $backup_file,
+            'backup_created' => !empty($backup_file),
+        );
+    }
+
+    /**
+     * Remove um tema inativo do servidor, gerando snapshot preventivo de segurança antes.
+     */
+    public function delete_theme($theme_slug) {
+        require_once ABSPATH . 'wp-admin/includes/theme.php';
+        require_once ABSPATH . 'wp-admin/includes/file.php';
+
+        $theme = wp_get_theme($theme_slug);
+        if (!$theme->exists()) {
+            return new WP_Error('vs_theme_not_found', 'Tema não encontrado no servidor: ' . esc_html($theme_slug), array('status' => 404));
+        }
+
+        // Proteção: não permitir excluir o tema ativo ou tema pai
+        $current_theme = wp_get_theme();
+        if ($theme_slug === $current_theme->get_stylesheet() || $theme_slug === $current_theme->get_template()) {
+            return new WP_Error('vs_theme_active', 'Não é possível remover o tema atualmente ativo no site.', array('status' => 403));
+        }
+
+        $version = $theme->get('Version') ?: 'unknown';
+        $name    = $theme->get('Name') ?: $theme_slug;
+
+        // 1. Snapshot Preventivo Local
+        $backup_file = $this->create_local_snapshot('theme', $theme_slug, $version);
+
+        // 2. Exclusão segura nativa do WordPress
+        $del_result = delete_theme($theme_slug);
+        if (is_wp_error($del_result)) {
+            return $del_result;
+        }
+
+        return array(
+            'success'        => true,
+            'message'        => 'Tema ' . esc_html($name) . ' removido com sucesso.',
+            'theme'          => $theme_slug,
+            'name'           => $name,
+            'version'        => $version,
+            'backup_file'    => $backup_file,
+            'backup_created' => !empty($backup_file),
         );
     }
 }

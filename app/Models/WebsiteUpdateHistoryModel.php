@@ -154,7 +154,7 @@ class WebsiteUpdateHistoryModel extends Model
         return $this->where('website_id', $websiteId)
                     ->where('item_type', $itemType)
                     ->where('item_slug', $itemSlug)
-                    ->where('status', 'applied')
+                    ->whereIn('status', ['applied', 'deleted'])
                     ->orderBy('id', 'DESC')
                     ->first();
     }
