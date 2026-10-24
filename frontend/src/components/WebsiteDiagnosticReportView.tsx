@@ -180,34 +180,21 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
       });
 
       const imgData = canvas.toDataURL('image/png');
+      
+      // Gera o PDF em página única contínua, eliminando cortes abruptos em cards, gráficos e tabelas
+      const pageWidth = 210; // largura padrão em mm (base A4)
+      const pageHeight = (canvas.height * pageWidth) / canvas.width; // altura proporcional exata do conteúdo
+
       const pdf = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
-        format: 'a4',
+        format: [pageWidth, pageHeight],
       });
 
-      const pageWidth = 210;
-      const pageHeight = 297;
-      const imgWidth = pageWidth;
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-      let heightLeft = imgHeight;
-      let position = 0;
-
-      // Preenche fundo escuro (#1A1B1E) na primeira página
+      // Preenche fundo escuro (#1A1B1E) na página contínua
       pdf.setFillColor(26, 27, 30);
       pdf.rect(0, 0, pageWidth, pageHeight, 'F');
-      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight, undefined, 'FAST');
-      heightLeft -= pageHeight;
-
-      while (heightLeft > 0) {
-        position -= pageHeight;
-        pdf.addPage();
-        pdf.setFillColor(26, 27, 30);
-        pdf.rect(0, 0, pageWidth, pageHeight, 'F');
-        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight, undefined, 'FAST');
-        heightLeft -= pageHeight;
-      }
+      pdf.addImage(imgData, 'PNG', 0, 0, pageWidth, pageHeight, undefined, 'FAST');
 
       const siteHost = website.url
         ? website.url.replace(/^https?:\/\//, '').replace(/\/.*$/, '')
