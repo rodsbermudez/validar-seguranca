@@ -25,9 +25,30 @@ Recursos e ferramentas acessíveis para todos os usuários cadastrados gerenciar
 - Bloqueio de interfaces remotas legadas (`xmlrpc.php`) e ocultação de assinaturas de versão em tags meta HTML.
 
 ### 🔌 Plugin Agente WordPress (`vexors.app - Diagnóstico`)
-- Instalação via arquivo ZIP personalizado para o site.
+- Instalação via arquivo ZIP personalizado para o site com handshake seguro de token.
 - Diagnóstico interno completo: verificação de administradores padrão ("admin"), quantidade de administradores, modo de depuração (`WP_DEBUG`), integridade de permissões de escrita, prefixo de tabelas MySQL e atualizações pendentes.
-- Botão de auto-reconexão e ressincronização de ponte para restabelecer a comunicação instantaneamente com a plataforma.
+- **Alerta Proativo de Agente Desatualizado:** Notificação em destaque no topo das telas do site quando o plugin agente estiver defasado em relação à versão mais recente da plataforma (ex: `v1.0.6 → v1.0.7`), com botão de download em 1 clique do ZIP atualizado.
+- **Desconexão Segura do Plugin (Kill Switch):** Ação centralizada no menu *Ferramentas > "Desconectar plugin"*, com modal de confirmação que interrompe de imediato a ponte e o tráfego do SaaS para o WordPress (`is_connected = 0`), evitando cliques acidentais na barra superior.
+- Botão de auto-reconexão e ressincronização de ponte no painel e no wp-admin para restabelecer a comunicação instantaneamente.
+
+### 🖥️ Recursos do Servidor & Saúde da Infraestrutura (Telemetria Passiva)
+- **Segunda Linha de 4 Cards de Infraestrutura:** Exibição clara no painel Visão Geral de cada site:
+  1. **Armazenamento em Disco (HD):** Espaço livre, total e ocupado com barra de capacidade e alertas graduais (&lt; 75% verde, 75-89% atenção, &ge; 90% crítico).
+  2. **Ambiente PHP & Banco de Dados (MySQL / MariaDB):** Versões ativas, limites vitais (`memory_limit`, `max_execution_time`, `upload_max_filesize`) e alertas sobre versões obsoletas do PHP (&lt; 8.1) ou MySQL (&lt; 8.0).
+  3. **Consumo de Memória RAM:** Percentual e volume de memória física do servidor utilizada (`/proc/meminfo` ou limites de script PHP) com alertas de saturação.
+  4. **Uso de Processamento de CPU:** Carga média recente (`sys_getloadavg` ponderado pela contagem de núcleos) e detecção de sobrecarga.
+- **Engenharia Anti-Sobrecarga do Servidor:** Solicitações espaçadas e assíncronas com cache local inteligente, sem execução em tempo real a cada refresh e sem botões de ação na linha de recursos para blindar a estabilidade do servidor PHP-FPM.
+
+### 📄 Relatório Diagnóstico & Atividades Executivo (PDF Contínuo)
+- Consolidação formal da saúde da aplicação acessível via *Ferramentas > Relatório Diagnóstico*, estruturado em **5 Seções Completas**:
+  1. **Avaliação de Segurança & Conformidade:** Gauge circular vetorial SVG com Score (0-100) e Grade (A+, A, B...), e **Checklist Completo de Testes** exibindo o status explícito de cada item checado: **Resolvido** (badge verde) ou **Pendente** (badge vermelho/amarelo com detalhamento de severidade e ação sugerida) para prestação de contas transparente ao cliente.
+  2. **Infraestrutura & Recursos do Servidor:** Os 4 pilares de hardware e ambiente (HD, PHP/MySQL, RAM e CPU).
+  3. **Estabilidade & Logs de Erros (Últimas 48h):** Histórico de exceções e contagem de erros fatais recentes.
+  4. **Integridade Criptográfica do Core WordPress:** Certificação contra os checksums oficiais do WordPress.org.
+  5. **Gestão de Atualizações & Inventário Completo de Componentes:** Status do WordPress Core, Agente Vexors Guard, tabela de Inventário Completo de Plugins (com versões, estado ativo/inativo e selo de proteção) e tabela de Inventário Completo de Temas.
+- **Exportação em PDF Contínuo em Alta Definição:**
+  - Layout contínuo de página única proporcional (`jsPDF`), eliminando quebras de página automáticas que cortavam cards, tabelas e gráficos pela metade.
+  - Inlining de estilos e renderização avançada com html2canvas, prevenindo o desaparecimento ou truncamento de texto em pills e badges preenchidos.
 
 ### 🔍 Verificador Forense de Integridade do Core & Auto-Fix
 - Inspeção criptográfica profunda (MD5) comparando todos os arquivos locais do core do WordPress com os hashes oficiais do repositório WordPress.org.
@@ -135,6 +156,18 @@ Recursos restritos e protegidos por controle de acesso (RBAC) para a gestão com
 ### 📖 Central de Documentação Integrada (`/docs`)
 - Documentação técnica e operacional completa acessível diretamente na plataforma.
 - **Visão Adaptativa por Privilégio:** Usuários comuns visualizam apenas as seções gerais; administradores visualizam as seções restritas de governança, catálogo de soluções, DRE e configurações de gateway.
+
+---
+
+## ⚖️ 3. Segregação de Dados: Clientes (Públicos) vs. Administração (Restritos)
+
+A plataforma implementa isolamento multi-tenant rigoroso e governança de dados pautada no princípio do menor privilégio:
+
+| Camada de Acesso | Público-Alvo | Dados & Recursos Acessíveis | Restrições & Blindagens de Segurança |
+| :--- | :--- | :--- | :--- |
+| **Visão do Cliente Final** | Cliente final da agência / dono do site | • **Relatório Diagnóstico Executivo (Web & PDF):** Nota, checklist completo de testes checados (Resolvido vs Pendente), telemetria e inventário.<br>• **Link Público de Atividades (`/public/logs/:token`):** Timeline cronológica das manutenções e intervenções do site. | • Modo **estritamente somente leitura** (sem permissão de edição, exclusão ou criação).<br>• Protegido por token criptográfico de 64 caracteres.<br>• Nenhum dado financeiro, chave de API ou custo é exposto. |
+| **Usuário do SaaS (Dono do Site)** | Usuário logado / Agência | • Painel de gestão dos seus próprios websites.<br>• Varreduras, auto-fix do core, atualizações remotas e fixes.<br>• Gestão da sua própria assinatura, add-ons pró-rata e volumetria do seu próprio consumo de IA. | • Isolamento por `user_id` em todas as consultas SQL.<br>• Não visualiza custos de atacado de IA nem margens de contribuição.<br>• Sem acesso à gestão de usuários, catálogo global ou expurgo. |
+| **Administração & Governança** | Gestores do SaaS (Admin) | • **Cockpit Financeiro por Cliente (DRE):** Faturamento contratado vs Custo real de IA consumido (R$) e margem líquida.<br>• **Centro de Comando Global de IA:** Volumetria total de tokens e rankings de consumo.<br>• **Catálogo Global de Soluções com IA em Lote.**<br>• **Gestão de Usuários RBAC, Impersonação, Carência de 90 Dias e Expurgo CLI.**<br>• **Catálogo de Planos com Travas Orçamentárias** e **Gateway Asaas (Cartão/Pix).** | • Autenticação restrita via JWT com claim `role: 'admin'`.<br>• Validação server-side em todos os endpoints REST da API.<br>• Seções restritas da documentação (`.admin-only`) ocultadas para não-administradores. |
 
 ---
 

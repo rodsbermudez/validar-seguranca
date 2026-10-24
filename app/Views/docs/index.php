@@ -670,14 +670,17 @@
                     <li class="nav-item"><a href="#auditoria-de-seguranca"><span class="nav-icon">🛡️</span> Auditoria & Varreduras</a></li>
                     <li class="nav-item" style="margin-left: 10px;"><a href="#testes-resumo" style="font-size: 0.82rem; opacity: 0.85;"><span class="nav-icon">📋</span> Catálogo de Testes</a></li>
                     <li class="nav-item"><a href="#plugin-agente"><span class="nav-icon">🔌</span> Plugin Agente WordPress</a></li>
+                    <li class="nav-item"><a href="#recursos-servidor"><span class="nav-icon">🖥️</span> Recursos do Servidor & Infraestrutura</a></li>
                     <li class="nav-item"><a href="#integridade-do-core"><span class="nav-icon">🔍</span> Integridade do Core & Auto-Fix</a></li>
                     <li class="nav-item"><a href="#logs-em-tempo-real"><span class="nav-icon">📜</span> Logs de Execução em Tempo Real</a></li>
                     <li class="nav-item"><a href="#atualizacoes-remotas"><span class="nav-icon">🔄</span> Atualizações Remotas (Plugins/Temas/Core)</a></li>
                     <li class="nav-item"><a href="#logs-de-atividades"><span class="nav-icon">📝</span> Logs de Atividades & Diário Técnico</a></li>
                     <li class="nav-item"><a href="#link-publico-clientes"><span class="nav-icon">🔗</span> Link Público para Clientes</a></li>
+                    <li class="nav-item"><a href="#relatorio-diagnostico-pdf"><span class="nav-icon">📄</span> Relatório Diagnóstico & Atividades (PDF)</a></li>
                     <li class="nav-item"><a href="#remediacao-e-ia"><span class="nav-icon">🤖</span> Remediação & Fixes WP</a></li>
                     <li class="nav-item"><a href="#gestao-plano-cliente"><span class="nav-icon">📦</span> Gestão do Plano & Assinaturas</a></li>
                     <li class="nav-item"><a href="#exclusao-conta-carencia"><span class="nav-icon">🔒</span> Exclusão de Conta & Carência (90 Dias)</a></li>
+                    <li class="nav-item"><a href="#segregacao-dados-cliente-adm"><span class="nav-icon">⚖️</span> Segregação: Clientes vs Administração</a></li>
                 </ul>
             </div>
 
@@ -725,11 +728,14 @@
                 </ul>
 
                 <h2>Navegação e Menus da Plataforma</h2>
-                <p>A interface foi estruturada com foco em produtividade e elegância visual:</p>
+                <p>A interface foi estruturada com foco em produtividade, elegância visual e separação de responsabilidades:</p>
                 <ul>
                     <li><strong>Menu Global Superior:</strong> Acesso rápido em primeiro nível a <em>Websites</em>, <em>Configurações</em> (com dropdown reunindo Gerais, Usuários e Catálogo de Soluções), <em>Documentação</em> e menu do usuário logado (com suporte a impersonação para administradores).</li>
                     <li><strong>Dashboard Central com Destaque de 30+ Dias:</strong> O painel principal exibe dois radares estratégicos: o <strong>Radar de Segurança</strong> (notas e status das auditorias remotas) e o <strong>Resumo de Integridades do Core</strong> (sites seguros, pendentes ou com arquivos adulterados). Sites que não são auditados ou verificados há mais de 30 dias recebem destaque visual em amarelo, e os 6 piores sites de cada radar são listados para intervenção prioritária.</li>
-                    <li><strong>Menu Ferramentas nos Sites:</strong> Na barra superior interna de cada site, o selo de status de conexão do agente fica posicionado ao lado do botão <strong>Ferramentas</strong>, abrindo um menu dropdown que reúne todas as áreas (Visão Geral, Auditoria, Integridade, Logs de Atividades, Logs em Tempo Real, Atualizações, Agente WP, Configurações, Relatórios e Download do Agente).</li>
+                    <li><strong>Barra Superior & Alerta de Agente Desatualizado:</strong> No topo de cada site, o selo de status indica a conectividade (<code>AGENTE CONECTADO</code> ou <code>AGENTE DESCONECTADO</code>). Caso o plugin agente instalado no WordPress esteja em versão anterior à versão mais recente da plataforma, um badge em amarelo/dourado avisa imediatamente com opção de download em 1 clique para atualização rápida.</li>
+                    <li><strong>Menu Ferramentas & Desconexão Segura:</strong> Ao lado dos status, o menu dropdown <strong>Ferramentas</strong> reúne todas as áreas (Visão Geral, Auditoria, Integridade, Logs de Atividades, Logs em Tempo Real, Atualizações, Agente WP, Configurações, Relatórios e Download do Agente) e centraliza a ação <strong>"Desconectar plugin"</strong> (Kill Switch com modal de confirmação), mantendo a barra superior limpa e prevenindo desligamentos acidentais.</li>
+                    <li><strong>Segunda Linha de Recursos de Servidor:</strong> Na Visão Geral do site, uma segunda linha com 4 cards de monitoramento passivo apresenta o consumo de <strong>HD</strong>, versões e limites de <strong>PHP / MySQL</strong>, <strong>Memória RAM</strong> e <strong>Uso de CPU</strong>, operando com requisições assíncronas e espaçadas para preservar o desempenho do servidor cliente.</li>
+                    <li><strong>Relatório Diagnóstico & Atividades (PDF Executivo):</strong> Disponível em <em>Ferramentas > Relatório Diagnóstico</em>, consolida a saúde da aplicação em 5 seções estruturadas, com checklist de testes (resolvidos vs pendentes) e download de PDF contínuo de alta fidelidade sem quebra de páginas.</li>
                     <li><strong>Registro de Manutenções com Mês de Referência:</strong> No modal de conclusão de manutenção mensal, você pode selecionar o mês vigente ou marcar meses anteriores para registrar intervenções retroativas com histórico completo.</li>
                 </ul>
             </section>
@@ -1831,6 +1837,12 @@
                 <h2>Botão de Reconexão e Refazer Ponte</h2>
                 <p>Caso o token seja alterado na plataforma ou a conexão entre a aplicação WordPress e o painel seja interrompida, o plugin conta com o botão <strong>"⚡ Testar Reconexão com a Plataforma"</strong>. Ele permite reiniciar o handshake de autenticação de forma simples e direta, sem a necessidade de reinstalar o plugin.</p>
 
+                <h2>Alerta Proativo de Agente Desatualizado</h2>
+                <p>A plataforma mantém controle da versão do agente <code>vexors-diagnostico</code> instalada em cada site. Sempre que o core da plataforma é aprimorado e uma nova versão do agente é disponibilizada, o painel do site exibe um <strong>badge de advertência em destaque no topo</strong> (ex: <code>PLUGIN DESATUALIZADO (v1.0.6 → v1.0.7)</code>). Ao clicar no aviso, a versão mais recente em arquivo ZIP é baixada instantaneamente para atualização no WordPress.</p>
+
+                <h2>Desconexão Segura do Plugin (Kill Switch no Menu Ferramentas)</h2>
+                <p>Caso você precise pausar temporariamente as checagens no WordPress ou queira revogar de imediato o tráfego do SaaS para estabilizar o servidor PHP-FPM, a ação foi desacoplada do topo e centralizada no menu <strong>Ferramentas &gt; "Desconectar plugin"</strong>. Um modal de confirmação solicita autorização e desliga o serviço imediatamente (<code>is_connected = 0</code>), bloqueando requisições automáticas e telemetria até que você decida reconectar manualmente.</p>
+
                 <h2>Configuração Manual de Credenciais no WP-Admin</h2>
                 <p>Caso você reinstale o plugin manualmente ou queira conferir se o token salvo coincide com o painel SaaS, a página <strong>vexors.app > Diagnóstico</strong> no WordPress disponibiliza campos editáveis para:</p>
                 <ul>
@@ -1839,6 +1851,81 @@
                     <li><strong>URL do Painel SaaS:</strong> Endereço da plataforma para comunicação e handshakes automáticos.</li>
                 </ul>
                 <p>Ao salvar as configurações, o agente valida as chaves e estabelece o pareamento instantaneamente com o painel.</p>
+            </section>
+
+            <!-- Recursos do Servidor & Infraestrutura -->
+            <section id="recursos-servidor" class="doc-section">
+                <h1>🖥️ Recursos do Servidor & Saúde da Infraestrutura</h1>
+                <p>O monitoramento contínuo de um site WordPress vai além do código da aplicação: a estabilidade e o desempenho dependem diretamente da integridade dos recursos de hardware e do ambiente do servidor web.</p>
+                
+                <p>Na tela <strong>Visão Geral</strong> de cada website, a plataforma disponibiliza uma <strong>segunda linha de 4 cards de telemetria passiva</strong>, apresentando dados vitais coletados pelo Plugin Agente:</p>
+
+                <div class="grade-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin-bottom: 25px;">
+                    <div class="grade-card" style="border-left: 4px solid #10b981;">
+                        <span style="font-size: 1.5rem; display: block; margin-bottom: 6px;">💾</span>
+                        <strong style="color: #fff; font-size: 0.95rem;">Armazenamento (HD)</strong>
+                        <span class="grade-label" style="font-size: 0.8rem; margin-top: 4px;">Espaço total, livre, ocupado e percentual com alertas visuais.</span>
+                    </div>
+                    <div class="grade-card" style="border-left: 4px solid #3b82f6;">
+                        <span style="font-size: 1.5rem; display: block; margin-bottom: 6px;">🐘</span>
+                        <strong style="color: #fff; font-size: 0.95rem;">PHP & Banco de Dados</strong>
+                        <span class="grade-label" style="font-size: 0.8rem; margin-top: 4px;">Versões ativas, limites operacionais e alertas de ciclo de vida.</span>
+                    </div>
+                    <div class="grade-card" style="border-left: 4px solid #8b5cf6;">
+                        <span style="font-size: 1.5rem; display: block; margin-bottom: 6px;">🧠</span>
+                        <strong style="color: #fff; font-size: 0.95rem;">Memória RAM</strong>
+                        <span class="grade-label" style="font-size: 0.8rem; margin-top: 4px;">Uso da memória física do servidor (/proc/meminfo) e capacidade.</span>
+                    </div>
+                    <div class="grade-card" style="border-left: 4px solid #f59e0b;">
+                        <span style="font-size: 1.5rem; display: block; margin-bottom: 6px;">⚡</span>
+                        <strong style="color: #fff; font-size: 0.95rem;">Processamento (CPU)</strong>
+                        <span class="grade-label" style="font-size: 0.8rem; margin-top: 4px;">Carga média de processamento ponderada pela contagem de núcleos.</span>
+                    </div>
+                </div>
+
+                <h2>Detalhamento dos Indicadores de Recursos</h2>
+                <ol>
+                    <li><strong>Armazenamento em Disco (HD):</strong>
+                        <ul>
+                            <li>Mapeia o ponto de montagem onde o WordPress reside, calculando o espaço livre e o total via chamadas de sistema nativas (<code>disk_free_space</code> / <code>disk_total_space</code>).</li>
+                            <li><strong>Alertas de Capacidade Graduais:</strong>
+                                <ul>
+                                    <li><span style="color:#10b981; font-weight:bold;">Normal (&lt; 75%):</span> Operação saudável e estável.</li>
+                                    <li><span style="color:#f59e0b; font-weight:bold;">Atenção (75% a 89%):</span> Alerta amarelo indicando necessidade preventiva de purga de uploads antigos ou backups acumulados.</li>
+                                    <li><span style="color:#ef4444; font-weight:bold;">Crítico (&ge; 90%):</span> Alerta vermelho. Servidores com disco cheio correm sério risco de corrupção em tabelas InnoDB do MySQL e travamento do PHP-FPM.</li>
+                                </ul>
+                            </li>
+                        </ul>
+                    </li>
+                    <li><strong>Versão do PHP & Banco de Dados (MySQL / MariaDB):</strong>
+                        <ul>
+                            <li>Exibe a versão do interpretador PHP em execução (ex: <code>8.2.18</code>) e a variante/versão do banco relacional (ex: <code>MySQL 8.0.36</code> ou <code>MariaDB 10.11.7</code>).</li>
+                            <li>Apresenta limites vitais configurados no <code>php.ini</code>: <code>memory_limit</code>, <code>max_execution_time</code> e <code>upload_max_filesize</code>.</li>
+                            <li><strong>Alertas Proativos de Obsolescência:</strong> A plataforma sinaliza com badge de advertência ambientes rodando versões já descontinuadas pelo PHP.net (versões anteriores ao PHP 8.1) ou bancos que não atendem aos requisitos modernos do WordPress Core.</li>
+                        </ul>
+                    </li>
+                    <li><strong>Consumo de Memória RAM:</strong>
+                        <ul>
+                            <li>Em servidores Linux com permissão de leitura, o agente analisa <code>/proc/meminfo</code> (extraindo <code>MemTotal</code>, <code>MemAvailable</code> e <code>MemFree</code>) para obter o percentual real de consumo físico de memória.</li>
+                            <li>Conta com fallback transparente para medição de memória alocada pelo runtime PHP em ambientes com restrições de permissão.</li>
+                        </ul>
+                    </li>
+                    <li><strong>Carga de Processamento da CPU:</strong>
+                        <ul>
+                            <li>Obtém a carga média recente do processador via <code>sys_getloadavg()</code>, normalizada pela quantidade de processadores lógicos identificados em <code>/proc/cpuinfo</code>.</li>
+                            <li>Identifica picos anormais de processamento (&gt; 80%) provocados por ataques DDoS, bots de varredura maliciosos ou plugins com consultas desotimizadas.</li>
+                        </ul>
+                    </li>
+                </ol>
+
+                <div class="callout callout-warning">
+                    <div class="callout-title">🛡️ Engenharia Anti-Sobrecarga do Servidor (Proteção do PHP-FPM)</div>
+                    <p>Consultas frequentes a comandos de sistema ou leituras contínuas de <code>/proc</code> podem provocar sobrecarga em servidores compartilhados ou instâncias em nuvem com limites estritos de I/O. Por isso, a plataforma adota <strong>duas salvaguardas essenciais</strong>:</p>
+                    <ul style="margin-top: 8px; margin-bottom: 0;">
+                        <li><strong>Coletas Espaçadas e com Cache Local:</strong> A telemetria de recursos não é executada em tempo real a cada refresh. Ela ocorre de forma espaçada e assíncrona, sendo atualizada nas rotinas periódicas de diagnóstico ou ao solicitar atualização manual.</li>
+                        <li><strong>Interface com Monitoramento Passivo:</strong> A linha de cards de recursos não possui botões de disparo de ações pesadas, preservando a estabilidade da máquina e evitando requisições concorrentes indesejadas no PHP-FPM.</li>
+                    </ul>
+                </div>
             </section>
 
             <!-- 5. Verificador de Integridade do Core & Auto-Fix -->
@@ -1969,6 +2056,76 @@
                     <li><strong>Modo Estrito de Leitura (Sem Edição):</strong> O cliente pode navegar, pesquisar palavras-chave e filtrar por categoria, mas não possui permissão para editar, excluir ou criar novas notas.</li>
                     <li><strong>Segurança via Token Criptográfico:</strong> O acesso é liberado por meio de um token aleatório de 64 caracteres hexadecimais (<code>public_log_token</code>), sem expor IDs internos do banco de dados.</li>
                     <li><strong>Regeneração Instantânea:</strong> No painel do site, ao clicar em <strong>"Link para Cliente"</strong>, você pode copiar a URL pública ou regenerar o token a qualquer momento caso queira revogar acessos antigos.</li>
+                </ul>
+            </section>
+
+            <!-- Relatório Diagnóstico & Atividades (PDF Executivo) -->
+            <section id="relatorio-diagnostico-pdf" class="doc-section">
+                <h1>📄 Relatório Diagnóstico & Atividades Executivo (Exportação em PDF Contínuo)</h1>
+                <p>O <strong>Relatório Diagnóstico</strong> é a ferramenta definitiva para prestação de contas, auditoria forense e apresentação formal do estado de segurança e manutenção do site para o cliente final ou para a equipe de tecnologia.</p>
+                
+                <p>Acessível em qualquer website através do menu <strong>Ferramentas &gt; Relatório Diagnóstico</strong>, ele consolida os dados operacionais da aplicação em <strong>5 Seções Estruturadas</strong>:</p>
+
+                <div class="grade-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-bottom: 25px;">
+                    <div class="grade-card">
+                        <strong style="color:#fff;">1. Avaliação de Segurança</strong>
+                        <span class="grade-label">Score circular SVG e checklist detalhado de testes.</span>
+                    </div>
+                    <div class="grade-card">
+                        <strong style="color:#fff;">2. Infraestrutura & Servidor</strong>
+                        <span class="grade-label">HD, PHP/MySQL, RAM e CPU com status operacional.</span>
+                    </div>
+                    <div class="grade-card">
+                        <strong style="color:#fff;">3. Estabilidade & Logs</strong>
+                        <span class="grade-label">Contagem de erros fatais das últimas 48 horas.</span>
+                    </div>
+                    <div class="grade-card">
+                        <strong style="color:#fff;">4. Integridade do Core</strong>
+                        <span class="grade-label">Validação MD5 oficial contra o WordPress.org.</span>
+                    </div>
+                    <div class="grade-card">
+                        <strong style="color:#fff;">5. Inventário & Updates</strong>
+                        <span class="grade-label">Inventário completo de plugins e temas instalados.</span>
+                    </div>
+                </div>
+
+                <h2>As 5 Seções do Relatório</h2>
+                <ol>
+                    <li><strong>Avaliação de Segurança & Conformidade (Nota Geral e Checklist Completo):</strong>
+                        <ul>
+                            <li><strong>Gráfico Circular em SVG Nativo:</strong> Indicador visual com o Grade (A+, A, B...) e Score (0 a 100), renderizado em vetor puro para alinhamento e nitidez no PDF sem deslocamentos.</li>
+                            <li><strong>Checklist Transparente de Todos os Testes Executados:</strong> Ao contrário de relatórios simplistas que listam apenas falhas, o relatório exibe <strong>todos os itens checados</strong>, permitindo comprovar ao cliente o rigor preventivo da plataforma:
+                                <ul>
+                                    <li><span style="color:#10b981; font-weight:bold;">Resolvido (Badge Verde):</span> Testes executados com sucesso onde o site cumpre as melhores práticas de conformidade.</li>
+                                    <li><span style="color:#ef4444; font-weight:bold;">Pendente (Badge Vermelho/Amarelo):</span> Itens com inconformidade, explicitando a severidade (FAIL ou WARN), a explicação técnica do risco e a ação corretiva sugerida.</li>
+                                </ul>
+                            </li>
+                        </ul>
+                    </li>
+                    <li><strong>Infraestrutura & Recursos do Servidor:</strong>
+                        <p>Apresenta os 4 cards consolidados com o estado do armazenamento em HD, versões ativas do PHP e banco de dados, memória RAM disponível e carga média da CPU.</p>
+                    </li>
+                    <li><strong>Estabilidade Operacional & Logs de Erros (Últimas 48 Horas):</strong>
+                        <p>Contabiliza exceções e erros fatais recentes capturados no WordPress, fornecendo um atestado de estabilidade contínua para a aplicação.</p>
+                    </li>
+                    <li><strong>Integridade Criptográfica do Core WordPress:</strong>
+                        <p>Certifica se o núcleo do WordPress permanece 100% autêntico contra a base de hashes oficiais do WordPress.org ou se existem arquivos adulterados/ausentes que necessitam de auto-fix.</p>
+                    </li>
+                    <li><strong>Gestão de Atualizações & Inventário Completo de Componentes:</strong>
+                        <ul>
+                            <li>Banner com versão e disponibilidade de upgrades do WordPress Core e do Agente Vexors Guard.</li>
+                            <li><strong>Inventário Completo de Plugins:</strong> Tabela detalhada listando todos os plugins instalados, versão em produção, versão mais recente no repositório WordPress.org, estado de ativação (Ativo / Inativo), selo de proteção Vexors Guard e status de atualização com pills coloridas de alto contraste.</li>
+                            <li><strong>Inventário Completo de Temas:</strong> Tabela identificando o tema ativo e temas secundários com suas respectivas versões.</li>
+                        </ul>
+                    </li>
+                </ol>
+
+                <h2>Geração em PDF Contínuo em Alta Definição</h2>
+                <p>O relatório pode ser baixado instantaneamente clicando em <strong>"Baixar Relatório em PDF"</strong>. O gerador do Vexors conta com tecnologias avançadas de renderização:</p>
+                <ul>
+                    <li><strong>Página Única Contínua (Sem Cortes Abruptos):</strong> Diferente de conversores convencionais que fatiam cards, gráficos e tabelas ao meio na virada de página A4, o gerador calcula a proporção vertical exata do documento através do <code>jsPDF</code>, produzindo um documento contínuo de alta fidelidade visual.</li>
+                    <li><strong>Renderização Garantida de Badges & Textos (Zero Pills em Branco):</strong> O motor de captura conta com normalização de CSS variables e inlining de estilos para prevenir que componentes preenchidos fiquem transparentes ou truncados, garantindo contraste perfeito para impressão ou leitura em telas.</li>
+                    <li><strong>Cabeçalho Executivo com Logo e Timestamp:</strong> Inclui data/hora da emissão, domínio auditado, ambiente (Produção/Staging) e status do agente para conferência.</li>
                 </ul>
             </section>
 
@@ -2224,6 +2381,100 @@ location ~* /(wp-config\.php|readme\.html|license\.txt) {
 
                 <h2>5. Novo Cadastro Após o Expurgo Definitivo</h2>
                 <p>Após a conclusão do expurgo dos 90 dias (status <code>purged</code>), o endereço de e-mail do usuário fica novamente liberado para realizar um novo cadastro na plataforma pelo fluxo normal da Landing Page, iniciando uma conta do zero no plano escolhido.</p>
+            </section>
+
+            <!-- Segregação Rigorosa: Dados de Clientes vs Administração -->
+            <section id="segregacao-dados-cliente-adm" class="doc-section">
+                <h1>⚖️ Segregação de Dados: Clientes (Públicos) vs. Administração (Restritos)</h1>
+                <p>Um dos pilares arquiteturais do <strong>Vexors</strong> é a estrita separação entre as informações operacionais de cada website (que podem ser compartilhadas com o cliente final para prestação de contas) e os dados gerenciais, financeiros e de governança do SaaS (exclusivos dos administradores da plataforma).</p>
+
+                <div class="callout callout-info">
+                    <div class="callout-title">🔒 Princípio do Menor Privilégio & Isolamento Multi-Tenant</div>
+                    <p>Clientes e donos de websites jamais têm acesso a métricas de custo de APIs, margens de lucro de planos, configurações de gateway financeiro ou dados de outros usuários. Essa separação é garantida tanto no nível de autenticação (JWT com controle RBAC) quanto nas interfaces visuais e nos relatórios exportáveis.</p>
+                </div>
+
+                <h2>Matriz de Acesso e Segregação de Informações</h2>
+                <table class="doc-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 25%;">Camada de Acesso</th>
+                            <th style="width: 35%;">Dados & Recursos Permitidos</th>
+                            <th style="width: 40%;">Restrições & Proteções Rígidas</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>
+                                <strong style="color: #3b82f6;">Visão do Cliente Final</strong><br>
+                                <span style="font-size: 0.78rem; color: #94a3b8;">Público / Compartilhável</span>
+                            </td>
+                            <td>
+                                <ul>
+                                    <li><strong>Relatório Diagnóstico Executivo (Web & PDF):</strong> Nota de segurança, status dos testes (resolvido/pendente), inventário de componentes e telemetria de recursos.</li>
+                                    <li><strong>Link Público de Atividades (<code>/public/logs/:token</code>):</strong> Timeline cronológica de manutenções e intervenções do site.</li>
+                                </ul>
+                            </td>
+                            <td>
+                                <ul>
+                                    <li>Modo <strong>estritamente somente leitura</strong> (sem botões de alteração, exclusão ou criação).</li>
+                                    <li>Acesso isolado por token criptográfico de 64 caracteres.</li>
+                                    <li>Nenhum dado cadastral, senha, token de API ou custo financeiro é exposto.</li>
+                                </ul>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <strong style="color: #10b981;">Usuário do SaaS (Dono do Site)</strong><br>
+                                <span style="font-size: 0.78rem; color: #94a3b8;">Privado da Conta</span>
+                            </td>
+                            <td>
+                                <ul>
+                                    <li>Painel e dashboards dos sites cadastrados na sua conta.</li>
+                                    <li>Disparo de varreduras, auto-fix do core e atualizações remotas.</li>
+                                    <li>Download do plugin agente e chaves de fixes personalizadas.</li>
+                                    <li>Gestão da sua assinatura pessoal, compra de add-ons com cálculo pró-rata e histórico do seu próprio consumo de IA.</li>
+                                </ul>
+                            </td>
+                            <td>
+                                <ul>
+                                    <li>Visualiza exclusivamente os sites vinculados ao seu <code>user_id</code>.</li>
+                                    <li>Não visualiza custos de atacado das APIs de IA nem configurações de gateway da plataforma.</li>
+                                    <li>Não tem acesso às telas de gestão de usuários, catálogo global de soluções ou expurgo.</li>
+                                </ul>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <strong style="color: #8b5cf6;">Administrador da Plataforma</strong><br>
+                                <span style="font-size: 0.78rem; color: #94a3b8;">Restrito (Governança SaaS)</span>
+                            </td>
+                            <td>
+                                <ul>
+                                    <li><strong>Cockpit Financeiro por Cliente (DRE):</strong> Faturamento contratado vs Custo real consumido de IA (R$) e margem líquida.</li>
+                                    <li><strong>Centro de Comando Global de IA:</strong> Volumetria consolidada de tokens (prompt e completion) e rankings de consumo.</li>
+                                    <li><strong>Catálogo Global de Soluções:</strong> Geração em lote de regras PHP e guias com IA (Kimi K2.7 Code).</li>
+                                    <li><strong>Gestão de Usuários (RBAC):</strong> Impersonação ("Ver como cliente"), carência de 90 dias e expurgo de contas CLI.</li>
+                                    <li><strong>Catálogo de Planos Comerciais:</strong> Travas orçamentárias contra IA ilimitada e limites de recursos.</li>
+                                    <li><strong>Gateway Asaas:</strong> Gestão de chaves de API, modo Sandbox, webhooks e seletor ativo de Cartão/Pix.</li>
+                                </ul>
+                            </td>
+                            <td>
+                                <ul>
+                                    <li>Protegido por token JWT com claim <code>role: 'admin'</code>.</li>
+                                    <li>Validação de permissão em todos os endpoints REST de backend (<code>AuthFilter</code> e checagem de role).</li>
+                                    <li>Seções da documentação ocultas dinamicamente para usuários sem privilégio administrativo.</li>
+                                </ul>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h2>Preservação Fiscal e Contábil em Contas Canceladas</h2>
+                <p>Mesmo quando um usuário solicita o cancelamento da assinatura ou a exclusão da sua conta (entrando na carência de 90 dias e posterior expurgo dos dados de websites), a plataforma mantém segregada a <strong>integridade histórica e contábil</strong>:</p>
+                <ul>
+                    <li>Os registros de transações de pagamento (<code>payment_transactions</code>) e os logs de consumo de IA (<code>ai_usage_logs</code>) <strong>permanecem arquivados e imutáveis</strong> no banco de dados.</li>
+                    <li>Isso assegura que relatórios fiscais, balancetes de DRE e o histórico de custos operacionais da administração não sofram distorções ou percam respaldo legal ao longo do tempo.</li>
+                </ul>
             </section>
 
             <!-- 6. Catálogo de Soluções -->
