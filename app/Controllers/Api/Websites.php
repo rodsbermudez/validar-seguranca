@@ -2357,6 +2357,26 @@ class Websites extends ResourceController
                 // Se deu erro de servidor (500, 502, timeout), aplica cooldown e aborta chamadas subsequentes
                 if (($logsRes['status'] ?? 0) >= 500 || empty($logsRes['status'])) {
                     $cache->save($cooldownKey, time(), 300);
+                    $latestAgentVersion = \App\Models\WebsiteModel::getLatestAgentVersion();
+                    $currentAgentVersion = null;
+                    if (!empty($updatesData['server_environment']['agent_version'])) {
+                        $currentAgentVersion = $updatesData['server_environment']['agent_version'];
+                    }
+                    if (empty($currentAgentVersion) && !empty($updatesData['plugins']) && is_array($updatesData['plugins'])) {
+                        foreach ($updatesData['plugins'] as $p) {
+                            if (!empty($p['is_protected']) || (isset($p['file']) && (strpos($p['file'], 'validar-seguranca') !== false || strpos($p['file'], 'vexors') !== false))) {
+                                $currentAgentVersion = $p['current_version'] ?? null;
+                                break;
+                            }
+                        }
+                    }
+                    $isAgentOutdated = (!empty($currentAgentVersion) && version_compare($currentAgentVersion, $latestAgentVersion, '<'));
+                    $agentStatus = [
+                        'current_version' => $currentAgentVersion,
+                        'latest_version'  => $latestAgentVersion,
+                        'is_outdated'     => $isAgentOutdated,
+                    ];
+
                     return $this->respond([
                         'status'       => 200,
                         'success'      => true,
@@ -2375,12 +2395,16 @@ class Websites extends ResourceController
                             'updates_pending_count'     => $website['updates_pending_count'] ?? null,
                             'last_logs_checked_at'      => $website['last_logs_checked_at'] ?? null,
                             'logs_fatal_count'          => $website['logs_fatal_count'] ?? null,
+                            'agent_version'             => $currentAgentVersion,
+                            'latest_agent_version'      => $latestAgentVersion,
+                            'is_agent_outdated'         => $isAgentOutdated,
                         ],
                         'data'         => [
-                            'latest_scan' => $latestScan,
-                            'logs_48h'    => $logsSummary,
-                            'integrity'   => $integrityData,
-                            'updates'     => $updatesData,
+                            'latest_scan'  => $latestScan,
+                            'logs_48h'     => $logsSummary,
+                            'integrity'    => $integrityData,
+                            'updates'      => $updatesData,
+                            'agent_status' => $agentStatus,
                         ],
                         'message'      => 'Servidor do WordPress indisponível no momento.',
                     ]);
@@ -2456,6 +2480,26 @@ class Websites extends ResourceController
             }
         }
 
+        $latestAgentVersion = \App\Models\WebsiteModel::getLatestAgentVersion();
+        $currentAgentVersion = null;
+        if (!empty($updatesData['server_environment']['agent_version'])) {
+            $currentAgentVersion = $updatesData['server_environment']['agent_version'];
+        }
+        if (empty($currentAgentVersion) && !empty($updatesData['plugins']) && is_array($updatesData['plugins'])) {
+            foreach ($updatesData['plugins'] as $p) {
+                if (!empty($p['is_protected']) || (isset($p['file']) && (strpos($p['file'], 'validar-seguranca') !== false || strpos($p['file'], 'vexors') !== false))) {
+                    $currentAgentVersion = $p['current_version'] ?? null;
+                    break;
+                }
+            }
+        }
+        $isAgentOutdated = (!empty($currentAgentVersion) && version_compare($currentAgentVersion, $latestAgentVersion, '<'));
+        $agentStatus = [
+            'current_version' => $currentAgentVersion,
+            'latest_version'  => $latestAgentVersion,
+            'is_outdated'     => $isAgentOutdated,
+        ];
+
         return $this->respond([
             'status'     => 200,
             'success'    => true,
@@ -2474,12 +2518,16 @@ class Websites extends ResourceController
                 'updates_pending_count'     => $website['updates_pending_count'] ?? null,
                 'last_logs_checked_at'      => $website['last_logs_checked_at'] ?? null,
                 'logs_fatal_count'          => $website['logs_fatal_count'] ?? null,
+                'agent_version'             => $currentAgentVersion,
+                'latest_agent_version'      => $latestAgentVersion,
+                'is_agent_outdated'         => $isAgentOutdated,
             ],
             'data'       => [
-                'latest_scan' => $latestScan,
-                'logs_48h'    => $logsSummary,
-                'integrity'   => $integrityData,
-                'updates'     => $updatesData,
+                'latest_scan'  => $latestScan,
+                'logs_48h'     => $logsSummary,
+                'integrity'    => $integrityData,
+                'updates'      => $updatesData,
+                'agent_status' => $agentStatus,
             ],
         ]);
     }

@@ -286,6 +286,7 @@ class VS_Agent_Upgrader {
         }
 
         $server_env = array(
+            'agent_version'           => defined('VS_AGENT_VERSION') ? VS_AGENT_VERSION : '1.0.6',
             'php_version'             => PHP_VERSION,
             'mysql_version'           => (isset($wpdb) && method_exists($wpdb, 'db_version')) ? $wpdb->db_version() : null,
             'wp_version'              => get_bloginfo('version'),

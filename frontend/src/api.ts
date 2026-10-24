@@ -260,6 +260,7 @@ export const restoreIntegrityFile = async (
 };
 
 export interface ServerEnvironment {
+  agent_version?: string | null;
   php_version?: string;
   mysql_version?: string;
   wp_version?: string;
@@ -294,9 +295,17 @@ export interface DiagnosticSummaryResponse {
     environment: string;
     is_connected: number;
     connected_at?: string | null;
+    agent_version?: string | null;
+    latest_agent_version?: string | null;
+    is_agent_outdated?: boolean | null;
   };
   data: {
     latest_scan: any | null;
+    agent_status?: {
+      current_version?: string | null;
+      latest_version: string;
+      is_outdated: boolean;
+    };
     logs_48h: {
       total_fatal_48h: number;
       fatal_logs_48h: Array<{
@@ -330,6 +339,7 @@ export interface DiagnosticSummaryResponse {
         new_version: string;
         has_update: boolean;
         is_active?: boolean;
+        is_protected?: boolean;
       }>;
       themes: Array<{
         slug: string;
@@ -337,6 +347,8 @@ export interface DiagnosticSummaryResponse {
         current_version: string;
         new_version: string;
         has_update: boolean;
+        is_active?: boolean;
+        is_protected?: boolean;
       }>;
     } | null;
   };
@@ -471,6 +483,9 @@ export interface Website {
   last_logs_checked_at?: string | null;
   logs_fatal_count?: number | null;
   logs_summary_json?: string | null;
+  agent_version?: string | null;
+  latest_agent_version?: string | null;
+  is_agent_outdated?: boolean | null;
 }
 
 export const getWebsite = async (websiteId: number | string): Promise<Website> => {

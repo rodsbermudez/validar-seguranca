@@ -218,6 +218,42 @@ class WebsiteModel extends Model
             $currentMonth
         );
         $site['maintenance'] = $site['maintenance_status'];
+
+        // Freshness do Agente Diagnostic Vexors
+        $site['latest_agent_version'] = self::getLatestAgentVersion();
+        $site['agent_version']        = null;
+        $site['is_agent_outdated']    = false;
+
+        if (!empty($site['updates_summary_json'])) {
+            $updates = json_decode($site['updates_summary_json'], true);
+            if (!empty($updates['server_environment']['agent_version'])) {
+                $site['agent_version'] = $updates['server_environment']['agent_version'];
+            }
+            if (empty($site['agent_version']) && !empty($updates['plugins']) && is_array($updates['plugins'])) {
+                foreach ($updates['plugins'] as $p) {
+                    if (!empty($p['is_protected']) || (isset($p['file']) && (strpos($p['file'], 'validar-seguranca') !== false || strpos($p['file'], 'vexors') !== false))) {
+                        $site['agent_version'] = $p['current_version'] ?? null;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (!empty($site['agent_version'])) {
+            $site['is_agent_outdated'] = version_compare($site['agent_version'], $site['latest_agent_version'], '<');
+        }
+    }
+
+    public static function getLatestAgentVersion(): string
+    {
+        $mainFile = ROOTPATH . 'plugin-template/validar-seguranca-agent/validar-seguranca-agent.php';
+        if (file_exists($mainFile)) {
+            $content = file_get_contents($mainFile);
+            if (preg_match("/define\(\s*['\"]VS_AGENT_VERSION['\"]\s*,\s*['\"]([^'\"]+)['\"]\s*\)/", $content, $m)) {
+                return $m[1];
+            }
+        }
+        return '1.0.6';
     }
 
     /**

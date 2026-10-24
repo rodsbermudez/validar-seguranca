@@ -677,6 +677,46 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
     );
   }
 
+  // Version comparison helper: returns true if current is older than target (e.g. 1.0.5 < 1.0.6)
+  const isVersionOlder = (current?: string | null, target?: string | null) => {
+    if (!current || !target) return false;
+    if (current === target) return false;
+    const cParts = current.split('.').map((n) => parseInt(n, 10) || 0);
+    const tParts = target.split('.').map((n) => parseInt(n, 10) || 0);
+    for (let i = 0; i < Math.max(cParts.length, tParts.length); i++) {
+      const c = cParts[i] || 0;
+      const t = tParts[i] || 0;
+      if (c < t) return true;
+      if (c > t) return false;
+    }
+    return false;
+  };
+
+  const agentPluginFromUpdates = diagnosticData?.updates?.plugins?.find(
+    (p) => p.is_protected || (p.file && (p.file.includes('vexors') || p.file.includes('validar-seguranca')))
+  );
+
+  const currentAgentVersion =
+    diagnosticData?.agent_status?.current_version ||
+    diagnosticData?.updates?.server_environment?.agent_version ||
+    agentPluginFromUpdates?.current_version ||
+    currentWebsite?.agent_version ||
+    website.agent_version ||
+    null;
+
+  const latestAgentVersion =
+    diagnosticData?.agent_status?.latest_version ||
+    currentWebsite?.latest_agent_version ||
+    website.latest_agent_version ||
+    '1.0.6';
+
+  const isAgentOutdated = Boolean(
+    diagnosticData?.agent_status?.is_outdated ??
+    currentWebsite?.is_agent_outdated ??
+    website.is_agent_outdated ??
+    (currentAgentVersion ? isVersionOlder(currentAgentVersion, latestAgentVersion) : false)
+  );
+
   return (
     <Stack gap="md">
       {/* Top Banner Header */}
@@ -737,6 +777,27 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
               >
                 AGENTE DESCONECTADO
               </Badge>
+            )}
+
+            {isConnected && isAgentOutdated && (
+              <Tooltip
+                label={`O plugin agente no WordPress está na versão ${currentAgentVersion || 'legada'}, e a versão ${latestAgentVersion} está disponível. Clique para baixar o plugin atualizado.`}
+                withArrow
+                multiline
+                w={280}
+              >
+                <Badge
+                  size="lg"
+                  color="yellow"
+                  variant="filled"
+                  leftSection={<IconAlertTriangle size={16} />}
+                  rightSection={<IconDownload size={14} />}
+                  style={{ cursor: 'pointer' }}
+                  onClick={handleDownloadPlugin}
+                >
+                  {downloading ? 'BAIXANDO...' : `PLUGIN DESATUALIZADO (v${currentAgentVersion || '?'} → v${latestAgentVersion})`}
+                </Badge>
+              </Tooltip>
             )}
 
             {isConnected ? (
@@ -1495,15 +1556,17 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
                           <Badge
                             size="xs"
                             variant="light"
-                            color={isConnected ? 'teal' : 'red'}
+                            color={!isConnected ? 'red' : isAgentOutdated ? 'yellow' : 'teal'}
                             style={{ flexShrink: 0 }}
                           >
-                            {isConnected ? 'Sincronizado' : 'Interrompido'}
+                            {!isConnected ? 'Interrompido' : isAgentOutdated ? 'Desatualizado' : 'Sincronizado'}
                           </Badge>
                         </Group>
                         <Text size="xs" c="dimmed" lineClamp={2} style={{ minHeight: 34 }} mb={4}>
                           {isConnected
-                            ? 'O agente vexors.app está conectado e comunicando com o SaaS.'
+                            ? isAgentOutdated
+                              ? `Agente conectado (v${currentAgentVersion || 'legada'}), mas a versão ${latestAgentVersion} está disponível.`
+                              : 'O agente vexors.app está conectado e comunicando com o SaaS.'
                             : 'A comunicação com o WordPress está pausada para evitar sobrecarga.'}
                         </Text>
                         <Text size="10px" c="dimmed" style={{ minHeight: 16 }} mb="xs">
