@@ -1455,9 +1455,16 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
                                 )}
                               </Table.Td>
                               <Table.Td>
-                                <Badge size="xs" color="gray" variant="outline">
-                                  {plugin.current_version}
-                                </Badge>
+                                <Group gap={6} wrap="nowrap">
+                                  <Badge size="xs" color="gray" variant="outline">
+                                    {plugin.current_version}
+                                  </Badge>
+                                  {!plugin.has_update && (
+                                    <Badge size="xs" color="teal" variant="light">
+                                      Atualizado
+                                    </Badge>
+                                  )}
+                                </Group>
                               </Table.Td>
                               <Table.Td style={{ textAlign: 'right' }}>
                                 <Group gap="xs" justify="flex-end" wrap="nowrap">
@@ -1495,9 +1502,9 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
                                       </Tooltip>
                                     ))}
 
-                                  {/* Info Atualizado ou Botão Atualizar com versão no label */}
-                                  {plugin.has_update ? (
-                                    toolsEnabled === false ? (
+                                  {/* Botão Atualizar com versão no label (quando houver atualização) */}
+                                  {plugin.has_update &&
+                                    (toolsEnabled === false ? (
                                       <Badge
                                         color="gray"
                                         variant="light"
@@ -1532,12 +1539,7 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
                                       >
                                         Atualizar ({plugin.new_version})
                                       </Button>
-                                    )
-                                  ) : !rollbackItem ? (
-                                    <Badge size="xs" color="gray" variant="subtle">
-                                      Atualizado
-                                    </Badge>
-                                  ) : null}
+                                    ))}
 
                                   {/* Botões de Ação: Desativar se ativo / Ativar e Excluir se inativo */}
                                   {!plugin.is_protected &&
@@ -1671,9 +1673,16 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
                                 )}
                               </Table.Td>
                               <Table.Td>
-                                <Badge size="xs" color="gray" variant="outline">
-                                  {theme.current_version}
-                                </Badge>
+                                <Group gap={6} wrap="nowrap">
+                                  <Badge size="xs" color="gray" variant="outline">
+                                    {theme.current_version}
+                                  </Badge>
+                                  {!theme.has_update && (
+                                    <Badge size="xs" color="teal" variant="light">
+                                      Atualizado
+                                    </Badge>
+                                  )}
+                                </Group>
                               </Table.Td>
                               <Table.Td style={{ textAlign: 'right' }}>
                                 <Group gap="xs" justify="flex-end" wrap="nowrap">
@@ -1710,8 +1719,9 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
                                       </Tooltip>
                                     ))}
 
-                                  {theme.has_update ? (
-                                    toolsEnabled === false ? (
+                                  {/* Botão Atualizar com versão no label (quando houver atualização) */}
+                                  {theme.has_update &&
+                                    (toolsEnabled === false ? (
                                       <Badge
                                         color="gray"
                                         variant="light"
@@ -1745,12 +1755,7 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
                                       >
                                         Atualizar ({theme.new_version})
                                       </Button>
-                                    )
-                                  ) : !rollbackItem ? (
-                                    <Badge size="xs" color="gray" variant="subtle">
-                                      Atualizado
-                                    </Badge>
-                                  ) : null}
+                                    ))}
 
                                   {/* Botão de exclusão se o tema estiver inativo e não for protegido */}
                                   {!theme.is_active && !theme.is_protected && (
