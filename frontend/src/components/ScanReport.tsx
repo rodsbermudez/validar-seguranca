@@ -21,6 +21,8 @@ import {
   Switch,
   Table,
   Progress,
+  ActionIcon,
+  Tooltip,
 } from '@mantine/core';
 import {
   IconCheck,
@@ -38,6 +40,7 @@ import {
   IconPlug,
   IconPrinter,
   IconRefresh,
+  IconInfoCircle,
 } from '@tabler/icons-react';
 import { api, getWebsiteFixes, toggleWebsiteFix, WebsiteFixesResponse } from '../api';
 import { formatDateTime } from '../utils/date';
@@ -50,6 +53,7 @@ interface ScanReportProps {
   toolsEnabled?: boolean;
   onNavigateToPlans?: () => void;
   onScanComplete?: (scanResults: any) => void;
+  onOpenHelp?: () => void;
 }
 
 export const ScanReport: React.FC<ScanReportProps> = ({
@@ -58,6 +62,7 @@ export const ScanReport: React.FC<ScanReportProps> = ({
   toolsEnabled = true,
   onNavigateToPlans,
   onScanComplete,
+  onOpenHelp,
 }) => {
   const [scanResult, setScanResult] = useState<any | null>(null);
   const [history, setHistory] = useState<any[]>([]);
@@ -597,12 +602,20 @@ export const ScanReport: React.FC<ScanReportProps> = ({
       {/* Header */}
       <Group justify="space-between" mb="lg">
         <div>
-          <Group gap="xs">
+          <Group gap="xs" align="center">
             <Title order={3}>{website.name}</Title>
+            <Badge color="indigo" variant="light">AUDITORIA DE SEGURANÇA</Badge>
             {scanResult?.is_hybrid && (
               <Badge color="teal" variant="filled" leftSection={<IconPlugConnected size={12} />}>
                 AUDITORIA HÍBRIDA (AGENTE ATIVO)
               </Badge>
+            )}
+            {onOpenHelp && (
+              <Tooltip label="Como funciona a Auditoria de Segurança?">
+                <ActionIcon variant="subtle" color="teal" size="sm" onClick={onOpenHelp}>
+                  <IconInfoCircle size={18} />
+                </ActionIcon>
+              </Tooltip>
             )}
           </Group>
           <Text c="dimmed" size="xs">

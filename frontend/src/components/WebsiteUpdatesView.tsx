@@ -19,6 +19,7 @@ import {
   Progress,
   Tooltip,
   Tabs,
+  ActionIcon,
 } from '@mantine/core';
 import {
   IconRefresh,
@@ -41,6 +42,7 @@ import {
   IconArrowBackUp,
   IconTrash,
   IconPower,
+  IconInfoCircle,
 } from '@tabler/icons-react';
 import { api, ServerEnvironment } from '../api';
 import { extractErrorMessage } from '../utils/formatError';
@@ -234,6 +236,7 @@ interface WebsiteUpdatesViewProps {
   toolsEnabled?: boolean;
   onNavigateToPlans?: () => void;
   onUpdatesChanged?: (summary?: UpdatesSummary, fullData?: UpdatesData) => void;
+  onOpenHelp?: () => void;
 }
 
 /** Compara semanticamente duas versões numéricas no formato X.Y.Z */
@@ -317,6 +320,7 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
   toolsEnabled = true,
   onNavigateToPlans,
   onUpdatesChanged,
+  onOpenHelp,
 }) => {
   const [updatesData, setUpdatesData] = useState<UpdatesData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -934,7 +938,7 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
       <Paper p="md" radius="md" bg="dark.7" withBorder>
         <Group justify="space-between" align="center">
           <div>
-            <Group gap="xs">
+            <Group gap="xs" align="center">
               <Title order={4}>🔄 Gestão de Atualizações Remotas</Title>
               {updatesData?.summary && (
                 <Badge
@@ -946,6 +950,13 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
                     ? `${updatesData.summary.total_pending} Atualização(ões) Pendente(s)`
                     : 'Tudo Atualizado'}
                 </Badge>
+              )}
+              {onOpenHelp && (
+                <Tooltip label="Como funciona a Gestão de Atualizações?">
+                  <ActionIcon variant="subtle" color="blue" size="sm" onClick={onOpenHelp}>
+                    <IconInfoCircle size={18} />
+                  </ActionIcon>
+                </Tooltip>
               )}
             </Group>
             <Text size="xs" c="dimmed" mt={2}>

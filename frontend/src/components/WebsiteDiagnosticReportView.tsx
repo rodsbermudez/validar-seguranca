@@ -16,6 +16,8 @@ import {
   Divider,
   Box,
   Progress,
+  ActionIcon,
+  Tooltip,
 } from '@mantine/core';
 import {
   IconArrowLeft,
@@ -37,6 +39,7 @@ import {
   IconDatabase,
   IconActivity,
   IconShieldCheck,
+  IconInfoCircle,
 } from '@tabler/icons-react';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -57,6 +60,7 @@ interface WebsiteDiagnosticReportViewProps {
   };
   onBack: () => void;
   onWebsiteUpdated?: (updated: any) => void;
+  onOpenHelp?: () => void;
 }
 
 // Helper para comparar versões semânticas (ex: 1.0.5 < 1.0.6)
@@ -78,6 +82,7 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
   website,
   onBack,
   onWebsiteUpdated,
+  onOpenHelp,
 }) => {
   const [loading, setLoading] = useState<boolean>(true);
   const [report, setReport] = useState<DiagnosticSummaryResponse | null>(null);
@@ -712,9 +717,18 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
             {/* Header: Título & Metadados de Emissão */}
             <Group justify="space-between" align="flex-start" wrap="wrap" pb="md" style={{ borderBottom: '2px solid #475569' }}>
               <div>
-                <Title order={2} style={{ letterSpacing: -0.5 }}>
-                  Relatório Executivo de Diagnóstico
-                </Title>
+                <Group gap="xs" align="center">
+                  <Title order={2} style={{ letterSpacing: -0.5 }}>
+                    Relatório Executivo de Diagnóstico
+                  </Title>
+                  {onOpenHelp && (
+                    <Tooltip label="Como funciona o Relatório Executivo?">
+                      <ActionIcon variant="subtle" color="grape" size="sm" onClick={onOpenHelp} className="no-print">
+                        <IconInfoCircle size={18} />
+                      </ActionIcon>
+                    </Tooltip>
+                  )}
+                </Group>
                 <Text size="xs" c="dimmed" className="print-text-muted">
                   Auditoria de Segurança, Integridade do Core, Logs & Manutenção
                 </Text>

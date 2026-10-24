@@ -40,9 +40,10 @@ import { formatDateTime } from '../utils/date';
 interface WebsiteLogsViewProps {
   website: { id: string | number; name: string; url: string; environment?: string };
   onBack?: () => void;
+  onOpenHelp?: () => void;
 }
 
-export const WebsiteLogsView: React.FC<WebsiteLogsViewProps> = ({ website, onBack: _onBack }) => {
+export const WebsiteLogsView: React.FC<WebsiteLogsViewProps> = ({ website, onBack: _onBack, onOpenHelp }) => {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [logs, setLogs] = useState<LogEntry[]>([]);
@@ -168,7 +169,7 @@ export const WebsiteLogsView: React.FC<WebsiteLogsViewProps> = ({ website, onBac
       <Paper p="md" radius="md" withBorder bg="dark.8">
         <Group justify="space-between" align="center" wrap="wrap">
           <div>
-            <Group gap="xs">
+            <Group gap="xs" align="center">
               <Title order={3}>Logs do WordPress em Tempo Real</Title>
               <Badge
                 color={website.environment === 'production' ? 'red' : website.environment === 'staging' ? 'orange' : 'teal'}
@@ -176,6 +177,13 @@ export const WebsiteLogsView: React.FC<WebsiteLogsViewProps> = ({ website, onBac
               >
                 {(website.environment || 'production').toUpperCase()}
               </Badge>
+              {onOpenHelp && (
+                <Tooltip label="Como funciona esta tela?">
+                  <ActionIcon variant="subtle" color="orange" size="sm" onClick={onOpenHelp}>
+                    <IconInfoCircle size={18} />
+                  </ActionIcon>
+                </Tooltip>
+              )}
             </Group>
               <Text c="dimmed" size="sm">
                 Monitoramento remoto de erros PHP do site{' '}

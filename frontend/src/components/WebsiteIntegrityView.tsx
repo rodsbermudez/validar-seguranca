@@ -20,6 +20,7 @@ import {
   Code,
   Tooltip,
   Modal,
+  ActionIcon,
 } from '@mantine/core';
 import {
   IconFileCheck,
@@ -34,6 +35,7 @@ import {
   IconTrash,
   IconDownload,
   IconLock,
+  IconInfoCircle,
 } from '@tabler/icons-react';
 import {
   getWebsiteIntegrity,
@@ -52,12 +54,14 @@ interface WebsiteIntegrityViewProps {
   website: { id: string | number; name: string; url: string; environment?: string };
   toolsEnabled?: boolean;
   onNavigateToPlans?: () => void;
+  onOpenHelp?: () => void;
 }
 
 export const WebsiteIntegrityView: React.FC<WebsiteIntegrityViewProps> = ({
   website,
   toolsEnabled = true,
   onNavigateToPlans,
+  onOpenHelp,
 }) => {
   const [loading, setLoading] = useState<boolean>(true);
   const [scanning, setScanning] = useState<boolean>(false);
@@ -244,7 +248,16 @@ export const WebsiteIntegrityView: React.FC<WebsiteIntegrityViewProps> = ({
                 <IconFileCheck size={22} />
               </ThemeIcon>
               <div>
-                <Title order={3}>Verificador de Integridade do Core</Title>
+                <Group gap="xs" align="center">
+                  <Title order={3}>Verificador de Integridade do Core</Title>
+                  {onOpenHelp && (
+                    <Tooltip label="Como funciona a Integridade do Core?">
+                      <ActionIcon variant="subtle" color="cyan" size="sm" onClick={onOpenHelp}>
+                        <IconInfoCircle size={18} />
+                      </ActionIcon>
+                    </Tooltip>
+                  )}
+                </Group>
                 <Text size="xs" c="dimmed">
                   Compara a integridade dos arquivos locais com os checksums oficiais do WordPress.org.
                 </Text>

@@ -41,7 +41,7 @@ export function useOnboarding(userId?: number) {
 
   const shouldShowInitialTour = useCallback(
     (websiteId: number | string, isConnected: boolean): boolean => {
-      if (!userId || !onboardingState) return false;
+      if (!userId || !onboardingState || loading) return false;
       // Só exibe no primeiro site do usuário
       if (!onboardingState.is_first_site) return false;
       if (onboardingState.initial_tour_completed) return false;
@@ -52,7 +52,7 @@ export function useOnboarding(userId?: number) {
       // Se não conectou ainda, exibe o tour
       return !isConnected;
     },
-    [userId, onboardingState]
+    [userId, onboardingState, loading]
   );
 
   const markInitialTourCompleted = useCallback(
@@ -73,20 +73,24 @@ export function useOnboarding(userId?: number) {
 
   const shouldShowToolIntro = useCallback(
     (toolKey: string): boolean => {
-      if (!userId || !onboardingState) return false;
-      // Só exibe as dicas de ferramentas no primeiro site
-      if (!onboardingState.is_first_site) return false;
+      if (!userId) return false;
+      if (loading) return false;
 
-      // Verifica se o backend já tem essa ferramenta como vista
-      if (onboardingState.tools_seen.includes(toolKey)) return false;
+      // Se temos o estado do backend: a lista do backend é a autoridade máxima
+      if (onboardingState) {
+        const seenList = onboardingState.tools_seen || [];
+        if (Array.isArray(seenList) && seenList.includes(toolKey)) {
+          return false;
+        }
+        // Se no backend não consta como vista, o modal deve ser exibido
+        return true;
+      }
 
-      // Verifica cache local
+      // Fallback para cache local enquanto o estado carrega
       const localKey = `${LOCAL_STORAGE_PREFIX}user_${userId}_tool_${toolKey}`;
-      if (localStorage.getItem(localKey) === 'seen') return false;
-
-      return true;
+      return localStorage.getItem(localKey) !== 'seen';
     },
-    [userId, onboardingState]
+    [userId, onboardingState, loading]
   );
 
   const markToolAsSeen = useCallback(

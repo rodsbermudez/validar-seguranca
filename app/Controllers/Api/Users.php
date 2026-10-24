@@ -704,6 +704,23 @@ class Users extends ResourceController
         ]);
     }
 
+    private function ensureOnboardingColumnsExist()
+    {
+        try {
+            $db = \Config\Database::connect();
+            if ($db->tableExists('users')) {
+                if (!$db->fieldExists('onboarding_meta', 'users')) {
+                    $db->query("ALTER TABLE `users` ADD COLUMN `onboarding_meta` TEXT NULL AFTER `purged_at`");
+                }
+                if (!$db->fieldExists('onboarding_reset_at', 'users')) {
+                    $db->query("ALTER TABLE `users` ADD COLUMN `onboarding_reset_at` DATETIME NULL AFTER `onboarding_meta`");
+                }
+            }
+        } catch (\Throwable $e) {
+            // Silently continue if table locked or already exists
+        }
+    }
+
     /**
      * POST /api/users/(:num)/reset-onboarding
      * Reseta o progresso do onboarding apenas para o usuário especificado (Admin only)
@@ -720,6 +737,8 @@ class Users extends ResourceController
             return $this->fail('ID do usuário não informado.', 400);
         }
 
+        $this->ensureOnboardingColumnsExist();
+
         $userModel = new UserModel();
         $targetUser = $userModel->find($id);
         if (!$targetUser) {
@@ -727,19 +746,10 @@ class Users extends ResourceController
         }
 
         $now = date('Y-m-d H:i:s');
-        $db = \Config\Database::connect();
-        $updateData = [];
-
-        if ($db->fieldExists('onboarding_meta', 'users')) {
-            $updateData['onboarding_meta'] = null;
-        }
-        if ($db->fieldExists('onboarding_reset_at', 'users')) {
-            $updateData['onboarding_reset_at'] = $now;
-        }
-
-        if (!empty($updateData)) {
-            $userModel->update($id, $updateData);
-        }
+        $userModel->update($id, [
+            'onboarding_meta'     => null,
+            'onboarding_reset_at' => $now,
+        ]);
 
         return $this->respond([
             'status'  => 200,
@@ -763,6 +773,8 @@ class Users extends ResourceController
         if (!$userData || empty($userData->id)) {
             return $this->failUnauthorized('Usuário não autenticado.');
         }
+
+        $this->ensureOnboardingColumnsExist();
 
         $userId = (int) $userData->id;
         $userModel = new UserModel();
@@ -803,6 +815,8 @@ class Users extends ResourceController
         if (!$userData || empty($userData->id)) {
             return $this->failUnauthorized('Usuário não autenticado.');
         }
+
+        $this->ensureOnboardingColumnsExist();
 
         $userId = (int) $userData->id;
         $userModel = new UserModel();

@@ -60,6 +60,7 @@ import {
   IconServer,
   IconActivity,
   IconHelpCircle,
+  IconInfoCircle,
 } from '@tabler/icons-react';
 import {
   api,
@@ -168,8 +169,13 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
   // Onboarding & FTUE (First-Time User Experience)
   const currentUserId = (() => {
     try {
+      const impersonated = localStorage.getItem('impersonated_user');
+      if (impersonated) {
+        const parsed = JSON.parse(impersonated);
+        if (parsed?.id) return Number(parsed.id);
+      }
       const stored = localStorage.getItem('user');
-      return stored ? JSON.parse(stored)?.id : undefined;
+      return stored ? Number(JSON.parse(stored)?.id) : undefined;
     } catch {
       return undefined;
     }
@@ -249,6 +255,11 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
     } else if (tool === 'logs') {
       setActiveTab('logs');
     }
+  };
+
+  const handleOpenToolHelp = (toolKey: ToolIntroKey) => {
+    setActiveToolIntro(toolKey);
+    setToolIntroOpened(true);
   };
 
   // Latest Audit State
@@ -805,11 +816,20 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
 
   if (viewingDiagnostic) {
     return (
-      <WebsiteDiagnosticReportView
-        website={currentWebsite}
-        onBack={() => setViewingDiagnostic(false)}
-        onWebsiteUpdated={handleWebsiteUpdatedFromDiagnostic}
-      />
+      <>
+        <WebsiteDiagnosticReportView
+          website={currentWebsite}
+          onBack={() => setViewingDiagnostic(false)}
+          onWebsiteUpdated={handleWebsiteUpdatedFromDiagnostic}
+          onOpenHelp={() => handleOpenToolHelp('diagnostic_report')}
+        />
+        <ToolIntroModal
+          tool={activeToolIntro}
+          opened={toolIntroOpened}
+          onClose={handleCloseToolIntro}
+          onPrimaryAction={handleToolPrimaryAction}
+        />
+      </>
     );
   }
 
@@ -1057,24 +1077,6 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
                 )}
               </Menu.Dropdown>
             </Menu>
-
-            {/* Botão de Ajuda Contextual da Tela */}
-            <Tooltip label="Como funciona esta tela?">
-              <ActionIcon
-                variant="light"
-                color="indigo"
-                size="input-sm"
-                onClick={() => {
-                  const toolKey = viewingDiagnostic
-                    ? 'diagnostic_report'
-                    : (activeTab as ToolIntroKey) || 'overview';
-                  setActiveToolIntro(toolKey);
-                  setToolIntroOpened(true);
-                }}
-              >
-                <IconHelpCircle size={18} />
-              </ActionIcon>
-            </Tooltip>
           </Group>
         </Group>
       </Paper>
@@ -1151,11 +1153,21 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
             {/* Card do Resumo da Última Auditoria */}
             <Paper p="lg" radius="md" bg="dark.8" withBorder>
               <Group justify="space-between" mb="sm">
-                <Group gap="xs">
+                <Group gap="xs" align="center">
                   <ThemeIcon color="indigo" variant="light" radius="xl">
                     <IconRadar size={18} />
                   </ThemeIcon>
                   <Title order={4}>Resumo da Última Auditoria</Title>
+                  <Tooltip label="Como funciona a Visão Geral?">
+                    <ActionIcon
+                      variant="subtle"
+                      color="indigo"
+                      size="sm"
+                      onClick={() => handleOpenToolHelp('overview')}
+                    >
+                      <IconInfoCircle size={18} />
+                    </ActionIcon>
+                  </Tooltip>
                 </Group>
                 {latestScan && (
                   <Badge color="gray" variant="light">
@@ -2208,6 +2220,7 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
             onBack={() => setActiveTab('overview')}
             toolsEnabled={toolsEnabled}
             onNavigateToPlans={onNavigateToPlans}
+            onOpenHelp={() => handleOpenToolHelp('audit')}
             onScanComplete={(newResults) => {
               setLatestScan(newResults);
               refreshWebsite();
@@ -2221,17 +2234,25 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
             website={website}
             toolsEnabled={toolsEnabled}
             onNavigateToPlans={onNavigateToPlans}
+            onOpenHelp={() => handleOpenToolHelp('integrity')}
           />
         </Tabs.Panel>
 
         {/* Tab: Activity Logs & Technical Notes */}
         <Tabs.Panel value="activity_logs" pt="md">
-          <WebsiteActivityLogsView website={website} />
+          <WebsiteActivityLogsView
+            website={website}
+            onOpenHelp={() => handleOpenToolHelp('activity_logs')}
+          />
         </Tabs.Panel>
 
         {/* Tab 4: Realtime Logs */}
         <Tabs.Panel value="logs" pt="md">
-          <WebsiteLogsView website={website} onBack={() => setActiveTab('overview')} />
+          <WebsiteLogsView
+            website={website}
+            onBack={() => setActiveTab('overview')}
+            onOpenHelp={() => handleOpenToolHelp('logs')}
+          />
         </Tabs.Panel>
 
         {/* Tab 5: Remote Updates */}
@@ -2241,6 +2262,7 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
             toolsEnabled={toolsEnabled}
             onNavigateToPlans={onNavigateToPlans}
             onUpdatesChanged={handleUpdatesChanged}
+            onOpenHelp={() => handleOpenToolHelp('updates')}
           />
         </Tabs.Panel>
 

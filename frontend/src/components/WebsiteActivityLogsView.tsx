@@ -62,9 +62,10 @@ import { useRealtimeSync } from '../hooks/useRealtimeSync';
 
 interface WebsiteActivityLogsViewProps {
   website: Website;
+  onOpenHelp?: () => void;
 }
 
-export const WebsiteActivityLogsView: React.FC<WebsiteActivityLogsViewProps> = ({ website }) => {
+export const WebsiteActivityLogsView: React.FC<WebsiteActivityLogsViewProps> = ({ website, onOpenHelp }) => {
   const [activities, setActivities] = useState<ActivityLogItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -322,6 +323,13 @@ export const WebsiteActivityLogsView: React.FC<WebsiteActivityLogsViewProps> = (
               <Badge color="indigo" variant="light" size="md">
                 {activities.length} {activities.length === 1 ? 'registro' : 'registros'}
               </Badge>
+              {onOpenHelp && (
+                <Tooltip label="Como funciona esta tela?">
+                  <ActionIcon variant="subtle" color="indigo" size="sm" onClick={onOpenHelp}>
+                    <IconInfoCircle size={18} />
+                  </ActionIcon>
+                </Tooltip>
+              )}
             </Group>
             <Text size="sm" c="dimmed" mt={4}>
               Acompanhe o histórico unificado das manutenções mensais e registre notas técnicas,
