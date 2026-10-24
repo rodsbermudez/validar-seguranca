@@ -15,7 +15,6 @@ import {
   Grid,
   Divider,
   Box,
-  RingProgress,
   Progress,
 } from '@mantine/core';
 import {
@@ -236,13 +235,19 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
   const scanSummary = latestScan?.summary;
   const totalChecks = scanSummary?.total_checks ?? ((scanSummary?.passed ?? 0) + (scanSummary?.failed ?? 0) + (scanSummary?.warnings ?? 0));
 
-  const getScoreColor = (sc: number) => {
-    if (sc >= 90) return 'emerald';
-    if (sc >= 75) return 'oceanBlue';
-    if (sc >= 60) return 'royalGold';
-    if (sc >= 40) return 'honeyBronze';
-    return 'amaranth';
+  const getScoreColorHex = (sc: number) => {
+    if (sc >= 90) return '#06d6a0'; // emerald
+    if (sc >= 75) return '#1A7F86'; // oceanBlue / teal
+    if (sc >= 60) return '#ffd166'; // royalGold
+    if (sc >= 40) return '#f77f00'; // honeyBronze
+    return '#ef476f'; // amaranth
   };
+
+  const scoreVal = score ?? 0;
+  const scoreColorHex = getScoreColorHex(scoreVal);
+  const ringRadius = 54;
+  const ringCircumference = 2 * Math.PI * ringRadius; // ~339.292
+  const ringDashoffset = ringCircumference * (1 - Math.max(0, Math.min(100, scoreVal)) / 100);
 
   const rawScanDate = latestScan?.scanned_at || latestScan?.executed_at;
   const formattedScanDate = formatDateTime(rawScanDate, 'DATA N/D');
@@ -472,9 +477,14 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
           }
           .print-text-dark {
             color: #0f172a !important;
+            fill: #0f172a !important;
           }
           .print-text-muted {
             color: #64748b !important;
+            fill: #64748b !important;
+          }
+          .print-track {
+            stroke: #e2e8f0 !important;
           }
           .print-border {
             border-color: #cbd5e1 !important;
@@ -745,22 +755,67 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
                   <Grid align="center" mt="xs">
                   <Grid.Col span={{ base: 12, md: 4 }}>
                     <Group justify="center">
-                      <RingProgress
-                        size={140}
-                        thickness={12}
-                        roundCaps
-                        sections={[{ value: score ?? 0, color: getScoreColor(score ?? 0) }]}
-                        label={
-                          <Stack align="center" gap={0}>
-                            <Text ta="center" fz={28} fw={800} lh={1} className="print-text-dark">
-                              {score ?? 0}
-                            </Text>
-                            <Text ta="center" size="xs" c="dimmed" fw={700} className="print-text-muted">
-                              GRADE {grade}
-                            </Text>
-                          </Stack>
-                        }
-                      />
+                      <Box style={{ width: 140, height: 140, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <svg
+                          width="140"
+                          height="140"
+                          viewBox="0 0 140 140"
+                          style={{ overflow: 'visible', display: 'block' }}
+                        >
+                          {/* Trilha circular de fundo */}
+                          <circle
+                            cx="70"
+                            cy="70"
+                            r={ringRadius}
+                            fill="none"
+                            stroke="#2C2E33"
+                            strokeWidth="12"
+                            className="print-track"
+                          />
+                          {/* Arco de progresso proporcional */}
+                          <circle
+                            cx="70"
+                            cy="70"
+                            r={ringRadius}
+                            fill="none"
+                            stroke={scoreColorHex}
+                            strokeWidth="12"
+                            strokeDasharray={ringCircumference}
+                            strokeDashoffset={ringDashoffset}
+                            strokeLinecap="round"
+                            transform="rotate(-90 70 70)"
+                          />
+                          {/* Nota Numérica Central */}
+                          <text
+                            x="70"
+                            y="65"
+                            textAnchor="middle"
+                            dominantBaseline="central"
+                            fill="#FFFFFF"
+                            fontSize="32"
+                            fontWeight="800"
+                            fontFamily="system-ui, -apple-system, sans-serif"
+                            className="print-text-dark"
+                          >
+                            {scoreVal}
+                          </text>
+                          {/* Classificação / Grade */}
+                          <text
+                            x="70"
+                            y="90"
+                            textAnchor="middle"
+                            dominantBaseline="central"
+                            fill="#909296"
+                            fontSize="11"
+                            fontWeight="700"
+                            letterSpacing="0.8"
+                            fontFamily="system-ui, -apple-system, sans-serif"
+                            className="print-text-muted"
+                          >
+                            GRADE {grade}
+                          </text>
+                        </svg>
+                      </Box>
                     </Group>
                   </Grid.Col>
 
@@ -1042,11 +1097,11 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
                     className="report-card"
                     style={{ display: 'flex', flexDirection: 'column', borderColor: '#373A40' }}
                   >
-                    <Group justify="space-between" align="center" mb={6}>
-                      <Text size="xs" fw={700} c="dimmed" tt="uppercase">
+                    <Group justify="space-between" align="center" mb={6} wrap="nowrap">
+                      <Text size="xs" fw={700} c="dimmed" tt="uppercase" truncate style={{ whiteSpace: 'nowrap' }}>
                         Disco / Armazenamento
                       </Text>
-                      <ThemeIcon color={diskColor} variant="light" size="sm" radius="xl">
+                      <ThemeIcon color={diskColor} variant="light" size="sm" radius="xl" style={{ flexShrink: 0 }}>
                         <IconDatabase size={14} />
                       </ThemeIcon>
                     </Group>
@@ -1085,11 +1140,11 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
                     className="report-card"
                     style={{ display: 'flex', flexDirection: 'column', borderColor: '#373A40' }}
                   >
-                    <Group justify="space-between" align="center" mb={6}>
-                      <Text size="xs" fw={700} c="dimmed" tt="uppercase">
+                    <Group justify="space-between" align="center" mb={6} wrap="nowrap">
+                      <Text size="xs" fw={700} c="dimmed" tt="uppercase" truncate style={{ whiteSpace: 'nowrap' }}>
                         PHP & Banco de Dados
                       </Text>
-                      <ThemeIcon color={phpColor} variant="light" size="sm" radius="xl">
+                      <ThemeIcon color={phpColor} variant="light" size="sm" radius="xl" style={{ flexShrink: 0 }}>
                         <IconServer size={14} />
                       </ThemeIcon>
                     </Group>
@@ -1128,11 +1183,11 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
                     className="report-card"
                     style={{ display: 'flex', flexDirection: 'column', borderColor: '#373A40' }}
                   >
-                    <Group justify="space-between" align="center" mb={6}>
-                      <Text size="xs" fw={700} c="dimmed" tt="uppercase">
-                        Memória RAM (WordPress)
+                    <Group justify="space-between" align="center" mb={6} wrap="nowrap">
+                      <Text size="xs" fw={700} c="dimmed" tt="uppercase" truncate style={{ whiteSpace: 'nowrap' }}>
+                        Memória RAM
                       </Text>
-                      <ThemeIcon color={ramColor} variant="light" size="sm" radius="xl">
+                      <ThemeIcon color={ramColor} variant="light" size="sm" radius="xl" style={{ flexShrink: 0 }}>
                         <IconCpu size={14} />
                       </ThemeIcon>
                     </Group>
@@ -1169,11 +1224,11 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
                     className="report-card"
                     style={{ display: 'flex', flexDirection: 'column', borderColor: '#373A40' }}
                   >
-                    <Group justify="space-between" align="center" mb={6}>
-                      <Text size="xs" fw={700} c="dimmed" tt="uppercase">
+                    <Group justify="space-between" align="center" mb={6} wrap="nowrap">
+                      <Text size="xs" fw={700} c="dimmed" tt="uppercase" truncate style={{ whiteSpace: 'nowrap' }}>
                         Carga da CPU
                       </Text>
-                      <ThemeIcon color={cpuColor} variant="light" size="sm" radius="xl">
+                      <ThemeIcon color={cpuColor} variant="light" size="sm" radius="xl" style={{ flexShrink: 0 }}>
                         <IconActivity size={14} />
                       </ThemeIcon>
                     </Group>

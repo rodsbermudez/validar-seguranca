@@ -1839,11 +1839,11 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
                       h="100%"
                       style={{ display: 'flex', flexDirection: 'column' }}
                     >
-                      <Group justify="space-between" mb="xs">
+                      <Group justify="space-between" mb="xs" wrap="nowrap">
                         <Text size="xs" fw={700} c="dimmed" tt="uppercase" lineClamp={1}>
                           Armazenamento (Disco)
                         </Text>
-                        <ThemeIcon color={diskColor} variant="light" radius="xl" size="md">
+                        <ThemeIcon color={diskColor} variant="light" radius="xl" size="md" style={{ flexShrink: 0 }}>
                           <IconDatabase size={18} />
                         </ThemeIcon>
                       </Group>
@@ -1883,11 +1883,11 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
                       h="100%"
                       style={{ display: 'flex', flexDirection: 'column' }}
                     >
-                      <Group justify="space-between" mb="xs">
+                      <Group justify="space-between" mb="xs" wrap="nowrap">
                         <Text size="xs" fw={700} c="dimmed" tt="uppercase" lineClamp={1}>
                           PHP & Banco de Dados
                         </Text>
-                        <ThemeIcon color={phpColor} variant="light" radius="xl" size="md">
+                        <ThemeIcon color={phpColor} variant="light" radius="xl" size="md" style={{ flexShrink: 0 }}>
                           <IconServer size={18} />
                         </ThemeIcon>
                       </Group>
@@ -1927,11 +1927,11 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
                       h="100%"
                       style={{ display: 'flex', flexDirection: 'column' }}
                     >
-                      <Group justify="space-between" mb="xs">
+                      <Group justify="space-between" mb="xs" wrap="nowrap">
                         <Text size="xs" fw={700} c="dimmed" tt="uppercase" lineClamp={1}>
-                          Memória RAM (WordPress)
+                          Memória RAM
                         </Text>
-                        <ThemeIcon color={ramColor} variant="light" radius="xl" size="md">
+                        <ThemeIcon color={ramColor} variant="light" radius="xl" size="md" style={{ flexShrink: 0 }}>
                           <IconCpu size={18} />
                         </ThemeIcon>
                       </Group>
@@ -1971,11 +1971,11 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
                       h="100%"
                       style={{ display: 'flex', flexDirection: 'column' }}
                     >
-                      <Group justify="space-between" mb="xs">
+                      <Group justify="space-between" mb="xs" wrap="nowrap">
                         <Text size="xs" fw={700} c="dimmed" tt="uppercase" lineClamp={1}>
                           Carga da CPU
                         </Text>
-                        <ThemeIcon color={cpuColor} variant="light" radius="xl" size="md">
+                        <ThemeIcon color={cpuColor} variant="light" radius="xl" size="md" style={{ flexShrink: 0 }}>
                           <IconActivity size={18} />
                         </ThemeIcon>
                       </Group>
