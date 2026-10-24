@@ -3,7 +3,7 @@
  * Plugin Name: vexors.app - Diagnóstico
  * Plugin URI: https://vexors.app
  * Description: Plugin Agente vexors.app para diagnóstico interno profundo de segurança em sites WordPress.
- * Version: 1.0.5
+ * Version: 1.0.6
  * Author: vexors.app
  * Author URI: https://vexors.app
  * License: GPLv2 or later
@@ -14,7 +14,7 @@ if (!defined('ABSPATH')) {
     exit; // Exit if accessed directly
 }
 
-define('VS_AGENT_VERSION', '1.0.5');
+define('VS_AGENT_VERSION', '1.0.6');
 define('VS_AGENT_PATH', plugin_dir_path(__FILE__));
 define('VS_AGENT_URL', plugin_dir_url(__FILE__));
 

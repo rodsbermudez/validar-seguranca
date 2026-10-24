@@ -212,15 +212,101 @@ class VS_Agent_Upgrader {
         // Collect Server Environment Diagnostics
         $disk_free = function_exists('disk_free_space') ? @disk_free_space(ABSPATH) : false;
         $disk_total = function_exists('disk_total_space') ? @disk_total_space(ABSPATH) : false;
+        $disk_free_mb = ($disk_free !== false) ? round($disk_free / 1048576) : null;
+        $disk_total_mb = ($disk_total !== false) ? round($disk_total / 1048576) : null;
+        $disk_used_mb = ($disk_total_mb !== null && $disk_free_mb !== null) ? max(0, $disk_total_mb - $disk_free_mb) : null;
+        $disk_used_pct = ($disk_total_mb && $disk_total_mb > 0 && $disk_used_mb !== null) ? round(($disk_used_mb / $disk_total_mb) * 100) : null;
+
+        // Memory Metrics
+        $mem_usage = function_exists('memory_get_usage') ? memory_get_usage(true) : null;
+        $mem_usage_mb = ($mem_usage !== null) ? round($mem_usage / 1048576, 1) : null;
+        $mem_peak = function_exists('memory_get_peak_usage') ? memory_get_peak_usage(true) : null;
+        $mem_peak_mb = ($mem_peak !== null) ? round($mem_peak / 1048576, 1) : null;
+        $mem_limit_raw = ini_get('memory_limit');
+        $mem_limit_mb = null;
+        if (!empty($mem_limit_raw)) {
+            $val = trim($mem_limit_raw);
+            if ($val === '-1') {
+                $mem_limit_mb = -1;
+            } else {
+                $last = strtolower($val[strlen($val)-1]);
+                $num = (float) $val;
+                switch($last) {
+                    case 'g': $mem_limit_mb = round($num * 1024); break;
+                    case 'm': $mem_limit_mb = round($num); break;
+                    case 'k': $mem_limit_mb = round($num / 1024); break;
+                    default: $mem_limit_mb = is_numeric($val) ? round($num / 1048576) : null; break;
+                }
+            }
+        }
+        $mem_used_pct = ($mem_limit_mb && $mem_limit_mb > 0 && $mem_usage_mb !== null) ? min(100, round(($mem_usage_mb / $mem_limit_mb) * 100)) : null;
+
+        $server_mem_total_mb = null;
+        $server_mem_available_mb = null;
+        if (@is_readable('/proc/meminfo')) {
+            $meminfo = @file_get_contents('/proc/meminfo');
+            if ($meminfo) {
+                if (preg_match('/MemTotal:\s+(\d+)\s+kB/i', $meminfo, $mTotal)) {
+                    $server_mem_total_mb = round(((int)$mTotal[1]) / 1024);
+                }
+                if (preg_match('/MemAvailable:\s+(\d+)\s+kB/i', $meminfo, $mAvail)) {
+                    $server_mem_available_mb = round(((int)$mAvail[1]) / 1024);
+                }
+            }
+        }
+
+        // CPU Metrics
+        $cpu_available = false;
+        $cpu_load_1m = null;
+        $cpu_load_5m = null;
+        $cpu_load_15m = null;
+        $cpu_cores = 1;
+        $cpu_load_pct = null;
+
+        if (function_exists('sys_getloadavg')) {
+            $loads = @sys_getloadavg();
+            if (is_array($loads) && count($loads) >= 3) {
+                $cpu_available = true;
+                $cpu_load_1m = round((float)$loads[0], 2);
+                $cpu_load_5m = round((float)$loads[1], 2);
+                $cpu_load_15m = round((float)$loads[2], 2);
+
+                if (@is_readable('/proc/cpuinfo')) {
+                    $cpuinfo = @file_get_contents('/proc/cpuinfo');
+                    if ($cpuinfo) {
+                        $cores = substr_count($cpuinfo, 'processor');
+                        if ($cores > 0) {
+                            $cpu_cores = $cores;
+                        }
+                    }
+                }
+
+                $cpu_load_pct = min(100, round(($cpu_load_1m / $cpu_cores) * 100));
+            }
+        }
 
         $server_env = array(
-            'php_version'     => PHP_VERSION,
-            'mysql_version'   => (isset($wpdb) && method_exists($wpdb, 'db_version')) ? $wpdb->db_version() : null,
-            'wp_version'      => get_bloginfo('version'),
-            'server_software' => !empty($_SERVER['SERVER_SOFTWARE']) ? $_SERVER['SERVER_SOFTWARE'] : '',
-            'memory_limit'    => ini_get('memory_limit'),
-            'disk_free_mb'    => ($disk_free !== false) ? round($disk_free / 1048576) : null,
-            'disk_total_mb'   => ($disk_total !== false) ? round($disk_total / 1048576) : null,
+            'php_version'             => PHP_VERSION,
+            'mysql_version'           => (isset($wpdb) && method_exists($wpdb, 'db_version')) ? $wpdb->db_version() : null,
+            'wp_version'              => get_bloginfo('version'),
+            'server_software'         => !empty($_SERVER['SERVER_SOFTWARE']) ? $_SERVER['SERVER_SOFTWARE'] : '',
+            'memory_limit'            => $mem_limit_raw,
+            'memory_limit_mb'         => $mem_limit_mb,
+            'memory_usage_mb'         => $mem_usage_mb,
+            'memory_peak_mb'          => $mem_peak_mb,
+            'memory_used_pct'         => $mem_used_pct,
+            'server_mem_total_mb'     => $server_mem_total_mb,
+            'server_mem_available_mb' => $server_mem_available_mb,
+            'disk_free_mb'            => $disk_free_mb,
+            'disk_total_mb'           => $disk_total_mb,
+            'disk_used_mb'            => $disk_used_mb,
+            'disk_used_pct'           => $disk_used_pct,
+            'cpu_available'           => $cpu_available,
+            'cpu_load_1m'             => $cpu_load_1m,
+            'cpu_load_5m'             => $cpu_load_5m,
+            'cpu_load_15m'            => $cpu_load_15m,
+            'cpu_cores'               => $cpu_cores,
+            'cpu_load_pct'            => $cpu_load_pct,
         );
 
         return array(

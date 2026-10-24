@@ -259,6 +259,30 @@ export const restoreIntegrityFile = async (
   return response.data;
 };
 
+export interface ServerEnvironment {
+  php_version?: string;
+  mysql_version?: string;
+  wp_version?: string;
+  server_software?: string;
+  memory_limit?: string;
+  memory_limit_mb?: number | null;
+  memory_usage_mb?: number | null;
+  memory_peak_mb?: number | null;
+  memory_used_pct?: number | null;
+  server_mem_total_mb?: number | null;
+  server_mem_available_mb?: number | null;
+  disk_free_mb?: number | null;
+  disk_total_mb?: number | null;
+  disk_used_mb?: number | null;
+  disk_used_pct?: number | null;
+  cpu_available?: boolean;
+  cpu_load_1m?: number | null;
+  cpu_load_5m?: number | null;
+  cpu_load_15m?: number | null;
+  cpu_cores?: number;
+  cpu_load_pct?: number | null;
+}
+
 export interface DiagnosticSummaryResponse {
   status: number;
   success: boolean;
@@ -292,6 +316,7 @@ export interface DiagnosticSummaryResponse {
         pending_themes: number;
         pending_core: number;
       };
+      server_environment?: ServerEnvironment | null;
       core: {
         current_version: string;
         new_version: string;

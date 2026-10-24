@@ -42,19 +42,11 @@ import {
   IconTrash,
   IconPower,
 } from '@tabler/icons-react';
-import { api } from '../api';
+import { api, ServerEnvironment } from '../api';
 import { extractErrorMessage } from '../utils/formatError';
 import { UpgradeGateBanner } from './UpgradeGateBanner';
 
-export interface ServerEnvironment {
-  php_version?: string;
-  mysql_version?: string;
-  wp_version?: string;
-  server_software?: string;
-  memory_limit?: string;
-  disk_free_mb?: number;
-  disk_total_mb?: number;
-}
+export type { ServerEnvironment };
 
 export interface CompatibilityWarning {
   type: 'php' | 'wp_core' | 'wp_tested' | 'disk';

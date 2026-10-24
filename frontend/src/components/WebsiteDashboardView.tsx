@@ -17,6 +17,7 @@ import {
   TextInput,
   Select,
   RingProgress,
+  Progress,
   Loader,
   Center,
   Table,
@@ -54,6 +55,10 @@ import {
   IconChevronDown,
   IconNotes,
   IconAlertTriangle,
+  IconDatabase,
+  IconCpu,
+  IconServer,
+  IconActivity,
 } from '@tabler/icons-react';
 import {
   api,
@@ -1368,8 +1373,101 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
                 : Number(activeSite.logs_fatal_count ?? 0);
               const logsCheckedAt = activeSite.last_logs_checked_at;
 
+              // 5. Server Environment Metrics (Linha 2 de Cards)
+              const serverEnv = updatesInfo?.server_environment;
+
+              // Card 5: Armazenamento em Disco (HD)
+              const diskTotalMb = serverEnv?.disk_total_mb ?? null;
+              const diskFreeMb = serverEnv?.disk_free_mb ?? null;
+              const diskUsedPct = serverEnv?.disk_used_pct ?? (
+                diskTotalMb && diskFreeMb !== null && diskTotalMb > 0
+                  ? Math.round(((diskTotalMb - diskFreeMb) / diskTotalMb) * 100)
+                  : null
+              );
+              const hasDiskData = diskFreeMb !== null;
+              const diskColor = diskUsedPct !== null
+                ? (diskUsedPct >= 90 ? 'red' : diskUsedPct >= 75 ? 'yellow' : 'teal')
+                : 'gray';
+              const diskFreeText = diskFreeMb !== null
+                ? (diskFreeMb >= 1024 ? `${(diskFreeMb / 1024).toFixed(1)} GB Livres` : `${diskFreeMb} MB Livres`)
+                : 'Armazenamento';
+              const diskDescText = diskTotalMb !== null
+                ? `De um total de ${(diskTotalMb / 1024).toFixed(1)} GB (${diskUsedPct ?? 0}% em uso).`
+                : 'Informações de armazenamento do servidor web.';
+
+              // Card 6: PHP & Banco de Dados (MySQL)
+              const phpVersion = serverEnv?.php_version;
+              const mysqlVersion = serverEnv?.mysql_version;
+              const parsePhp = (ver?: string) => {
+                if (!ver) return null;
+                const m = ver.match(/^(\d+)\.(\d+)/);
+                return m ? parseFloat(`${m[1]}.${m[2]}`) : null;
+              };
+              const phpNum = parsePhp(phpVersion);
+              let phpColor = 'gray';
+              let phpBadge = 'Aguardando';
+              let phpStatusDesc = 'Versões do PHP e MySQL ativas no ambiente WordPress.';
+              if (phpNum !== null) {
+                if (phpNum >= 8.2) {
+                  phpColor = 'teal';
+                  phpBadge = 'PHP Moderno';
+                  phpStatusDesc = 'PHP com suporte ativo e patches de segurança.';
+                } else if (phpNum >= 8.0) {
+                  phpColor = 'yellow';
+                  phpBadge = 'Fim de Suporte';
+                  phpStatusDesc = 'Recomendado atualizar para PHP 8.2+ para maior estabilidade.';
+                } else {
+                  phpColor = 'red';
+                  phpBadge = 'PHP Obsoleto';
+                  phpStatusDesc = 'Versão descontinuada com vulnerabilidades conhecidas.';
+                }
+              }
+
+              // Card 7: Uso de Memória RAM (WordPress)
+              const memUsageMb = serverEnv?.memory_usage_mb ?? null;
+              const memLimit = serverEnv?.memory_limit ?? '';
+              const memPeakMb = serverEnv?.memory_peak_mb ?? null;
+              const memUsedPct = serverEnv?.memory_used_pct ?? null;
+              const hasMemData = memUsageMb !== null;
+              const ramColor = memUsedPct !== null
+                ? (memUsedPct >= 85 ? 'red' : memUsedPct >= 70 ? 'yellow' : 'teal')
+                : 'gray';
+              const ramBadge = memUsedPct !== null
+                ? (memUsedPct >= 85 ? 'Limite Próximo' : memUsedPct >= 70 ? 'Moderado' : 'Estável')
+                : 'Aguardando';
+              const ramDescText = memLimit
+                ? `Limite: ${memLimit}${memPeakMb ? ` · Pico: ${memPeakMb} MB` : ''}.`
+                : 'Consumo de memória alocado pelo processo WordPress.';
+
+              // Card 8: Carga de Processamento (CPU)
+              const cpuAvailable = serverEnv?.cpu_available ?? null;
+              const cpuLoadPct = serverEnv?.cpu_load_pct ?? null;
+              const cpuLoad1m = serverEnv?.cpu_load_1m ?? null;
+              const cpuLoad5m = serverEnv?.cpu_load_5m ?? null;
+              const cpuCores = serverEnv?.cpu_cores ?? 1;
+              let cpuColor = 'gray';
+              let cpuBadge = 'Aguardando';
+              let cpuDescText = 'Média de processamento do servidor web.';
+              if (cpuAvailable === false) {
+                cpuBadge = 'Compartilhada';
+                cpuDescText = 'Métrica restrita pelo provedor de hospedagem.';
+              } else if (cpuLoadPct !== null) {
+                if (cpuLoadPct >= 85) {
+                  cpuColor = 'red';
+                  cpuBadge = 'Sobrecarga';
+                } else if (cpuLoadPct >= 60) {
+                  cpuColor = 'yellow';
+                  cpuBadge = 'Carga Elevada';
+                } else {
+                  cpuColor = 'teal';
+                  cpuBadge = 'Normal';
+                }
+                cpuDescText = `Load: 1m: ${cpuLoad1m ?? '—'}, 5m: ${cpuLoad5m ?? '—'} (${cpuCores} Core${cpuCores > 1 ? 's' : ''}).`;
+              }
+
               return (
-                <Grid>
+                <>
+                  <Grid>
                   {/* Card 1: Status da Conexão */}
                   <Grid.Col span={{ base: 12, sm: 6, lg: 3 }}>
                     <Card
@@ -1660,8 +1758,240 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
                     </Card>
                   </Grid.Col>
                 </Grid>
-              );
-            })()}
+
+                {/* Linha 2 de Cards: Saúde do Servidor (HD, PHP/MySQL, RAM, CPU) */}
+                <Grid mt="md">
+                  {/* Card 5: Armazenamento em Disco */}
+                  <Grid.Col span={{ base: 12, sm: 6, lg: 3 }}>
+                    <Card
+                      padding="md"
+                      radius="md"
+                      withBorder
+                      bg="dark.7"
+                      h="100%"
+                      style={{ display: 'flex', flexDirection: 'column' }}
+                    >
+                      <Group justify="space-between" mb="xs">
+                        <Text size="xs" fw={700} c="dimmed" tt="uppercase" lineClamp={1}>
+                          Armazenamento (Disco)
+                        </Text>
+                        <ThemeIcon color={diskColor} variant="light" radius="xl" size="md">
+                          <IconDatabase size={18} />
+                        </ThemeIcon>
+                      </Group>
+
+                      <Box style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                        <Group justify="space-between" align="center" gap="xs" mb={4} wrap="nowrap">
+                          <Text fw={700} size="sm" lineClamp={1}>
+                            {diskFreeText}
+                          </Text>
+                          <Badge
+                            size="xs"
+                            variant="light"
+                            color={diskColor}
+                            style={{ flexShrink: 0 }}
+                          >
+                            {hasDiskData ? (diskUsedPct !== null && diskUsedPct >= 90 ? 'Crítico' : diskUsedPct !== null && diskUsedPct >= 75 ? 'Espaço Baixo' : 'Saudável') : 'Sem Dados'}
+                          </Badge>
+                        </Group>
+                        <Text size="xs" c="dimmed" lineClamp={2} style={{ minHeight: 34 }} mb={4}>
+                          {diskDescText}
+                        </Text>
+                        <Progress value={diskUsedPct ?? 0} color={diskColor} size="sm" radius="xl" mb={6} />
+                        <Text size="10px" c="dimmed" style={{ minHeight: 16 }} mb="xs">
+                          {hasUpdatesData && updatesCheckedAt ? `Medição: ${formatDateTime(updatesCheckedAt)}` : hasDiskData ? 'Medição recente' : ' '}
+                        </Text>
+                      </Box>
+
+                      <Button
+                        variant="light"
+                        color={diskColor === 'gray' ? 'teal' : diskColor}
+                        size="xs"
+                        fullWidth
+                        leftSection={<IconDatabase size={14} />}
+                        onClick={() => setActiveTab('updates')}
+                        mt="auto"
+                      >
+                        Ver Detalhes do Disco
+                      </Button>
+                    </Card>
+                  </Grid.Col>
+
+                  {/* Card 6: PHP & Banco de Dados */}
+                  <Grid.Col span={{ base: 12, sm: 6, lg: 3 }}>
+                    <Card
+                      padding="md"
+                      radius="md"
+                      withBorder
+                      bg="dark.7"
+                      h="100%"
+                      style={{ display: 'flex', flexDirection: 'column' }}
+                    >
+                      <Group justify="space-between" mb="xs">
+                        <Text size="xs" fw={700} c="dimmed" tt="uppercase" lineClamp={1}>
+                          PHP & Banco de Dados
+                        </Text>
+                        <ThemeIcon color={phpColor} variant="light" radius="xl" size="md">
+                          <IconServer size={18} />
+                        </ThemeIcon>
+                      </Group>
+
+                      <Box style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                        <Group justify="space-between" align="center" gap="xs" mb={4} wrap="nowrap">
+                          <Text fw={700} size="sm" lineClamp={1}>
+                            {phpVersion ? `PHP ${phpVersion}` : 'Versões do Servidor'}
+                          </Text>
+                          <Badge
+                            size="xs"
+                            variant="light"
+                            color={phpColor}
+                            style={{ flexShrink: 0 }}
+                          >
+                            {phpBadge}
+                          </Badge>
+                        </Group>
+                        <Text size="xs" c="dimmed" lineClamp={2} style={{ minHeight: 34 }} mb={4}>
+                          {mysqlVersion ? `MySQL/MariaDB ${mysqlVersion}. ${phpStatusDesc}` : phpStatusDesc}
+                        </Text>
+                        <Progress value={phpNum && phpNum >= 8.2 ? 100 : phpNum && phpNum >= 8.0 ? 65 : 30} color={phpColor} size="sm" radius="xl" mb={6} />
+                        <Text size="10px" c="dimmed" style={{ minHeight: 16 }} mb="xs">
+                          {hasUpdatesData && updatesCheckedAt ? `Medição: ${formatDateTime(updatesCheckedAt)}` : phpVersion ? 'Medição recente' : ' '}
+                        </Text>
+                      </Box>
+
+                      <Button
+                        variant="light"
+                        color={phpColor === 'gray' ? 'teal' : phpColor}
+                        size="xs"
+                        fullWidth
+                        leftSection={<IconServer size={14} />}
+                        onClick={() => setActiveTab('updates')}
+                        mt="auto"
+                      >
+                        Ver Requisitos
+                      </Button>
+                    </Card>
+                  </Grid.Col>
+
+                  {/* Card 7: Memória RAM (WordPress) */}
+                  <Grid.Col span={{ base: 12, sm: 6, lg: 3 }}>
+                    <Card
+                      padding="md"
+                      radius="md"
+                      withBorder
+                      bg="dark.7"
+                      h="100%"
+                      style={{ display: 'flex', flexDirection: 'column' }}
+                    >
+                      <Group justify="space-between" mb="xs">
+                        <Text size="xs" fw={700} c="dimmed" tt="uppercase" lineClamp={1}>
+                          Memória RAM (WordPress)
+                        </Text>
+                        <ThemeIcon color={ramColor} variant="light" radius="xl" size="md">
+                          <IconCpu size={18} />
+                        </ThemeIcon>
+                      </Group>
+
+                      <Box style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                        <Group justify="space-between" align="center" gap="xs" mb={4} wrap="nowrap">
+                          <Text fw={700} size="sm" lineClamp={1}>
+                            {hasMemData ? `${memUsageMb} MB em Uso` : 'Consumo de Memória'}
+                          </Text>
+                          <Badge
+                            size="xs"
+                            variant="light"
+                            color={ramColor}
+                            style={{ flexShrink: 0 }}
+                          >
+                            {ramBadge}
+                          </Badge>
+                        </Group>
+                        <Text size="xs" c="dimmed" lineClamp={2} style={{ minHeight: 34 }} mb={4}>
+                          {ramDescText}
+                        </Text>
+                        <Progress value={memUsedPct ?? 0} color={ramColor} size="sm" radius="xl" mb={6} />
+                        <Text size="10px" c="dimmed" style={{ minHeight: 16 }} mb="xs">
+                          {hasUpdatesData && updatesCheckedAt ? `Medição: ${formatDateTime(updatesCheckedAt)}` : hasMemData ? 'Medição recente' : ' '}
+                        </Text>
+                      </Box>
+
+                      <Button
+                        variant="light"
+                        color={ramColor === 'gray' ? 'teal' : ramColor}
+                        size="xs"
+                        fullWidth
+                        leftSection={<IconCpu size={14} />}
+                        onClick={() => setActiveTab('updates')}
+                        mt="auto"
+                      >
+                        Ver Diagnóstico
+                      </Button>
+                    </Card>
+                  </Grid.Col>
+
+                  {/* Card 8: Carga da CPU */}
+                  <Grid.Col span={{ base: 12, sm: 6, lg: 3 }}>
+                    <Card
+                      padding="md"
+                      radius="md"
+                      withBorder
+                      bg="dark.7"
+                      h="100%"
+                      style={{ display: 'flex', flexDirection: 'column' }}
+                    >
+                      <Group justify="space-between" mb="xs">
+                        <Text size="xs" fw={700} c="dimmed" tt="uppercase" lineClamp={1}>
+                          Carga da CPU
+                        </Text>
+                        <ThemeIcon color={cpuColor} variant="light" radius="xl" size="md">
+                          <IconActivity size={18} />
+                        </ThemeIcon>
+                      </Group>
+
+                      <Box style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                        <Group justify="space-between" align="center" gap="xs" mb={4} wrap="nowrap">
+                          <Text fw={700} size="sm" lineClamp={1}>
+                            {cpuAvailable && cpuLoadPct !== null
+                              ? `${cpuLoadPct}% de Carga`
+                              : cpuAvailable === false
+                              ? 'Hospedagem Compartilhada'
+                              : 'Processamento (CPU)'}
+                          </Text>
+                          <Badge
+                            size="xs"
+                            variant="light"
+                            color={cpuColor}
+                            style={{ flexShrink: 0 }}
+                          >
+                            {cpuBadge}
+                          </Badge>
+                        </Group>
+                        <Text size="xs" c="dimmed" lineClamp={2} style={{ minHeight: 34 }} mb={4}>
+                          {cpuDescText}
+                        </Text>
+                        <Progress value={cpuAvailable && cpuLoadPct !== null ? cpuLoadPct : 0} color={cpuColor} size="sm" radius="xl" mb={6} />
+                        <Text size="10px" c="dimmed" style={{ minHeight: 16 }} mb="xs">
+                          {hasUpdatesData && updatesCheckedAt ? `Medição: ${formatDateTime(updatesCheckedAt)}` : cpuAvailable ? 'Medição recente' : ' '}
+                        </Text>
+                      </Box>
+
+                      <Button
+                        variant="light"
+                        color={cpuColor === 'gray' ? 'teal' : cpuColor}
+                        size="xs"
+                        fullWidth
+                        leftSection={<IconActivity size={14} />}
+                        onClick={() => setActiveTab('updates')}
+                        mt="auto"
+                      >
+                        Ver Métricas
+                      </Button>
+                    </Card>
+                  </Grid.Col>
+                </Grid>
+              </>
+            );
+          })()}
           </Stack>
         </Tabs.Panel>
 

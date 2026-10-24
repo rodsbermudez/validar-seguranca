@@ -2257,10 +2257,11 @@ class Websites extends ResourceController
             $cachedUpdates = json_decode($website['updates_summary_json'], true);
             if (!empty($cachedUpdates) && is_array($cachedUpdates)) {
                 $updatesData = [
-                    'summary' => $cachedUpdates['summary'] ?? (isset($cachedUpdates['total_pending']) ? $cachedUpdates : []),
-                    'core'    => $cachedUpdates['core'] ?? ['current_version' => '', 'new_version' => '', 'has_update' => false],
-                    'plugins' => $cachedUpdates['plugins'] ?? [],
-                    'themes'  => $cachedUpdates['themes'] ?? [],
+                    'summary'            => $cachedUpdates['summary'] ?? (isset($cachedUpdates['total_pending']) ? $cachedUpdates : []),
+                    'server_environment' => $cachedUpdates['server_environment'] ?? null,
+                    'core'               => $cachedUpdates['core'] ?? ['current_version' => '', 'new_version' => '', 'has_update' => false],
+                    'plugins'            => $cachedUpdates['plugins'] ?? [],
+                    'themes'             => $cachedUpdates['themes'] ?? [],
                 ];
             }
         }
@@ -2440,10 +2441,11 @@ class Websites extends ResourceController
             $cachedUpdates = json_decode($website['updates_summary_json'], true);
             if (!empty($cachedUpdates) && is_array($cachedUpdates)) {
                 $updatesData = [
-                    'summary' => $cachedUpdates['summary'] ?? (isset($cachedUpdates['total_pending']) ? $cachedUpdates : []),
-                    'core'    => $cachedUpdates['core'] ?? ['current_version' => '', 'new_version' => '', 'has_update' => false],
-                    'plugins' => $cachedUpdates['plugins'] ?? [],
-                    'themes'  => $cachedUpdates['themes'] ?? [],
+                    'summary'            => $cachedUpdates['summary'] ?? (isset($cachedUpdates['total_pending']) ? $cachedUpdates : []),
+                    'server_environment' => $cachedUpdates['server_environment'] ?? null,
+                    'core'               => $cachedUpdates['core'] ?? ['current_version' => '', 'new_version' => '', 'has_update' => false],
+                    'plugins'            => $cachedUpdates['plugins'] ?? [],
+                    'themes'             => $cachedUpdates['themes'] ?? [],
                 ];
             }
         }
