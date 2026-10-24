@@ -176,6 +176,43 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
           if (logoEl) {
             logoEl.style.display = 'block';
           }
+
+          // Previne bug de corte de texto e variáveis CSS não resolvidas nos badges Mantine durante captura html2canvas
+          const badges = clonedDoc.querySelectorAll<HTMLElement>('.mantine-Badge-root');
+          badges.forEach((badge) => {
+            badge.style.display = 'inline-flex';
+            badge.style.alignItems = 'center';
+            badge.style.justifyContent = 'center';
+            badge.style.overflow = 'visible';
+
+            const comp = window.getComputedStyle(badge);
+            if (comp.backgroundColor && comp.backgroundColor !== 'transparent' && comp.backgroundColor !== 'rgba(0, 0, 0, 0)') {
+              badge.style.backgroundColor = comp.backgroundColor;
+            }
+            if (comp.color) {
+              badge.style.color = comp.color;
+            }
+
+            const label = badge.querySelector<HTMLElement>('.mantine-Badge-label');
+            if (label) {
+              label.style.overflow = 'visible';
+              label.style.textOverflow = 'clip';
+              label.style.whiteSpace = 'nowrap';
+              label.style.display = 'inline-block';
+              const compLabel = window.getComputedStyle(label);
+              if (compLabel.color) {
+                label.style.color = compLabel.color;
+              }
+            }
+
+            const svgs = badge.querySelectorAll<SVGElement>('svg');
+            svgs.forEach((svg) => {
+              const compSvg = window.getComputedStyle(svg);
+              if (compSvg.stroke && compSvg.stroke !== 'none') {
+                svg.style.stroke = compSvg.stroke;
+              }
+            });
+          });
         },
       });
 
@@ -483,6 +520,20 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
             size: A4;
             margin: 15mm 12mm 15mm 12mm;
           }
+        }
+        .mantine-Badge-root {
+          overflow: visible !important;
+          display: inline-flex !important;
+          align-items: center !important;
+        }
+        .mantine-Badge-label {
+          overflow: visible !important;
+          text-overflow: clip !important;
+          white-space: nowrap !important;
+        }
+        .mantine-Badge-section {
+          display: inline-flex !important;
+          align-items: center !important;
         }
       `}</style>
 
@@ -908,7 +959,16 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
                         {allScanChecks.filter((c) => c.status === 'PASS').length} Resolvidos
                       </Badge>
                       {allScanChecks.filter((c) => c.status !== 'PASS').length > 0 && (
-                        <Badge size="xs" color="red" variant="filled" leftSection={<IconAlertTriangle size={10} />}>
+                        <Badge
+                          size="xs"
+                          color="red"
+                          variant="filled"
+                          leftSection={<IconAlertTriangle size={11} color="#ffffff" />}
+                          styles={{
+                            root: { backgroundColor: '#e03131', color: '#ffffff', overflow: 'visible', display: 'inline-flex', alignItems: 'center' },
+                            label: { color: '#ffffff', overflow: 'visible', textOverflow: 'clip', whiteSpace: 'nowrap', fontWeight: 700 },
+                          }}
+                        >
                           {allScanChecks.filter((c) => c.status !== 'PASS').length} Pendentes
                         </Badge>
                       )}
@@ -950,6 +1010,10 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
                                     color="green"
                                     variant="light"
                                     leftSection={<IconCheck size={10} />}
+                                    styles={{
+                                      root: { overflow: 'visible', display: 'inline-flex', alignItems: 'center' },
+                                      label: { overflow: 'visible', textOverflow: 'clip', whiteSpace: 'nowrap' },
+                                    }}
                                   >
                                     Resolvido
                                   </Badge>
@@ -958,7 +1022,11 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
                                     size="xs"
                                     color="red"
                                     variant="filled"
-                                    leftSection={<IconAlertCircle size={10} />}
+                                    leftSection={<IconAlertCircle size={11} color="#ffffff" />}
+                                    styles={{
+                                      root: { backgroundColor: '#e03131', color: '#ffffff', overflow: 'visible', display: 'inline-flex', alignItems: 'center' },
+                                      label: { color: '#ffffff', overflow: 'visible', textOverflow: 'clip', whiteSpace: 'nowrap', fontWeight: 700 },
+                                    }}
                                   >
                                     Pendente (Falha)
                                   </Badge>
@@ -967,7 +1035,11 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
                                     size="xs"
                                     color="yellow"
                                     variant="filled"
-                                    leftSection={<IconAlertTriangle size={10} />}
+                                    leftSection={<IconAlertTriangle size={11} color="#ffffff" />}
+                                    styles={{
+                                      root: { backgroundColor: '#f59f00', color: '#ffffff', overflow: 'visible', display: 'inline-flex', alignItems: 'center' },
+                                      label: { color: '#ffffff', overflow: 'visible', textOverflow: 'clip', whiteSpace: 'nowrap', fontWeight: 700 },
+                                    }}
                                   >
                                     Pendente (Alerta)
                                   </Badge>
@@ -1636,7 +1708,15 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
                               WordPress Core (Núcleo da Aplicação)
                             </Text>
                             {coreHasUpdate && (
-                              <Badge color="orange" size="xs" variant="filled">
+                              <Badge
+                                color="orange"
+                                size="xs"
+                                variant="filled"
+                                styles={{
+                                  root: { backgroundColor: '#e8590c', color: '#ffffff', overflow: 'visible', display: 'inline-flex', alignItems: 'center' },
+                                  label: { color: '#ffffff', overflow: 'visible', textOverflow: 'clip', whiteSpace: 'nowrap', fontWeight: 700 },
+                                }}
+                              >
                                 AÇÃO REQUERIDA
                               </Badge>
                             )}
@@ -1669,7 +1749,15 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
                           {upToDatePlugins.length} Atualizados
                         </Badge>
                         {pendingPlugins.length > 0 && (
-                          <Badge size="xs" color="orange" variant="filled">
+                          <Badge
+                            size="xs"
+                            color="orange"
+                            variant="filled"
+                            styles={{
+                              root: { backgroundColor: '#e8590c', color: '#ffffff', overflow: 'visible', display: 'inline-flex', alignItems: 'center' },
+                              label: { color: '#ffffff', overflow: 'visible', textOverflow: 'clip', whiteSpace: 'nowrap', fontWeight: 700 },
+                            }}
+                          >
                             {pendingPlugins.length} Requerem Atualização
                           </Badge>
                         )}
@@ -1680,7 +1768,7 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
                       <Table striped highlightOnHover withTableBorder style={{ fontSize: 12 }}>
                         <Table.Thead>
                           <Table.Tr>
-                            <Table.Th style={{ width: 180 }}>Status de Atualização</Table.Th>
+                            <Table.Th style={{ width: 190 }}>Status de Atualização</Table.Th>
                             <Table.Th>Plugin / Extensão</Table.Th>
                             <Table.Th style={{ width: 110 }}>Versão Atual</Table.Th>
                             <Table.Th style={{ width: 140 }}>Versão Mais Recente</Table.Th>
@@ -1703,7 +1791,23 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
                                     size="xs"
                                     color="orange"
                                     variant="filled"
-                                    leftSection={<IconAlertTriangle size={10} />}
+                                    leftSection={<IconAlertTriangle size={11} color="#ffffff" />}
+                                    styles={{
+                                      root: {
+                                        backgroundColor: '#e8590c',
+                                        color: '#ffffff',
+                                        overflow: 'visible',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                      },
+                                      label: {
+                                        color: '#ffffff',
+                                        overflow: 'visible',
+                                        textOverflow: 'clip',
+                                        whiteSpace: 'nowrap',
+                                        fontWeight: 700,
+                                      },
+                                    }}
                                   >
                                     Atualização Disponível
                                   </Badge>
@@ -1712,7 +1816,11 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
                                     size="xs"
                                     color="green"
                                     variant="light"
-                                    leftSection={<IconCheck size={10} />}
+                                    leftSection={<IconCheck size={11} />}
+                                    styles={{
+                                      root: { overflow: 'visible', display: 'inline-flex', alignItems: 'center' },
+                                      label: { overflow: 'visible', textOverflow: 'clip', whiteSpace: 'nowrap' },
+                                    }}
                                   >
                                     Atualizado
                                   </Badge>
@@ -1781,7 +1889,15 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
                           {upToDateThemes.length} Atualizados
                         </Badge>
                         {pendingThemes.length > 0 && (
-                          <Badge size="xs" color="orange" variant="filled">
+                          <Badge
+                            size="xs"
+                            color="orange"
+                            variant="filled"
+                            styles={{
+                              root: { backgroundColor: '#e8590c', color: '#ffffff', overflow: 'visible', display: 'inline-flex', alignItems: 'center' },
+                              label: { color: '#ffffff', overflow: 'visible', textOverflow: 'clip', whiteSpace: 'nowrap', fontWeight: 700 },
+                            }}
+                          >
                             {pendingThemes.length} Requerem Atualização
                           </Badge>
                         )}
@@ -1792,7 +1908,7 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
                       <Table striped highlightOnHover withTableBorder style={{ fontSize: 12 }}>
                         <Table.Thead>
                           <Table.Tr>
-                            <Table.Th style={{ width: 180 }}>Status de Atualização</Table.Th>
+                            <Table.Th style={{ width: 190 }}>Status de Atualização</Table.Th>
                             <Table.Th>Tema</Table.Th>
                             <Table.Th style={{ width: 110 }}>Versão Atual</Table.Th>
                             <Table.Th style={{ width: 140 }}>Versão Mais Recente</Table.Th>
@@ -1815,7 +1931,23 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
                                     size="xs"
                                     color="orange"
                                     variant="filled"
-                                    leftSection={<IconAlertTriangle size={10} />}
+                                    leftSection={<IconAlertTriangle size={11} color="#ffffff" />}
+                                    styles={{
+                                      root: {
+                                        backgroundColor: '#e8590c',
+                                        color: '#ffffff',
+                                        overflow: 'visible',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                      },
+                                      label: {
+                                        color: '#ffffff',
+                                        overflow: 'visible',
+                                        textOverflow: 'clip',
+                                        whiteSpace: 'nowrap',
+                                        fontWeight: 700,
+                                      },
+                                    }}
                                   >
                                     Atualização Disponível
                                   </Badge>
@@ -1824,7 +1956,11 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
                                     size="xs"
                                     color="green"
                                     variant="light"
-                                    leftSection={<IconCheck size={10} />}
+                                    leftSection={<IconCheck size={11} />}
+                                    styles={{
+                                      root: { overflow: 'visible', display: 'inline-flex', alignItems: 'center' },
+                                      label: { overflow: 'visible', textOverflow: 'clip', whiteSpace: 'nowrap' },
+                                    }}
                                   >
                                     Atualizado
                                   </Badge>

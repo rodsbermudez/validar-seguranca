@@ -805,17 +805,7 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
               </Tooltip>
             )}
 
-            {isConnected ? (
-              <Button
-                variant="light"
-                color="red"
-                size="sm"
-                leftSection={<IconPlugConnectedX size={16} />}
-                onClick={() => setKillModalOpen(true)}
-              >
-                Desligar Serviço
-              </Button>
-            ) : (
+            {!isConnected && (
               <Button
                 variant="filled"
                 color="teal"
@@ -923,7 +913,7 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
                     color="red"
                     onClick={() => setKillModalOpen(true)}
                   >
-                    Desligar Serviço (Kill Switch)
+                    Desconectar plugin
                   </Menu.Item>
                 ) : (
                   <Menu.Item
@@ -2157,7 +2147,7 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
                             leftSection={<IconPlugConnectedX size={14} />}
                             onClick={() => setKillModalOpen(true)}
                           >
-                            Desligar Serviço (Kill Switch)
+                            Desconectar plugin
                           </Button>
                         ) : (
                           <Button
@@ -2644,7 +2634,7 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
               <IconPlugConnectedX size={14} />
             </ThemeIcon>
             <Text fw={700} size="sm">
-              Desligar Serviço do Site (Kill Switch)
+              Desconectar Plugin do Site
             </Text>
           </Group>
         }
@@ -2691,7 +2681,7 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
               loading={disconnecting}
               onClick={handleDisconnect}
             >
-              Desligar Serviço Agora
+              Desconectar Plugin Agora
             </Button>
           </Group>
         </Stack>
