@@ -247,6 +247,54 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
   const rawScanDate = latestScan?.scanned_at || latestScan?.executed_at;
   const formattedScanDate = formatDateTime(rawScanDate, 'DATA N/D');
 
+  // Checagens detalhadas da varredura de segurança
+  const allScanChecks: Array<{
+    id: string;
+    name: string;
+    description?: string;
+    status: 'PASS' | 'FAIL' | 'WARN' | string;
+    severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | string;
+    details?: string;
+    category_name?: string;
+  }> = [];
+
+  if (latestScan?.categories && typeof latestScan.categories === 'object') {
+    Object.values(latestScan.categories).forEach((cat: any) => {
+      if (cat?.checks && Array.isArray(cat.checks)) {
+        cat.checks.forEach((chk: any) => {
+          allScanChecks.push({
+            ...chk,
+            category_name: cat.category_name || 'Geral',
+          });
+        });
+      }
+    });
+  } else if (Array.isArray(latestScan?.checks)) {
+    latestScan.checks.forEach((chk: any) => {
+      allScanChecks.push(chk);
+    });
+  }
+
+  const severityWeight: Record<string, number> = {
+    CRITICAL: 4,
+    HIGH: 3,
+    MEDIUM: 2,
+    LOW: 1,
+  };
+
+  const sortedScanChecks = [...allScanChecks].sort((a, b) => {
+    const isPendingA = a.status === 'FAIL' || a.status === 'WARN';
+    const isPendingB = b.status === 'FAIL' || b.status === 'WARN';
+    if (isPendingA && !isPendingB) return -1;
+    if (!isPendingA && isPendingB) return 1;
+
+    const sevA = severityWeight[a.severity?.toUpperCase()] || 0;
+    const sevB = severityWeight[b.severity?.toUpperCase()] || 0;
+    if (sevA !== sevB) return sevB - sevA;
+
+    return (a.name || '').localeCompare(b.name || '');
+  });
+
   // Métricas de Infraestrutura & Recursos do Servidor
   // 1. Armazenamento em Disco (HD)
   const diskTotalMb = serverEnv?.disk_total_mb ?? null;
@@ -693,7 +741,8 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
               </Group>
 
               {latestScan ? (
-                <Grid align="center" mt="xs">
+                <>
+                  <Grid align="center" mt="xs">
                   <Grid.Col span={{ base: 12, md: 4 }}>
                     <Group justify="center">
                       <RingProgress
@@ -797,7 +846,150 @@ export const WebsiteDiagnosticReportView: React.FC<WebsiteDiagnosticReportViewPr
                     </Stack>
                   </Grid.Col>
                 </Grid>
-              ) : (
+
+                <Divider my="md" style={{ borderColor: '#373A40' }} />
+
+                {/* Tabela Detalhada de Itens Checados e Status (Resolvido vs Pendente) */}
+                <Box mt="md">
+                  <Group justify="space-between" align="center" mb="sm" wrap="wrap" gap="xs">
+                    <div>
+                      <Text size="xs" fw={700} c="dimmed" tt="uppercase" className="print-text-muted">
+                        Itens de Segurança Checados ({allScanChecks.length})
+                      </Text>
+                      <Text size="11px" c="dimmed" className="print-text-muted">
+                        Status de conformidade detalhado de cada teste de segurança e auditoria executado
+                      </Text>
+                    </div>
+
+                    <Group gap="xs">
+                      <Badge size="xs" color="green" variant="light" leftSection={<IconCheck size={10} />}>
+                        {allScanChecks.filter((c) => c.status === 'PASS').length} Resolvidos
+                      </Badge>
+                      {allScanChecks.filter((c) => c.status !== 'PASS').length > 0 && (
+                        <Badge size="xs" color="red" variant="filled" leftSection={<IconAlertTriangle size={10} />}>
+                          {allScanChecks.filter((c) => c.status !== 'PASS').length} Pendentes
+                        </Badge>
+                      )}
+                    </Group>
+                  </Group>
+
+                  {sortedScanChecks.length > 0 ? (
+                    <Table striped highlightOnHover withTableBorder style={{ fontSize: 12 }}>
+                      <Table.Thead>
+                        <Table.Tr>
+                          <Table.Th style={{ width: 180 }}>Status</Table.Th>
+                          <Table.Th>Item Avaliado / Checagem</Table.Th>
+                          <Table.Th style={{ width: 110 }}>Severidade</Table.Th>
+                          <Table.Th>Diagnóstico / Detalhes</Table.Th>
+                        </Table.Tr>
+                      </Table.Thead>
+                      <Table.Tbody>
+                        {sortedScanChecks.map((chk, idx) => {
+                          const isPass = chk.status === 'PASS';
+                          const isFail = chk.status === 'FAIL';
+                          const isWarn = chk.status === 'WARN';
+                          const sev = (chk.severity || 'LOW').toUpperCase();
+
+                          return (
+                            <Table.Tr
+                              key={`chk-${chk.id || idx}`}
+                              style={
+                                isFail
+                                  ? { backgroundColor: 'rgba(224, 49, 49, 0.08)' }
+                                  : isWarn
+                                  ? { backgroundColor: 'rgba(245, 159, 0, 0.08)' }
+                                  : undefined
+                              }
+                            >
+                              <Table.Td>
+                                {isPass ? (
+                                  <Badge
+                                    size="xs"
+                                    color="green"
+                                    variant="light"
+                                    leftSection={<IconCheck size={10} />}
+                                  >
+                                    Resolvido
+                                  </Badge>
+                                ) : isFail ? (
+                                  <Badge
+                                    size="xs"
+                                    color="red"
+                                    variant="filled"
+                                    leftSection={<IconAlertCircle size={10} />}
+                                  >
+                                    Pendente (Falha)
+                                  </Badge>
+                                ) : (
+                                  <Badge
+                                    size="xs"
+                                    color="yellow"
+                                    variant="filled"
+                                    leftSection={<IconAlertTriangle size={10} />}
+                                  >
+                                    Pendente (Alerta)
+                                  </Badge>
+                                )}
+                              </Table.Td>
+
+                              <Table.Td>
+                                <Text size="xs" fw={!isPass ? 700 : 500}>
+                                  {chk.name}
+                                </Text>
+                                {chk.category_name && (
+                                  <Text size="10px" c="dimmed">
+                                    {chk.category_name}
+                                  </Text>
+                                )}
+                                {chk.description && (
+                                  <Text size="11px" c="dimmed" mt={2} className="print-text-muted">
+                                    {chk.description}
+                                  </Text>
+                                )}
+                              </Table.Td>
+
+                              <Table.Td>
+                                <Badge
+                                  size="xs"
+                                  color={
+                                    sev === 'CRITICAL'
+                                      ? 'red'
+                                      : sev === 'HIGH'
+                                      ? 'orange'
+                                      : sev === 'MEDIUM'
+                                      ? 'yellow'
+                                      : 'blue'
+                                  }
+                                  variant="light"
+                                >
+                                  {sev}
+                                </Badge>
+                              </Table.Td>
+
+                              <Table.Td>
+                                <Text
+                                  size="xs"
+                                  c={isFail ? 'red.4' : isWarn ? 'yellow.4' : 'dimmed'}
+                                  fw={!isPass ? 600 : 400}
+                                  className={isPass ? 'print-text-muted' : undefined}
+                                  style={{ wordBreak: 'break-word' }}
+                                >
+                                  {chk.details || '—'}
+                                </Text>
+                              </Table.Td>
+                            </Table.Tr>
+                          );
+                        })}
+                      </Table.Tbody>
+                    </Table>
+                  ) : (
+                    <Text size="xs" c="dimmed">
+                      Nenhuma checagem individual detalhada encontrada nesta varredura.
+                    </Text>
+                  )}
+                </Box>
+              </>
+            ) : (
                 <Alert icon={<IconAlertTriangle size={16} />} color="yellow" variant="light">
                   Nenhuma varredura de auditoria foi executada para este site ainda.
                 </Alert>
