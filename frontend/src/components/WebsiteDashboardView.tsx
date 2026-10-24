@@ -59,6 +59,7 @@ import {
   IconCpu,
   IconServer,
   IconActivity,
+  IconHelpCircle,
 } from '@tabler/icons-react';
 import {
   api,
@@ -81,6 +82,9 @@ import {
   reconnectWebsiteAgent,
 } from '../api';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
+import { useOnboarding } from '../hooks/useOnboarding';
+import { WebsiteOnboardingModal } from './onboarding/WebsiteOnboardingModal';
+import { ToolIntroModal, ToolIntroKey } from './onboarding/ToolIntroModal';
 import { ScanReport } from './ScanReport';
 import { WebsiteLogsView } from './WebsiteLogsView';
 import { WebsiteUpdatesView, UpdatesSummary, UpdatesData } from './WebsiteUpdatesView';
@@ -160,6 +164,92 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
   }, [website]);
 
   const isConnected = Number(currentWebsite.is_connected) === 1;
+
+  // Onboarding & FTUE (First-Time User Experience)
+  const currentUserId = (() => {
+    try {
+      const stored = localStorage.getItem('user');
+      return stored ? JSON.parse(stored)?.id : undefined;
+    } catch {
+      return undefined;
+    }
+  })();
+
+  const {
+    shouldShowInitialTour,
+    markInitialTourCompleted,
+    shouldShowToolIntro,
+    markToolAsSeen,
+  } = useOnboarding(currentUserId);
+
+  const [onboardingOpen, setOnboardingOpen] = useState<boolean>(false);
+  const [activeToolIntro, setActiveToolIntro] = useState<ToolIntroKey | null>(null);
+  const [toolIntroOpened, setToolIntroOpened] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (shouldShowInitialTour(website.id, isConnected)) {
+      setOnboardingOpen(true);
+    }
+  }, [website.id, isConnected, shouldShowInitialTour]);
+
+  useEffect(() => {
+    if (onboardingOpen) return;
+
+    if (viewingDiagnostic) {
+      if (shouldShowToolIntro('diagnostic_report')) {
+        setActiveToolIntro('diagnostic_report');
+        setToolIntroOpened(true);
+      }
+      return;
+    }
+
+    const validTools: Record<string, ToolIntroKey> = {
+      overview: 'overview',
+      audit: 'audit',
+      updates: 'updates',
+      integrity: 'integrity',
+      activity_logs: 'activity_logs',
+      logs: 'logs',
+    };
+
+    if (activeTab && validTools[activeTab]) {
+      const toolKey = validTools[activeTab];
+      if (shouldShowToolIntro(toolKey)) {
+        setActiveToolIntro(toolKey);
+        setToolIntroOpened(true);
+      }
+    }
+  }, [activeTab, viewingDiagnostic, onboardingOpen, shouldShowToolIntro]);
+
+  const handleCloseOnboarding = () => {
+    setOnboardingOpen(false);
+    markInitialTourCompleted(website.id);
+  };
+
+  const handleCloseToolIntro = () => {
+    if (activeToolIntro) {
+      markToolAsSeen(activeToolIntro);
+    }
+    setToolIntroOpened(false);
+  };
+
+  const handleToolPrimaryAction = () => {
+    if (!activeToolIntro) return;
+    const tool = activeToolIntro;
+    handleCloseToolIntro();
+
+    if (tool === 'audit') {
+      setActiveTab('audit');
+    } else if (tool === 'updates') {
+      setActiveTab('updates');
+    } else if (tool === 'integrity') {
+      setActiveTab('integrity');
+    } else if (tool === 'activity_logs') {
+      setActiveTab('activity_logs');
+    } else if (tool === 'logs') {
+      setActiveTab('logs');
+    }
+  };
 
   // Latest Audit State
   const [latestScan, setLatestScan] = useState<any | null>(null);
@@ -967,6 +1057,24 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
                 )}
               </Menu.Dropdown>
             </Menu>
+
+            {/* Botão de Ajuda Contextual da Tela */}
+            <Tooltip label="Como funciona esta tela?">
+              <ActionIcon
+                variant="light"
+                color="indigo"
+                size="input-sm"
+                onClick={() => {
+                  const toolKey = viewingDiagnostic
+                    ? 'diagnostic_report'
+                    : (activeTab as ToolIntroKey) || 'overview';
+                  setActiveToolIntro(toolKey);
+                  setToolIntroOpened(true);
+                }}
+              >
+                <IconHelpCircle size={18} />
+              </ActionIcon>
+            </Tooltip>
           </Group>
         </Group>
       </Paper>
@@ -1009,6 +1117,15 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
                     </Text>
                   </Box>
                   <Group gap="xs">
+                    <Button
+                      variant="light"
+                      color="blue"
+                      size="sm"
+                      leftSection={<IconHelpCircle size={16} />}
+                      onClick={() => setOnboardingOpen(true)}
+                    >
+                      Guia de Conexão
+                    </Button>
                     <Button
                       color="teal"
                       size="sm"
@@ -2765,6 +2882,27 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
           </Group>
         </Stack>
       </Modal>
+
+      {/* Modal de Onboarding / Conexão Inicial do Site */}
+      <WebsiteOnboardingModal
+        opened={onboardingOpen}
+        website={currentWebsite}
+        isConnected={isConnected}
+        reconnecting={reconnecting}
+        downloading={downloading}
+        onDownloadPlugin={handleDownloadPlugin}
+        onReconnect={handleReconnect}
+        onStartAudit={() => setActiveTab('audit')}
+        onClose={handleCloseOnboarding}
+      />
+
+      {/* Modal de Apresentação Contextual das Ferramentas (Primeiro Acesso) */}
+      <ToolIntroModal
+        tool={activeToolIntro}
+        opened={toolIntroOpened}
+        onClose={handleCloseToolIntro}
+        onPrimaryAction={handleToolPrimaryAction}
+      />
     </Stack>
   );
 };

@@ -110,6 +110,9 @@ $routes->group('api', function ($routes) {
         $routes->get('users/(:num)/plan', 'Api\Users::planDetails/$1');
         $routes->put('users/(:num)/plan', 'Api\Users::updatePlan/$1');
         $routes->get('users/(:num)/ai-logs', 'Api\Users::aiLogs/$1');
+        $routes->post('users/(:num)/reset-onboarding', 'Api\Users::resetOnboarding/$1');
+        $routes->get('users/onboarding-state', 'Api\Users::getOnboardingState');
+        $routes->post('users/onboarding-state', 'Api\Users::updateOnboardingState');
 
         // Solution Catalog routes (Admin)
         $routes->get('solutions', 'Api\SolutionCatalog::index');

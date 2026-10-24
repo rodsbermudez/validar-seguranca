@@ -44,6 +44,8 @@ class UserModel extends Model
         'previous_plan_id',
         'previous_sites_count',
         'purged_at',
+        'onboarding_meta',
+        'onboarding_reset_at',
     ];
 
     // Dates

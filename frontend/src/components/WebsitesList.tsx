@@ -125,7 +125,18 @@ export const WebsitesList: React.FC<WebsitesListProps> = ({ onSelectWebsite }) =
           );
         }
       } else {
-        await api.post('/websites', payload);
+        const res = await api.post('/websites', payload);
+        const createdSite = res.data?.data || res.data;
+        setModalOpen(false);
+        setName('');
+        setUrl('');
+        setEnvironment('production');
+        setMaintenanceDay('');
+        setEditingWebsite(null);
+        if (createdSite && createdSite.id) {
+          onSelectWebsite(createdSite);
+          return;
+        }
       }
       setModalOpen(false);
       setName('');

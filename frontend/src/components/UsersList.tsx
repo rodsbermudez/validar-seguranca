@@ -15,6 +15,8 @@ import {
   Select,
   Menu,
   Tabs,
+  Alert,
+  ThemeIcon,
 } from '@mantine/core';
 import {
   IconUserPlus,
@@ -28,8 +30,10 @@ import {
   IconChevronDown,
   IconUsers,
   IconShield,
+  IconRotateClockwise,
+  IconCheck,
 } from '@tabler/icons-react';
-import { api, getPlans, Plan } from '../api';
+import { api, getPlans, Plan, resetUserOnboarding } from '../api';
 import { formatDateOnly } from '../utils/date';
 
 export interface User {
@@ -38,6 +42,7 @@ export interface User {
   email: string;
   role: 'admin' | 'user';
   is_active: number;
+  onboarding_reset_at?: string | null;
   account_status?: 'active' | 'pending_deletion' | 'purged';
   deletion_requested_at?: string | null;
   deletion_scheduled_at?: string | null;
@@ -68,6 +73,9 @@ export function UsersList({ onImpersonate, onManageAi, currentUserId }: UsersLis
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [notice, setNotice] = useState<string | null>(null);
+  const [resetModalUser, setResetModalUser] = useState<User | null>(null);
+  const [resettingOnboardingId, setResettingOnboardingId] = useState<number | null>(null);
 
   // Form State
   const [name, setName] = useState('');
@@ -200,6 +208,28 @@ export function UsersList({ onImpersonate, onManageAi, currentUserId }: UsersLis
       fetchUsers();
     } catch (err: any) {
       alert(err.response?.data?.messages?.error || err.response?.data?.error || 'Erro ao excluir usuário.');
+    }
+  };
+
+  const handleConfirmResetOnboarding = async () => {
+    if (!resetModalUser) return;
+    setResettingOnboardingId(resetModalUser.id);
+    try {
+      const res = await resetUserOnboarding(resetModalUser.id);
+      setNotice(res.message || `Onboarding do usuário ${resetModalUser.name} resetado com sucesso!`);
+      if (resetModalUser.id === currentUserId) {
+        Object.keys(localStorage).forEach((key) => {
+          if (key.startsWith('vexors_onboarding_')) {
+            localStorage.removeItem(key);
+          }
+        });
+      }
+      setResetModalUser(null);
+      fetchUsers();
+    } catch (err: any) {
+      alert(err.response?.data?.messages?.error || err.response?.data?.error || 'Erro ao resetar onboarding.');
+    } finally {
+      setResettingOnboardingId(null);
     }
   };
 
@@ -362,6 +392,14 @@ export function UsersList({ onImpersonate, onManageAi, currentUserId }: UsersLis
                         Editar Usuário
                       </Menu.Item>
 
+                      <Menu.Item
+                        leftSection={<IconRotateClockwise size={16} />}
+                        color="blue"
+                        onClick={() => setResetModalUser(user)}
+                      >
+                        Resetar Onboarding
+                      </Menu.Item>
+
                       {user.id !== currentUserId && (
                         <>
                           <Menu.Divider />
@@ -395,6 +433,20 @@ export function UsersList({ onImpersonate, onManageAi, currentUserId }: UsersLis
 
   return (
     <Paper p="xl" radius="md" bg="dark.8">
+      {notice && (
+        <Alert
+          icon={<IconCheck size={18} />}
+          color="teal"
+          variant="light"
+          radius="md"
+          mb="md"
+          withCloseButton
+          onClose={() => setNotice(null)}
+        >
+          {notice}
+        </Alert>
+      )}
+
       <Group justify="space-between" mb="lg">
         <div>
           <Title order={3} fw={700}>
@@ -523,6 +575,46 @@ export function UsersList({ onImpersonate, onManageAi, currentUserId }: UsersLis
             </Group>
           </Stack>
         </form>
+      </Modal>
+
+      {/* Modal de Confirmação de Reset de Onboarding */}
+      <Modal
+        opened={Boolean(resetModalUser)}
+        onClose={() => setResetModalUser(null)}
+        title={
+          <Group gap="xs">
+            <ThemeIcon color="blue" variant="light" radius="xl">
+              <IconRotateClockwise size={18} />
+            </ThemeIcon>
+            <Text fw={700}>Resetar Onboarding do Usuário</Text>
+          </Group>
+        }
+      >
+        <Stack gap="md">
+          <Text size="sm">
+            Deseja realmente resetar o onboarding de <strong>{resetModalUser?.name}</strong> ({resetModalUser?.email})?
+          </Text>
+          <Text size="xs" c="dimmed">
+            Ao resetar, este usuário verá novamente todos os passos do guia inicial de conexão e os modais explicativos de cada ferramenta no primeiro acesso.
+          </Text>
+          <Group justify="flex-end" mt="md">
+            <Button
+              variant="default"
+              onClick={() => setResetModalUser(null)}
+              disabled={Boolean(resettingOnboardingId)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              color="blue"
+              onClick={handleConfirmResetOnboarding}
+              loading={Boolean(resettingOnboardingId)}
+              leftSection={<IconRotateClockwise size={16} />}
+            >
+              Confirmar Reset
+            </Button>
+          </Group>
+        </Stack>
       </Modal>
     </Paper>
   );

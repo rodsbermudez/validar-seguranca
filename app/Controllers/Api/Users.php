@@ -17,9 +17,16 @@ class Users extends ResourceController
             return $this->failForbidden('Acesso restrito a administradores.');
         }
 
+        $db = \Config\Database::connect();
+        $hasResetCol = $db->fieldExists('onboarding_reset_at', 'users');
+        $cols = 'id, name, email, role, plan_id, is_active, ai_enabled, ai_monthly_token_limit, account_status, deletion_requested_at, deletion_scheduled_at, purged_at, created_at';
+        if ($hasResetCol) {
+            $cols .= ', onboarding_reset_at';
+        }
+
         $userModel = new UserModel();
         $users = $userModel
-            ->select('id, name, email, role, plan_id, is_active, ai_enabled, ai_monthly_token_limit, account_status, deletion_requested_at, deletion_scheduled_at, purged_at, created_at')
+            ->select($cols)
             ->orderBy('created_at', 'DESC')
             ->findAll();
 
@@ -694,6 +701,145 @@ class Users extends ResourceController
             'status'  => 200,
             'message' => 'Plano e limites do usuário atualizados com sucesso.',
             'data'    => $details,
+        ]);
+    }
+
+    /**
+     * POST /api/users/(:num)/reset-onboarding
+     * Reseta o progresso do onboarding apenas para o usuário especificado (Admin only)
+     */
+    public function resetOnboarding($id = null)
+    {
+        $userData = $this->request->userData ?? null;
+
+        if (($userData->role ?? 'user') !== 'admin') {
+            return $this->failForbidden('Acesso restrito a administradores.');
+        }
+
+        if (!$id) {
+            return $this->fail('ID do usuário não informado.', 400);
+        }
+
+        $userModel = new UserModel();
+        $targetUser = $userModel->find($id);
+        if (!$targetUser) {
+            return $this->failNotFound('Usuário não encontrado.');
+        }
+
+        $now = date('Y-m-d H:i:s');
+        $db = \Config\Database::connect();
+        $updateData = [];
+
+        if ($db->fieldExists('onboarding_meta', 'users')) {
+            $updateData['onboarding_meta'] = null;
+        }
+        if ($db->fieldExists('onboarding_reset_at', 'users')) {
+            $updateData['onboarding_reset_at'] = $now;
+        }
+
+        if (!empty($updateData)) {
+            $userModel->update($id, $updateData);
+        }
+
+        return $this->respond([
+            'status'  => 200,
+            'success' => true,
+            'message' => "Onboarding do usuário {$targetUser['name']} resetado com sucesso.",
+            'data'    => [
+                'user_id'             => (int) $id,
+                'user_name'           => $targetUser['name'],
+                'onboarding_reset_at' => $now,
+            ],
+        ]);
+    }
+
+    /**
+     * GET /api/users/onboarding-state
+     * Retorna o estado do onboarding do usuário autenticado
+     */
+    public function getOnboardingState()
+    {
+        $userData = $this->request->userData ?? null;
+        if (!$userData || empty($userData->id)) {
+            return $this->failUnauthorized('Usuário não autenticado.');
+        }
+
+        $userId = (int) $userData->id;
+        $userModel = new UserModel();
+        $user = $userModel->find($userId);
+        if (!$user) {
+            return $this->failNotFound('Usuário não encontrado.');
+        }
+
+        $websiteModel = new \App\Models\WebsiteModel();
+        $websitesCount = $websiteModel->where('user_id', $userId)->countAllResults();
+
+        $meta = !empty($user['onboarding_meta']) ? json_decode($user['onboarding_meta'], true) : [];
+        if (!is_array($meta)) {
+            $meta = [];
+        }
+
+        return $this->respond([
+            'status'  => 200,
+            'success' => true,
+            'data'    => [
+                'user_id'                => $userId,
+                'websites_count'         => (int) $websitesCount,
+                'is_first_site'          => ($websitesCount <= 1),
+                'initial_tour_completed' => !empty($meta['initial_tour_completed']),
+                'tools_seen'             => $meta['tools_seen'] ?? [],
+                'onboarding_reset_at'    => $user['onboarding_reset_at'] ?? null,
+            ],
+        ]);
+    }
+
+    /**
+     * POST /api/users/onboarding-state
+     * Atualiza o progresso do onboarding do usuário autenticado
+     */
+    public function updateOnboardingState()
+    {
+        $userData = $this->request->userData ?? null;
+        if (!$userData || empty($userData->id)) {
+            return $this->failUnauthorized('Usuário não autenticado.');
+        }
+
+        $userId = (int) $userData->id;
+        $userModel = new UserModel();
+        $user = $userModel->find($userId);
+        if (!$user) {
+            return $this->failNotFound('Usuário não encontrado.');
+        }
+
+        $json = $this->request->getJSON(true) ?? [];
+        $meta = !empty($user['onboarding_meta']) ? json_decode($user['onboarding_meta'], true) : [];
+        if (!is_array($meta)) {
+            $meta = [];
+        }
+
+        if (!empty($json['tool_seen'])) {
+            $tools = $meta['tools_seen'] ?? [];
+            if (!in_array($json['tool_seen'], $tools)) {
+                $tools[] = $json['tool_seen'];
+            }
+            $meta['tools_seen'] = $tools;
+        }
+
+        if (isset($json['initial_tour_completed'])) {
+            $meta['initial_tour_completed'] = (bool) $json['initial_tour_completed'];
+        }
+
+        $db = \Config\Database::connect();
+        if ($db->fieldExists('onboarding_meta', 'users')) {
+            $userModel->update($userId, [
+                'onboarding_meta' => json_encode($meta),
+            ]);
+        }
+
+        return $this->respond([
+            'status'  => 200,
+            'success' => true,
+            'data'    => $meta,
         ]);
     }
 }

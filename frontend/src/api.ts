@@ -1609,6 +1609,43 @@ export const reactivateAccount = async (
   return response.data;
 };
 
+// ==========================================
+// Onboarding State & Management
+// ==========================================
+
+export interface UserOnboardingState {
+  user_id: number;
+  websites_count: number;
+  is_first_site: boolean;
+  initial_tour_completed: boolean;
+  tools_seen: string[];
+  onboarding_reset_at?: string | null;
+}
+
+export const getOnboardingState = async (): Promise<UserOnboardingState> => {
+  const res = await api.get<{ status: number; success: boolean; data: UserOnboardingState }>('/users/onboarding-state');
+  return res.data.data;
+};
+
+export const updateOnboardingState = async (payload: {
+  tool_seen?: string;
+  initial_tour_completed?: boolean;
+}): Promise<any> => {
+  const res = await api.post('/users/onboarding-state', payload);
+  return res.data;
+};
+
+export const resetUserOnboarding = async (userId: number): Promise<{
+  status: number;
+  success: boolean;
+  message: string;
+  data: { user_id: number; user_name: string; onboarding_reset_at: string };
+}> => {
+  const res = await api.post(`/users/${userId}/reset-onboarding`);
+  return res.data;
+};
+
+
 
 
 
