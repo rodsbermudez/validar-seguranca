@@ -211,7 +211,7 @@ export const ToolIntroModal: React.FC<ToolIntroModalProps> = ({
   tool,
   opened,
   onClose,
-  onPrimaryAction,
+  onPrimaryAction: _onPrimaryAction,
 }) => {
   if (!tool) return null;
   const config = TOOL_CONFIGS[tool];
@@ -278,22 +278,14 @@ export const ToolIntroModal: React.FC<ToolIntroModalProps> = ({
 
         <Divider my="xs" />
 
-        <Group justify="flex-end" gap="sm">
-          <Button variant="default" size="xs" onClick={onClose}>
-            Entendi, Explorar Tela
+        <Group justify="flex-end">
+          <Button
+            color={config.color}
+            size="sm"
+            onClick={onClose}
+          >
+            Entendi, explorar tela
           </Button>
-          {onPrimaryAction && (
-            <Button
-              color={config.color}
-              size="xs"
-              onClick={() => {
-                onClose();
-                onPrimaryAction();
-              }}
-            >
-              {config.primaryActionLabel || 'Continuar'}
-            </Button>
-          )}
         </Group>
       </Stack>
     </Modal>
