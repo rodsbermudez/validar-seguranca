@@ -1373,7 +1373,6 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
                           <Table.Th>Nome do Plugin</Table.Th>
                           <Table.Th>Status WP</Table.Th>
                           <Table.Th>Versão Atual</Table.Th>
-                          <Table.Th>Nova Versão</Table.Th>
                           <Table.Th style={{ textAlign: 'right' }}>Ação</Table.Th>
                         </Table.Tr>
                       </Table.Thead>
@@ -1445,63 +1444,20 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
                                   <Badge size="xs" color="indigo" variant="light" leftSection={<IconLock size={10} />}>
                                     🔒 Agente Vexors (Protegido)
                                   </Badge>
+                                ) : plugin.is_active ? (
+                                  <Badge size="xs" color="green" variant="light">
+                                    🟢 Ativo
+                                  </Badge>
                                 ) : (
-                                  <Group gap={6} wrap="nowrap">
-                                    {plugin.is_active ? (
-                                      <Badge size="xs" color="green" variant="light">
-                                        🟢 Ativo
-                                      </Badge>
-                                    ) : (
-                                      <Badge size="xs" color="gray" variant="subtle">
-                                        ⚪ Inativo
-                                      </Badge>
-                                    )}
-                                    {toolsEnabled === false ? null : (
-                                      <Tooltip
-                                        label={
-                                          plugin.is_active
-                                            ? 'Desativar este plugin no WordPress'
-                                            : 'Ativar este plugin no WordPress'
-                                        }
-                                        position="top"
-                                        withArrow
-                                      >
-                                        <Button
-                                          size="compact-xs"
-                                          variant="subtle"
-                                          color={plugin.is_active ? 'gray' : 'teal'}
-                                          loading={togglingPlugin === plugin.file}
-                                          disabled={isAnyUpdating}
-                                          leftSection={<IconPower size={11} />}
-                                          onClick={() =>
-                                            handleTogglePluginStatus(
-                                              plugin.file,
-                                              plugin.is_active ? 'deactivate' : 'activate'
-                                            )
-                                          }
-                                        >
-                                          {plugin.is_active ? 'Desativar' : 'Ativar'}
-                                        </Button>
-                                      </Tooltip>
-                                    )}
-                                  </Group>
+                                  <Badge size="xs" color="gray" variant="subtle">
+                                    ⚪ Inativo
+                                  </Badge>
                                 )}
                               </Table.Td>
                               <Table.Td>
                                 <Badge size="xs" color="gray" variant="outline">
                                   {plugin.current_version}
                                 </Badge>
-                              </Table.Td>
-                              <Table.Td>
-                                {plugin.has_update ? (
-                                  <Badge size="xs" color="orange" variant="filled">
-                                    {plugin.new_version}
-                                  </Badge>
-                                ) : (
-                                  <Badge size="xs" color="green" variant="light">
-                                    {plugin.current_version} (Mais Recente)
-                                  </Badge>
-                                )}
                               </Table.Td>
                               <Table.Td style={{ textAlign: 'right' }}>
                                 <Group gap="xs" justify="flex-end" wrap="nowrap">
@@ -1539,6 +1495,7 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
                                       </Tooltip>
                                     ))}
 
+                                  {/* Info Atualizado ou Botão Atualizar com versão no label */}
                                   {plugin.has_update ? (
                                     toolsEnabled === false ? (
                                       <Badge
@@ -1573,7 +1530,7 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
                                           )
                                         }
                                       >
-                                        Atualizar
+                                        Atualizar ({plugin.new_version})
                                       </Button>
                                     )
                                   ) : !rollbackItem ? (
@@ -1582,45 +1539,75 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
                                     </Badge>
                                   ) : null}
 
-                                  {/* Botão de exclusão se o plugin estiver inativo e não for protegido */}
-                                  {!plugin.is_active && !plugin.is_protected && (
-                                    toolsEnabled === false ? (
-                                      <Badge
-                                        color="gray"
-                                        variant="light"
-                                        size="xs"
-                                        leftSection={<IconLock size={10} />}
-                                        style={{ cursor: onNavigateToPlans ? 'pointer' : 'default' }}
-                                        onClick={onNavigateToPlans}
-                                      >
-                                        Exclusão Bloqueada
-                                      </Badge>
-                                    ) : (
+                                  {/* Botões de Ação: Desativar se ativo / Ativar e Excluir se inativo */}
+                                  {!plugin.is_protected &&
+                                    (toolsEnabled === false ? null : plugin.is_active ? (
                                       <Tooltip
-                                        label="Excluir plugin inativo (cria snapshot de segurança antes da remoção)"
-                                        position="left"
+                                        label="Desativar este plugin no WordPress"
+                                        position="top"
                                         withArrow
                                       >
                                         <Button
                                           size="xs"
-                                          color="red"
-                                          variant="subtle"
+                                          variant="light"
+                                          color="gray"
+                                          loading={togglingPlugin === plugin.file}
                                           disabled={isAnyUpdating}
-                                          leftSection={<IconTrash size={12} />}
+                                          leftSection={<IconPower size={13} />}
                                           onClick={() =>
-                                            handleOpenDeleteModal(
-                                              'plugin',
-                                              plugin.file,
-                                              plugin.name,
-                                              plugin.current_version
-                                            )
+                                            handleTogglePluginStatus(plugin.file, 'deactivate')
                                           }
                                         >
-                                          Excluir
+                                          Desativar
                                         </Button>
                                       </Tooltip>
-                                    )
-                                  )}
+                                    ) : (
+                                      <>
+                                        <Tooltip
+                                          label="Ativar este plugin no WordPress"
+                                          position="top"
+                                          withArrow
+                                        >
+                                          <Button
+                                            size="xs"
+                                            variant="light"
+                                            color="teal"
+                                            loading={togglingPlugin === plugin.file}
+                                            disabled={isAnyUpdating}
+                                            leftSection={<IconPower size={13} />}
+                                            onClick={() =>
+                                              handleTogglePluginStatus(plugin.file, 'activate')
+                                            }
+                                          >
+                                            Ativar
+                                          </Button>
+                                        </Tooltip>
+
+                                        <Tooltip
+                                          label="Excluir plugin inativo (cria snapshot de segurança antes da remoção)"
+                                          position="left"
+                                          withArrow
+                                        >
+                                          <Button
+                                            size="xs"
+                                            color="red"
+                                            variant="subtle"
+                                            disabled={isAnyUpdating}
+                                            leftSection={<IconTrash size={13} />}
+                                            onClick={() =>
+                                              handleOpenDeleteModal(
+                                                'plugin',
+                                                plugin.file,
+                                                plugin.name,
+                                                plugin.current_version
+                                              )
+                                            }
+                                          >
+                                            Excluir
+                                          </Button>
+                                        </Tooltip>
+                                      </>
+                                    ))}
                                 </Group>
                               </Table.Td>
                             </Table.Tr>
@@ -1651,7 +1638,6 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
                           <Table.Th>Nome do Tema</Table.Th>
                           <Table.Th>Status WP</Table.Th>
                           <Table.Th>Versão Atual</Table.Th>
-                          <Table.Th>Nova Versão</Table.Th>
                           <Table.Th style={{ textAlign: 'right' }}>Ação</Table.Th>
                         </Table.Tr>
                       </Table.Thead>
@@ -1688,17 +1674,6 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
                                 <Badge size="xs" color="gray" variant="outline">
                                   {theme.current_version}
                                 </Badge>
-                              </Table.Td>
-                              <Table.Td>
-                                {theme.has_update ? (
-                                  <Badge size="xs" color="orange" variant="filled">
-                                    {theme.new_version}
-                                  </Badge>
-                                ) : (
-                                  <Badge size="xs" color="green" variant="light">
-                                    {theme.current_version} (Mais Recente)
-                                  </Badge>
-                                )}
                               </Table.Td>
                               <Table.Td style={{ textAlign: 'right' }}>
                                 <Group gap="xs" justify="flex-end" wrap="nowrap">
@@ -1768,7 +1743,7 @@ export const WebsiteUpdatesView: React.FC<WebsiteUpdatesViewProps> = ({
                                           )
                                         }
                                       >
-                                        Atualizar
+                                        Atualizar ({theme.new_version})
                                       </Button>
                                     )
                                   ) : !rollbackItem ? (
