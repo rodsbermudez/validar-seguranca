@@ -372,7 +372,18 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
   const handleUpdatesChanged = useCallback((newSummary?: UpdatesSummary, fullData?: UpdatesData) => {
     if (newSummary) {
       setDiagnosticData((prev) => {
-        if (!prev) return prev;
+        if (!prev) {
+          return {
+            logs_48h: { total_fatal_48h: 0, fatal_logs_48h: [], has_logs_agent: false, logging_enabled: false },
+            integrity: { core_modified: false, core_tampered_files_count: 0, core_version: '', last_scanned_at: '' },
+            updates: fullData || {
+              summary: newSummary,
+              core: { current_version: '', new_version: '', has_update: false },
+              plugins: [],
+              themes: [],
+            },
+          } as any;
+        }
         return {
           ...prev,
           updates: fullData || {
@@ -387,9 +398,39 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
         ...prev,
         updates_pending_count: newSummary.total_pending,
         last_updates_checked_at: new Date().toISOString().replace('T', ' ').substring(0, 19),
+        updates_summary_json: fullData ? (typeof fullData === 'string' ? fullData : JSON.stringify(fullData)) : prev.updates_summary_json,
       }));
     }
   }, []);
+
+  const [refreshingResources, setRefreshingResources] = useState<boolean>(false);
+
+  const handleRefreshResources = async () => {
+    if (refreshingResources || !isConnected) return;
+    setRefreshingResources(true);
+    try {
+      const res = await api.get(`/websites/${website.id}/updates?force_refresh=1`);
+      const payload = res.data?.data || res.data;
+      if (payload) {
+        if (payload.summary) {
+          handleUpdatesChanged(payload.summary, payload);
+        } else {
+          setDiagnosticData((prev) => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              updates: payload,
+            };
+          });
+        }
+        await refreshWebsite();
+      }
+    } catch (err) {
+      console.error('Falha ao atualizar métricas de recursos do servidor:', err);
+    } finally {
+      setRefreshingResources(false);
+    }
+  };
 
   useEffect(() => {
     if (activeTab === 'overview') {
@@ -1403,7 +1444,16 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
               const integritySusp = integrityInfo?.summary?.suspicious ?? activeSite.integrity_suspicious ?? 0;
 
               // 3. Atualizações
-              const updatesInfo = diagnosticData?.updates;
+              let updatesInfo = diagnosticData?.updates;
+              if (!updatesInfo && (activeSite as any).updates_summary_json) {
+                try {
+                  updatesInfo = typeof (activeSite as any).updates_summary_json === 'string'
+                    ? JSON.parse((activeSite as any).updates_summary_json)
+                    : (activeSite as any).updates_summary_json;
+                } catch (e) {
+                  // fallback silently
+                }
+              }
               const hasUpdatesData = Boolean(
                 updatesInfo ||
                 activeSite.last_updates_checked_at ||
@@ -1817,8 +1867,37 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
                   </Grid.Col>
                 </Grid>
 
+                {/* Header da Seção: Recursos do Servidor & Infraestrutura */}
+                <Group justify="space-between" align="center" mt="xl" mb="xs" wrap="wrap" gap="sm">
+                  <Box>
+                    <Group gap="xs" align="center">
+                      <ThemeIcon size="sm" radius="sm" variant="light" color="indigo">
+                        <IconServer size={14} />
+                      </ThemeIcon>
+                      <Text size="sm" fw={700} tt="uppercase" c="dimmed" style={{ letterSpacing: '0.5px' }}>
+                        Recursos do Servidor & Infraestrutura
+                      </Text>
+                    </Group>
+                    <Text size="xs" c="dimmed" mt={2}>
+                      Telemetria em tempo real de armazenamento em disco, versões de PHP/MySQL, consumo de memória RAM e carga de CPU.
+                    </Text>
+                  </Box>
+
+                  <Button
+                    variant="light"
+                    color="indigo"
+                    size="xs"
+                    leftSection={<IconRefresh size={14} />}
+                    loading={refreshingResources}
+                    disabled={!isConnected}
+                    onClick={handleRefreshResources}
+                  >
+                    Atualizar Consumo
+                  </Button>
+                </Group>
+
                 {/* Linha 2 de Cards: Saúde do Servidor (HD, PHP/MySQL, RAM, CPU) */}
-                <Grid mt="md">
+                <Grid mt="xs">
                   {/* Card 5: Armazenamento em Disco */}
                   <Grid.Col span={{ base: 12, sm: 6, lg: 3 }}>
                     <Card
