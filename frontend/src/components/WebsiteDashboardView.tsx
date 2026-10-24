@@ -1798,22 +1798,10 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
                           {diskDescText}
                         </Text>
                         <Progress value={diskUsedPct ?? 0} color={diskColor} size="sm" radius="xl" mb={6} />
-                        <Text size="10px" c="dimmed" style={{ minHeight: 16 }} mb="xs">
+                        <Text size="10px" c="dimmed" style={{ minHeight: 16 }}>
                           {hasUpdatesData && updatesCheckedAt ? `Medição: ${formatDateTime(updatesCheckedAt)}` : hasDiskData ? 'Medição recente' : ' '}
                         </Text>
                       </Box>
-
-                      <Button
-                        variant="light"
-                        color={diskColor === 'gray' ? 'teal' : diskColor}
-                        size="xs"
-                        fullWidth
-                        leftSection={<IconDatabase size={14} />}
-                        onClick={() => setActiveTab('updates')}
-                        mt="auto"
-                      >
-                        Ver Detalhes do Disco
-                      </Button>
                     </Card>
                   </Grid.Col>
 
@@ -1854,22 +1842,10 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
                           {mysqlVersion ? `MySQL/MariaDB ${mysqlVersion}. ${phpStatusDesc}` : phpStatusDesc}
                         </Text>
                         <Progress value={phpNum && phpNum >= 8.2 ? 100 : phpNum && phpNum >= 8.0 ? 65 : 30} color={phpColor} size="sm" radius="xl" mb={6} />
-                        <Text size="10px" c="dimmed" style={{ minHeight: 16 }} mb="xs">
+                        <Text size="10px" c="dimmed" style={{ minHeight: 16 }}>
                           {hasUpdatesData && updatesCheckedAt ? `Medição: ${formatDateTime(updatesCheckedAt)}` : phpVersion ? 'Medição recente' : ' '}
                         </Text>
                       </Box>
-
-                      <Button
-                        variant="light"
-                        color={phpColor === 'gray' ? 'teal' : phpColor}
-                        size="xs"
-                        fullWidth
-                        leftSection={<IconServer size={14} />}
-                        onClick={() => setActiveTab('updates')}
-                        mt="auto"
-                      >
-                        Ver Requisitos
-                      </Button>
                     </Card>
                   </Grid.Col>
 
@@ -1910,22 +1886,10 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
                           {ramDescText}
                         </Text>
                         <Progress value={memUsedPct ?? 0} color={ramColor} size="sm" radius="xl" mb={6} />
-                        <Text size="10px" c="dimmed" style={{ minHeight: 16 }} mb="xs">
+                        <Text size="10px" c="dimmed" style={{ minHeight: 16 }}>
                           {hasUpdatesData && updatesCheckedAt ? `Medição: ${formatDateTime(updatesCheckedAt)}` : hasMemData ? 'Medição recente' : ' '}
                         </Text>
                       </Box>
-
-                      <Button
-                        variant="light"
-                        color={ramColor === 'gray' ? 'teal' : ramColor}
-                        size="xs"
-                        fullWidth
-                        leftSection={<IconCpu size={14} />}
-                        onClick={() => setActiveTab('updates')}
-                        mt="auto"
-                      >
-                        Ver Diagnóstico
-                      </Button>
                     </Card>
                   </Grid.Col>
 
@@ -1970,22 +1934,10 @@ export const WebsiteDashboardView: React.FC<WebsiteDashboardViewProps> = ({
                           {cpuDescText}
                         </Text>
                         <Progress value={cpuAvailable && cpuLoadPct !== null ? cpuLoadPct : 0} color={cpuColor} size="sm" radius="xl" mb={6} />
-                        <Text size="10px" c="dimmed" style={{ minHeight: 16 }} mb="xs">
+                        <Text size="10px" c="dimmed" style={{ minHeight: 16 }}>
                           {hasUpdatesData && updatesCheckedAt ? `Medição: ${formatDateTime(updatesCheckedAt)}` : cpuAvailable ? 'Medição recente' : ' '}
                         </Text>
                       </Box>
-
-                      <Button
-                        variant="light"
-                        color={cpuColor === 'gray' ? 'teal' : cpuColor}
-                        size="xs"
-                        fullWidth
-                        leftSection={<IconActivity size={14} />}
-                        onClick={() => setActiveTab('updates')}
-                        mt="auto"
-                      >
-                        Ver Métricas
-                      </Button>
                     </Card>
                   </Grid.Col>
                 </Grid>
